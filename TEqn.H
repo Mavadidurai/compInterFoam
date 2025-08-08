@@ -1,0 +1,116 @@
+/*---------------------------------------------------------------------------*\
+  Temperature equation for LIFT simulation with two-temperature model
+\*---------------------------------------------------------------------------*/
+
+{
+    Info<< "Solving temperature equation" << endl;
+    
+    // Since ttm.solve(laserSource) is called before this in compInterFoam.C,
+    // the two-temperature model has already solved for Te and Tl.
+    // We now synchronize the mixture temperature with the lattice temperature
+    // and ensure thermodynamic consistency.
+    
+    // Synchronize mixture temperature with lattice temperature from TTM
+    T = ttm.Tl();
+    
+    // Validate temperature field for physical bounds
+    scalar minT = min(T).value();
+    scalar maxT = max(T).value();
+    scalar meanT = gAverage(T);
+    
+    Info<< "Temperature field after TTM synchronization:" << nl
+        << "  T range: " << minT << " - " << maxT << " K" << nl
+        << "  Mean T: " << meanT << " K" << endl;
+    
+    // Apply physical bounds to prevent numerical issues
+    const scalar minPhysicalTemp = 250.0;  // K
+    const scalar maxPhysicalTemp = 5000.0; // K (reasonable for LIFT)
+    
+    label boundedCells = 0;
+    forAll(T, cellI)
+    {
+        if (T[cellI] < minPhysicalTemp)
+        {
+            T[cellI] = minPhysicalTemp;
+            boundedCells++;
+        }
+        else if (T[cellI] > maxPhysicalTemp)
+        {
+            T[cellI] = maxPhysicalTemp;
+            boundedCells++;
+        }
+    }
+    
+    if (boundedCells > 0)
+    {
+        reduce(boundedCells, sumOp<label>());
+        Info<< "Bounded " << boundedCells << " temperature values to physical limits" << endl;
+    }
+    
+    // Ensure boundary conditions are properly applied
+    T.correctBoundaryConditions();
+    
+    // Update mixture thermodynamic properties based on new temperature
+    mixture.correctThermo();
+    
+    // Validate thermodynamic consistency
+    const volScalarField& rho1 = mixture.thermo1().rho();
+    const volScalarField& rho2 = mixture.thermo2().rho();
+    
+    // Check for any thermodynamic inconsistencies
+    scalar minRho1 = min(rho1).value();
+    scalar minRho2 = min(rho2).value();
+    
+    if (minRho1 <= 0 || minRho2 <= 0)
+    {
+        WarningInFunction
+            << "Non-positive density detected after temperature update:" << nl
+            << "  min(rho1) = " << minRho1 << " kg/m³" << nl
+            << "  min(rho2) = " << minRho2 << " kg/m³" << nl
+            << "Check thermodynamic properties" << endl;
+    }
+    
+    // Report temperature statistics specific to LIFT process
+    if (maxT > mixture.T_melt())
+    {
+        // Count cells above melting point
+        label meltedCells = 0;
+        scalar meltedVolume = 0.0;
+        
+        forAll(T, cellI)
+        {
+            if (T[cellI] > mixture.T_melt())
+            {
+                meltedCells++;
+                meltedVolume += mesh.V()[cellI] * alpha1[cellI];
+            }
+        }
+        
+        reduce(meltedCells, sumOp<label>());
+        reduce(meltedVolume, sumOp<scalar>());
+        
+        Info<< "LIFT Process Statistics:" << nl
+            << "  Cells above melting point: " << meltedCells << nl
+            << "  Melted metal volume: " << meltedVolume*1e18 << " μm³" << nl
+            << "  Max temperature: " << maxT << " K" << nl
+            << "  Melting point: " << mixture.T_melt() << " K" << endl;
+        
+        if (maxT > mixture.T_melt() + 1000.0)
+        {
+            Info<< "Note: Significant overheating detected - typical for laser heating" << endl;
+        }
+    }
+    
+    // Check electron-lattice temperature difference for TTM validation
+    volScalarField tempDiff = mag(ttm.Te() - ttm.Tl());
+    scalar maxTempDiff = max(tempDiff).value();
+    
+    if (maxTempDiff > 500.0)  // Significant electron-lattice temperature difference
+    {
+        Info<< "Two-temperature model status:" << nl
+            << "  Max Te-Tl difference: " << maxTempDiff << " K" << nl
+            << "  This indicates strong electron-phonon coupling effects" << endl;
+    }
+    
+    Info<< "Temperature equation completed successfully" << endl;
+}

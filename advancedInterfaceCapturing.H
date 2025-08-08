@@ -1,0 +1,69 @@
+#ifndef advancedInterfaceCapturing_H
+#define advancedInterfaceCapturing_H
+
+#include "fvMesh.H"
+#include "volFields.H"
+#include "fvc.H"
+#include "surfaceFields.H"
+#include "twoPhaseMixtureThermo.H"
+
+namespace Foam
+{
+
+class advancedInterfaceCapturing
+{
+private:
+    // References
+    const fvMesh& mesh_;
+    volScalarField& alpha1_;         // Phase fraction
+    const surfaceScalarField& phi_;  // Flux field
+    const twoPhaseMixtureThermo& mixture_;
+    const volScalarField& T_;        // Temperature field for phase change
+
+    // Physical parameters - minimal set
+    scalar meltingTemp_;             // Melting temperature
+    scalar vaporTemp_;               // Vaporization temperature
+    scalar latentHeat_;              // Latent heat of fusion
+    
+    // Field for recoil pressure
+    volScalarField recoilPressure_;  // Recoil pressure from vaporization
+
+public:
+    // Constructor
+    advancedInterfaceCapturing
+    (
+        const fvMesh& mesh,
+        volScalarField& alpha1,
+        const surfaceScalarField& phi,
+        const twoPhaseMixtureThermo& mixture,
+        const volScalarField& T
+    );
+
+    //- Delete default copy constructor and assignment operator
+    advancedInterfaceCapturing(const advancedInterfaceCapturing&) = delete;
+    void operator=(const advancedInterfaceCapturing&) = delete;
+
+    // Member functions
+    void correct();  // Main solver routine
+    void calculateRecoilPressure();  // Calculate recoil pressure
+
+    // Access functions
+    const volScalarField& recoilPressure() const { return recoilPressure_; }
+    
+    // Access functions for validation
+    scalar latentHeat() const { return latentHeat_; }
+    scalar meltingTemperature() const { return meltingTemp_; }
+    scalar vaporTemperature() const { return vaporTemp_; }
+
+    // Write functions
+    void write() const;
+    void clearInternalFields()
+{
+    // Reset internal fields to prevent memory issues
+    recoilPressure_ = dimensionedScalar("zero", dimPressure, 0.0);
+}
+};
+
+} // End namespace Foam
+
+#endif

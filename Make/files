@@ -1,0 +1,9 @@
+DimensionValidator.C
+twoPhaseMixtureThermo.C
+femtosecondLaserModel.C
+twoTemperatureModel.C
+advancedInterfaceCapturing.C
+compressibleInterPhaseTransportModel.C
+compInterFoam.C
+
+EXE = $(FOAM_USER_APPBIN)/compInterFoam
