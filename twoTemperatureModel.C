@@ -21,7 +21,7 @@
 #include "twoTemperatureModel.H"
 #include "fvc.H"
 #include "fvm.H"
-
+#include <cmath>
 namespace Foam
 {
 
@@ -341,7 +341,8 @@ void twoTemperatureModel::solve(const volScalarField& laserSource)
         Te_[cellI] = max(min(Te_[cellI], maxTemp.value()), minTemp.value());
         Tl_[cellI] = max(min(Tl_[cellI], maxTemp.value()), minTemp.value());
     }
-
+	 Tl_.correctBoundaryConditions();
+	 Te_.correctBoundaryConditions();
     // Check energy conservation
     if (!checkEnergyConservation())
     {

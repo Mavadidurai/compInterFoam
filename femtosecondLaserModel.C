@@ -17,6 +17,7 @@
 #include "fvc.H"
 #include "fvm.H"
 #include "mathematicalConstants.H"
+#include <cmath>
 
 namespace Foam
 {

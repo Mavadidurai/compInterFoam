@@ -1,7 +1,7 @@
 /*---------------------------------------------------------------------------*\
   CRITICAL FIX: Replace alphaEqnSubCycle.H content with this bounded version
 \*---------------------------------------------------------------------------*/
-
+#include <cmath>
 // ✅ ROBUST: Alpha equation with comprehensive bounds enforcement
 {
     // Get time step info

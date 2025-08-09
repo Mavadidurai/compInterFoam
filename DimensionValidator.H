@@ -5,14 +5,10 @@
 #include "volFields.H"
 #include "surfaceFields.H"
 #include "fvMatrix.H"
-#include "volFields.H"
-#include "surfaceFields.H"
-#include "dimensionSet.H"
 #include "GeometricField.H"
 #include "fvPatchField.H"
 #include "fvsPatchField.H"
 #include "volMesh.H"
-#include "fvMatrix.H"
 
 namespace Foam
 {

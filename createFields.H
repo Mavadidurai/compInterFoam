@@ -166,12 +166,6 @@ surfaceScalarField rhoPhi
     fvc::interpolate(rho)*phi
 );
 
-volScalarField::Internal contErr
-(
-    "contErr",
-    fvc::div(phi)
-);
-
 volScalarField dgdt
 (
     IOobject
@@ -241,7 +235,6 @@ surfaceScalarField alphaPhi2
 volVectorField n(fvc::grad(alpha1)/(mag(fvc::grad(alpha1)) + dimensionedScalar("small", dimless/dimLength, SMALL)));
 surfaceVectorField nf(fvc::interpolate(n));
 surfaceScalarField nHatf(nf & mesh.Sf());
-volScalarField divU(fvc::div(phi));
 
 // Create turbulence model
 compressibleInterPhaseTransportModel turbulence

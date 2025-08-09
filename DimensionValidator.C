@@ -1,4 +1,5 @@
 #include "DimensionValidator.H"
+#include <cmath>
 
 namespace Foam
 {

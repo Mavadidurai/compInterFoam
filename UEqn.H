@@ -2,6 +2,8 @@
   Enhanced momentum equation with robust numerical safeguards for LIFT
 \*---------------------------------------------------------------------------*/
 
+#include <cmath>
+
 Info<< "Solving momentum equation" << endl;
 
 // Enhanced constants for better stability

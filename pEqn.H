@@ -1,7 +1,7 @@
 /*---------------------------------------------------------------------------*\
   Robust pressure equation with effective numerical safeguards
 \*---------------------------------------------------------------------------*/
-
+#include <cmath>
 {
     Info<< "Solving pressure equation" << endl;
     

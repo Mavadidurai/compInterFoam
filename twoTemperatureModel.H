@@ -34,7 +34,6 @@ SourceFiles
 #include "volFields.H"
 #include "fvMatrices.H"
 #include "dictionary.H"
-#include "fvMatrices.H"
 #include "DimensionValidator.H"
 
 namespace Foam
