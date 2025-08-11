@@ -1,0 +1,3 @@
+// Placeholder OpenFOAM case file for the simple LIFT tutorial.
+// A full OpenFOAM case would include time directories, constant properties,
+// and system configuration dictionaries.
