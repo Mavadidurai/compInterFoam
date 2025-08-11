@@ -1,23 +1,33 @@
+---
 name: C/C++ CI
 
-on:
+'on':
   push:
-    branches: [ "main" ]
+    branches: ["main"]
   pull_request:
-    branches: [ "main" ]
+    branches: ["main"]
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v4
-    - name: configure
-      run: ./configure
-    - name: make
-      run: make
-    - name: make check
-      run: make check
-    - name: make distcheck
-      run: make distcheck
+      - uses: actions/checkout@v4
+      - name: Install OpenFOAM
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y openfoam10
+      - name: Build solver
+        shell: bash
+        run: |
+          source /usr/lib/openfoam/openfoam10/etc/bashrc
+          wmake
+      - name: Run simple cavity case
+        if: success()
+        shell: bash
+        run: |
+          source /usr/lib/openfoam/openfoam10/etc/bashrc
+          cp -r $FOAM_TUTORIALS/incompressible/icoFoam/cavity/cavity cavity
+          cd cavity
+          blockMesh
+          icoFoam
