@@ -56,9 +56,6 @@ advancedInterfaceCapturing::advancedInterfaceCapturing
     Info<< "Advanced interface capturing initialized" << endl;
 }
 
-// FIND the calculateRecoilPressure() function in advancedInterfaceCapturing.C
-// REPLACE the beginning of the function with these optimizations:
-
 void advancedInterfaceCapturing::calculateRecoilPressure()
 {
     // OPTIMIZED: Calculate once, reuse multiple times

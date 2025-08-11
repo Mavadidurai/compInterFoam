@@ -298,15 +298,8 @@ void twoTemperatureModel::solve(const volScalarField& laserSource)
         dimensionedScalar("zero", dimEnergy/dimVolume/dimTime, 0.0)
     );
 
-    // 🔧 CRITICAL FIX: laserSource is already in W/m³, no conversion needed!
     energySource = laserSource;  // Direct assignment
     
-    // Diagnostic output
-    Info<< "🔧 TTM Energy coupling:" << nl
-        << "  Max laser source: " << max(laserSource).value() << " W/m³" << nl
-        << "  Max energy source: " << max(energySource).value() << " W/m³" << nl
-        << "  Ce value: " << Ce_.value() << " J/m³/K" << endl;
-    // Solve electron temperature equation with modified approach
     // Create a more stable matrix system for the electron temperature
     fvScalarMatrix TeEqn
     (
@@ -504,7 +497,6 @@ void twoTemperatureModel::write() const
             << "  Energy error: " << energyError * 100 << " %" << endl;
     }
 }
-// Add these implementations after the existing functions in twoTemperatureModel.C
 
 tmp<volScalarField> Foam::twoTemperatureModel::ke() const
 {

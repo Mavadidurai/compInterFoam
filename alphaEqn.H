@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------*\
-  Fixed alphaEqn.H based on official OpenFOAM v2406 pattern
+alphaEqn.H based on official OpenFOAM v2406 pattern
 \*---------------------------------------------------------------------------*/
 
 {
@@ -86,7 +86,7 @@
         }
     }
 
-    // ✅ FIXED: Use surfaceScalarField instead of tmp<>
+    // Use surfaceScalarField instead of tmp<>
     surfaceScalarField phiCN(phi);
 
     // Calculate the Crank-Nicolson off-centred volumetric flux
@@ -101,7 +101,7 @@
     {
         volScalarField alpha10(alpha1);
 
-        // ✅ SIMPLIFIED: Remove complex source terms for stability
+        // Remove complex source terms for stability
         volScalarField::Internal SpInternal
         (
             IOobject
@@ -126,7 +126,7 @@
             dimensionedScalar(dgdt.dimensions(), Zero)
         );
 
-        // ✅ SIMPLIFIED: Basic source term calculation
+        // Basic source term calculation
         forAll(dgdt, celli)
         {
             if (dgdt[celli] > 0.0)
@@ -140,7 +140,7 @@
             }
         }
 
-        // ✅ FIXED: Create proper volScalarField for divU
+        // Create proper volScalarField for divU
         volScalarField divUField
         (
             IOobject
@@ -183,7 +183,7 @@
 
         Su = fvc::interpolate(divUField*min(alpha1, scalar(1)));
 
-        // ✅ SIMPLIFIED: Basic alpha equation without complex MULES correction
+        // Basic alpha equation without complex MULES correction
         fvScalarMatrix alpha1Eqn
         (
             (
@@ -207,10 +207,10 @@
             << "  Max(" << alpha1.name() << ") = " << max(alpha1).value()
             << endl;
 
-        // ✅ FIXED: Get flux safely without tmp issues
+        // Get flux safely without tmp issues
         alphaPhi10 = alpha1Eqn.flux();
 
-        // ✅ SIMPLIFIED: Basic MULES explicit solve without correction
+        // Basic MULES explicit solve without correction
         MULES::explicitSolve
         (
             geometricOneField(),
