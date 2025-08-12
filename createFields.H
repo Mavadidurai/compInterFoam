@@ -65,7 +65,20 @@ surfaceScalarField phi
     ),
     fvc::flux(U)
 );
-
+Info<< "Reading field T\n" << endl;
+volScalarField T
+(
+    IOobject
+    (
+        "T",
+        runTime.timeName(),
+        mesh,
+        IOobject::READ_IF_PRESENT,
+        IOobject::AUTO_WRITE
+    ),
+    mesh,
+    dimensionedScalar("T", dimTemperature, 300.0)
+);
 // Create the thermo system - this will create alpha.metal and alpha.air fields
 Info<< "Constructing twoPhaseMixtureThermo\n" << endl;
 twoPhaseMixtureThermo mixture(U, phi);
@@ -149,7 +162,18 @@ dimensionedScalar ghRef
 
 volScalarField gh("gh", (g & mesh.C()) - ghRef);
 surfaceScalarField ghf("ghf", (g & mesh.Cf()) - ghRef);
-
+volScalarField p
+(
+    IOobject
+    (
+        "p",
+        runTime.timeName(),
+        mesh,
+        IOobject::NO_READ,
+        IOobject::AUTO_WRITE
+    ),
+    p_rgh + rho*gh
+);
 surfaceScalarField rho1f(fvc::interpolate(rho1));
 surfaceScalarField rho2f(fvc::interpolate(rho2));
 

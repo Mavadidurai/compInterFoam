@@ -87,8 +87,8 @@ int main(int argc, char *argv[])
     #include "createTimeControls.H"
     #include "createFields.H"
 
-    volScalarField& p = mixture.p();
-    volScalarField& T = mixture.T();
+    //volScalarField& p = mixture.p();
+   // volScalarField& T = mixture.T();
     
     // Reference to psi fields (needed for compressibility)
     #ifndef NDEBUG
