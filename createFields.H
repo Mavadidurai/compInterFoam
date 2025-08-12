@@ -1,4 +1,3 @@
-// createFields.H - FINAL version with intuitive alpha.metal/alpha.air naming
 
 bool LTS = fv::localEulerDdt::enabled(mesh);
 tmp<volScalarField> trDeltaT;
@@ -90,8 +89,11 @@ volScalarField& alpha1 = mixture.alpha1();  // This is alpha.metal
 volScalarField& alpha2 = mixture.alpha2();  // This is alpha.air
 
 // Ensure proper field registration
-alpha1.oldTime();
-alpha2.oldTime();
+if (alpha1.timeIndex() > 0)
+{
+    alpha1.oldTime();
+    alpha2.oldTime();
+}
 
 Info<< "Phase fractions - alpha.metal: min = " << min(alpha1).value() 
     << ", max = " << max(alpha1).value() << endl;
@@ -120,13 +122,6 @@ volScalarField rho
     alpha1*rho1 + alpha2*rho2
 );
 
-dimensionedScalar pMin
-(
-    "pMin",
-    dimPressure,
-    mixture
-);
-
 mesh.setFluxRequired(p_rgh.name());
 mesh.setFluxRequired(alpha1.name());
 
@@ -147,7 +142,7 @@ dimensionedScalar hRef
 (
     "hRef",
     dimLength,
-    pimple.dict().lookupOrDefault<scalar>("hRef", 0)
+    mesh.solutionDict().subDict("PIMPLE").lookupOrDefault("hRef", scalar(0))
 );
 
 // ✅ FIXED: Proper dimensional calculation for ghRef
@@ -228,7 +223,7 @@ surfaceScalarField alphaPhi10
 
 tmp<surfaceScalarField> talphaPhi1Corr0;
 
-// Alpha flux fields
+// Alpha flux field
 surfaceScalarField alphaPhi1
 (
     IOobject
@@ -240,19 +235,6 @@ surfaceScalarField alphaPhi1
         IOobject::AUTO_WRITE
     ),
     phi*fvc::interpolate(alpha1)
-);
-
-surfaceScalarField alphaPhi2
-(
-    IOobject
-    (
-        "alphaPhi2",
-        runTime.timeName(),
-        mesh,
-        IOobject::READ_IF_PRESENT,
-        IOobject::AUTO_WRITE
-    ),
-    phi*fvc::interpolate(alpha2)
 );
 
 // Interface normal calculations
@@ -351,7 +333,7 @@ if (useAdvancedCapturing)
             alpha1,
             phi,
             mixture,
-            mixture.T()
+            T
         )
     );
 }

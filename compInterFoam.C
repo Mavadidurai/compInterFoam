@@ -119,7 +119,8 @@ int main(int argc, char *argv[])
             // Traditional inline LTS implementation
             volScalarField& rDeltaT = trDeltaT.ref();
             
-            const dictionary& pimpleDict = pimple.dict();
+            const dictionary& pimpleDict = mesh.solutionDict().subDict("PIMPLE");
+            
             scalar maxCo = pimpleDict.getOrDefault<scalar>("maxCo", 0.9);
             scalar maxAlphaCo = pimpleDict.getOrDefault<scalar>("maxAlphaCo", 0.2);
             

@@ -90,7 +90,7 @@ alphaEqn.H based on official OpenFOAM v2406 pattern
     surfaceScalarField phiCN(phi);
 
     // Calculate the Crank-Nicolson off-centred volumetric flux
-    if (ocCoeff > 0)
+    if (ocCoeff > 0 && phi.timeIndex() > 0)
     {
         phiCN = cnCoeff*phi + (1.0 - cnCoeff)*phi.oldTime();
     }
@@ -234,7 +234,7 @@ alphaEqn.H based on official OpenFOAM v2406 pattern
 
     rhoPhi = alphaPhi10*(fvc::interpolate(rho1) - fvc::interpolate(rho2)) + phiCN*fvc::interpolate(rho2);
 
-    if (ocCoeff > 0)
+    if (ocCoeff > 0 && phi.timeIndex() > 0)
     {
         // Calculate the end-of-time-step alpha flux
         alphaPhi10 = (phi - (1.0 - cnCoeff)*phi.oldTime())/cnCoeff;

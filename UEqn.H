@@ -76,12 +76,9 @@ if (corruptedRhoCells > 0)
 }
 
 // Create momentum equation
-fvVectorMatrix UEqn
-(
-    fvm::ddt(rho, U)
-  + fvm::div(rhoPhi, U)
-  - fvm::laplacian(mixture.mu(), U)
-);
+fvVectorMatrix UEqn(fvm::ddt(rho, U) + fvm::div(rhoPhi, U));
+
+UEqn += turbulence.divDevRhoReff(U);
 
 // Add recoil pressure effects
 if (useAdvancedCapturing && pInterfaceCapturing.valid())
@@ -117,11 +114,10 @@ if (useAdvancedCapturing && pInterfaceCapturing.valid())
 // Apply momentum relaxation
 UEqn.relax(enhancedMomentumRelaxation);
 
-// Improved rAU calculation
+// Obtain diagonal coefficients and compute reciprocal with clamping
 tmp<volScalarField> tA = UEqn.A();
-const volScalarField& A = tA();
 
-// Create rAU field with proper initialization
+// Create rAU field
 volScalarField rAU
 (
     IOobject
@@ -133,132 +129,40 @@ volScalarField rAU
         IOobject::NO_WRITE
     ),
     mesh,
-    dimensionedScalar("rAU", dimTime/dimDensity, 1e-6),
+    dimensionedScalar("rAU", dimTime/dimDensity, 0),
     extrapolatedCalculatedFvPatchScalarField::typeName
 );
 
-// Material-aware bounds
-const scalar dt = runTime.deltaTValue();
-const scalar rAU_min_metal = dt / (10.0 * defaultTitaniumDensity);
-const scalar rAU_max_metal = dt / (0.1 * defaultTitaniumDensity);
-const scalar rAU_min_air = dt / (10.0 * defaultAirDensity);
-const scalar rAU_max_air = dt / (0.1 * defaultAirDensity);
-
-label boundedRauCells = 0;
-label invalidDiagonalCells = 0;
+scalar minVal = 1e-10;
+scalar maxVal = 1e6;
 
 forAll(rAU, cellI)
 {
-    scalar A_diag = A[cellI];
-    
-    if (!std::isfinite(A_diag) || A_diag <= SMALL)
+    scalar Acoeff = tA()[cellI];
+
+    if (!std::isfinite(Acoeff) || mag(Acoeff) <= SMALL)
     {
-        // Use material-based default
-        if (alpha1[cellI] > 0.5)  // Metal region
-        {
-            rAU[cellI] = rAU_min_metal;
-        }
-        else  // Air region
-        {
-            rAU[cellI] = rAU_min_air;
-        }
-        invalidDiagonalCells++;
+        rAU[cellI] = minVal;
     }
     else
     {
-        scalar rAU_calc = 1.0/A_diag;
-        
-        // Apply material-specific bounds
-        if (alpha1[cellI] > 0.5)  // Metal region
+        scalar value = 1.0 / Acoeff;
+        if (!std::isfinite(value) || value < minVal)
         {
-            if (!std::isfinite(rAU_calc) || rAU_calc < rAU_min_metal)
-            {
-                rAU[cellI] = rAU_min_metal;
-                boundedRauCells++;
-            }
-            else if (rAU_calc > rAU_max_metal)
-            {
-                rAU[cellI] = rAU_max_metal;
-                boundedRauCells++;
-            }
-            else
-            {
-                rAU[cellI] = rAU_calc;
-            }
+            rAU[cellI] = minVal;
         }
-        else  // Air region
+        else if (value > maxVal)
         {
-            if (!std::isfinite(rAU_calc) || rAU_calc < rAU_min_air)
-            {
-                rAU[cellI] = rAU_min_air;
-                boundedRauCells++;
-            }
-            else if (rAU_calc > rAU_max_air)
-            {
-                rAU[cellI] = rAU_max_air;
-                boundedRauCells++;
-            }
-            else
-            {
-                rAU[cellI] = rAU_calc;
-            }
+            rAU[cellI] = maxVal;
+        }
+        else
+        {
+            rAU[cellI] = value;
         }
     }
-}
-
-// Apply field smoothing for better conditioning
-for (int smoothIter = 0; smoothIter < 2; smoothIter++)
-{
-    volScalarField rAU_old = rAU;
-    
-    forAll(rAU, cellI)
-    {
-        scalar weightedSum = rAU_old[cellI];
-        scalar totalWeight = 1.0;
-        
-        const labelList& neighbors = mesh.cellCells()[cellI];
-        forAll(neighbors, ni)
-        {
-            label neighborCell = neighbors[ni];
-            scalar weight = 0.05;  // Light smoothing
-            weightedSum += weight * rAU_old[neighborCell];
-            totalWeight += weight;
-        }
-        
-        rAU[cellI] = weightedSum / totalWeight;
-    }
-    
-    rAU.correctBoundaryConditions();
-}
-
-// Apply temporal relaxation
-if (rAU.oldTime().timeIndex() >= 0)
-{
-    scalar rAU_relaxation = 0.8;
-    rAU = rAU_relaxation * rAU + (1.0 - rAU_relaxation) * rAU.oldTime();
 }
 
 rAU.correctBoundaryConditions();
-
-// Reduce and report
-reduce(boundedRauCells, sumOp<label>());
-reduce(invalidDiagonalCells, sumOp<label>());
-
-scalar minRAU = gMin(rAU);
-scalar maxRAU = gMax(rAU);
-
-Info<< "Matrix conditioning:" << nl
-    << "  rAU range: " << minRAU << " to " << maxRAU << endl;
-
-if (boundedRauCells > 0)
-{
-    Info<< "  Bounded " << boundedRauCells << " rAU values" << endl;
-}
-
-if (invalidDiagonalCells > 0)
-{
-    Info<< "  Fixed " << invalidDiagonalCells << " invalid diagonal values" << endl;
-}
 
 // Momentum predictor
 if (pimple.momentumPredictor())

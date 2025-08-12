@@ -12,22 +12,15 @@ if (pInterfaceCapturing.valid())
     // Update density field based on new alpha1 distribution
     rho = alpha1*rho1 + alpha2*rho2;
 
-    // Create alphaPhi2 field based on conservation
-    surfaceScalarField alphaPhi2("alphaPhi2", phi - alphaPhi1);
-
     // Calculate continuity error for momentum equation
     volScalarField::Internal contErr
     (
-        (
-            fvc::ddt(rho) + fvc::div(rhoPhi)
-          - (fvOptions(alpha1, mixture.thermo1().rho())&rho1)
-          - (fvOptions(alpha2, mixture.thermo2().rho())&rho2)
-        )()
+        (fvc::ddt(rho) + fvc::div(rhoPhi))()
     );
 
     // Ensure alpha1 field is bounded between 0 and 1
-    alpha1.min(0.0);
-    alpha1.max(1.0);
+    alpha1 = max(min(alpha1, scalar(1)), scalar(0));
+    alpha1.correctBoundaryConditions();
 
     // Check for phase fraction correctness
     Info<< "Phase-1 volume fraction = "
@@ -92,14 +85,9 @@ else
     rho = alpha1*rho1 + alpha2*rho2;
     
     const surfaceScalarField& alphaPhi1 = talphaPhi1();
-    surfaceScalarField alphaPhi2("alphaPhi2", phi - alphaPhi1);
     
     volScalarField::Internal contErr
     (
-        (
-            fvc::ddt(rho) + fvc::div(rhoPhi)
-          - (fvOptions(alpha1, mixture.thermo1().rho())&rho1)
-          - (fvOptions(alpha2, mixture.thermo2().rho())&rho2)
-        )()
+        (fvc::ddt(rho) + fvc::div(rhoPhi))()
     );
 }

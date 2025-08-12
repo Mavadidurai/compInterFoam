@@ -165,8 +165,8 @@ void Foam::advancedInterfaceCapturing::correct()
     
     // Simple boundedness check without per-cell limiting
     // This approach reduces MPI communication
-    alpha1_.max(0.0);
-    alpha1_.min(1.0);
+    alpha1_ = max(min(alpha1_, scalar(1)), scalar(0));
+    alpha1_.correctBoundaryConditions();
 
     Info<< "Phase-1 volume fraction = "
         << alpha1_.weightedAverage(mesh_.V()).value()
