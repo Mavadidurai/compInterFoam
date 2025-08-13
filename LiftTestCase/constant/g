@@ -1,0 +1,70 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+| =========                 |                                                 |
+| \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox           |
+|  \\    /   O peration     | Version:  v2106                                 |
+|   \\  /    A nd           | Website:  www.openfoam.com                      |
+|    \\/     M anipulation  |                                                 |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       uniformDimensionedVectorField;
+    object      g;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+dimensions      [0 1 -2 0 0 0 0];
+
+// ✅ CORRECTED LIFT Coordinate System with Substrate:
+// ===================================================
+// X = 0-50μm (width)
+// Y = 0-20μm (height) - ✅ UPDATED LAYOUT:
+//     • Substrate: Y = 0-8μm   (glass backing)
+//     • Metal:     Y = 8-10μm  (donor film) 
+//     • Air:       Y = 10-20μm (ejection space)
+// Z = 0-10μm (depth)
+//
+// ✅ LASER GEOMETRY:
+// • Laser propagates from bottom (+Y direction)
+// • Through substrate (Y = 0-8μm) 
+// • Heats metal at interface (Y = 8μm)
+// • Forces ejection upward (+Y direction)
+//
+// ✅ GRAVITY DIRECTION:
+// • Opposes ejection for realistic droplet dynamics
+// • Acts downward (-Y direction)
+// • Affects droplet trajectory after ejection
+
+value           (0 -9.81 0);   // ✅ CORRECTED: Gravity in -Y direction (downward)
+
+// ************************************************************************* //
+//
+// ✅ CRITICAL CORRECTION EXPLANATION:
+// ====================================
+//
+// OLD Setup (incorrect):
+// - Gravity in -Z direction 
+// - Laser from +Z direction
+// - Conflicting coordinate system
+//
+// NEW Setup (realistic LIFT):
+// - Substrate at bottom (Y = 0-8μm)
+// - Metal film on substrate (Y = 8-10μm)  
+// - Air gap above (Y = 10-20μm)
+// - Laser from bottom through substrate (+Y)
+// - Ejection upward (+Y direction)
+// - Gravity downward (-Y direction)
+//
+// This gives realistic LIFT physics:
+// 1. Laser heats substrate/metal interface
+// 2. Substrate constrains downward expansion  
+// 3. Explosive ejection upward against gravity
+// 4. Droplets follow ballistic trajectory
+// 5. Gravity affects droplet landing/collection
+//
+// The -Y gravity direction is essential for:
+// - Realistic droplet dynamics
+// - Proper trajectory calculation  
+// - Accurate collection modeling
+// - Physical consistency with experimental LIFT

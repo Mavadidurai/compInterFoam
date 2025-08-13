@@ -1,0 +1,135 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+| =========                 |                                                 |
+| \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox           |
+|  \\    /   O peration     | Version:  v2406                                 |
+|   \\  /    A nd           | Website:  www.openfoam.com                      |
+|    \\/     M anipulation  |                                                 |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    location    "system";
+    object      setFieldsDict;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+// ✅ REALISTIC LIFT FIELD INITIALIZATION with Substrate
+// ======================================================
+// NEW Geometry Layout:
+// - Substrate: Y = 0-8μm   (Glass substrate - acts as solid boundary)
+// - Metal:     Y = 8-10μm  (Titanium donor film - 2μm thick)  
+// - Air:       Y = 10-20μm (Air gap for ejection)
+
+defaultFieldValues
+(
+    // ✅ DEFAULT: Air everywhere initially
+    volScalarFieldValue alpha.metal 0      // No metal by default
+    volScalarFieldValue alpha.air 1        // Air everywhere by default
+    volScalarFieldValue T 300              // Room temperature
+    volScalarFieldValue Te 300             // Electron temperature at equilibrium
+    volScalarFieldValue Tl 300             // Lattice temperature at equilibrium
+    
+    // ✅ NEW: Initialize velocities and pressure
+    volVectorFieldValue U (0 0 0)          // Zero initial velocity
+    volScalarFieldValue p_rgh 0            // Zero relative pressure
+);
+
+regions
+(
+    // ✅ REGION 1: SUBSTRATE (Y = 0-8μm)
+    // ==================================
+    // Substrate acts as a constrained boundary with thermal mass
+    // Uses mixed phase approach to simulate solid behavior
+    boxToCell
+    {
+        box (0 0 0) (50e-6 8e-6 10e-6);        // Bottom 8μm = substrate
+        fieldValues
+        (
+            volScalarFieldValue alpha.metal 0.01    // Tiny metal fraction (substrate boundary)
+            volScalarFieldValue alpha.air 0.99      // Mostly air (but constrained)
+            volScalarFieldValue T 300               // Substrate at room temperature
+            volScalarFieldValue Te 300              // No electron heating in substrate
+            volScalarFieldValue Tl 300              // Substrate lattice temperature
+            volVectorFieldValue U (0 0 0)           // Zero velocity (solid-like)
+        );
+    }
+    
+    // ✅ REGION 2: METAL DONOR FILM (Y = 8-10μm) 
+    // ===========================================
+    // Titanium film - the core LIFT material
+    boxToCell
+    {
+        box (0 8e-6 0) (50e-6 10e-6 10e-6);       // 2μm thick metal film
+        fieldValues
+        (
+            volScalarFieldValue alpha.metal 1       // Pure metal phase
+            volScalarFieldValue alpha.air 0         // No air in metal
+            volScalarFieldValue T 300               // Metal at room temperature initially
+            volScalarFieldValue Te 300              // Electron temp at equilibrium
+            volScalarFieldValue Tl 300              // Lattice temp at equilibrium
+            volVectorFieldValue U (0 0 0)           // Zero initial velocity
+        );
+    }
+    
+    // ✅ REGION 3: AIR GAP (Y = 10-20μm)
+    // ===================================
+    // Air space for droplet ejection and collection
+    // Uses default values (already set above)
+    // No explicit region needed - covered by defaults
+    
+    // ✅ OPTIONAL: LASER FOCAL ZONE MARKER
+    // ====================================
+    // Mark the laser focal region for visualization/debugging
+    boxToCell
+    {
+        box (20e-6 8.5e-6 4e-6) (30e-6 9.5e-6 6e-6);  // Small region at laser focus
+        fieldValues
+        (
+            // Keep material properties but mark with slightly different temperature
+            volScalarFieldValue T 301               // 1K higher for identification
+        );
+    }
+);
+
+// ************************************************************************* //
+//
+// ✅ REALISTIC LIFT PHYSICS SETUP:
+// =================================
+//
+// 1. SUBSTRATE (Y = 0-8μm):
+//    - Acts as thermal boundary and mechanical constraint
+//    - Provides heat sink effect
+//    - Prevents downward expansion of metal
+//    - Mixed phase (0.01 metal) simulates solid boundary behavior
+//
+// 2. METAL FILM (Y = 8-10μm):
+//    - Pure titanium donor material
+//    - 2μm thickness (realistic for LIFT)
+//    - Will be heated by laser and undergo phase change
+//    - Source of ejected droplets
+//
+// 3. AIR GAP (Y = 10-20μm):
+//    - Space for droplet ejection and flight
+//    - Collection zone for LIFT process
+//    - Allows visualization of ejection dynamics
+//
+// 4. LASER FOCUS:
+//    - Positioned at substrate/metal interface (Y ≈ 8μm)
+//    - Creates localized heating for LIFT
+//    - Substrate constrains expansion downward
+//    - Forces material ejection upward into air gap
+//
+// This setup captures the essential LIFT physics:
+// - Substrate backing and thermal effects
+// - Thin donor film for efficient heating
+// - Adequate air space for ejection dynamics
+// - Realistic geometry and material distribution
+//
+// Expected LIFT sequence:
+// 1. Laser heats metal at substrate interface
+// 2. Rapid temperature rise and phase change
+// 3. Pressure buildup constrained by substrate
+// 4. Explosive ejection into air gap
+// 5. Droplet formation and flight

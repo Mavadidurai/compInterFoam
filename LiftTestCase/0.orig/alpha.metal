@@ -1,0 +1,54 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+| =========                 |                                                 |
+| \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox           |
+|  \\    /   O peration     | Version:  v2406                                 |
+|   \\  /    A nd           | Website:  www.openfoam.com                      |
+|    \\/     M anipulation  |                                                 |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       volScalarField;
+    object      alpha.metal;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+dimensions      [0 0 0 0 0 0 0];
+
+// SLM: Metal powder initially absent (set by setFieldsDict)
+internalField   uniform 0;
+boundaryField
+{
+    top
+    {
+        type            zeroGradient;
+    }
+    
+    bottom
+    {
+        type            zeroGradient;
+    }
+    
+    inlet
+    {
+        type            zeroGradient;
+    }
+    
+    outlet
+    {
+        type            zeroGradient;
+    }
+    
+    front
+    {
+        type            zeroGradient;
+    }
+    
+    back
+    {
+        type            zeroGradient;
+    }
+}
+
+// ************************************************************************* //

@@ -1,0 +1,183 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+| =========                 |                                                 |
+| \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox           |
+|  \\    /   O peration     | Version:  v2406                                 |
+|   \\  /    A nd           | Website:  www.openfoam.com                      |
+|    \\/     M anipulation  |                                                 |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    object      thermophysicalProperties.substrate;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+// ✅ NEW: Glass substrate properties for realistic LIFT simulation
+// Used for boundary condition calculations and substrate region simulation
+
+thermoType
+{
+    type            heRhoThermo;
+    mixture         pureMixture;
+    transport       const;
+    thermo          hConst;
+    equationOfState rhoConst;       // Constant density (solid substrate)
+    specie          specie;
+    energy          sensibleEnthalpy;
+}
+
+mixture
+{
+    specie
+    {
+        molWeight       60.08;          // kg/kmol - SiO2 (glass) molecular weight
+    }
+    
+    thermodynamics
+    {
+        Cp              840;            // J/kg·K - Glass specific heat capacity
+        Hf              0.0;            // J/kg - Heat of formation (reference)
+        Tref            300;            // K - Reference temperature
+        Href            0;              // J/kg - Reference enthalpy
+    }
+    
+    transport
+    {
+        mu              1e12;           // Pa·s - Very high viscosity (solid-like)
+        Pr              7.0;            // Prandtl number for glass
+    }
+    
+    equationOfState
+    {
+        rho             2500;           // kg/m³ - Glass density
+    }
+}
+
+// ✅ Glass substrate thermal properties
+Tsol                1873.0;             // K - Glass softening point (not melting)
+Tliq                1873.0;             // K - No liquid phase in LIFT simulation
+hf                  0;                  // J/kg - No phase change
+kappa               1.3;                // W/m·K - Glass thermal conductivity
+
+// ✅ Substrate-specific properties for LIFT
+substrateCharacteristics
+{
+    // Thermal properties
+    thermalDiffusivity      6.2e-7;     // m²/s - Glass thermal diffusivity
+    heatCapacityVolume      2.1e6;      // J/m³/K - Volumetric heat capacity
+    thermalExpansion        9e-6;       // 1/K - Thermal expansion coefficient
+    
+    // Optical properties (for laser interaction)
+    refractiveIndex         1.52;       // Refractive index at 800nm
+    absorptionCoefficient   1e-3;       // 1/m - Very low absorption (transparent)
+    transmittance           0.95;       // Fraction of laser light transmitted
+    scatteringCoefficient   1e-5;       // 1/m - Minimal scattering
+    
+    // Mechanical properties (for constraint effects)
+    youngModulus            70e9;       // Pa - Young's modulus
+    poissonRatio            0.23;       // Poisson's ratio
+    bulkModulus             37e9;       // Pa - Bulk modulus
+    shearModulus            28e9;       // Pa - Shear modulus
+    
+    // Surface properties
+    surfaceRoughness        1e-9;       // m - RMS surface roughness
+    contactAngleWithMetal   120;        // degrees - Wetting angle
+    surfaceEnergy           0.3;        // J/m² - Surface energy
+}
+
+// ✅ Interface properties with metal
+substrateMetalInterface
+{
+    // Thermal interface resistance
+    thermalResistance       1e-8;       // m²K/W - Interface thermal resistance
+    thermalConductanceEff   1e8;        // W/m²K - Effective conductance
+    
+    // Heat transfer enhancement factors
+    roughnessEnhancement    1.2;        // Enhancement due to surface roughness
+    adhesionEnhancement     1.1;        // Enhancement due to good adhesion
+    
+    // Mechanical bonding
+    adhesionStrength        50e6;       // Pa - Adhesion strength
+    interfacialEnergy       1.0;        // J/m² - Interfacial energy
+}
+
+// ✅ Temperature-dependent substrate properties
+temperatureDependence
+{
+    // Thermal conductivity variation with temperature
+    thermalConductivity
+    {
+        model           polynomial;
+        coeffs          (1.3 -2e-4 1e-7);   // k = a + bT + cT² [W/m/K]
+        Tmin            250;                 // K - Minimum temperature
+        Tmax            800;                 // K - Maximum (below softening)
+    }
+    
+    // Specific heat variation
+    specificHeat
+    {
+        model           polynomial;
+        coeffs          (840 0.5 -1e-4);    // Cp = a + bT + cT² [J/kg/K]
+        Tmin            250;                 // K
+        Tmax            800;                 // K
+    }
+    
+    // Thermal expansion
+    expansionCoefficient
+    {
+        model           linear;
+        coeffs          (9e-6 1e-9);        // α = a + bT [1/K]
+        Tmin            250;                 // K
+        Tmax            800;                 // K
+    }
+}
+
+// ************************************************************************* //
+//
+// ✅ PURPOSE: Glass Substrate for Realistic LIFT
+// ===============================================
+//
+// This file defines the glass substrate properties used in LIFT simulations.
+// The substrate provides:
+//
+// 1. THERMAL MANAGEMENT:
+//    - Heat sink for metal film
+//    - Thermal mass to moderate heating
+//    - Realistic temperature gradients
+//    - Interface thermal resistance
+//
+// 2. MECHANICAL CONSTRAINT:
+//    - Backing for metal film
+//    - Prevents downward expansion
+//    - Forces upward ejection
+//    - Realistic mechanical support
+//
+// 3. OPTICAL TRANSPARENCY:
+//    - 95% laser transmission at 800nm
+//    - Minimal absorption in substrate
+//    - Focused heating at substrate/metal interface
+//    - Realistic laser propagation
+//
+// 4. INTERFACE PHYSICS:
+//    - Substrate/metal thermal resistance
+//    - Surface roughness effects
+//    - Adhesion and bonding properties
+//    - Contact angle for wetting
+//
+// 5. MATERIAL STABILITY:
+//    - High melting point (no phase change)
+//    - Solid-like behavior (high viscosity)
+//    - Temperature-dependent properties
+//    - Realistic glass characteristics
+//
+// USAGE in LIFT simulation:
+// - Boundary conditions reference these properties
+// - Substrate region (Y = 0-8μm) uses mixed-phase approach
+// - Interface calculations use thermal resistance values
+// - Laser propagation uses optical properties
+// - Temperature limits prevent substrate melting
+//
+// This provides realistic substrate backing effects essential
+// for accurate LIFT physics simulation!

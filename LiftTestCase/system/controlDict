@@ -1,0 +1,53 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+| =========                 |                                                 |
+| \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox           |
+|  \\    /   O peration     | Version:  v2406                                 |
+|   \\  /    A nd           | Website:  www.openfoam.com                      |
+|    \\/     M anipulation  |                                                 |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    location    "system";
+    object      controlDict;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+application     compInterFoam;
+
+startFrom       startTime;          
+startTime       0;
+stopAt          endTime;
+endTime         10e-3;              // 10 milliseconds - see full droplet flight!
+
+deltaT          1e-5;               // 10 microseconds - rock solid timestep
+adjustTimeStep  no;                 
+
+writeControl    adjustableRunTime;
+writeInterval   1e-4;               // Write every 100 microseconds (100 frames)
+purgeWrite      0;                  
+writeFormat     ascii;
+writePrecision  6;                  // Normal precision
+writeCompression off;
+timeFormat      general;
+timePrecision   6;                  
+runTimeModifiable true;
+
+maxCo           0.5;                // Standard values
+maxAlphaCo      0.2;               
+maxDeltaT       5e-5;               // Max 50 microseconds
+
+useAdvancedInterfaceCapturing true;   
+
+twoTemperatureProperties
+{
+    Ce          Ce [ 1 -1 -2 -1 0 0 0 ] 210;        
+    Cl          Cl [ 1 -1 -2 -1 0 0 0 ] 2.3e6;      
+    G           G  [ 1 -1 -3 -1 0 0 0 ] 5e17;       
+    energyTolerance 0.1;                              
+}
+
+relaxFactor     0.3;                // Conservative relaxation
+
+functions {}    // No special functions needed

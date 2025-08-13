@@ -1,0 +1,61 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+| =========                 |                                                 |
+| \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox           |
+|  \\    /   O peration     | Version:  v2406                                 |
+|   \\  /    A nd           | Website:  www.openfoam.com                      |
+|    \\/     M anipulation  |                                                 |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       volScalarField;
+    location    "0";
+    object      he;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+dimensions      [0 2 -2 0 0 0 0];  // Energy per unit mass [J/kg]
+
+internalField   uniform 156000;    // Sensible enthalpy at 300K: Cp*(T-Tref) = 520*300
+
+boundaryField
+{
+    top
+    {
+        type            calculated;
+        value           uniform 156000;
+    }
+    
+    bottom
+    {
+        type            calculated;
+        value           uniform 156000;
+    }
+    
+    inlet
+    {
+        type            calculated;
+        value           uniform 156000;
+    }
+    
+    outlet
+    {
+        type            calculated;
+        value           uniform 156000;
+    }
+    
+    front
+    {
+        type            calculated;
+        value           uniform 156000;
+    }
+    
+    back
+    {
+        type            calculated;
+        value           uniform 156000;
+    }
+}
+
+// ************************************************************************* //
