@@ -83,13 +83,10 @@ int main(int argc, char *argv[])
     #include "setRootCaseLists.H"
     #include "createTime.H"
     #include "createMesh.H"
-    #include "createControl.H"
+   // #include "createControl.H"
     #include "createTimeControls.H"
     #include "createFields.H"
 
-    //volScalarField& p = mixture.p();
-   // volScalarField& T = mixture.T();
-    
     // Reference to psi fields (needed for compressibility)
     #ifndef NDEBUG
     const volScalarField& psi1 = mixture.thermo1().psi();
@@ -105,9 +102,8 @@ int main(int argc, char *argv[])
         #include "CourantNo.H"
         #include "setInitialDeltaT.H"
     }
- // Instantiate PIMPLE control for pressure-velocity coupling
-   // pimpleControl pimple(mesh);
-
+    // Instantiate PIMPLE control for pressure-velocity coupling
+    pimpleControl pimple(mesh);
     // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
     Info<< "\nStarting time loop\n" << endl;
