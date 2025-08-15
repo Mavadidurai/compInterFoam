@@ -58,20 +58,34 @@ Foam::twoPhaseMixtureThermo::twoPhaseMixtureThermo
         U.mesh().lookupObject<dictionary>("thermophysicalProperties").
         subDict("metal").lookupOrDefault<scalar>("hf", 435e3)
     ),
-absorptionCoeff_(
-    IOdictionary(
-        IOobject(
-            "laserProperties",
-            U.mesh().time().constant(),
-            U.mesh(),
-            IOobject::READ_IF_PRESENT,
-            IOobject::NO_WRITE
-        )
-    ).lookupOrDefault<scalar>("absorptionCoeff", 1e8)
-),
+    absorptionCoeff_(
+        IOdictionary(
+            IOobject(
+                "laserProperties",
+                U.mesh().time().constant(),
+                U.mesh(),
+                IOobject::READ_IF_PRESENT,
+                IOobject::NO_WRITE
+            )
+        ).lookupOrDefault<scalar>("absorptionCoeff", 1e8)
+    ),
     T_melt_(
         U.mesh().lookupObject<dictionary>("thermophysicalProperties").
         subDict("metal").lookupOrDefault<scalar>("Tsol", 1941.0)
+    ),
+    peakIntensity_
+    (
+        "peakIntensity",
+        dimPower/dimArea,
+        IOdictionary(
+            IOobject(
+                "laserProperties",
+                U.mesh().time().constant(),
+                U.mesh(),
+                IOobject::READ_IF_PRESENT,
+                IOobject::NO_WRITE
+            )
+        ).lookupOrDefault<scalar>("peakIntensity", 0.0)
     ),
     Q_laser_
     (
@@ -148,6 +162,8 @@ void Foam::twoPhaseMixtureThermo::correct()
     // Update laser heating source term to reflect current laser field
     Q_laser_ = computeLaserHeating()();
     phaseChangeSource_ = computePhaseChange()();
+    phaseChangeSource_.correctBoundaryConditions();
+
 }
 
 Foam::word Foam::twoPhaseMixtureThermo::thermoName() const
@@ -190,13 +206,16 @@ Foam::tmp<Foam::volScalarField> Foam::twoPhaseMixtureThermo::computeLaserHeating
     const dimensionedScalar Cp("Cp", DimensionValidator::dimSpecificHeat, thermo1_->Cp()()[0]);
     const dimensionedScalar rho("rho", DimensionValidator::dimDensity, thermo1_->rho()()[0]);
     
-    forAll(C, cellI)
+forAll(C, cellI)
     {
         scalar z = C[cellI].z();
-        // Now laser power [W/m²] is correctly converted to temperature rate [K/s]
-const scalar conversionFactor = 1e6; // Verify units: adjust if necessary
-Q[cellI] = (conversionFactor * absorptionCoeff_ * exp(-absorptionCoeff_ * z)) / (rho.value() * Cp.value());
-
+        // Beer-Lambert law: volumetric heating -> temperature rate [K/s]
+        // absorptionCoeff_ [1/m], peakIntensity_ [W/m^2]
+        // rho [kg/m^3], Cp [J/(kg K)]
+        Q[cellI] =
+            (absorptionCoeff_ * peakIntensity_.value())
+          /(rho.value() * Cp.value())
+          * exp(-absorptionCoeff_ * z);
     }
 
     // Set field dimensions explicitly

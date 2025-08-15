@@ -57,6 +57,8 @@ Description
 #include "pimpleControl.H"
 #include "fvOptions.H"
 #include "autoPtr.H"
+#include "dynamicFvMesh.H"
+
 #include "fvcSmooth.H"
 #include "twoPhaseMixtureThermo.H"
 #include "extrapolatedCalculatedFvPatchFields.H"
@@ -82,8 +84,8 @@ int main(int argc, char *argv[])
     #include "addCheckCaseOptions.H"
     #include "setRootCaseLists.H"
     #include "createTime.H"
-    #include "createMesh.H"
-   // #include "createControl.H"
+   // #include "createMesh.H"
+   // #include "createDynamicFvMesh.H"
     #include "createTimeControls.H"
     #include "createFields.H"
 
@@ -187,6 +189,8 @@ int main(int argc, char *argv[])
 
         // Update laser model
         laser.update();
+                laser.correct(runTime.value());
+
 
         // --- Pressure-velocity PIMPLE corrector loop
         while (pimple.loop())
@@ -243,17 +247,27 @@ int main(int argc, char *argv[])
             }
         }
 
-        // Compute total energy and monitor conservation
-        dimensionedScalar Etot = fvc::domainIntegrate
+      // Compute domain-integrated energy components
+        dimensionedScalar Ek = fvc::domainIntegrate
         (
-            rho*mixture.Cp()*T
-          + 0.5*rho*magSqr(U)
-          + rho*mixture.latentHeat()*alpha1
+            0.5*rho*magSqr(U)
         );
 
-        static scalar EtotPrev = Etot.value();
-        scalar dE = Etot.value() - EtotPrev;
-        scalar relChange = mag(dE)/max(mag(EtotPrev), VSMALL);
+        dimensionedScalar Es = fvc::domainIntegrate
+        (
+            rho*mixture.Cp()*T
+        );
+
+        dimensionedScalar El = fvc::domainIntegrate
+        (
+            rho*mixture.latentHeat()*alpha1
+        );
+
+        dimensionedScalar Etot = Ek + Es + El;
+
+        static scalar Etot0 = Etot.value();
+        scalar dE = Etot.value() - Etot0;
+        scalar relChange = mag(dE)/max(mag(Etot0), VSMALL);
 
         Info<< "Total energy change: " << dE << " J (" << relChange << ")" << endl;
 
@@ -264,7 +278,21 @@ int main(int argc, char *argv[])
                 << " exceeds energyTol (" << energyTol << ")" << endl;
         }
 
-        EtotPrev = Etot.value();
+        // Write additional model fields and data
+        if (runTime.writeTime())
+        {
+            laser.write();
+            ttm.write();
+            if (pInterfaceCapturing.valid())
+            {
+                pInterfaceCapturing->write();
+            }
+        }
+
+        runTime.write();
+
+        runTime.printExecutionTime(Info);
+    }
 
         // Write additional model fields and data
         if (runTime.writeTime())

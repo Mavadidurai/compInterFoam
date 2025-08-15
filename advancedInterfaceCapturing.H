@@ -24,7 +24,10 @@ private:
     scalar meltingTemp_;             // Melting temperature
     scalar vaporTemp_;               // Vaporization temperature
     scalar latentHeat_;              // Latent heat of fusion
-    
+        // User-configurable recoil pressure parameters
+    scalar pressureScale_;           // Scaling factor for evaporation rate
+    scalar recoilMax_;               // Maximum allowed recoil pressure
+    label  recoilUpdateInterval_;    // Steps between recoil pressure updates
     // Field for recoil pressure
     volScalarField recoilPressure_;  // Recoil pressure from vaporization
 

@@ -56,6 +56,10 @@ private:
         // Geometrical parameters
         vector direction_;              // Laser propagation direction
         point focus_;                   // Focal point coordinates
+        point initialFocus_;            // Stored initial focus for scanning
+        vector scanVelocity_;           // Beam scanning velocity [m/s]
+        scalar pulseFrequency_;         // Pulse repetition frequency [Hz]
+        scalar pulseDutyCycle_;         // Fraction of period laser is on
         
         // Optional parameters
         scalar reflectivity_;           // Surface reflectivity [-]
@@ -131,9 +135,9 @@ public:
                 sourceValid_ = false;
                 calculateSource();
             }
-	            //- Correct the laser model for a given time, allowing
+            //- Correct the laser model for a given current time, allowing
             //  time-dependent beam motion or intensity modulation
-            virtual void correct(const scalar time);
+            virtual void correct(const scalar currentTime);
 
         // Access
 

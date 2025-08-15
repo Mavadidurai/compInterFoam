@@ -10,20 +10,31 @@
     
     // Apply bounds to rAUf to prevent division by zero or infinities
     // This should be done on internal field and boundary fields
-    scalar minVal = 1e-10;
-    scalar maxVal = 1e6;
+    const dictionary& controlDict = mesh.time().controlDict();
+    scalar minRAUf = controlDict.lookupOrDefault<scalar>("minRAUf", 1e-10);
+    scalar maxRAUf = controlDict.lookupOrDefault<scalar>("maxRAUf", 1e6);
+
+    if (!std::isfinite(minRAUf))
+    {
+        minRAUf = 1e-10;
+    }
+
+    if (!std::isfinite(maxRAUf))
+    {
+        maxRAUf = 1e6;
+    }
     
     // Internal field
     scalarField& rAUfIn = rAUf.primitiveFieldRef();
     forAll(rAUfIn, faceI)
     {
-        if (!std::isfinite(rAUfIn[faceI]) || rAUfIn[faceI] < minVal)
+        if (!std::isfinite(rAUfIn[faceI]) || rAUfIn[faceI] < minRAUf)
         {
-            rAUfIn[faceI] = minVal;
+            rAUfIn[faceI] = minRAUf;
         }
-        else if (rAUfIn[faceI] > maxVal)
+        else if (rAUfIn[faceI] > maxRAUf)
         {
-            rAUfIn[faceI] = maxVal;
+            rAUfIn[faceI] = maxRAUf;
         }
     }
     
@@ -33,13 +44,13 @@
         fvsPatchScalarField& pRauf = rAUf.boundaryFieldRef()[patchI];
         forAll(pRauf, faceI)
         {
-            if (!std::isfinite(pRauf[faceI]) || pRauf[faceI] < minVal)
+            if (!std::isfinite(pRauf[faceI]) || pRauf[faceI] < minRAUf)
             {
-                pRauf[faceI] = minVal;
+                pRauf[faceI] = minRAUf;
             }
-            else if (pRauf[faceI] > maxVal)
+            else if (pRauf[faceI] > maxRAUf)
             {
-                pRauf[faceI] = maxVal;
+                pRauf[faceI] = maxRAUf;
             }
         }
     }
@@ -52,7 +63,10 @@
     
     // Set reference and apply adaptive under-relaxation
     pEqn.setReference(pRefCell, pRefValue);
-    static scalar relaxP = 0.3;
+    static scalar relaxP
+    (
+        mesh.solutionDict().lookupOrDefault<scalar>("relaxP", 0.3)
+    );
     const scalar targetResP = mesh.solutionDict().lookupOrDefault<scalar>(
         "targetResP", 0.1);
     pEqn.relax(relaxP);
@@ -67,8 +81,11 @@
         // Use check on initial residual instead of good()
         SolverPerformance<scalar> solverPerf = pEqn.solve();
         scalar residual = solverPerf.initialResidual();
+        Info<< "pEqn initial residual: " << residual << endl;
         solveOK = (residual < 1e3);
         relaxP = max(min(relaxP * targetResP/(residual + SMALL), 0.7), 0.1);
+        Info<< "  Updated relaxP: " << relaxP << endl;
+
     }
     catch(...)
     {
@@ -100,11 +117,31 @@
     }
     
     // Add bounds to pressure to prevent divergence
-    dimensionedScalar maxP("maxP", dimPressure, 1e6);  // 1 MPa max
-    dimensionedScalar minP("minP", dimPressure, 1e3);  // 1 kPa min
-    
-    // Apply pressure limits
-    p_rgh = max(min(p_rgh, maxP), minP);
+    const bool pressureClamp = runTime.controlDict().lookupOrDefault<bool>
+    (
+        "pressureClamp",
+        true
+    );
+
+    const scalar maxPressure = runTime.controlDict().lookupOrDefault<scalar>
+    (
+        "maxPressure",
+        1e6
+    );
+
+    const scalar minPressure = runTime.controlDict().lookupOrDefault<scalar>
+    (
+        "minPressure",
+        1e3
+    );
+
+    // Apply pressure limits only when enabled
+    if (pressureClamp)
+    {
+        dimensionedScalar maxP("maxP", dimPressure, maxPressure);
+        dimensionedScalar minP("minP", dimPressure, minPressure);
+        p_rgh = max(min(p_rgh, maxP), minP);
+    }
     
     // Update pressure field
     p = p_rgh + rho*gh;

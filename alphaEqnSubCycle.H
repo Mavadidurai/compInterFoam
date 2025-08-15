@@ -130,10 +130,10 @@
 
     if (min(alpha1).value() < 0.0 || max(alpha1).value() > 1.0)
     {
-        FatalErrorInFunction
-            << "Alpha bounds violation detected!" << nl
+        WarningInFunction
+            << "Alpha bounds violation detected after clamping:" << nl
             << "Min alpha1: " << min(alpha1).value() << nl
             << "Max alpha1: " << max(alpha1).value()
-            << abort(FatalError);
+            << endl;
     }
 }

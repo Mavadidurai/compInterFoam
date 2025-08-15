@@ -34,9 +34,21 @@ advancedInterfaceCapturing::advancedInterfaceCapturing
     latentHeat_
     (
         mesh.lookupObject<dictionary>("transportProperties")
-        .lookupOrDefault<scalar>("latentHeat", 
+        .lookupOrDefault<scalar>("latentHeat",
             mesh.lookupObject<dictionary>("thermophysicalProperties")
             .subDict("metal").lookupOrDefault<scalar>("hf", 435e3))
+    ),
+    pressureScale_
+    (
+        mesh.time().controlDict().lookupOrDefault<scalar>("pressureScale", 20000.0)
+    ),
+    recoilMax_
+    (
+        mesh.time().controlDict().lookupOrDefault<scalar>("recoilMax", 5e6)
+    ),
+    recoilUpdateInterval_
+    (
+        mesh.time().controlDict().lookupOrDefault<label>("recoilUpdateInterval", 5)
     ),
     recoilPressure_
     (
@@ -79,15 +91,15 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
 // Initialize recoil pressure field
     recoilPressure_ = dimensionedScalar("zero", dimPressure, 0.0);
 
-    // Constants for recoil pressure model
-    const scalar pressureScale = 20000.0;
-    const scalar recoilMax = 5e6;
+    // Constants for recoil pressure model sourced from dictionaries
+    const scalar pressureScale = pressureScale_;
+    const scalar recoilMax = recoilMax_;
 
     // Access fields only once for efficiency
     const scalarField& TField = T_.primitiveField();
     const scalarField& alpha1Field = alpha1_.primitiveField();
-    const volScalarField& evap = mixture_.phaseChangeSource();
-    const scalarField& evapField = evap.primitiveField();
+    const volScalarField& phaseChange = mixture_.phaseChangeSource();
+    const scalarField& phaseChangeField = phaseChange.primitiveField();
     scalarField& recoilField = recoilPressure_.primitiveFieldRef();
 
     // Compute recoil pressure based on evaporation rate
@@ -102,7 +114,7 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
             alphaDamp = 0.0;
         }
 
-        const scalar pressureValue = pressureScale * max(evapField[cellI], 0.0);
+        const scalar pressureValue = pressureScale * max(phaseChangeField[cellI], 0.0);
         recoilField[cellI] = min(pressureValue * alphaDamp, recoilMax);
     }
     // Ensure boundary conditions are correct
@@ -115,8 +127,8 @@ void Foam::advancedInterfaceCapturing::correct()
     
     // First update the recoil pressure field
     // Only do this every few steps to reduce MPI communication
-    static int callCount = 0;
-    if (callCount++ % 5 == 0) // Only update every 5 steps
+static label callCount = 0;
+    if (recoilUpdateInterval_ <= 1 || callCount++ % recoilUpdateInterval_ == 0)
     {
         calculateRecoilPressure();
     }

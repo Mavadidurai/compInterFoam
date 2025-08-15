@@ -23,28 +23,41 @@
         << "  Mean T: " << meanT << " K" << endl;
     
     // Apply physical bounds to prevent numerical issues
-    const scalar minPhysicalTemp = 250.0;  // K
-    const scalar maxPhysicalTemp = 5000.0; // K (reasonable for LIFT)
-    
+    const dictionary& ctrl = runTime.controlDict();
+    const scalar minPhysicalTemp = ctrl.lookupOrDefault<scalar>("minT", 250.0);
+    const scalar maxPhysicalTemp = ctrl.lookupOrDefault<scalar>("maxT", 5000.0);
+    const Switch enableTClamp = ctrl.lookupOrDefault<Switch>("enableTClamp", true);
+
     label boundedCells = 0;
-    forAll(T, cellI)
+    if (enableTClamp)
     {
-        if (T[cellI] < minPhysicalTemp)
+        forAll(T, cellI)
         {
-            T[cellI] = minPhysicalTemp;
-            boundedCells++;
+            if (T[cellI] < minPhysicalTemp)
+            {
+                T[cellI] = minPhysicalTemp;
+                boundedCells++;
+            }
+            else if (T[cellI] > maxPhysicalTemp)
+            {
+                T[cellI] = maxPhysicalTemp;
+                boundedCells++;
+            }
         }
-        else if (T[cellI] > maxPhysicalTemp)
+
+        if (boundedCells > 0)
         {
-            T[cellI] = maxPhysicalTemp;
-            boundedCells++;
+            reduce(boundedCells, sumOp<label>());
+            Info<< "Bounded " << boundedCells
+                << " temperature values to physical limits ["
+                << minPhysicalTemp << ", " << maxPhysicalTemp << "]" << endl;
         }
     }
-    
-    if (boundedCells > 0)
+    else if (minT < minPhysicalTemp || maxT > maxPhysicalTemp)
     {
-        reduce(boundedCells, sumOp<label>());
-        Info<< "Bounded " << boundedCells << " temperature values to physical limits" << endl;
+        Info<< "Temperature out of bounds: range " << minT << " - " << maxT
+            << " K; allowed range " << minPhysicalTemp << " - "
+            << maxPhysicalTemp << " K" << endl;
     }
     
     // Ensure boundary conditions are properly applied

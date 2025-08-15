@@ -74,10 +74,13 @@ class twoPhaseMixtureThermo
         //- Laser absorption coefficient (1/m)
         scalar absorptionCoeff_;
 
-        //- Melting temperature (K)
+         //- Melting temperature (K)
         scalar T_melt_;
 
-        //- Laser intensity (W/m^2)
+        //- Peak laser intensity (W/m^2)
+        dimensionedScalar peakIntensity_;
+
+        //- Laser heating rate (K/s)
         volScalarField Q_laser_;
 
         //- Phase change source term

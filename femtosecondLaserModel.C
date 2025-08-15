@@ -72,6 +72,10 @@ femtosecondLaserModel::femtosecondLaserModel
     ),
     direction_(dict.get<vector>("direction")),
     focus_(dict.get<point>("focus")),
+    initialFocus_(focus_),
+    scanVelocity_(dict.getOrDefault<vector>("scanVelocity", vector::zero)),
+    pulseFrequency_(dict.getOrDefault<scalar>("pulseFrequency", 0.0)),
+    pulseDutyCycle_(dict.getOrDefault<scalar>("pulseDutyCycle", 1.0)),
     reflectivity_(dict.getOrDefault<scalar>("reflectivity", 0.05)),
     gaussianProfile_(dict.getOrDefault<bool>("gaussianProfile", true)),
     maxReflections_(dict.getOrDefault<label>("maxReflections", 2)),
@@ -123,19 +127,77 @@ femtosecondLaserModel::femtosecondLaserModel
 
 void femtosecondLaserModel::update()
 {
+        // Handle laser scanning by updating the focal point based on
+    // the specified scan velocity.  The initial focus position is
+    // stored separately so that the motion is always measured from
+    // the original location.
+    const Foam::scalar currentTime = mesh_.time().value();
+
+    
+    if (mag(scanVelocity_) > VSMALL)
+    {
+focus_ = initialFocus_ + scanVelocity_ * mesh_.time().value();
+    }
+
+    // Determine if the laser pulse is active at the supplied time.  For a
+    // continuous laser this always evaluates to true inside the time window
+    // [laserStartTime_, laserEndTime_].  For pulsed operation the duty cycle
+    // and repetition frequency are honoured.
+    bool pulseActive = true;
+
+    if (!continuousLaser_)
+    {
+        pulseActive = (currentTime >= laserStartTime_ && currentTime <= laserEndTime_);
+
+        if (pulseActive && pulseFrequency_ > SMALL)
+        {
+            const scalar period = 1.0/pulseFrequency_;
+            const scalar localTime = currentTime - laserStartTime_;
+            const scalar timeInPeriod = std::fmod(localTime, period);
+            pulseActive = (timeInPeriod <= pulseDutyCycle_*period);
+        }
+    }
+
+    if (!pulseActive)
+    {
+        // Ensure the source field exists and set it to zero so downstream
+        // code can safely access it without additional checks.
+        if (!tSource_.valid())
+        {
+            tSource_ = tmp<volScalarField>
+            (
+                new volScalarField
+                (
+                    IOobject
+                    (
+                        "laserSource",
+                        mesh_.time().timeName(),
+                        mesh_,
+                        IOobject::NO_READ,
+                        IOobject::NO_WRITE
+                    ),
+                    mesh_,
+                    dimensionedScalar("zero", dimPower/dimVolume, 0.0)
+                )
+            );
+        }
+        else
+        {
+            tSource_.ref() = dimensionedScalar("zero", dimPower/dimVolume, 0.0);
+        }
+
+        sourceValid_ = true;
+        return;
+    }
     sourceValid_ = false;
 }
-void femtosecondLaserModel::correct(const scalar time)
+void femtosecondLaserModel::correct(const scalar currentTime)
 {
-    // Optional placeholder for time-dependent beam motion/intensity
-    // Future implementations can modify focus_, direction_ or
-    // peakIntensity_ based on the supplied time value.  For now we simply
-    // recompute the source term using the current mesh time information.
-    (void)time;  // suppress unused variable warning
-
+    (void)currentTime;  // suppress unused variable warning
     sourceValid_ = false;
     calculateSource();
 }
+
 bool femtosecondLaserModel::validateParameters() const
 {
     bool valid = true;
@@ -376,16 +438,7 @@ void femtosecondLaserModel::calculateSource() const
                 totalSourceIntegral += source[cellI] * mesh_.V()[cellI];
             }
         }
-        if (cellsInBeam > 0)
-{
-    scalar avgIntensityInBeam = totalSourceIntegral / (cellsInBeam * mesh_.V()[0]);
-    Info<< "🔍 LASER DIAGNOSTICS:" << nl
-        << "  Input peak intensity: " << peakIntensity_.value() << " W/m²" << nl
-        << "  Average intensity in beam: " << avgIntensityInBeam << " W/m³" << nl
-        << "  Absorption coefficient: " << absorptionCoeff_.value() << " 1/m" << nl
-        << "  Spot radius: " << spotSize_.value()/2.0*1e6 << " μm" << nl
-        << "  Beam area: " << 3.14159*sqr(spotSize_.value()/2.0)*1e12 << " μm²" << endl;
-}
+
     }
 
     // Reduce across processors
@@ -393,7 +446,16 @@ void femtosecondLaserModel::calculateSource() const
     reduce(cellsInFilm, sumOp<label>());
     reduce(maxSourceValue, maxOp<scalar>());
     reduce(totalSourceIntegral, sumOp<scalar>());
-
+	    if (cellsInBeam > 0)
+    {
+        scalar avgIntensityInBeam = totalSourceIntegral / (cellsInBeam * mesh_.V()[0]);
+        Info<< "🔍 LASER DIAGNOSTICS:" << nl
+            << "  Input peak intensity: " << peakIntensity_.value() << " W/m²" << nl
+            << "  Average intensity in beam: " << avgIntensityInBeam << " W/m³" << nl
+            << "  Absorption coefficient: " << absorptionCoeff_.value() << " 1/m" << nl
+            << "  Spot radius: " << spotSize_.value()/2.0*1e6 << " μm" << nl
+            << "  Beam area: " << 3.14159*sqr(spotSize_.value()/2.0)*1e12 << " μm²" << endl;
+    }
     sourceValid_ = true;
 
     // Report laser activity

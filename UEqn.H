@@ -6,13 +6,19 @@
 
 Info<< "Solving momentum equation" << endl;
 
+// Solver controls dictionary
+const dictionary& solverControls = mesh.solutionDict().subOrEmptyDict("compInterFoamCoeffs");
+
 // Enhanced constants for better stability
-const scalar maxReasonableVelocity = 250.0;     // m/s
-const scalar defaultTitaniumDensity = 4500.0;   // kg/m³
-const scalar defaultAirDensity = 1.2;           // kg/m³
+const scalar maxReasonableVelocity = solverControls.lookupOrDefault<scalar>(
+    "maxReasonableVelocity", 250.0);
+const scalar defaultMetalDensity = solverControls.lookupOrDefault<scalar>(
+    "defaultMetalDensity", 4500.0);
+const scalar defaultAirDensity = solverControls.lookupOrDefault<scalar>(
+    "defaultAirDensity", 1.2);
 // Dynamic momentum relaxation control
 static scalar relaxU = 0.3;
-const scalar targetResU = mesh.solutionDict().lookupOrDefault<scalar>(
+const scalar targetResU = solverControls.lookupOrDefault<scalar>(
     "targetResU", 0.1);
 
 // Enhanced velocity field validation
@@ -59,14 +65,14 @@ forAll(rho, cellI)
 {
     if (!std::isfinite(rho[cellI]) || rho[cellI] <= 0)
     {
-        // Use material-appropriate default density
-        if (alpha1[cellI] > 0.5)  // Metal region
+        // Use phase-appropriate density based on alpha1
+        if (alpha1[cellI] > 0.5)  // Predominantly phase 1
         {
-            rho[cellI] = defaultTitaniumDensity;
+            rho[cellI] = rho1[cellI];
         }
-        else  // Air region
+        else  // Predominantly phase 2
         {
-            rho[cellI] = defaultAirDensity;
+            rho[cellI] = rho2[cellI];
         }
         corruptedRhoCells++;
     }
@@ -77,8 +83,9 @@ if (corruptedRhoCells > 0)
 {
     Info<< "  Fixed " << corruptedRhoCells << " corrupted density values" << endl;
 }
-// Update thermophysical properties and recoil pressure
+// Update thermophysical properties and phase-change source
 mixture.correct();
+// Refresh interface capturing so recoil pressure uses latest source term
 if (useAdvancedCapturing && pInterfaceCapturing.valid())
 {
     pInterfaceCapturing->correct();
@@ -176,7 +183,7 @@ rAU.correctBoundaryConditions();
 if (pimple.momentumPredictor())
 {
     SolverPerformance<vector> solverPerf = solve(UEqn == -fvc::grad(p_rgh));
-    scalar residual = solverPerf.initialResidual();
+    scalar residual = mag(solverPerf.initialResidual());
     relaxU = max(min(relaxU * targetResU/(residual + SMALL), 0.7), 0.1);
     
     // Post-solve validation
