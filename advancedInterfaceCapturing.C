@@ -76,63 +76,35 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
         return;
     }
     
-    // OPTIMIZED: Pre-calculate temperature range for efficiency
-    const scalar tempRange = vaporTemp_ - meltingTemp_;
-    const scalar tempRangeInv = 1.0 / tempRange;  // Calculate once
-    
-    // Initialize to zero (optimized)
+// Initialize recoil pressure field
     recoilPressure_ = dimensionedScalar("zero", dimPressure, 0.0);
-    
-    // OPTIMIZED: Cache frequently used constants
-    const scalar minTemp = 300.0;
-    const scalar maxTemp_safe = 5000.0;
-    const scalar pressureScale = 20000.0;  // Moved outside loop
-    
-    // OPTIMIZED: Use local reference to avoid repeated access
+
+    // Constants for recoil pressure model
+    const scalar pressureScale = 20000.0;
+    const scalar recoilMax = 5e6;
+
+    // Access fields only once for efficiency
     const scalarField& TField = T_.primitiveField();
     const scalarField& alpha1Field = alpha1_.primitiveField();
+    const volScalarField& evap = mixture_.phaseChangeSource();
+    const scalarField& evapField = evap.primitiveField();
     scalarField& recoilField = recoilPressure_.primitiveFieldRef();
-    
-    // OPTIMIZED: Single loop with cached calculations
+
+    // Compute recoil pressure based on evaporation rate
     forAll(TField, cellI)
     {
-    	if (TField[cellI] < meltingTemp_ - 100.0) continue;
-        const scalar localTemp = TField[cellI];
-        
-        // OPTIMIZED: Skip calculation for cells with low temperature
-        if (localTemp < minTempThreshold)
-            continue;
-        
-        // OPTIMIZED: Apply temperature bounds once
-        const scalar safeT = min(max(localTemp, minTemp), maxTemp_safe);
-        
-        // OPTIMIZED: Use cached tempRangeInv
-        if (safeT > meltingTemp_)
+        if (TField[cellI] < meltingTemp_ - 100.0) continue;
+
+        const scalar alpha = alpha1Field[cellI];
+        scalar alphaDamp = 4.0 * alpha * (1.0 - alpha);
+        if (alpha < 0.01 || alpha > 0.99)
         {
-            const scalar tempRatio = (safeT - meltingTemp_) * tempRangeInv;
-            const scalar pressureFactor = tempRatio * tempRatio * tempRatio * tempRatio;
-            
-            // OPTIMIZED: Use cached pressureScale
-            const scalar pressureValue = pressureScale * pressureFactor;
-            
-            // OPTIMIZED: Enhanced interface influence with cached alpha value
-            const scalar alpha = alpha1Field[cellI];
-            scalar alphaDamp = 4.0 * alpha * (1.0 - alpha);
-            if (alpha < 0.01 || alpha > 0.99)
-            {
-                alphaDamp = 0.0;
-            }
-            
-            recoilField[cellI] = pressureValue * alphaDamp;
-            
-            // OPTIMIZED: Use cached upper limit
-            if (recoilField[cellI] > 5e6)
-            {
-                recoilField[cellI] = 5e6;
-            }
+            alphaDamp = 0.0;
         }
+
+        const scalar pressureValue = pressureScale * max(evapField[cellI], 0.0);
+        recoilField[cellI] = min(pressureValue * alphaDamp, recoilMax);
     }
-    
     // Ensure boundary conditions are correct
     recoilPressure_.correctBoundaryConditions();
 }

@@ -10,7 +10,10 @@ Info<< "Solving momentum equation" << endl;
 const scalar maxReasonableVelocity = 250.0;     // m/s
 const scalar defaultTitaniumDensity = 4500.0;   // kg/m³
 const scalar defaultAirDensity = 1.2;           // kg/m³
-const scalar enhancedMomentumRelaxation = 0.3;  // Conservative relaxation
+// Dynamic momentum relaxation control
+static scalar relaxU = 0.3;
+const scalar targetResU = mesh.solutionDict().lookupOrDefault<scalar>(
+    "targetResU", 0.1);
 
 // Enhanced velocity field validation
 bool hasVelocityIssues = false;
@@ -74,7 +77,12 @@ if (corruptedRhoCells > 0)
 {
     Info<< "  Fixed " << corruptedRhoCells << " corrupted density values" << endl;
 }
-
+// Update thermophysical properties and recoil pressure
+mixture.correct();
+if (useAdvancedCapturing && pInterfaceCapturing.valid())
+{
+    pInterfaceCapturing->correct();
+}
 // Create momentum equation
 fvVectorMatrix UEqn(fvm::ddt(rho, U) + fvm::div(rhoPhi, U));
 
@@ -111,8 +119,8 @@ if (useAdvancedCapturing && pInterfaceCapturing.valid())
     }
 }
 
-// Apply momentum relaxation
-UEqn.relax(enhancedMomentumRelaxation);
+// Apply adaptive momentum relaxation
+UEqn.relax(relaxU);
 
 // Obtain diagonal coefficients and compute reciprocal with clamping
 tmp<volScalarField> tA = UEqn.A();
@@ -167,7 +175,9 @@ rAU.correctBoundaryConditions();
 // Momentum predictor
 if (pimple.momentumPredictor())
 {
-    solve(UEqn == -fvc::grad(p_rgh));
+    SolverPerformance<vector> solverPerf = solve(UEqn == -fvc::grad(p_rgh));
+    scalar residual = solverPerf.initialResidual();
+    relaxU = max(min(relaxU * targetResU/(residual + SMALL), 0.7), 0.1);
     
     // Post-solve validation
     scalar maxVelAfterSolve = 0.0;

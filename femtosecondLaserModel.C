@@ -125,7 +125,17 @@ void femtosecondLaserModel::update()
 {
     sourceValid_ = false;
 }
+void femtosecondLaserModel::correct(const scalar time)
+{
+    // Optional placeholder for time-dependent beam motion/intensity
+    // Future implementations can modify focus_, direction_ or
+    // peakIntensity_ based on the supplied time value.  For now we simply
+    // recompute the source term using the current mesh time information.
+    (void)time;  // suppress unused variable warning
 
+    sourceValid_ = false;
+    calculateSource();
+}
 bool femtosecondLaserModel::validateParameters() const
 {
     bool valid = true;

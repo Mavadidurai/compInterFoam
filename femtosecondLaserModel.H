@@ -131,6 +131,9 @@ public:
                 sourceValid_ = false;
                 calculateSource();
             }
+	            //- Correct the laser model for a given time, allowing
+            //  time-dependent beam motion or intensity modulation
+            virtual void correct(const scalar time);
 
         // Access
 

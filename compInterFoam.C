@@ -104,6 +104,10 @@ int main(int argc, char *argv[])
     }
     // Instantiate PIMPLE control for pressure-velocity coupling
     pimpleControl pimple(mesh);
+    
+    // Energy conservation tolerance from controlDict
+    const scalar energyTol =
+        runTime.controlDict().lookupOrDefault<scalar>("energyTol", 1e-6);
     // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
     Info<< "\nStarting time loop\n" << endl;
@@ -198,33 +202,31 @@ int main(int argc, char *argv[])
                 // Include the standard VOF subcycling
                 #include "alphaEqnSubCycle.H"
             }
-            
-            turbulence.correctPhasePhi();
-            
-            #include "UEqn.H"
-            
-            // Get laser source for two-temperature model
-            volScalarField laserSource
+                        // Update mesh refinement based on interface gradient
+            volScalarField gradAlpha1Mag
             (
                 IOobject
                 (
-                    "laserSource",
+                    "gradAlpha1Mag",
                     runTime.timeName(),
                     mesh,
                     IOobject::NO_READ,
                     IOobject::NO_WRITE
                 ),
-                mesh,
-                dimensionedScalar("zero", dimPower/dimVolume, 0.0)
+                mag(fvc::grad(alpha1))
             );
+
+            mesh.update();
             
-            tmp<volScalarField> tmpSource = laser.source();
-            if (tmpSource.valid())
-            {
-                laserSource = tmpSource();
-            }
-                    
-            // Update two-temperature model
+            turbulence.correctPhasePhi();
+
+            #include "UEqn.H"
+
+            // Update mixture properties including laser heating field
+            mixture.correct();
+
+            volScalarField& laserSource = mixture.Q_laser();
+
             ttm.solve(laserSource);
             
             #include "TEqn.H"
@@ -240,6 +242,29 @@ int main(int argc, char *argv[])
                 turbulence.correct();
             }
         }
+
+        // Compute total energy and monitor conservation
+        dimensionedScalar Etot = fvc::domainIntegrate
+        (
+            rho*mixture.Cp()*T
+          + 0.5*rho*magSqr(U)
+          + rho*mixture.latentHeat()*alpha1
+        );
+
+        static scalar EtotPrev = Etot.value();
+        scalar dE = Etot.value() - EtotPrev;
+        scalar relChange = mag(dE)/max(mag(EtotPrev), VSMALL);
+
+        Info<< "Total energy change: " << dE << " J (" << relChange << ")" << endl;
+
+        if (relChange > energyTol)
+        {
+            WarningInFunction
+                << "Relative energy change " << relChange
+                << " exceeds energyTol (" << energyTol << ")" << endl;
+        }
+
+        EtotPrev = Etot.value();
 
         // Write additional model fields and data
         if (runTime.writeTime())

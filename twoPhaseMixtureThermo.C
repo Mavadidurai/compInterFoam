@@ -138,7 +138,6 @@ void Foam::twoPhaseMixtureThermo::correctThermo()
     thermo2_->correct();
 }
 
-
 void Foam::twoPhaseMixtureThermo::correct()
 {
     psi_ = alpha1()*thermo1_->psi() + alpha2()*thermo2_->psi();
@@ -146,14 +145,10 @@ void Foam::twoPhaseMixtureThermo::correct()
     alpha_ = alpha1()*thermo1_->alpha() + alpha2()*thermo2_->alpha();
 
     interfaceProperties::correct();
-    
-   /* // Update laser heating and phase change source terms
+    // Update laser heating source term to reflect current laser field
     Q_laser_ = computeLaserHeating()();
     phaseChangeSource_ = computePhaseChange()();
-    */
 }
-
-
 
 Foam::word Foam::twoPhaseMixtureThermo::thermoName() const
 {

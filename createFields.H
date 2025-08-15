@@ -271,7 +271,10 @@ IOdictionary transportProperties
         IOobject::NO_WRITE
     )
 );
-
+scalar antiDiffusion
+(
+    transportProperties.lookupOrDefault<scalar>("antiDiffusion", 1.0)
+);
 bool useAdvancedCapturing = 
     runTime.controlDict().lookupOrDefault<bool>("useAdvancedInterfaceCapturing", false);
     

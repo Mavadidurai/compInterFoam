@@ -50,11 +50,12 @@
         fvm::laplacian(rAUf, p_rgh)
     );
     
-    // Set reference and apply fixed under-relaxation
+    // Set reference and apply adaptive under-relaxation
     pEqn.setReference(pRefCell, pRefValue);
-scalar relaxFactor = runTime.controlDict().lookupOrDefault<scalar>("relaxFactor", 0.3);
-pEqn.relax(relaxFactor);
-
+    static scalar relaxP = 0.3;
+    const scalar targetResP = mesh.solutionDict().lookupOrDefault<scalar>(
+        "targetResP", 0.1);
+    pEqn.relax(relaxP);
     
     // Create backup of p_rgh in case solver fails
     volScalarField p_rgh_old(p_rgh);
@@ -65,7 +66,9 @@ pEqn.relax(relaxFactor);
     {
         // Use check on initial residual instead of good()
         SolverPerformance<scalar> solverPerf = pEqn.solve();
-        solveOK = (solverPerf.initialResidual() < 1e3);
+        scalar residual = solverPerf.initialResidual();
+        solveOK = (residual < 1e3);
+        relaxP = max(min(relaxP * targetResP/(residual + SMALL), 0.7), 0.1);
     }
     catch(...)
     {

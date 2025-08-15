@@ -147,7 +147,11 @@ public:
         {
             return Q_laser_;
         }
-
+	        //- Return access to laser heating source
+        volScalarField& Q_laser()
+        {
+            return Q_laser_;
+        }
         //- Return const access to phase change source
         const volScalarField& phaseChangeSource() const
         {
