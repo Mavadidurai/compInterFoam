@@ -1,8 +1,9 @@
 #include "advancedInterfaceCapturing.H"
 #include "fvc.H"
-#include "fvm.H" 
+#include "fvm.H"
 #include "wallFvPatch.H"
 #include "fvPatchField.H"
+#include "DimensionValidator.H"
 
 namespace Foam
 {
@@ -31,12 +32,20 @@ advancedInterfaceCapturing::advancedInterfaceCapturing
         mesh.lookupObject<dictionary>("transportProperties")
         .lookupOrDefault<scalar>("vaporTemperature", 3560.0)
     ),
-    latentHeat_
+        latentHeat_
     (
         mesh.lookupObject<dictionary>("transportProperties")
-        .lookupOrDefault<scalar>("latentHeat",
-            mesh.lookupObject<dictionary>("thermophysicalProperties")
-            .subDict("metal").lookupOrDefault<scalar>("hf", 435e3))
+        .lookupOrDefault<dimensionedScalar>
+        (
+            "latentHeat",
+            dimensionedScalar
+            (
+                "latentHeat",
+                DimensionValidator::dimLatentHeat,
+                mesh.lookupObject<dictionary>("thermophysicalProperties")
+                .subDict("metal").lookupOrDefault<scalar>("hf", 435e3)
+            )
+        )
     ),
     pressureScale_
     (

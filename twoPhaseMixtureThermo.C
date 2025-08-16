@@ -176,9 +176,15 @@ bool Foam::twoPhaseMixtureThermo::incompressible() const
 {
     return thermo1_->incompressible() && thermo2_->incompressible();
 }
-
-             //- Return laser heating source term
-// In twoPhaseMixtureThermo.C
+dimensionedScalar Foam::twoPhaseMixtureThermo::latentHeat() const
+{
+    return dimensionedScalar
+    (
+        "latentHeat",
+        DimensionValidator::dimLatentHeat,
+        latentHeat_
+    );
+}
 
 Foam::tmp<Foam::volScalarField> Foam::twoPhaseMixtureThermo::computeLaserHeating() const
 {
@@ -243,7 +249,7 @@ Foam::tmp<Foam::volScalarField> Foam::twoPhaseMixtureThermo::computePhaseChange(
     // Get local thermodynamic properties with proper dimensions
     const dimensionedScalar Cp("Cp", DimensionValidator::dimSpecificHeat, thermo1_->Cp()()[0]);
     const scalar deltaT = T_.time().deltaTValue();
-    const dimensionedScalar L("L", DimensionValidator::dimLatentHeat, latentHeat_);
+    const dimensionedScalar L = latentHeat();
     
     forAll(T_, cellI)
     {

@@ -124,14 +124,12 @@ public:
         }
 
         rhoThermo& thermo2()
-        {
+       {
             return *thermo2_;
         }
-       //- Return latent heat 
-        scalar latentHeat() const
-        {
-            return latentHeat_;
-        }
+       //- Return latent heat
+        dimensionedScalar latentHeat() const;
+
 
         //- Return absorption coefficient
         scalar absorptionCoeff() const

@@ -256,9 +256,10 @@ int main(int argc, char *argv[])
             rho*mixture.Cp()*T
         );
 
+        const dimensionedScalar L = mixture.latentHeat();
         dimensionedScalar El = fvc::domainIntegrate
         (
-            rho*mixture.latentHeat()*alpha1
+            rho*L*alpha1
         );
 
         dimensionedScalar Etot = Ek + Es + El;

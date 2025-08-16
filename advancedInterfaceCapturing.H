@@ -6,6 +6,7 @@
 #include "fvc.H"
 #include "surfaceFields.H"
 #include "twoPhaseMixtureThermo.H"
+#include "DimensionValidator.H"
 
 namespace Foam
 {
@@ -23,7 +24,7 @@ private:
     // Physical parameters - minimal set
     scalar meltingTemp_;             // Melting temperature
     scalar vaporTemp_;               // Vaporization temperature
-    scalar latentHeat_;              // Latent heat of fusion
+    dimensionedScalar latentHeat_;   // Latent heat of fusion
         // User-configurable recoil pressure parameters
     scalar pressureScale_;           // Scaling factor for evaporation rate
     scalar recoilMax_;               // Maximum allowed recoil pressure
@@ -54,7 +55,15 @@ public:
     const volScalarField& recoilPressure() const { return recoilPressure_; }
     
     // Access functions for validation
-    scalar latentHeat() const { return latentHeat_; }
+    dimensionedScalar latentHeat() const
+    {
+        return dimensionedScalar
+        (
+            "latentHeat",
+            DimensionValidator::dimLatentHeat,
+            latentHeat_
+        );
+    }
     scalar meltingTemperature() const { return meltingTemp_; }
     scalar vaporTemperature() const { return vaporTemp_; }
 
