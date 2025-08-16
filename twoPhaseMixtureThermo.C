@@ -195,34 +195,29 @@ Foam::tmp<Foam::volScalarField> Foam::twoPhaseMixtureThermo::computeLaserHeating
                 IOobject::NO_WRITE
             ),
             T_.mesh(),
-            dimensionedScalar("Q", dimTemperature/dimTime, 0.0)  // Will compute dimensions from calculation
+            dimensionedScalar("Q", dimPower/dimVolume, 0.0)  // Will compute dimensions from calculation
         )
     );
-    
+
     volScalarField& Q = tQ.ref();
     const vectorField& C = T_.mesh().C();
-    
-    // Get local thermodynamic properties
-    const dimensionedScalar Cp("Cp", DimensionValidator::dimSpecificHeat, thermo1_->Cp()()[0]);
-    const dimensionedScalar rho("rho", DimensionValidator::dimDensity, thermo1_->rho()()[0]);
-    
+
 forAll(C, cellI)
     {
         scalar z = C[cellI].z();
-        // Beer-Lambert law: volumetric heating -> temperature rate [K/s]
+        // Beer-Lambert law: volumetric heat source [W/m^3]
         // absorptionCoeff_ [1/m], peakIntensity_ [W/m^2]
-        // rho [kg/m^3], Cp [J/(kg K)]
         Q[cellI] =
-            (absorptionCoeff_ * peakIntensity_.value())
-          /(rho.value() * Cp.value())
+            absorptionCoeff_ * peakIntensity_.value()
           * exp(-absorptionCoeff_ * z);
     }
 
     // Set field dimensions explicitly
-    Q.dimensions().reset(DimensionValidator::dimTemperature/dimTime);
+    Q.dimensions().reset(DimensionValidator::dimHeatSource);
     
     return tQ;
 }
+
 
 Foam::tmp<Foam::volScalarField> Foam::twoPhaseMixtureThermo::computePhaseChange() const
 {

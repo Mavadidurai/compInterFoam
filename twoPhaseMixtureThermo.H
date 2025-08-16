@@ -80,7 +80,7 @@ class twoPhaseMixtureThermo
         //- Peak laser intensity (W/m^2)
         dimensionedScalar peakIntensity_;
 
-        //- Laser heating rate (K/s)
+        //- Laser volumetric heat source (W/m^3)
         volScalarField Q_laser_;
 
         //- Phase change source term
