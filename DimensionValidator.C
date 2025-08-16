@@ -35,7 +35,7 @@ void DimensionValidator::validateTEqnTerms
     checkVolFieldDimensions(rho, dimDensity, "Density");
     checkSurfaceFieldDimensions(phi, dimVelocity*dimArea, "Flux");
     checkVolFieldDimensions(alphaEff, dimThermalCond/(dimDensity*dimSpecificHeat), "Thermal Diffusivity");
-    checkVolFieldDimensions(Q_laser, dimTempRate, "Laser Source");
+    checkVolFieldDimensions(Q_laser, dimHeatSource, "Laser Source");
     checkVolFieldDimensions(phaseChangeSource, dimTempRate, "Phase Change Source");
 
     // Log validation
@@ -52,7 +52,7 @@ void DimensionValidator::validateSourceTerms
 )
 {
     // Check source term dimensions
-    checkVolFieldDimensions(Q_laser, dimTempRate, "Laser Source");
+    checkVolFieldDimensions(Q_laser, dimHeatSource, "Laser Source");
     checkVolFieldDimensions(phaseChangeSource, dimTempRate, "Phase Change Source");
 
     // Check material property dimensions

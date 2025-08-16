@@ -57,7 +57,7 @@ Description
 #include "pimpleControl.H"
 #include "fvOptions.H"
 #include "autoPtr.H"
-#include "dynamicFvMesh.H"
+
 
 #include "fvcSmooth.H"
 #include "twoPhaseMixtureThermo.H"
@@ -84,8 +84,8 @@ int main(int argc, char *argv[])
     #include "addCheckCaseOptions.H"
     #include "setRootCaseLists.H"
     #include "createTime.H"
-   // #include "createMesh.H"
-   // #include "createDynamicFvMesh.H"
+   #include "createMesh.H"
+
     #include "createTimeControls.H"
     #include "createFields.H"
 
@@ -220,8 +220,6 @@ int main(int argc, char *argv[])
                 mag(fvc::grad(alpha1))
             );
 
-            mesh.update();
-            
             turbulence.correctPhasePhi();
 
             #include "UEqn.H"
@@ -277,23 +275,6 @@ int main(int argc, char *argv[])
                 << "Relative energy change " << relChange
                 << " exceeds energyTol (" << energyTol << ")" << endl;
         }
-
-        // Write additional model fields and data
-        if (runTime.writeTime())
-        {
-            laser.write();
-            ttm.write();
-            if (pInterfaceCapturing.valid())
-            {
-                pInterfaceCapturing->write();
-            }
-        }
-
-        runTime.write();
-
-        runTime.printExecutionTime(Info);
-    }
-
         // Write additional model fields and data
         if (runTime.writeTime())
         {

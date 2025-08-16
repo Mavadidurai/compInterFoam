@@ -65,14 +65,30 @@ forAll(rho, cellI)
 {
     if (!std::isfinite(rho[cellI]) || rho[cellI] <= 0)
     {
-        // Use phase-appropriate density based on alpha1
-        if (alpha1[cellI] > 0.5)  // Predominantly phase 1
+       // Use phase-appropriate density based on alpha1
+        if (alpha1[cellI] > 0.5)
         {
-            rho[cellI] = rho1[cellI];
+            // Predominantly phase 1 (metal)
+            if (std::isfinite(rho1[cellI]) && rho1[cellI] > 0)
+            {
+                rho[cellI] = rho1[cellI];
+            }
+            else
+            {
+                rho[cellI] = defaultMetalDensity;
+            }
         }
-        else  // Predominantly phase 2
+        else
         {
-            rho[cellI] = rho2[cellI];
+            // Predominantly phase 2 (air)
+            if (std::isfinite(rho2[cellI]) && rho2[cellI] > 0)
+            {
+                rho[cellI] = rho2[cellI];
+            }
+            else
+            {
+                rho[cellI] = defaultAirDensity;
+            }
         }
         corruptedRhoCells++;
     }

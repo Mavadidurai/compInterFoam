@@ -57,7 +57,7 @@ alphaEqn.H based on official OpenFOAM v2406 pattern
     scalar cnCoeff = 1.0/(1.0 + ocCoeff);
 
     // Standard face-flux compression coefficient
-    surfaceScalarField phic(antiDiffusion*mixture.cAlpha()*mag(phi/mesh.magSf()));
+    surfaceScalarField phic(mixture.cAlpha()*mag(phi/mesh.magSf()));
 
     // Add the optional isotropic compression contribution
     if (icAlpha > 0)
