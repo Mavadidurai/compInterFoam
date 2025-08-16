@@ -16,13 +16,18 @@ FoamFile
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
 // MILLISECOND-SCALE LASER (Instantaneous energy deposition)
-
+laserModel      gaussian;
+energy          1e-6;        // [J]
+pulseDuration   1e-9;        // [s]
+spotRadius      25e-6;       // [m]
+center          (5e-4 0 0);
+absorptionDepth 10e-9;       // [m]
 // Power settings - total energy deposited instantly
-peakIntensity       1e12;           // Lower intensity, longer pulse
-pulseWidth          100e-6;         // 100 microsecond "pulse" 
-wavelength          800e-9;         // Ti:Sapphire wavelength
+peakIntensity       1e8;           // Lower intensity, longer pulse
+pulseWidth          1e-6;         // 100 microsecond "pulse" 
+wavelength          1.03e-6;         // Ti:Sapphire wavelength
 spotSize            5e-6;           // 5 μm spot - same as before
-pulseEnergy         10e-9;          // 10 nJ total energy
+pulseEnergy         1e-6;          // 10 nJ total energy
 
 // Geometry - same as before
 focus               (25e-6 9e-6 5e-6);    
@@ -37,7 +42,7 @@ maxReflections      1;
 // TIMING FOR MILLISECOND SCALE
 continuousLaser     false;          
 laserStartTime      0;              // Start immediately
-laserEndTime        100e-6;         // 100 microsecond pulse
+laserEndTime        2e-6;         // 100 microsecond pulse
 
 // This gives stable, predictable energy deposition over 100 μs
 // Much easier than femtosecond precision!

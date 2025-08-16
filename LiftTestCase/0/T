@@ -25,12 +25,10 @@ boundaryField
     top
     {
         type            zeroGradient;
-        
     }
     bottom
     {
         type            zeroGradient;
-        
     }
     inlet
     {

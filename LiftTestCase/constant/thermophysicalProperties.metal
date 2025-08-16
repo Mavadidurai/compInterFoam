@@ -56,7 +56,7 @@ mixture
 // LIFT-specific properties
 Tsol                1941.0;             // K - Solidus temperature
 Tliq                1941.0;             // K - Liquidus temperature  
-hf                  435e3;              // J/kg - Latent heat of fusion
+hf                  4.35e5;              // J/kg - Latent heat of fusion
 kappa               21.9;               // W/m·K - Thermal conductivity
 
 // ************************************************************************* //

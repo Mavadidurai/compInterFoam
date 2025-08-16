@@ -1,98 +1,107 @@
 /*--------------------------------*- C++ -*----------------------------------*\
 | =========                 |                                                 |
-| \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox           |
-|  \\    /   O peration     | Version:  v2406                                 |
-|   \\  /    A nd           | Website:  www.openfoam.com                      |
+| \\      /  F ield         | OpenFOAM: setFields dictionary                 |
+|  \\    /   O peration     | Detailed init for LIFT test run                |
+|   \\  /    A nd           |                                                 |
 |    \\/     M anipulation  |                                                 |
 \*---------------------------------------------------------------------------*/
+// Only numbers adjusted; no factors/models changed.
+// Update the BOX LIMITS below to match your mesh (in meters).
+// Coordinate convention: X,Z lateral, Y vertical (gravity in -Y).
+
 FoamFile
 {
     version     2.0;
     format      ascii;
     class       dictionary;
-    location    "system";
     object      setFieldsDict;
 }
-// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
-// ✅ REALISTIC LIFT FIELD INITIALIZATION with Substrate
-// ======================================================
-// NEW Geometry Layout:
-// - Substrate: Y = 0-8μm   (Glass substrate - acts as solid boundary)
-// - Metal:     Y = 8-10μm  (Titanium donor film - 2μm thick)  
-// - Air:       Y = 10-20μm (Air gap for ejection)
+// NOTE: No #calc / #codeStream used.
+// Edit the numeric values below to match your case if needed.
+
+// --- Domain sizes (must match blockMesh) ---
+/* Lateral extents: */  // X and Z
+// Lx = 4.0e-5 m (40 µm)
+// Lz = 4.0e-5 m (40 µm)
+
+// --- Layering along Y ---
+/* substrate: y in [0.0,      8.0e-6]  m */
+/* metal:     y in [8.0e-6,   1.0e-5]  m */
+/* air:       y in [1.0e-5,   2.0e-5]  m */
+
+// --- Initial conditions ---
+/* Temperatures: */  // K
+// T0 = 300; Te0 = 300; Tl0 = 300;
+/* Velocity: */     // m/s
+// U0 = (0 0 0);
+/* Pressure: */
+// p_rgh0 = 0;
+
+// --- Phase fractions ---
+/* alpha.metal in metal layer = 1, elsewhere 0 */
 
 defaultFieldValues
 (
-    // ✅ DEFAULT: Air everywhere initially
-    volScalarFieldValue alpha.metal 0      // No metal by default
-    volScalarFieldValue alpha.air 1        // Air everywhere by default
-    volScalarFieldValue T 300              // Room temperature
-    volScalarFieldValue Te 300             // Electron temperature at equilibrium
-    volScalarFieldValue Tl 300             // Lattice temperature at equilibrium
-    
-    // ✅ NEW: Initialize velocities and pressure
-    volVectorFieldValue U (0 0 0)          // Zero initial velocity
-    volScalarFieldValue p_rgh 0            // Zero relative pressure
+    volScalarFieldValue T         300
+    volScalarFieldValue Te        300
+    volScalarFieldValue Tl        300
+    volVectorFieldValue U         (0 0 0)
+    volScalarFieldValue p_rgh     0
+
+    // default to air everywhere; regions below will overwrite
+    volScalarFieldValue alpha.metal 0
+    volScalarFieldValue alpha.air   1
 );
 
+// Regions (explicit numeric boxes)
 regions
 (
-    // ✅ REGION 1: SUBSTRATE (Y = 0-8μm)
-    // ==================================
-    // Substrate acts as a constrained boundary with thermal mass
-    // Uses mixed phase approach to simulate solid behavior
+    // Substrate: y in [0, 8 µm]
     boxToCell
     {
-        box (0 0 0) (50e-6 8e-6 10e-6);        // Bottom 8μm = substrate
+        box (0       0.0       0)
+            (5.0e-05 8.0e-06   1.0e-05);
         fieldValues
         (
-            volScalarFieldValue alpha.metal 0.01    // Tiny metal fraction (substrate boundary)
-            volScalarFieldValue alpha.air 0.99      // Mostly air (but constrained)
-            volScalarFieldValue T 300               // Substrate at room temperature
-            volScalarFieldValue Te 300              // No electron heating in substrate
-            volScalarFieldValue Tl 300              // Substrate lattice temperature
-            volVectorFieldValue U (0 0 0)           // Zero velocity (solid-like)
+            volScalarFieldValue alpha.metal 0
+            volScalarFieldValue alpha.air   1
+            volScalarFieldValue T           300
+            volScalarFieldValue Te          300
+            volScalarFieldValue Tl          300
         );
     }
-    
-    // ✅ REGION 2: METAL DONOR FILM (Y = 8-10μm) 
-    // ===========================================
-    // Titanium film - the core LIFT material
+
+    // Metal thin film: y in [8 µm, 10 µm]
     boxToCell
     {
-        box (0 8e-6 0) (50e-6 10e-6 10e-6);       // 2μm thick metal film
+        box (0       8.0e-06   0)
+            (5.0e-05 1.0e-05   1.0e-05);
         fieldValues
         (
-            volScalarFieldValue alpha.metal 1       // Pure metal phase
-            volScalarFieldValue alpha.air 0         // No air in metal
-            volScalarFieldValue T 300               // Metal at room temperature initially
-            volScalarFieldValue Te 300              // Electron temp at equilibrium
-            volScalarFieldValue Tl 300              // Lattice temp at equilibrium
-            volVectorFieldValue U (0 0 0)           // Zero initial velocity
+            volScalarFieldValue alpha.metal 1
+            volScalarFieldValue alpha.air   0
+            volScalarFieldValue T           300
+            volScalarFieldValue Te          300
+            volScalarFieldValue Tl          300
         );
     }
-    
-    // ✅ REGION 3: AIR GAP (Y = 10-20μm)
-    // ===================================
-    // Air space for droplet ejection and collection
-    // Uses default values (already set above)
-    // No explicit region needed - covered by defaults
-    
-    // ✅ OPTIONAL: LASER FOCAL ZONE MARKER
-    // ====================================
-    // Mark the laser focal region for visualization/debugging
+
+    // Air: y in [10 µm, 20 µm]
     boxToCell
     {
-        box (20e-6 8.5e-6 4e-6) (30e-6 9.5e-6 6e-6);  // Small region at laser focus
+        box (0       1.0e-05   0)
+            (5.0e-05 2.0e-05   1.0e-05);
         fieldValues
         (
-            // Keep material properties but mark with slightly different temperature
-            volScalarFieldValue T 301               // 1K higher for identification
+            volScalarFieldValue alpha.metal 0
+            volScalarFieldValue alpha.air   1
+            volScalarFieldValue T           300
+            volScalarFieldValue Te          300
+            volScalarFieldValue Tl          300
         );
     }
 );
-
 // ************************************************************************* //
 //
 // ✅ REALISTIC LIFT PHYSICS SETUP:

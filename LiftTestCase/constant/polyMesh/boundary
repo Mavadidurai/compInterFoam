@@ -10,43 +10,56 @@ FoamFile
     version     2.0;
     format      ascii;
     arch        "LSB;label=32;scalar=64";
-    class       volVectorField;
-    location    "0";
-    object      U;
+    class       polyBoundaryMesh;
+    location    "constant/polyMesh";
+    object      boundary;
 }
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
-dimensions      [0 1 -1 0 0 0 0];
-
-internalField   uniform (0 0 0);
-
-boundaryField
-{
+6
+(
     top
     {
-        type            noSlip;
+        type            wall;
+        inGroups        1(wall);
+        nFaces          500;
+        startFace       14050;
     }
     bottom
     {
-        type            noSlip;
+        type            wall;
+        inGroups        1(wall);
+        nFaces          500;
+        startFace       14550;
     }
     inlet
     {
-        type            noSlip;
+        type            wall;
+        inGroups        1(wall);
+        nFaces          200;
+        startFace       15050;
     }
     outlet
     {
-        type            noSlip;
+        type            wall;
+        inGroups        1(wall);
+        nFaces          200;
+        startFace       15250;
     }
     front
     {
-        type            noSlip;
+        type            wall;
+        inGroups        1(wall);
+        nFaces          250;
+        startFace       15450;
     }
     back
     {
-        type            noSlip;
+        type            wall;
+        inGroups        1(wall);
+        nFaces          250;
+        startFace       15700;
     }
-}
-
+)
 
 // ************************************************************************* //

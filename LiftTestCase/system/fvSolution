@@ -109,16 +109,16 @@ relaxationFactors
 {
     fields
     {
-        p_rgh           0.3;            
+        p_rgh           0.5;            
         "alpha.*"       0.5;            
     }
     equations
     {
-        U               0.7;            // More aggressive - stable at this scale
+        U               0.3;            // More aggressive - stable at this scale
         UFinal          1.0;            
-        T               0.7;            
+        T               0.5;            
         Te              0.5;            // Still conservative for electron temp
-        Tl              0.7;            
+        Tl              0.5;            
         
         ".*Final"       1.0;            
     }

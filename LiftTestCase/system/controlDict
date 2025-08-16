@@ -19,13 +19,13 @@ application     compInterFoam;
 startFrom       startTime;          
 startTime       0;
 stopAt          endTime;
-endTime         10e-3;              // 10 milliseconds - see full droplet flight!
+endTime         2e-4;              // 10 milliseconds - see full droplet flight!
 
-deltaT          1e-5;               // 10 microseconds - rock solid timestep
-adjustTimeStep  no;                 
+deltaT          1e-7;               // 10 microseconds - rock solid timestep
+adjustTimeStep  yes;                 
 
 writeControl    adjustableRunTime;
-writeInterval   1e-4;               // Write every 100 microseconds (100 frames)
+writeInterval   2e-5;               // Write every 100 microseconds (100 frames)
 purgeWrite      0;                  
 writeFormat     ascii;
 writePrecision  6;                  // Normal precision
@@ -34,8 +34,8 @@ timeFormat      general;
 timePrecision   6;                  
 runTimeModifiable true;
 
-maxCo           0.5;                // Standard values
-maxAlphaCo      0.2;               
+maxCo           0.30;                // Standard values
+maxAlphaCo      0.20;               
 maxDeltaT       5e-5;               // Max 50 microseconds
 
 useAdvancedInterfaceCapturing true;   
@@ -50,4 +50,13 @@ twoTemperatureProperties
 
 relaxFactor     0.3;                // Conservative relaxation
 
-functions {}    // No special functions needed
+functions
+{
+    QlaserWrite
+    {
+        type            writeObjects;
+        libs            ("libutilityFunctionObjects.so");
+        objects         (Q_laser);
+    }
+}
+
