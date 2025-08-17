@@ -1,7 +1,7 @@
 /*--------------------------------*- C++ -*----------------------------------*\
 | =========                 |                                                 |
 | \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox           |
-|  \\    /   O peration     | Version:  2406                                  |
+|  \\    /   O peration     | Version:  v2406                                  |
 |   \\  /    A nd           | Website:  www.openfoam.com                      |
 |    \\/     M anipulation  |                                                 |
 \*---------------------------------------------------------------------------*/
@@ -24,14 +24,13 @@ boundaryField
 {
     top
     {
-        type            zeroGradient;
-        
+        type        zeroGradient;   
     }
     bottom
     {
-        type            zeroGradient;
-        
+        type        zeroGradient;   // or fixedValue 300 if you want a heat sink
     }
+
     inlet
     {
         type            zeroGradient;

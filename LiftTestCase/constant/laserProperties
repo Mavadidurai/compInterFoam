@@ -15,36 +15,43 @@ FoamFile
 }
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
-// MILLISECOND-SCALE LASER (Instantaneous energy deposition)
+
+// Gaussian pulse focused in the 2 µm metal film (y=8–10 µm)
+// Domain: x∈[0,50e-6], y∈[0,20e-6], z∈[0,10e-6]
+
 laserModel      gaussian;
-energy          1e-6;        // [J]
-pulseDuration   1e-9;        // [s]
-spotRadius      25e-6;       // [m]
-center          (5e-4 0 0);
-absorptionDepth 10e-9;       // [m]
-// Power settings - total energy deposited instantly
-peakIntensity       1e8;           // Lower intensity, longer pulse
-pulseWidth          1e-6;         // 100 microsecond "pulse" 
-wavelength          1.03e-6;         // Ti:Sapphire wavelength
-spotSize            5e-6;           // 5 μm spot - same as before
-pulseEnergy         1e-6;          // 10 nJ total energy
 
-// Geometry - same as before
-focus               (25e-6 9e-6 5e-6);    
-direction           (0 1 0);              
+// --- Energy & timing (choose microsecond pulse as you indicated) ---
+pulseEnergy     1e-6;         // [J] total energy
+energy          1e-6;         // [J] keep equal if both are read by the model
 
-// Material interaction - same physics
-absorptionCoeff     5e7;            
-reflectivity        0.3;            
-gaussianProfile     true;           
-maxReflections      1;              
+pulseWidth      1e-6;         // [s] 1 µs pulse width
+pulseDuration   1e-6;         // [s] keep equal to avoid conflicts
+laserStartTime  0;            // [s]
+laserEndTime    1e-6;         // [s] = start + pulseWidth
 
-// TIMING FOR MILLISECOND SCALE
-continuousLaser     false;          
-laserStartTime      0;              // Start immediately
-laserEndTime        2e-6;         // 100 microsecond pulse
+// --- Spatial Gaussian (match the box center and film depth) ---
+spotRadius      5e-6;         // [m] beam radius (5 µm)
+spotSize        5e-6;         // [m] keep consistent if the code uses this name
 
-// This gives stable, predictable energy deposition over 100 μs
-// Much easier than femtosecond precision!
+// Put the beam center inside the domain (mid x,z; inside metal at y≈9 µm)
+center          (25e-6 9e-6 5e-6);
+focus           (25e-6 9e-6 5e-6);
+direction       (0 1 0);
 
+// --- Wavelength / interaction ---
+wavelength          1.03e-6;  // [m]
+
+// Absorption: make depth consistent with coefficient (~20 nm)
+absorptionCoeff     5e7;      // [1/m]
+absorptionDepth     20e-9;    // [m] (≈1/absorptionCoeff)
+
+// Reflectivity / profile
+reflectivity        0.3;
+gaussianProfile     true;
+maxReflections      1;
+
+// Optional intensity entry (keep but consistent with chosen pulse width)
+peakIntensity       1e8;      // [W/m^2] (not strictly needed if model uses energy)
+continuousLaser     false;
 // ************************************************************************* //

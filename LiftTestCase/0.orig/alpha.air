@@ -9,7 +9,9 @@ FoamFile
 {
     version     2.0;
     format      ascii;
+    arch        "LSB;label=32;scalar=64";
     class       volScalarField;
+    location    "0";
     object      alpha.air;
 }
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
@@ -22,33 +24,27 @@ boundaryField
 {
     top
     {
-        type            zeroGradient;
+        type        zeroGradient;
     }
-    
     bottom
     {
-        type            zeroGradient;
+        type        zeroGradient;
     }
-    
     inlet
     {
         type            zeroGradient;
     }
-    
     outlet
     {
         type            zeroGradient;
     }
-    
     front
     {
         type            zeroGradient;
     }
-    
     back
     {
         type            zeroGradient;
     }
 }
-
 // ************************************************************************* //

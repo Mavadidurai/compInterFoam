@@ -9,14 +9,16 @@ FoamFile
 {
     version     2.0;
     format      ascii;
+    arch        "LSB;label=32;scalar=64";
     class       volScalarField;
+    location    "0";
     object      p;
 }
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
 dimensions      [1 -1 -2 0 0 0 0];
 
-internalField   uniform 0;      // ✅ FIXED: Start with zero relative pressure
+internalField   uniform 1e5;      // ✅ FIXED: Start with zero relative pressure
 
 boundaryField
 {

@@ -19,19 +19,47 @@ application     compInterFoam;
 
 startFrom       startTime;
 startTime       0;
-stopAt          endTime;
-endTime         5e-6;             // simulate through flight & impact (microseconds)
 
-deltaT          5e-15;            // fs-scale start (two-temperature onset)
+stopAt          endTime;
+endTime         2e-3;          // cover flight/impact; tighten if you only want ultrafast stage
+
+// Initial tiny Δt to resolve pulse front (≈ pulseWidth/50)
+deltaT          1e-13;
+
 adjustTimeStep  yes;
 maxCo           0.2;
-maxAlphaCo      0.1;
-maxDeltaT       2e-8;             // cap growth as you move into ns regime
+maxAlphaCo      0.2;
+maxDeltaT       1e-7;
 
-// PIMPLE outer-loop cadence
-writeControl    timeStep;
-writeInterval   200;              // write sparsely at fs; see additional outputs below
+writeControl    runTime;
+writeInterval   1e-11;         // dense output around the pulse; you can relax later
 purgeWrite      0;
+
+writeFormat     ascii;
+writePrecision  10;
+writeCompression off;
+timeFormat      general;
+timePrecision   12;
+
+runTimeModifiable yes;
+
+// ——— solver-specific switches your code actually reads ———
+useAdvancedInterfaceCapturing  true;      // createFields.H -> constructs advancedInterfaceCapturing
+enableTClamp                   true;      // TEqn.H: clamp T into [minT,maxT]
+minT                           250;
+maxT                           5000;
+
+// pEqn.H safety bounds on rAUf
+minRAUf                        1e-10;
+maxRAUf                        1e6;
+
+// Two-temperature model parameters (createFields.H passes this subDict to TTM)
+twoTemperatureProperties
+{
+    Ce  2.0e6;      // J/m3/K
+    Cl  3.0e6;      // J/m3/K
+    G   2.0e16;     // W/m3/K
+}
 
 functions
 {
@@ -60,27 +88,33 @@ functions
         writeInterval   10;
     }
 
+
+
+    CourantNo
+    {
+        type            CourantNo;
+        libs            ("libutilityFunctionObjects.so");
+        writeControl    timeStep;
+        writeInterval   1;
+    }
+
+    fieldMinMax_T
+    {
+        type            fieldMinMax;
+        libs            ("libfieldFunctionObjects.so");
+        writeControl    timeStep;
+        writeInterval   1;
+        fields (T);
+    }
+
+    fieldMinMax_alpha
+    {
+        type            fieldMinMax;
+        libs            ("libfieldFunctionObjects.so");
+        writeControl    timeStep;
+        writeInterval   1;
+        fields (alpha.metal);
+    }
+
+
 }
-
-// Solver-specific runtime switches used inside your code paths
-enableTClamp             true;     // TEqn.H
-minT                     250;      // TEqn.H
-maxT                     5000;     // TEqn.H
-pressureClamp            true;     // pEqn.H
-minPressure              1e3;      // pEqn.H
-maxPressure              1e6;      // pEqn.H
-
-useAdvancedInterfaceCapturing  true;      // createFields.H
-enableTClamp                   true;      // TEqn.H
-minT                           250;       // TEqn.H
-maxT                           5000;      // TEqn.H
-minRAUf                        1e-10;     // pEqn.H (reads from controlDict)
-maxRAUf                        1e6;       // pEqn.H (reads from controlDict)
-
-twoTemperatureProperties       // createFields.H passes this dict to twoTemperatureModel
-{
-    Ce  2.0e6;
-    Cl  3.0e6;
-    G   2.0e16;
-}
-

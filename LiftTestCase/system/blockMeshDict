@@ -1,7 +1,7 @@
 /*--------------------------------*- C++ -*----------------------------------*\
 | =========                 |                                                 |
 | \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox           |
-|  \\    /   O peration     | Version:  v2106                                 |
+|  \\    /   O peration     | Version:  v2406                                 |
 |   \\  /    A nd           | Website:  www.openfoam.com                      |
 |    \\/     M anipulation  |                                                 |
 \*---------------------------------------------------------------------------*/
@@ -14,134 +14,64 @@ FoamFile
 }
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
-// ✅ REALISTIC LIFT GEOMETRY with substrate
-// ==========================================
-// Domain: 50μm × 20μm × 10μm (SAME total size)
-// NEW Layout:
-// - Substrate: Y = 0-8μm   (8μm thick glass substrate)
-// - Metal:     Y = 8-10μm  (2μm thick metal film) 
-// - Air:       Y = 10-20μm (10μm air gap for ejection)
-//
-// Cell distribution optimized for LIFT physics:
-// - Substrate: 8 cells (1μm/cell) - adequate for heat conduction
-// - Metal:     2 cells (1μm/cell) - fine resolution for thin film
-// - Air:       10 cells (1μm/cell) - adequate for ejection tracking
-// 
-// Total: 25×20×10 = 5,000 cells (UNCHANGED computational load)
-
-convertToMeters 1e-6; // Convert to micrometers
+convertToMeters 1e-6; // coordinates in micrometers
 
 vertices
 (
-    (0    0   0)    // 0 - Bottom substrate corner
-    (50   0   0)    // 1  
-    (50  20   0)    // 2 - Top corner
-    (0   20   0)    // 3
-    (0    0  10)    // 4 - Bottom substrate corner (Z=10)
-    (50   0  10)    // 5
-    (50  20  10)    // 6 - Top corner (Z=10)
-    (0   20  10)    // 7
+    (0   0   0)   // 0
+    (50  0   0)   // 1
+    (50  20  0)   // 2
+    (0   20  0)   // 3
+    (0   0   10)  // 4
+    (50  0   10)  // 5
+    (50  20  10)  // 6
+    (0   20  10)  // 7
 );
 
 blocks
 (
-    // ✅ SINGLE BLOCK - Same as before but different material assignment
     hex (0 1 2 3 4 5 6 7) (25 20 10) simpleGrading (1 1 1)
-    
-    // Cell distribution breakdown:
-    // X: 25 cells × 2μm = 50μm width
-    // Y: 20 cells × 1μm = 20μm height  
-    //    - Cells 0-7:   Substrate (Y = 0-8μm)
-    //    - Cells 8-9:   Metal film (Y = 8-10μm)  
-    //    - Cells 10-19: Air gap (Y = 10-20μm)
-    // Z: 10 cells × 1μm = 10μm depth
-    //
-    // Total: 5,000 cells (SAME as before)
+    // Y-layering intent:
+    // 0–8 μm  : substrate (8 cells)
+    // 8–10 μm : metal film (2 cells)
+    // 10–20 μm: air gap (10 cells)
 );
 
-edges
-(
-);
+edges ();
 
 boundary
 (
     top
     {
         type wall;
-        faces
-        (
-            (4 7 6 5)
-        );
+        faces ((4 5 6 7));         // standard top ordering
     }
-    
-    // ✅ SUBSTRATE BOTTOM - Heat sink boundary
-    bottom  
+    bottom
     {
         type wall;
-        faces
-        (
-            (0 3 2 1)
-        );
+        faces ((0 1 2 3));         // standard bottom ordering
     }
-    
     inlet
     {
         type wall;
-        faces
-        (
-            (0 4 7 3)
-        );
+        faces ((0 3 7 4));         // x=0 plane (standard ordering)
     }
-    
     outlet
     {
         type wall;
-        faces
-        (
-            (1 2 6 5) 
-        );
+        faces ((1 2 6 5));         // x=50 μm plane
     }
-    
     front
     {
-        type wall; 
-        faces
-        (
-            (0 1 5 4)
-        );
+        type wall;
+        faces ((0 1 5 4));         // z=0 plane
     }
-    
     back
     {
         type wall;
-        faces
-        (
-            (3 7 6 2)
-        );
+        faces ((3 2 6 7));         // z=10 μm plane (standard ordering)
     }
 );
 
-mergePatchPairs
-(
-);
-
-// ************************************************************************* //
-// 
-// ✅ KEY IMPROVEMENTS:
-// ====================
-// 1. SAME 5,000 cells - no computational overhead
-// 2. Renamed bottom boundary to "substrate_bottom" for clarity
-// 3. Comments indicate material regions within single block
-// 4. Realistic LIFT layer thicknesses:
-//    - 8μm substrate (typical glass thickness)
-//    - 2μm metal film (realistic donor film)
-//    - 10μm air gap (sufficient for ejection)
-// 
-// ✅ MATERIAL ASSIGNMENT will be handled in setFieldsDict:
-// - Y = 0-8μm:   Substrate material
-// - Y = 8-10μm:  Metal material  
-// - Y = 10-20μm: Air material
-//
-// This gives you PROPER LIFT physics without computational penalty!
-
+mergePatchPairs ();
 // ************************************************************************* //
