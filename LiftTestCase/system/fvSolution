@@ -130,6 +130,7 @@ compInterFoamCoeffs
     maxReasonableVelocity  250;     // UEqn.H
     defaultMetalDensity    4500;    // UEqn.H (fallback if rho1 invalid)
     defaultAirDensity      1.2;     // UEqn.H (fallback if rho2 invalid)
+    maxVelocity            1000;    // UEqn.H velocity limiter
     targetResU             0.1;     // UEqn.H adaptive relaxation driver
 }
 

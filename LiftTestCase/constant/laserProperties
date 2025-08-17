@@ -14,7 +14,24 @@ FoamFile
     object      laserProperties;
 }
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
-
+// Accepted keys for femtosecondLaserModel:
+//   peakIntensity       [W/m^2]
+//   pulseWidth          [s]
+//   wavelength          [m]
+//   absorptionCoeff     [1/m]
+//   spotSize            [m]
+//   pulseEnergy         [J]
+//   direction           (vector)
+//   focus               (point)
+//   scanVelocity        (vector, optional)
+//   pulseFrequency      [1/s, optional]
+//   pulseDutyCycle      [-, optional]
+//   reflectivity        [-]
+//   gaussianProfile     [bool]
+//   maxReflections      [label]
+//   continuousLaser     [bool]
+//   laserStartTime      [s]
+//   laserEndTime        [s]
 
 // Gaussian pulse focused in the 2 µm metal film (y=8–10 µm)
 // Domain: x∈[0,50e-6], y∈[0,20e-6], z∈[0,10e-6]

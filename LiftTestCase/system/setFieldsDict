@@ -55,15 +55,15 @@ defaultFieldValues
 // Regions (explicit numeric boxes)
 regions
 (
-    // Substrate: y in [0, 8 µm]
+    // Heat sink:  y in [0, 8 µm]
     boxToCell
     {
         box (0       0.0       0)
             (5.0e-05 8.0e-06   1.0e-05);
         fieldValues
         (
-            volScalarFieldValue alpha.metal 0
-            volScalarFieldValue alpha.air   1
+            volScalarFieldValue alpha.metal 1
+            volScalarFieldValue alpha.air   0
             volScalarFieldValue T           300
 
         );
@@ -102,11 +102,11 @@ regions
 // ✅ REALISTIC LIFT PHYSICS SETUP:
 // =================================
 //
-// 1. SUBSTRATE (Y = 0-8μm):
+// 1. HEATSINK (Y = 0-8μm):
+//    - Solid substrate (alpha.metal = 1)
 //    - Acts as thermal boundary and mechanical constraint
 //    - Provides heat sink effect
 //    - Prevents downward expansion of metal
-//    - Mixed phase (0.01 metal) simulates solid boundary behavior
 //
 // 2. METAL FILM (Y = 8-10μm):
 //    - Pure titanium donor material
