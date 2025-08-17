@@ -150,9 +150,7 @@ UEqn.relax(relaxU);
 // Obtain diagonal coefficients and compute reciprocal with optional clamping
 tmp<volScalarField> tA = UEqn.A();
 
-// Runtime clamp controls
-const dictionary& solverControls = mesh.solutionDict().subOrEmptyDict
-("compInterFoamCoeffs");
+
 const dictionary& ctrl = runTime.controlDict();
 
 const Switch enableRAUClamp = solverControls.lookupOrDefault<Switch>

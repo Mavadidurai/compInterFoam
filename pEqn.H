@@ -179,14 +179,61 @@
         1e3
     );
 
-    // Apply pressure limits only when enabled
+   // Apply pressure limits only when enabled and count clamped cells
+    label minPressureCount = 0;
+    label maxPressureCount = 0;
     if (pressureClamp)
     {
         dimensionedScalar maxP("maxP", dimPressure, maxPressure);
         dimensionedScalar minP("minP", dimPressure, minPressure);
-        p_rgh = max(min(p_rgh, maxP), minP);
+
+        scalar maxPVal = maxP.value();
+        scalar minPVal = minP.value();
+
+        // Internal field
+        scalarField& pRghIn = p_rgh.primitiveFieldRef();
+        forAll(pRghIn, cellI)
+        {
+            if (pRghIn[cellI] < minPVal)
+            {
+                pRghIn[cellI] = minPVal;
+                minPressureCount++;
+            }
+            else if (pRghIn[cellI] > maxPVal)
+            {
+                pRghIn[cellI] = maxPVal;
+                maxPressureCount++;
+            }
+        }
+
+        // Boundary fields
+        forAll(p_rgh.boundaryField(), patchI)
+        {
+            fvPatchScalarField& pPatch = p_rgh.boundaryFieldRef()[patchI];
+            forAll(pPatch, faceI)
+            {
+                if (pPatch[faceI] < minPVal)
+                {
+                    pPatch[faceI] = minPVal;
+                    minPressureCount++;
+                }
+                else if (pPatch[faceI] > maxPVal)
+                {
+                    pPatch[faceI] = maxPVal;
+                    maxPressureCount++;
+                }
+            }
+        }
+
+        reduce(minPressureCount, sumOp<label>());
+        reduce(maxPressureCount, sumOp<label>());
+
+        Info<< "Pressure clamping stats: " << minPressureCount
+            << " cells to minPressure (" << minPressure << "), "
+            << maxPressureCount << " cells to maxPressure (" << maxPressure
+            << ")" << endl;
     }
-    
+
     // Update pressure field
     p = p_rgh + rho*gh;
     
@@ -196,12 +243,75 @@
     
     // Update density
     rho = alpha1*rho1 + alpha2*rho2;
-    
-    // Apply limits to density for safety
-    dimensionedScalar minRho("minRho", dimDensity, 1.0);
-    dimensionedScalar maxRho("maxRho", dimDensity, 10000.0);
-    rho = max(min(rho, maxRho), minRho);
-    
+
+    // Apply limits to density for safety and make bounds configurable
+    const bool densityClamp = runTime.controlDict().lookupOrDefault<bool>
+    (
+        "densityClamp",
+        true
+    );
+
+    const scalar maxDensity = runTime.controlDict().lookupOrDefault<scalar>
+    (
+        "maxDensity",
+        10000.0
+    );
+
+    const scalar minDensity = runTime.controlDict().lookupOrDefault<scalar>
+    (
+        "minDensity",
+        1.0
+    );
+
+    label minRhoCount = 0;
+    label maxRhoCount = 0;
+
+    if (densityClamp)
+    {
+        // Internal field
+        scalarField& rhoIn = rho.primitiveFieldRef();
+        forAll(rhoIn, cellI)
+        {
+            if (rhoIn[cellI] < minDensity)
+            {
+                rhoIn[cellI] = minDensity;
+                minRhoCount++;
+            }
+            else if (rhoIn[cellI] > maxDensity)
+            {
+                rhoIn[cellI] = maxDensity;
+                maxRhoCount++;
+            }
+        }
+
+        // Boundary fields
+        forAll(rho.boundaryField(), patchI)
+        {
+            fvPatchScalarField& rhoPatch = rho.boundaryFieldRef()[patchI];
+            forAll(rhoPatch, faceI)
+            {
+                if (rhoPatch[faceI] < minDensity)
+                {
+                    rhoPatch[faceI] = minDensity;
+                    minRhoCount++;
+                }
+                else if (rhoPatch[faceI] > maxDensity)
+                {
+                    rhoPatch[faceI] = maxDensity;
+                    maxRhoCount++;
+                }
+            }
+        }
+
+        reduce(minRhoCount, sumOp<label>());
+        reduce(maxRhoCount, sumOp<label>());
+
+        Info<< "Density clamping stats: " << minRhoCount
+            << " cells to minDensity (" << minDensity << "), "
+            << maxRhoCount << " cells to maxDensity (" << maxDensity
+            << ")" << endl;
+    }
+
     // Update kinetic energy
     K = 0.5*magSqr(U);
     

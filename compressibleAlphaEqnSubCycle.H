@@ -5,22 +5,24 @@ if (pInterfaceCapturing.valid())
     // perform advanced interface capturing only if the object exists
     pInterfaceCapturing->correct();
 
-    // Store the alphaPhi10 flux for further calculations
-    tmp<surfaceScalarField> talphaPhi1(alphaPhi10);
-    const surfaceScalarField& alphaPhi1 = talphaPhi1();
+    // Ensure alpha1 field is bounded between 0 and 1
+    alpha1 = max(min(alpha1, scalar(1)), scalar(0));
+    alpha1.correctBoundaryConditions();
 
-    // Update density field based on new alpha1 distribution
+    // Update the complementary phase fraction
+    alpha2 = scalar(1) - alpha1;
+    alpha2.correctBoundaryConditions();
+
+    // Recompute density and fluxes based on bounded alpha values
+    alphaPhi10 = fvc::interpolate(alpha1)*phi;
     rho = alpha1*rho1 + alpha2*rho2;
+    rhoPhi = alphaPhi10*fvc::interpolate(rho1) + (phi - alphaPhi10)*fvc::interpolate(rho2);
 
     // Calculate continuity error for momentum equation
     volScalarField::Internal contErr
     (
         (fvc::ddt(rho) + fvc::div(rhoPhi))()
     );
-
-    // Ensure alpha1 field is bounded between 0 and 1
-    alpha1 = max(min(alpha1, scalar(1)), scalar(0));
-    alpha1.correctBoundaryConditions();
 
     // Check for phase fraction correctness
     Info<< "Phase-1 volume fraction = "
@@ -97,9 +99,7 @@ else
     }
     
     rho = alpha1*rho1 + alpha2*rho2;
-    
-    //const surfaceScalarField& alphaPhi1 = talphaPhi1();
-    
+        
     volScalarField::Internal contErr
     (
         (fvc::ddt(rho) + fvc::div(rhoPhi))()
