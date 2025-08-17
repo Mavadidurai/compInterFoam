@@ -195,18 +195,10 @@ int main(int argc, char *argv[])
         // --- Pressure-velocity PIMPLE corrector loop
         while (pimple.loop())
         {
-            // Check if using advanced or standard interface capturing
-            static int icUpdateCounter = 0;
-            if (useAdvancedCapturing && pInterfaceCapturing.valid() && (++icUpdateCounter % 5 == 0))
-            {
-                pInterfaceCapturing->correct();  // Update every 5 steps
-            }
-            else
-            {
-                // Include the standard VOF subcycling
-                #include "alphaEqnSubCycle.H"
-            }
-                        // Update mesh refinement based on interface gradient
+            // Solve alpha transport using the unified compressible path
+            #include "compressibleAlphaEqnSubCycle.H"
+
+            // Update mesh refinement based on interface gradient
             volScalarField gradAlpha1Mag
             (
                 IOobject

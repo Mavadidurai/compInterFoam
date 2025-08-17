@@ -176,9 +176,9 @@ bool Foam::twoPhaseMixtureThermo::incompressible() const
 {
     return thermo1_->incompressible() && thermo2_->incompressible();
 }
-dimensionedScalar Foam::twoPhaseMixtureThermo::latentHeat() const
+Foam::dimensionedScalar Foam::twoPhaseMixtureThermo::latentHeat() const
 {
-    return dimensionedScalar
+    return Foam::dimensionedScalar
     (
         "latentHeat",
         DimensionValidator::dimLatentHeat,

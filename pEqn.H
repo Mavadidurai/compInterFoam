@@ -8,11 +8,26 @@
     // Create robust interpolation of rAU
     surfaceScalarField rAUf("rAUf", fvc::interpolate(rAU));
     
-    // Apply bounds to rAUf to prevent division by zero or infinities
-    // This should be done on internal field and boundary fields
+// Apply bounds to rAUf to prevent division by zero or infinities
+    // Clamp values can be specified in compInterFoamCoeffs or controlDict
+    const dictionary& solverControls = mesh.solutionDict().subOrEmptyDict
+    ("compInterFoamCoeffs");
     const dictionary& controlDict = mesh.time().controlDict();
-    scalar minRAUf = controlDict.lookupOrDefault<scalar>("minRAUf", 1e-10);
-    scalar maxRAUf = controlDict.lookupOrDefault<scalar>("maxRAUf", 1e6);
+    scalar minRAUf = solverControls.lookupOrDefault<scalar>
+    (
+        "minRAUf",
+        controlDict.lookupOrDefault<scalar>("minRAUf", 1e-10)
+    );
+    scalar maxRAUf = solverControls.lookupOrDefault<scalar>
+    (
+        "maxRAUf",
+        controlDict.lookupOrDefault<scalar>("maxRAUf", 1e6)
+    );
+    const Switch enableRAUfClamp = solverControls.lookupOrDefault<Switch>
+    (
+        "enableRAUfClamp",
+        controlDict.lookupOrDefault<Switch>("enableRAUfClamp", true)
+    );
 
     if (!std::isfinite(minRAUf))
     {
@@ -23,36 +38,65 @@
     {
         maxRAUf = 1e6;
     }
-    
+
+    label minRAUfCount = 0;
+    label maxRAUfCount = 0;
+
     // Internal field
     scalarField& rAUfIn = rAUf.primitiveFieldRef();
     forAll(rAUfIn, faceI)
     {
-        if (!std::isfinite(rAUfIn[faceI]) || rAUfIn[faceI] < minRAUf)
+        if (!std::isfinite(rAUfIn[faceI]) || (enableRAUfClamp && rAUfIn[faceI] < minRAUf))
         {
-            rAUfIn[faceI] = minRAUf;
+            if (enableRAUfClamp)
+            {
+                rAUfIn[faceI] = minRAUf;
+                minRAUfCount++;
+            }
         }
-        else if (rAUfIn[faceI] > maxRAUf)
+        else if (enableRAUfClamp && rAUfIn[faceI] > maxRAUf)
         {
             rAUfIn[faceI] = maxRAUf;
+            maxRAUfCount++;
         }
     }
-    
+
     // Boundary fields
     forAll(rAUf.boundaryField(), patchI)
     {
         fvsPatchScalarField& pRauf = rAUf.boundaryFieldRef()[patchI];
         forAll(pRauf, faceI)
         {
-            if (!std::isfinite(pRauf[faceI]) || pRauf[faceI] < minRAUf)
+            if (!std::isfinite(pRauf[faceI]) || (enableRAUfClamp && pRauf[faceI] < minRAUf))
             {
-                pRauf[faceI] = minRAUf;
+                if (enableRAUfClamp)
+                {
+                    pRauf[faceI] = minRAUf;
+                    minRAUfCount++;
+                }
             }
-            else if (pRauf[faceI] > maxRAUf)
+            else if (enableRAUfClamp && pRauf[faceI] > maxRAUf)
             {
                 pRauf[faceI] = maxRAUf;
+                maxRAUfCount++;
             }
         }
+    }
+
+    reduce(minRAUfCount, sumOp<label>());
+    reduce(maxRAUfCount, sumOp<label>());
+    if (enableRAUfClamp && (minRAUfCount > 0 || maxRAUfCount > 0))
+    {
+        Info<< "rAUf clamping stats: " << minRAUfCount
+            << " faces to minRAUf (" << minRAUf << "), "
+            << maxRAUfCount << " faces to maxRAUf (" << maxRAUf << ")" << endl;
+    }
+    else if (!enableRAUfClamp &&
+        (min(rAUf).value() < minRAUf || max(rAUf).value() > maxRAUf))
+    {
+        Info<< "rAUf outside expected range [" << minRAUf << ", "
+            << maxRAUf << "]: min=" << min(rAUf).value()
+            << " max=" << max(rAUf).value() << endl;
     }
     
     // Create pressure equation with robust interpolation

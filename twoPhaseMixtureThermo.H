@@ -44,6 +44,8 @@ SourceFiles
 #include "twoPhaseMixture.H"
 #include "interfaceProperties.H"
 #include "DimensionValidator.H"
+#include "dimensionedScalar.H"
+
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 

@@ -43,7 +43,14 @@ else
         (
             new surfaceScalarField
             (
-                mesh.newIOobject("alphaPhi1"),
+                IOobject
+                (
+                    "alphaPhi1",
+                    runTime.timeName(),
+                    mesh,
+                    IOobject::NO_READ,
+                    IOobject::NO_WRITE
+                ),
                 mesh,
                 dimensionedScalar(alphaPhi10.dimensions(), Zero)
             )
@@ -51,7 +58,14 @@ else
     
         surfaceScalarField rhoPhiSum
         (
-            mesh.newIOobject("rhoPhiSum"),
+            IOobject
+            (
+                "rhoPhiSum",
+                runTime.timeName(),
+                mesh,
+                IOobject::NO_READ,
+                IOobject::NO_WRITE
+            ),
             mesh,
             dimensionedScalar(rhoPhi.dimensions(), Zero)
         );
@@ -84,7 +98,7 @@ else
     
     rho = alpha1*rho1 + alpha2*rho2;
     
-    const surfaceScalarField& alphaPhi1 = talphaPhi1();
+    //const surfaceScalarField& alphaPhi1 = talphaPhi1();
     
     volScalarField::Internal contErr
     (

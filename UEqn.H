@@ -16,6 +16,8 @@ const scalar defaultMetalDensity = solverControls.lookupOrDefault<scalar>(
     "defaultMetalDensity", 4500.0);
 const scalar defaultAirDensity = solverControls.lookupOrDefault<scalar>(
     "defaultAirDensity", 1.2);
+    const scalar maxVelocity = solverControls.lookupOrDefault<scalar>(
+    "maxVelocity", 1000.0);
 // Dynamic momentum relaxation control
 static scalar relaxU = 0.3;
 const scalar targetResU = solverControls.lookupOrDefault<scalar>(
@@ -145,8 +147,31 @@ if (useAdvancedCapturing && pInterfaceCapturing.valid())
 // Apply adaptive momentum relaxation
 UEqn.relax(relaxU);
 
-// Obtain diagonal coefficients and compute reciprocal with clamping
+// Obtain diagonal coefficients and compute reciprocal with optional clamping
 tmp<volScalarField> tA = UEqn.A();
+
+// Runtime clamp controls
+const dictionary& solverControls = mesh.solutionDict().subOrEmptyDict
+("compInterFoamCoeffs");
+const dictionary& ctrl = runTime.controlDict();
+
+const Switch enableRAUClamp = solverControls.lookupOrDefault<Switch>
+(
+    "enableRAUClamp",
+    ctrl.lookupOrDefault<Switch>("enableRAUClamp", true)
+);
+
+const scalar minRau = solverControls.lookupOrDefault<scalar>
+(
+    "minRAU",
+    ctrl.lookupOrDefault<scalar>("minRAU", 1e-10)
+);
+
+const scalar maxRau = solverControls.lookupOrDefault<scalar>
+(
+    "maxRAU",
+    ctrl.lookupOrDefault<scalar>("maxRAU", 1e6)
+);
 
 // Create rAU field
 volScalarField rAU
@@ -164,8 +189,8 @@ volScalarField rAU
     extrapolatedCalculatedFvPatchScalarField::typeName
 );
 
-scalar minVal = 1e-10;
-scalar maxVal = 1e6;
+label minRauCells = 0;
+label maxRauCells = 0;
 
 forAll(rAU, cellI)
 {
@@ -173,18 +198,28 @@ forAll(rAU, cellI)
 
     if (!std::isfinite(Acoeff) || mag(Acoeff) <= SMALL)
     {
-        rAU[cellI] = minVal;
+        rAU[cellI] = minRau;
+        if (enableRAUClamp) minRauCells++;
     }
     else
     {
         scalar value = 1.0 / Acoeff;
-        if (!std::isfinite(value) || value < minVal)
+        if (enableRAUClamp)
         {
-            rAU[cellI] = minVal;
-        }
-        else if (value > maxVal)
-        {
-            rAU[cellI] = maxVal;
+            if (!std::isfinite(value) || value < minRau)
+            {
+                rAU[cellI] = minRau;
+                minRauCells++;
+            }
+            else if (value > maxRau)
+            {
+                rAU[cellI] = maxRau;
+                maxRauCells++;
+            }
+            else
+            {
+                rAU[cellI] = value;
+            }
         }
         else
         {
@@ -193,7 +228,24 @@ forAll(rAU, cellI)
     }
 }
 
+reduce(minRauCells, sumOp<label>());
+reduce(maxRauCells, sumOp<label>());
+if (enableRAUClamp && (minRauCells > 0 || maxRauCells > 0))
+{
+    Info<< "rAU clamping stats: " << minRauCells
+        << " cells to minRAU (" << minRau << "), "
+        << maxRauCells << " cells to maxRAU (" << maxRau << ")" << endl;
+}
+else if (!enableRAUClamp &&
+         (min(rAU).value() < minRau || max(rAU).value() > maxRau))
+{
+    Info<< "rAU outside expected range [" << minRau << ", " << maxRau
+        << "]: min=" << min(rAU).value()
+        << " max=" << max(rAU).value() << endl;
+}
+
 rAU.correctBoundaryConditions();
+
 
 // Momentum predictor
 if (pimple.momentumPredictor())
@@ -205,6 +257,8 @@ if (pimple.momentumPredictor())
     // Post-solve validation
     scalar maxVelAfterSolve = 0.0;
     label invalidCells = 0;
+    label limitedCells = 0;
+
     
     forAll(U, cellI)
     {
@@ -217,22 +271,29 @@ if (pimple.momentumPredictor())
         {
             scalar velMag = mag(U[cellI]);
             maxVelAfterSolve = max(maxVelAfterSolve, velMag);
-            
+
             // Bound extreme velocities
-            if (velMag > 1000.0)  // 1 km/s limit
+            if (velMag > maxVelocity)
             {
-                U[cellI] *= (1000.0 / velMag);
-                invalidCells++;
+                U[cellI] *= (maxVelocity/velMag);
+                limitedCells++;
             }
         }
     }
-    
+
     reduce(maxVelAfterSolve, maxOp<scalar>());
     reduce(invalidCells, sumOp<label>());
-    
+    reduce(limitedCells, sumOp<label>());
+
     if (invalidCells > 0)
     {
-        Info<< "  Fixed " << invalidCells << " velocity values after solve" << endl;
+        Info<< "  Fixed " << invalidCells << " corrupted velocity values after solve" << endl;
+    }
+
+    if (limitedCells > 0)
+    {
+        Info<< "  Limited " << limitedCells << " velocity cells exceeding "
+            << maxVelocity << " m/s" << endl;
     }
     
     Info<< "Momentum predictor:" << nl

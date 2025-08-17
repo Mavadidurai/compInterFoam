@@ -28,7 +28,8 @@
     const scalar maxPhysicalTemp = ctrl.lookupOrDefault<scalar>("maxT", 5000.0);
     const Switch enableTClamp = ctrl.lookupOrDefault<Switch>("enableTClamp", true);
 
-    label boundedCells = 0;
+        label minTCells = 0;
+    label maxTCells = 0;
     if (enableTClamp)
     {
         forAll(T, cellI)
@@ -36,21 +37,22 @@
             if (T[cellI] < minPhysicalTemp)
             {
                 T[cellI] = minPhysicalTemp;
-                boundedCells++;
+                minTCells++;
             }
             else if (T[cellI] > maxPhysicalTemp)
             {
                 T[cellI] = maxPhysicalTemp;
-                boundedCells++;
+                maxTCells++;
             }
         }
 
-        if (boundedCells > 0)
+        reduce(minTCells, sumOp<label>());
+        reduce(maxTCells, sumOp<label>());
+        if (minTCells > 0 || maxTCells > 0)
         {
-            reduce(boundedCells, sumOp<label>());
-            Info<< "Bounded " << boundedCells
-                << " temperature values to physical limits ["
-                << minPhysicalTemp << ", " << maxPhysicalTemp << "]" << endl;
+            Info<< "Temperature clamping stats: " << minTCells
+                << " cells to minT (" << minPhysicalTemp << "), "
+                << maxTCells << " cells to maxT (" << maxPhysicalTemp << ")" << endl;
         }
     }
     else if (minT < minPhysicalTemp || maxT > maxPhysicalTemp)

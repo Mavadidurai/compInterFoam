@@ -55,15 +55,8 @@ public:
     const volScalarField& recoilPressure() const { return recoilPressure_; }
     
     // Access functions for validation
-    dimensionedScalar latentHeat() const
-    {
-        return dimensionedScalar
-        (
-            "latentHeat",
-            DimensionValidator::dimLatentHeat,
-            latentHeat_
-        );
-    }
+    dimensionedScalar latentHeat() const { return latentHeat_; }
+
     scalar meltingTemperature() const { return meltingTemp_; }
     scalar vaporTemperature() const { return vaporTemp_; }
 

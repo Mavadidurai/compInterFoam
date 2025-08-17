@@ -17,6 +17,7 @@
 #include "fvc.H"
 #include "fvm.H"
 #include "mathematicalConstants.H"
+#include "HashSet.H"
 #include <cmath>
 
 namespace Foam
@@ -38,7 +39,7 @@ femtosecondLaserModel::femtosecondLaserModel
     (
         "peakIntensity",
         dimPower/dimArea,
-        dict.get<scalar>("peakIntensity")
+        dict.getOrDefault<scalar>("peakIntensity", 0.0)
     ),
     pulseWidth_
     (
@@ -87,6 +88,37 @@ femtosecondLaserModel::femtosecondLaserModel
     // Normalize direction vector
     direction_ /= mag(direction_) + SMALL;
 
+    // Derive peak intensity from pulse energy if not provided
+    scalar derivedPeak =
+        pulseEnergy_.value()
+        /
+        (
+            constant::mathematical::pi*sqr(spotSize_.value()/2.0)*
+            pulseWidth_.value()
+        );
+
+    if (dict.found("peakIntensity"))
+    {
+        scalar diff = mag(peakIntensity_.value() - derivedPeak);
+        scalar tol = 0.05*derivedPeak;
+        if (diff > tol)
+        {
+            WarningInFunction
+                << "Supplied peakIntensity (" << peakIntensity_.value()
+                << " W/m^2) differs from value derived from pulseEnergy "
+                << derivedPeak << " W/m^2" << endl;
+        }
+    }
+    else
+    {
+        peakIntensity_ = dimensionedScalar
+        (
+            "peakIntensity",
+            dimPower/dimArea,
+            derivedPeak
+        );
+    }
+
     // Validate parameters
     if (!valid())
     {
@@ -121,6 +153,41 @@ femtosecondLaserModel::femtosecondLaserModel
     // Check timing
     scalar pulseDuration = laserEndTime_ - laserStartTime_;
     Info<< "  Pulse duration: " << pulseDuration*1e12 << " ps" << endl;
+    
+    // Warn about any unhandled dictionary entries
+    wordHashSet handled
+    (
+        wordList
+        {
+            "peakIntensity",
+            "pulseWidth",
+            "wavelength",
+            "absorptionCoeff",
+            "spotSize",
+            "pulseEnergy",
+            "direction",
+            "focus",
+            "scanVelocity",
+            "pulseFrequency",
+            "pulseDutyCycle",
+            "reflectivity",
+            "gaussianProfile",
+            "maxReflections",
+            "continuousLaser",
+            "laserStartTime",
+            "laserEndTime"
+        }
+    );
+
+    forAllConstIter(dictionary, dict_, iter)
+    {
+        const word& key = iter().keyword();
+        if (!handled.found(key))
+        {
+            WarningInFunction
+                << "Ignoring unhandled entry '" << key << "'" << endl;
+        }
+    }
 }
 
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
@@ -305,11 +372,20 @@ bool femtosecondLaserModel::checkEnergyConservation() const
     (void)t;
     const scalar dt = mesh_.time().deltaTValue();
     
-    // Simple energy check for pulsed laser
+       // Simple energy check for pulsed laser
     dimensionedScalar totalEnergy = fvc::domainIntegrate(tSource_()*dt);
-    
-    // Allow up to 10x pulse energy per timestep (very conservative)
-    scalar maxAllowedEnergy = 10.0 * pulseEnergy_.value();
+
+    // Allow up to 10x energy implied by peak intensity per timestep (very conservative)
+    dimensionedScalar expectedEnergy
+    (
+        "expectedEnergy",
+        dimEnergy,
+        peakIntensity_.value()
+       *constant::mathematical::pi*sqr(spotSize_.value()/2.0)
+       *pulseWidth_.value()
+    );
+
+    scalar maxAllowedEnergy = 10.0 * expectedEnergy.value();
     
     return totalEnergy.value() <= maxAllowedEnergy;
 }

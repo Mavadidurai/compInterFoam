@@ -5,7 +5,33 @@
     //const scalar deltaT = runTime.deltaT().value();
     
     Info<< "Solving alpha equation with bounds enforcement" << endl;
-    
+
+    // Runtime clamp controls
+    const dictionary& solverControls =
+        mesh.solutionDict().subOrEmptyDict("compInterFoamCoeffs");
+    const dictionary& ctrl = runTime.controlDict();
+
+    const Switch enableAlphaClamp = solverControls.lookupOrDefault<Switch>
+    (
+        "enableAlphaClamp",
+        ctrl.lookupOrDefault<Switch>("enableAlphaClamp", true)
+    );
+
+    const scalar minAlpha = solverControls.lookupOrDefault<scalar>
+    (
+        "minAlpha",
+        ctrl.lookupOrDefault<scalar>("minAlpha", 0.0)
+    );
+
+    const scalar maxAlpha = solverControls.lookupOrDefault<scalar>
+    (
+        "maxAlpha",
+        ctrl.lookupOrDefault<scalar>("maxAlpha", 1.0)
+    );
+
+    label minClampCells = 0;
+    label maxClampCells = 0;
+
     if (nAlphaSubCycles > 1)
     {
         dimensionedScalar totalDeltaT = runTime.deltaT();
@@ -31,19 +57,30 @@
             alpha1Eqn.solve();
 
 
-            forAll(alpha1, cellI)
+            if (enableAlphaClamp)
             {
-                if (alpha1[cellI] < 0.0) 
+                forAll(alpha1, cellI)
                 {
-                    alpha1[cellI] = 0.0;
+                    if (!std::isfinite(alpha1[cellI]) || alpha1[cellI] < minAlpha)
+                    {
+                        alpha1[cellI] = minAlpha;
+                        minClampCells++;
+                    }
+                    else if (alpha1[cellI] > maxAlpha)
+                    {
+                        alpha1[cellI] = maxAlpha;
+                        maxClampCells++;
+                    }
                 }
-                else if (alpha1[cellI] > 1.0) 
+            }
+            else
+            {
+                forAll(alpha1, cellI)
                 {
-                    alpha1[cellI] = 1.0;
-                }
-                else if (!std::isfinite(alpha1[cellI]))
-                {
-                    alpha1[cellI] = 0.0;
+                    if (!std::isfinite(alpha1[cellI]))
+                    {
+                        alpha1[cellI] = minAlpha;
+                    }
                 }
             }
 
@@ -66,19 +103,30 @@
         alpha1Eqn.solve();
 
 
-        forAll(alpha1, cellI)
+        if (enableAlphaClamp)
         {
-            if (alpha1[cellI] < 0.0) 
+            forAll(alpha1, cellI)
             {
-                alpha1[cellI] = 0.0;
+                if (!std::isfinite(alpha1[cellI]) || alpha1[cellI] < minAlpha)
+                {
+                    alpha1[cellI] = minAlpha;
+                    minClampCells++;
+                }
+                else if (alpha1[cellI] > maxAlpha)
+                {
+                    alpha1[cellI] = maxAlpha;
+                    maxClampCells++;
+                }
             }
-            else if (alpha1[cellI] > 1.0) 
+        }
+        else
+        {
+            forAll(alpha1, cellI)
             {
-                alpha1[cellI] = 1.0;
-            }
-            else if (!std::isfinite(alpha1[cellI]))
-            {
-                alpha1[cellI] = 0.0;
+                if (!std::isfinite(alpha1[cellI]))
+                {
+                    alpha1[cellI] = minAlpha;
+                }
             }
         }
     }
@@ -87,23 +135,43 @@
     alpha2 = 1.0 - alpha1;
 
 
-    forAll(alpha2, cellI)
+    if (enableAlphaClamp)
     {
-        if (alpha2[cellI] < 0.0) 
+        forAll(alpha2, cellI)
         {
-            alpha2[cellI] = 0.0;
-            alpha1[cellI] = 1.0;
+            if (!std::isfinite(alpha2[cellI]) || alpha2[cellI] < minAlpha)
+            {
+                alpha2[cellI] = minAlpha;
+                alpha1[cellI] = maxAlpha;
+                maxClampCells++;
+            }
+            else if (alpha2[cellI] > maxAlpha)
+            {
+                alpha2[cellI] = maxAlpha;
+                alpha1[cellI] = minAlpha;
+                minClampCells++;
+            }
         }
-        else if (alpha2[cellI] > 1.0) 
+    }
+    else
+    {
+        forAll(alpha2, cellI)
         {
-            alpha2[cellI] = 1.0;
-            alpha1[cellI] = 0.0;
+            if (!std::isfinite(alpha2[cellI]))
+            {
+                alpha2[cellI] = maxAlpha;
+                alpha1[cellI] = minAlpha;
+            }
         }
-        else if (!std::isfinite(alpha2[cellI]))
-        {
-            alpha2[cellI] = 1.0;
-            alpha1[cellI] = 0.0;
-        }
+    }
+
+    reduce(minClampCells, sumOp<label>());
+    reduce(maxClampCells, sumOp<label>());
+    if (enableAlphaClamp && (minClampCells > 0 || maxClampCells > 0))
+    {
+        Info<< "Alpha clamping stats: " << minClampCells
+            << " cells to minAlpha (" << minAlpha << "), "
+            << maxClampCells << " cells to maxAlpha (" << maxAlpha << ")" << endl;
     }
 
     rho = alpha1*rho1 + alpha2*rho2;
