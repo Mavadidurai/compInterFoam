@@ -14,49 +14,73 @@ FoamFile
     object      controlDict;
 }
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
 application     compInterFoam;
 
-startFrom       startTime;          
+startFrom       startTime;
 startTime       0;
 stopAt          endTime;
-endTime         2e-4;              // 10 milliseconds - see full droplet flight!
+endTime         5e-6;             // simulate through flight & impact (microseconds)
 
-deltaT          1e-7;               // 10 microseconds - rock solid timestep
-adjustTimeStep  yes;                 
+deltaT          5e-15;            // fs-scale start (two-temperature onset)
+adjustTimeStep  yes;
+maxCo           0.2;
+maxAlphaCo      0.1;
+maxDeltaT       2e-8;             // cap growth as you move into ns regime
 
-writeControl    adjustableRunTime;
-writeInterval   2e-5;               // Write every 100 microseconds (100 frames)
-purgeWrite      0;                  
-writeFormat     ascii;
-writePrecision  6;                  // Normal precision
-writeCompression off;
-timeFormat      general;
-timePrecision   6;                  
-runTimeModifiable true;
-
-maxCo           0.30;                // Standard values
-maxAlphaCo      0.20;               
-maxDeltaT       5e-5;               // Max 50 microseconds
-
-useAdvancedInterfaceCapturing true;   
-
-twoTemperatureProperties
-{
-    Ce          Ce [ 1 -1 -2 -1 0 0 0 ] 210;        
-    Cl          Cl [ 1 -1 -2 -1 0 0 0 ] 2.3e6;      
-    G           G  [ 1 -1 -3 -1 0 0 0 ] 5e17;       
-    energyTolerance 0.1;                              
-}
-
-relaxFactor     0.3;                // Conservative relaxation
+// PIMPLE outer-loop cadence
+writeControl    timeStep;
+writeInterval   200;              // write sparsely at fs; see additional outputs below
+purgeWrite      0;
 
 functions
 {
+    // Write laser source field (needed by your femtosecondLaserModel/Q_laser)
     QlaserWrite
     {
         type            writeObjects;
         libs            ("libutilityFunctionObjects.so");
         objects         (Q_laser);
+        writeOnExecution true;
     }
+
+    // High-frequency probes without heavy field dumps
+    probesTTM
+    {
+        type            probes;
+        libs            ("libsampling.so");
+        fields          (Te Tl T p_rgh U alpha.metal);
+        probeLocations
+        (
+            (0 0 0)          // in-film
+            (0 0 2e-6)       // near interface
+            (0 0 10e-6)      // mid-gap
+        );
+        writeControl    timeStep;
+        writeInterval   10;
+    }
+
+}
+
+// Solver-specific runtime switches used inside your code paths
+enableTClamp             true;     // TEqn.H
+minT                     250;      // TEqn.H
+maxT                     5000;     // TEqn.H
+pressureClamp            true;     // pEqn.H
+minPressure              1e3;      // pEqn.H
+maxPressure              1e6;      // pEqn.H
+
+useAdvancedInterfaceCapturing  true;      // createFields.H
+enableTClamp                   true;      // TEqn.H
+minT                           250;       // TEqn.H
+maxT                           5000;      // TEqn.H
+minRAUf                        1e-10;     // pEqn.H (reads from controlDict)
+maxRAUf                        1e6;       // pEqn.H (reads from controlDict)
+
+twoTemperatureProperties       // createFields.H passes this dict to twoTemperatureModel
+{
+    Ce  2.0e6;
+    Cl  3.0e6;
+    G   2.0e16;
 }
 

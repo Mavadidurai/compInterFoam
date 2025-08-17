@@ -20,12 +20,12 @@ FoamFile
 
 ddtSchemes
 {
-    default         Euler;              // First-order for stability
-    ddt(alpha)      Euler;              // Compatible with your alphaEqn.H
-    ddt(alpha.metal) Euler;             // Metal phase time discretization
-    ddt(alpha.air)  Euler;              // Air phase time discretization
-    ddt(rho,U)      Euler;              // Momentum equation
-    ddt(rho)        Euler;              // Continuity equation
+    default         localEuler;              // First-order for stability
+    ddt(alpha)      localEuler;              // Compatible with your alphaEqn.H
+    ddt(alpha.metal) localEuler;             // Metal phase time discretization
+    ddt(alpha.air)  localEuler;              // Air phase time discretization
+    ddt(rho,U)      localEuler;              // Momentum equation
+    ddt(rho)        localEuler;              // Continuity equation
 }
 
 gradSchemes
@@ -39,7 +39,7 @@ gradSchemes
     // ✅ ENHANCED INTERFACE GRADIENTS (critical for surface tension)
     grad(alpha.metal)   Gauss linear;
     grad(alpha.air)     Gauss linear;
-    grad(alpha)         Gauss linear;
+    grad(alpha)         Gauss vanLeer;
     
     // ✅ VELOCITY GRADIENTS (for viscous terms)
     grad(U)         Gauss linear;

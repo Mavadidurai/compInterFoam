@@ -123,3 +123,13 @@ relaxationFactors
         ".*Final"       1.0;            
     }
 }
+relaxP      0.3;   // pEqn.H reads from mesh.solutionDict()
+targetResP  0.1;   // pEqn.H reads from mesh.solutionDict()
+compInterFoamCoeffs
+{
+    maxReasonableVelocity  250;     // UEqn.H
+    defaultMetalDensity    4500;    // UEqn.H (fallback if rho1 invalid)
+    defaultAirDensity      1.2;     // UEqn.H (fallback if rho2 invalid)
+    targetResU             0.1;     // UEqn.H adaptive relaxation driver
+}
+
