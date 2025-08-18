@@ -58,35 +58,12 @@ Foam::twoPhaseMixtureThermo::twoPhaseMixtureThermo
         U.mesh().lookupObject<dictionary>("thermophysicalProperties").
         subDict("metal").lookupOrDefault<scalar>("hf", 435e3)
     ),
-    absorptionCoeff_(
-        IOdictionary(
-            IOobject(
-                "laserProperties",
-                U.mesh().time().constant(),
-                U.mesh(),
-                IOobject::READ_IF_PRESENT,
-                IOobject::NO_WRITE
-            )
-        ).lookupOrDefault<scalar>("absorptionCoeff", 1e8)
-    ),
+
     T_melt_(
         U.mesh().lookupObject<dictionary>("thermophysicalProperties").
         subDict("metal").lookupOrDefault<scalar>("Tsol", 1941.0)
     ),
-    peakIntensity_
-    (
-        "peakIntensity",
-        dimPower/dimArea,
-        IOdictionary(
-            IOobject(
-                "laserProperties",
-                U.mesh().time().constant(),
-                U.mesh(),
-                IOobject::READ_IF_PRESENT,
-                IOobject::NO_WRITE
-            )
-        ).lookupOrDefault<scalar>("peakIntensity", 0.0)
-    ),
+
     Q_laser_
     (
         IOobject
@@ -190,43 +167,7 @@ Foam::dimensionedScalar Foam::twoPhaseMixtureThermo::latentHeat() const
     );
 }
 
-Foam::tmp<Foam::volScalarField> Foam::twoPhaseMixtureThermo::computeLaserHeating() const
-{
-    tmp<volScalarField> tQ
-    (
-        new volScalarField
-        (
-            IOobject
-            (
-                "Q_laser",
-                T_.time().timeName(),
-                T_.mesh(),
-                IOobject::NO_READ,
-                IOobject::NO_WRITE
-            ),
-            T_.mesh(),
-            dimensionedScalar("Q", dimPower/dimVolume, 0.0)  // Will compute dimensions from calculation
-        )
-    );
 
-    volScalarField& Q = tQ.ref();
-    const vectorField& C = T_.mesh().C();
-
-forAll(C, cellI)
-    {
-        scalar z = C[cellI].z();
-        // Beer-Lambert law: volumetric heat source [W/m^3]
-        // absorptionCoeff_ [1/m], peakIntensity_ [W/m^2]
-        Q[cellI] =
-            absorptionCoeff_ * peakIntensity_.value()
-          * exp(-absorptionCoeff_ * z);
-    }
-
-    // Set field dimensions explicitly
-    Q.dimensions().reset(DimensionValidator::dimHeatSource);
-    
-    return tQ;
-}
 
 
 Foam::tmp<Foam::volScalarField> Foam::twoPhaseMixtureThermo::computePhaseChange() const

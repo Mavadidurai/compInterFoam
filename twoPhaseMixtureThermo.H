@@ -73,14 +73,8 @@ class twoPhaseMixtureThermo
         //- Latent heat of fusion (J/kg)
         scalar latentHeat_;
 
-        //- Laser absorption coefficient (1/m)
-        scalar absorptionCoeff_;
-
          //- Melting temperature (K)
         scalar T_melt_;
-
-        //- Peak laser intensity (W/m^2)
-        dimensionedScalar peakIntensity_;
 
         //- Laser volumetric heat source (W/m^3)
         volScalarField Q_laser_;
@@ -132,13 +126,6 @@ public:
        //- Return latent heat
         dimensionedScalar latentHeat() const;
 
-
-        //- Return absorption coefficient
-        scalar absorptionCoeff() const
-        {
-            return absorptionCoeff_;
-        }
-
         //- Return melting temperature
         scalar T_melt() const
         {
@@ -180,11 +167,11 @@ public:
         //  i.e. rho = const
         virtual bool isochoric() const;
         
-//- Return laser heating source term
-virtual tmp<volScalarField> computeLaserHeating() const;
+        //- Return laser heating source term
+       // virtual tmp<volScalarField> computeLaserHeating() const;
 
-//- Compute and return phase change source term
- virtual tmp<volScalarField> computePhaseChange() const;
+        //- Compute and return phase change source term
+        virtual tmp<volScalarField> computePhaseChange() const;
  
         // Access to thermodynamic state variables
 
