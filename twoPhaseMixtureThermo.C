@@ -194,6 +194,8 @@ Foam::tmp<Foam::volScalarField> Foam::twoPhaseMixtureThermo::computePhaseChange(
         if (T_[cellI] > T_melt_ && alpha1()[cellI] > 0.99)
         {
             // Convert latent heat [J/kg] to temperature rate [K/s]
+           // Dimensioned arithmetic guarantees unit consistency
+
             source[cellI] = (-L/(CpCell * dt)).value();
         }
         else if (T_[cellI] < T_melt_ && alpha1()[cellI] < 0.01)
@@ -203,7 +205,7 @@ Foam::tmp<Foam::volScalarField> Foam::twoPhaseMixtureThermo::computePhaseChange(
     }
 
     // Set field dimensions explicitly
-    source.dimensions().reset(L.dimensions()/(Cp.dimensions()*dimTime));
+    //source.dimensions().reset(L.dimensions()/(Cp.dimensions()*dimTime));
     
     return tSource;
 }

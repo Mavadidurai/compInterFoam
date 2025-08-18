@@ -370,7 +370,7 @@ bool femtosecondLaserModel::checkEnergyConservation() const
 
     const scalar t = mesh_.time().value();
     (void)t;
-    const scalar dt = mesh_.time().deltaTValue();
+    const dimensionedScalar dt = mesh_.time().deltaT();
     
        // Simple energy check for pulsed laser
     dimensionedScalar totalEnergy = fvc::domainIntegrate(tSource_()*dt);
@@ -423,7 +423,7 @@ void femtosecondLaserModel::calculateSource() const
     
     // Get current time
     const scalar t = mesh_.time().value();
-    const scalar dt = mesh_.time().deltaTValue();
+    const dimensionedScalar dt = mesh_.time().deltaT();
     const label timeIndex = mesh_.time().timeIndex();
     
     // Check if laser is active
@@ -555,7 +555,8 @@ void femtosecondLaserModel::calculateSource() const
             << "  Cells in metal film: " << cellsInFilm << nl
             << "  Max intensity: " << maxSourceValue/1e12 << " TW/m³" << nl
             << "  Total power: " << totalSourceIntegral/1e12 << " TW" << nl
-            << "  Energy this step: " << totalEnergyDeposited.value()/1e-6 << " μJ" << endl;
+            << "  Time step: " << dt.value() << " s" << nl
+            << "  Energy this step: " << totalEnergyDeposited.value() << " J" << endl;
             
         // Diagnostics
         if (cellsInBeam == 0)

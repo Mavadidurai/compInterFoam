@@ -107,10 +107,6 @@ int main(int argc, char *argv[])
     // Instantiate PIMPLE control for pressure-velocity coupling
     pimpleControl pimple(mesh);
     
-    // Energy conservation tolerance from controlDict
-    const scalar energyTol =
-        runTime.controlDict().lookupOrDefault<scalar>("energyTol", 0.1);
-
     // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
     Info<< "\nStarting time loop\n" << endl;

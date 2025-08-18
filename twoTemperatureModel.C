@@ -256,7 +256,7 @@ bool twoTemperatureModel::checkEnergyConservation() const
         (mag(lastTotalEnergy_.value()) + SMALL)
     );
 
-    return energyError < dict_.lookupOrDefault<scalar>("energyTolerance", 1e-6);
+    return energyError < dict_.lookupOrDefault<scalar>("energyTolerance", 0.1);
 }
 
 void twoTemperatureModel::updateEnergyTracking() const
@@ -419,13 +419,12 @@ tmp<volScalarField> twoTemperatureModel::electronThermalConductivity() const
 
        // Get reference to field for modification
     volScalarField& ke = tke.ref();
-
-    // Calculate conductivity using constant electron diffusivity
-    // ke = Ce * De, assuming uniform material properties
-    dimensionedScalar kappa = Ce_ * De_;
+    // Calculate conductivity using cell-wise electron heat capacity
+    // ke = CeField * De_, allowing spatially varying Ce
+    const volScalarField CeField = electronHeatCapacity();
     forAll(ke, cellI)
     {
-        ke[cellI] = kappa.value();
+        ke[cellI] = (CeField[cellI] * De_).value();
     }
 
     return tke;

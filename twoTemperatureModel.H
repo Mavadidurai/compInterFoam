@@ -24,6 +24,10 @@
     
 SourceFiles
     twoTemperatureModel.C
+        Dictionary entries:
+        energyTolerance   Relative energy conservation tolerance
+                          used by checkEnergyConservation (optional,
+                          default = 0.1)
 
 \*---------------------------------------------------------------------------*/
 
@@ -144,7 +148,7 @@ public:
 
         //- Return electron-phonon coupling
         const dimensionedScalar& G() const { return G_; }
-        //- Return electron thermal diffusivity
+        //- Return electron thermal diffusivity (uniform unless overridden)
         const dimensionedScalar& De() const { return De_; }
 };
 
