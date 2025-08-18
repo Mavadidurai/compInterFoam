@@ -1,0 +1,102 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+| =========                 |                                                 |
+| \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox           |
+|  \\    /   O peration     | Version:  v2406                                 |
+|   \\  /    A nd           | Website:  www.openfoam.com                      |
+|    \\/     M anipulation  |                                                 |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    location    "system";
+    object      controlDict;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+/* v2406 :: LIFT ultrafast mode (fs–ns) */
+
+application     compInterFoam;
+
+startFrom       startTime;
+startTime       0;
+stopAt          endTime;
+endTime         2e-3;              // keep; you can shorten for fs-only tests
+
+deltaT          1e-13;
+adjustTimeStep  yes;
+maxCo           0.2;
+maxAlphaCo      0.2;
+maxDeltaT       1e-7;
+
+writeControl    timeStep;
+writeInterval   100;               // fields every 100 steps (~1e-11 s if Δt=1e-13)
+purgeWrite      8;                 // keep a slightly longer rolling window
+writeFormat     binary;
+writePrecision  10;
+writeCompression on;
+timeFormat      general;
+timePrecision   12;
+fileHandler     collated;
+
+runTimeModifiable yes;
+energyTol       0.1;
+
+
+// solver switches (kept as in your file)
+useAdvancedInterfaceCapturing  true;
+enableTClamp                   true;
+minT                           250;
+maxT                           5000;
+
+minRAUf                        1e-10;
+maxRAUf                        1e6;
+
+twoTemperatureProperties
+{
+    Ce  2.0e6;
+    Cl  3.0e6;
+    G   2.0e16;
+    energyTolerance 0.1;
+
+}
+
+functions
+{
+    QlaserWrite
+    {
+        type              writeObjects;
+        libs              ("libutilityFunctionObjects.so");
+        objects           (Q_laser);
+        writeOnExecution  true;
+    }
+
+    probesTTM
+    {
+        type            probes;
+        libs            ("libsampling.so");
+        fields          (Te Tl T p_rgh U alpha.metal);
+        probeLocations  ((0 0 0) (0 0 2e-6) (0 0 10e-6));
+        writeControl    timeStep;
+        writeInterval   5;       // tighter probes for ultrafast features
+    }
+
+    CourantNo
+    {
+        type CourantNo; libs ("libutilityFunctionObjects.so");
+        writeControl timeStep; writeInterval 5;
+    }
+
+    fieldMinMax_T
+    {
+        type fieldMinMax; libs ("libfieldFunctionObjects.so");
+        writeControl timeStep; writeInterval 5; fields (T);
+    }
+
+    fieldMinMax_alpha
+    {
+        type fieldMinMax; libs ("libfieldFunctionObjects.so");
+        writeControl timeStep; writeInterval 5; fields (alpha.metal);
+    }
+}
+

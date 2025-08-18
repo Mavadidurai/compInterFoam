@@ -1,0 +1,139 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+| =========                 |                                                 |
+| \\      /  F ield         | OpenFOAM: setFields dictionary                 |
+|  \\    /   O peration     | Detailed init for LIFT test run                |
+|   \\  /    A nd           |                                                 |
+|    \\/     M anipulation  |                                                 |
+\*---------------------------------------------------------------------------*/
+// Only numbers adjusted; no factors/models changed.
+// Update the BOX LIMITS below to match your mesh (in meters).
+// Coordinate convention: X,Z lateral, Y vertical (gravity in -Y).
+
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    object      setFieldsDict;
+}
+
+// NOTE: No #calc / #codeStream used.
+// Edit the numeric values below to match your case if needed.
+
+// --- Domain sizes (must match blockMesh) ---
+/* Lateral extents: */  // X and Z
+// Lx = 4.0e-5 m (40 µm)
+// Lz = 4.0e-5 m (40 µm)
+
+// --- Layering along Y ---
+/* substrate: y in [0.0,      8.0e-6]  m */
+/* metal:     y in [8.0e-6,   1.0e-5]  m */
+/* air:       y in [1.0e-5,   2.0e-5]  m */
+
+// --- Initial conditions ---
+/* Temperatures: */  // K
+// T0 = 300; Te0 = 300; Tl0 = 300;
+/* Velocity: */     // m/s
+// U0 = (0 0 0);
+/* Pressure: */
+// p_rgh0 = 0;
+
+// --- Phase fractions ---
+/* alpha.metal in metal layer = 1, elsewhere 0 */
+
+defaultFieldValues
+(
+    volScalarFieldValue T         300
+    volVectorFieldValue U         (0 0 0)
+    volScalarFieldValue p_rgh     0
+
+    // default to air everywhere; regions below will overwrite
+    volScalarFieldValue alpha.metal 0
+    volScalarFieldValue alpha.air   1
+);
+
+// Regions (explicit numeric boxes)
+regions
+(
+    // Heat sink:  y in [0, 8 µm]
+    boxToCell
+    {
+        box (0       0.0       0)
+            (5.0e-05 8.0e-06   1.0e-05);
+        fieldValues
+        (
+            volScalarFieldValue alpha.metal 1
+            volScalarFieldValue alpha.air   0
+            volScalarFieldValue T           300
+
+        );
+    }
+
+    // Metal thin film: y in [8 µm, 10 µm]
+    boxToCell
+    {
+        box (0       8.0e-06   0)
+            (5.0e-05 1.0e-05   1.0e-05);
+        fieldValues
+        (
+            volScalarFieldValue alpha.metal 1
+            volScalarFieldValue alpha.air   0
+            volScalarFieldValue T           300
+
+        );
+    }
+
+    // Air: y in [10 µm, 20 µm]
+    boxToCell
+    {
+        box (0       1.0e-05   0)
+            (5.0e-05 2.0e-05   1.0e-05);
+        fieldValues
+        (
+            volScalarFieldValue alpha.metal 0
+            volScalarFieldValue alpha.air   1
+            volScalarFieldValue T           300
+  
+        );
+    }
+);
+// ************************************************************************* //
+//
+// ✅ REALISTIC LIFT PHYSICS SETUP:
+// =================================
+//
+// 1. HEATSINK (Y = 0-8μm):
+//    - Solid substrate (alpha.metal = 1)
+//    - Acts as thermal boundary and mechanical constraint
+//    - Provides heat sink effect
+//    - Prevents downward expansion of metal
+//
+// 2. METAL FILM (Y = 8-10μm):
+//    - Pure titanium donor material
+//    - 2μm thickness (realistic for LIFT)
+//    - Will be heated by laser and undergo phase change
+//    - Source of ejected droplets
+//
+// 3. AIR GAP (Y = 10-20μm):
+//    - Space for droplet ejection and flight
+//    - Collection zone for LIFT process
+//    - Allows visualization of ejection dynamics
+//
+// 4. LASER FOCUS:
+//    - Positioned at substrate/metal interface (Y ≈ 8μm)
+//    - Creates localized heating for LIFT
+//    - Substrate constrains expansion downward
+//    - Forces material ejection upward into air gap
+//
+// This setup captures the essential LIFT physics:
+// - Substrate backing and thermal effects
+// - Thin donor film for efficient heating
+// - Adequate air space for ejection dynamics
+// - Realistic geometry and material distribution
+//
+// Expected LIFT sequence:
+// 1. Laser heats metal at substrate interface
+// 2. Rapid temperature rise and phase change
+// 3. Pressure buildup constrained by substrate
+// 4. Explosive ejection into air gap
+// 5. Droplet formation and flight
