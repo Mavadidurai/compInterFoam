@@ -11,13 +11,13 @@ const dictionary& solverControls = mesh.solutionDict().subOrEmptyDict("compInter
 
 // Enhanced constants for better stability
 const scalar maxReasonableVelocity = solverControls.lookupOrDefault<scalar>(
-    "maxReasonableVelocity", 250.0);
+    "maxReasonableVelocity", 100.0);
 const scalar defaultMetalDensity = solverControls.lookupOrDefault<scalar>(
     "defaultMetalDensity", 4500.0);
 const scalar defaultAirDensity = solverControls.lookupOrDefault<scalar>(
     "defaultAirDensity", 1.2);
     const scalar maxVelocity = solverControls.lookupOrDefault<scalar>(
-    "maxVelocity", 1000.0);
+    "maxVelocity", 100.0);
 // Dynamic momentum relaxation control
 static scalar relaxU = 0.3;
 const scalar targetResU = solverControls.lookupOrDefault<scalar>(

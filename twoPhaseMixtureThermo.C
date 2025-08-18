@@ -165,7 +165,11 @@ void Foam::twoPhaseMixtureThermo::correct()
     phaseChangeSource_.correctBoundaryConditions();
 
 }
-
+void Foam::twoPhaseMixtureThermo::setQLaser(const volScalarField& src)
+{
+    Q_laser_ = src;
+    Q_laser_.correctBoundaryConditions();
+}
 Foam::word Foam::twoPhaseMixtureThermo::thermoName() const
 {
     return thermo1_->thermoName() + ',' + thermo2_->thermoName();
@@ -247,7 +251,7 @@ Foam::tmp<Foam::volScalarField> Foam::twoPhaseMixtureThermo::computePhaseChange(
     volScalarField& source = tSource.ref();
     
     // Get local thermodynamic properties with proper dimensions
-    const dimensionedScalar Cp("Cp", DimensionValidator::dimSpecificHeat, thermo1_->Cp()()[0]);
+    const volScalarField Cp = thermo1_->Cp();
     const scalar deltaT = T_.time().deltaTValue();
     const dimensionedScalar L = latentHeat();
     
@@ -256,16 +260,16 @@ Foam::tmp<Foam::volScalarField> Foam::twoPhaseMixtureThermo::computePhaseChange(
         if (T_[cellI] > T_melt_ && alpha1()[cellI] > 0.99)
         {
             // Convert latent heat [J/kg] to temperature rate [K/s]
-            source[cellI] = -L.value()/(Cp.value() * deltaT);
+            source[cellI] = -L.value()/(Cp[cellI] * deltaT);
         }
         else if (T_[cellI] < T_melt_ && alpha1()[cellI] < 0.01)
         {
-            source[cellI] = L.value()/(Cp.value() * deltaT);
+            source[cellI] = L.value()/(Cp[cellI] * deltaT);
         }
     }
 
     // Set field dimensions explicitly
-    source.dimensions().reset(DimensionValidator::dimTemperature/dimTime);
+    source.dimensions().reset(L.dimensions()/(Cp.dimensions()*dimTime));
     
     return tSource;
 }

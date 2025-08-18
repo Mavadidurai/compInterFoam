@@ -189,7 +189,9 @@ int main(int argc, char *argv[])
 
         // Update laser model
         laser.update();
-                laser.correct(runTime.value());
+        laser.correct(runTime.value());
+        tmp<volScalarField> laserSrc = laser.source();
+        mixture.setQLaser(laserSrc());
 
 
         // --- Pressure-velocity PIMPLE corrector loop
@@ -216,12 +218,13 @@ int main(int argc, char *argv[])
 
             #include "UEqn.H"
 
-            // Update mixture properties including laser heating field
+            // Update mixture properties
             mixture.correct();
 
-            volScalarField& laserSource = mixture.Q_laser();
+            // Replace mixture laser source with dynamic field
+            //mixture.setLaserSource(laserSrc());
 
-            ttm.solve(laserSource);
+            ttm.solve(laserSrc());
             
             #include "TEqn.H"
             
@@ -256,10 +259,10 @@ int main(int argc, char *argv[])
 
         dimensionedScalar Etot = Ek + Es + El;
 
-        static scalar Etot0 = Etot.value();
-        scalar dE = Etot.value() - Etot0;
-        scalar relChange = mag(dE)/max(mag(Etot0), VSMALL);
-
+        static scalar prevEtot = Etot.value();
+        scalar dE = Etot.value() - prevEtot;
+        scalar relChange = mag(Etot.value() - prevEtot)/max(mag(prevEtot), VSMALL);
+        
         Info<< "Total energy change: " << dE << " J (" << relChange << ")" << endl;
 
         if (relChange > energyTol)
@@ -268,6 +271,8 @@ int main(int argc, char *argv[])
                 << "Relative energy change " << relChange
                 << " exceeds energyTol (" << energyTol << ")" << endl;
         }
+                prevEtot = Etot.value();
+
         // Write additional model fields and data
         if (runTime.writeTime())
         {

@@ -472,6 +472,8 @@ void femtosecondLaserModel::calculateSource() const
     label cellsInFilm = 0;
     scalar maxSourceValue = 0.0;
     scalar totalSourceIntegral = 0.0;
+        scalar totalBeamVolume = 0.0;
+
     
     forAll(mesh_.C(), cellI)
     {
@@ -484,6 +486,8 @@ void femtosecondLaserModel::calculateSource() const
         if (isInBeam(cellCenter))
         {
             cellsInBeam++;
+       		totalBeamVolume += mesh_.V()[cellI];
+
             
             vector r = cellCenter - focus_;
             scalar z = (r & direction_);
@@ -522,9 +526,11 @@ void femtosecondLaserModel::calculateSource() const
     reduce(cellsInFilm, sumOp<label>());
     reduce(maxSourceValue, maxOp<scalar>());
     reduce(totalSourceIntegral, sumOp<scalar>());
-	    if (cellsInBeam > 0)
+    reduce(totalBeamVolume, sumOp<scalar>());
+
+    if (totalBeamVolume > 0)
     {
-        scalar avgIntensityInBeam = totalSourceIntegral / (cellsInBeam * mesh_.V()[0]);
+        scalar avgIntensityInBeam = totalSourceIntegral / totalBeamVolume;
         Info<< "🔍 LASER DIAGNOSTICS:" << nl
             << "  Input peak intensity: " << peakIntensity_.value() << " W/m²" << nl
             << "  Average intensity in beam: " << avgIntensityInBeam << " W/m³" << nl

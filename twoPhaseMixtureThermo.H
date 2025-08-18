@@ -150,11 +150,13 @@ public:
         {
             return Q_laser_;
         }
-	        //- Return access to laser heating source
+                //- Return access to laser heating source
         volScalarField& Q_laser()
         {
             return Q_laser_;
         }
+        //- Copy external laser heating source into internal field
+        void setQLaser(const volScalarField& src);
         //- Return const access to phase change source
         const volScalarField& phaseChangeSource() const
         {
