@@ -5,8 +5,9 @@
 {
     Info<< "Solving temperature equation" << endl;
     
-    // Since ttm.solve(laserSource) is called before this in compInterFoam.C,
-    // the two-temperature model has already solved for Te and Tl.
+   // Since ttm.solve(laserSource, mixture.phaseChangeSource()) is called
+    // before this in compInterFoam.C, the two-temperature model has already
+    // solved for Te and Tl.
     // We now synchronize the mixture temperature with the lattice temperature
     // and ensure thermodynamic consistency.
     

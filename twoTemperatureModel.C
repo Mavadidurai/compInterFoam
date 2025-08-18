@@ -240,7 +240,11 @@ void twoTemperatureModel::updateEnergyTracking() const
     energyInitialized_ = true;
 }
 
-void twoTemperatureModel::solve(const volScalarField& laserSource)
+void twoTemperatureModel::solve
+(
+    const volScalarField& laserSource,
+    const volScalarField& phaseChangeSource
+)
 {
     if (!validateFields())
     {
@@ -269,6 +273,8 @@ void twoTemperatureModel::solve(const volScalarField& laserSource)
       + fvm::Sp(G, Tl_)
      ==
         G*Te_
+      + Cl_*phaseChangeSource
+
     );
 
     // Under-relax the lattice equation for stability

@@ -221,10 +221,11 @@ int main(int argc, char *argv[])
             // Update mixture properties
             mixture.correct();
 
-            // Replace mixture laser source with dynamic field
-            //mixture.setLaserSource(laserSrc());
+            // Ensure exported laser source matches current femtosecond model
+            mixture.setQLaser(laserSrc());
 
-            ttm.solve(laserSrc());
+            ttm.solve(laserSrc(), mixture.phaseChangeSource());
+
             
             #include "TEqn.H"
             

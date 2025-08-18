@@ -159,8 +159,8 @@ void Foam::twoPhaseMixtureThermo::correct()
     alpha_ = alpha1()*thermo1_->alpha() + alpha2()*thermo2_->alpha();
 
     interfaceProperties::correct();
-    // Update laser heating source term to reflect current laser field
-    Q_laser_ = computeLaserHeating()();
+    // Laser heating is now supplied externally via setQLaser()
+
     phaseChangeSource_ = computePhaseChange()();
     phaseChangeSource_.correctBoundaryConditions();
 

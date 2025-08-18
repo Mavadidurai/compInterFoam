@@ -101,7 +101,11 @@ public:
     // Member Functions
 
         //- Solve temperature equations
-        void solve(const volScalarField& laserSource);
+        void solve
+        (
+            const volScalarField& laserSource,
+            const volScalarField& phaseChangeSource
+        );
 
         //- Calculate electron thermal conductivity
         tmp<volScalarField> electronThermalConductivity() const;

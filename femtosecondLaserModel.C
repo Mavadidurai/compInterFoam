@@ -497,21 +497,23 @@ void femtosecondLaserModel::calculateSource() const
             scalar spatialTerm = calculateGaussianIntensity(R, z);
             scalar absorptionTerm = exp(-absorptionCoeff_.value() * max(z, 0.0));
 
-            scalar intensity = peakIntensity_.value() * 
-                              temporalTerm * 
-                              spatialTerm * 
-                              absorptionTerm * 
+            scalar intensity = peakIntensity_.value() *
+                              temporalTerm *
+                              spatialTerm *
+                              absorptionTerm *
                               (1.0 - reflectivity_);
 
-            if (std::isfinite(intensity) && intensity > 0)
+            scalar volumetricIntensity = intensity * absorptionCoeff_.value();
+
+            if (std::isfinite(volumetricIntensity) && volumetricIntensity > 0)
             {
                 if (inFilm)
                 {
-			source[cellI] = intensity;  // No artificial limit!
+                    source[cellI] = volumetricIntensity;  // No artificial limit!
                 }
                 else
                 {
-                    source[cellI] = min(intensity * 0.1, 1e14);  // Reduced outside film
+                    source[cellI] = min(volumetricIntensity * 0.1, 1e14);  // Reduced outside film
                 }
                 
                 maxSourceValue = max(maxSourceValue, source[cellI]);
@@ -530,10 +532,10 @@ void femtosecondLaserModel::calculateSource() const
 
     if (totalBeamVolume > 0)
     {
-        scalar avgIntensityInBeam = totalSourceIntegral / totalBeamVolume;
+        scalar avgVolIntensityInBeam = totalSourceIntegral / totalBeamVolume;
         Info<< "🔍 LASER DIAGNOSTICS:" << nl
             << "  Input peak intensity: " << peakIntensity_.value() << " W/m²" << nl
-            << "  Average intensity in beam: " << avgIntensityInBeam << " W/m³" << nl
+            << "  Average volumetric intensity in beam: " << avgVolIntensityInBeam << " W/m³" << nl
             << "  Absorption coefficient: " << absorptionCoeff_.value() << " 1/m" << nl
             << "  Spot radius: " << spotSize_.value()/2.0*1e6 << " μm" << nl
             << "  Beam area: " << 3.14159*sqr(spotSize_.value()/2.0)*1e12 << " μm²" << endl;
