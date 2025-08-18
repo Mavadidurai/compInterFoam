@@ -108,6 +108,21 @@ twoTemperatureModel::twoTemperatureModel
             )
         ).value()
     ),
+        De_
+    (
+        "De",
+        dimLength*dimLength/dimTime,
+        dict.lookupOrDefault<dimensionedScalar>
+        (
+            "De",
+            dimensionedScalar
+            (
+                "De_default",
+                dimLength*dimLength/dimTime,
+                1e-4
+            )
+        ).value()
+    ),
     lastTotalEnergy_
     (
         "lastTotalEnergy",
@@ -153,7 +168,7 @@ bool twoTemperatureModel::validateParameters() const
 {
     bool valid = true;
 
-    // Check dimensions
+       // Check dimensions
     if (Te_.dimensions() != dimTemperature || 
         Tl_.dimensions() != dimTemperature)
     {
@@ -165,7 +180,8 @@ bool twoTemperatureModel::validateParameters() const
 
     if (Ce_.dimensions() != dimEnergy/dimVolume/dimTemperature ||
         Cl_.dimensions() != dimEnergy/dimVolume/dimTemperature ||
-        G_.dimensions() != dimEnergy/dimVolume/dimTime/dimTemperature)
+        G_.dimensions() != dimEnergy/dimVolume/dimTime/dimTemperature ||
+        De_.dimensions() != dimLength*dimLength/dimTime)
     {
         FatalErrorInFunction
             << "Invalid material property dimensions"
@@ -174,10 +190,19 @@ bool twoTemperatureModel::validateParameters() const
     }
 
     // Check property values
-    if (Ce_.value() <= 0 || Cl_.value() <= 0 || G_.value() <= 0)
+    if (Ce_.value() <= 0 || Cl_.value() <= 0 || G_.value() <= 0 || De_.value() <= 0)
     {
         FatalErrorInFunction
             << "Non-positive material properties detected"
+            << abort(FatalError);
+        valid = false;
+    }
+
+    // Validate thermal conductivity dimensions from Ce and De
+    if ((Ce_ * De_).dimensions() != dimPower/dimLength/dimTemperature)
+    {
+        FatalErrorInFunction
+            << "Inconsistent thermal conductivity dimensions"
             << abort(FatalError);
         valid = false;
     }
@@ -392,14 +417,15 @@ tmp<volScalarField> twoTemperatureModel::electronThermalConductivity() const
         )
     );
 
-    // Get reference to field for modification
+       // Get reference to field for modification
     volScalarField& ke = tke.ref();
 
-    // Calculate temperature-dependent conductivity
-    // This is a simplified model - could be extended for more complex behavior
+    // Calculate conductivity using constant electron diffusivity
+    // ke = Ce * De, assuming uniform material properties
+    dimensionedScalar kappa = Ce_ * De_;
     forAll(ke, cellI)
     {
-        ke[cellI] = Ce_.value() * Te_[cellI] / (3.0 * G_.value());
+        ke[cellI] = kappa.value();
     }
 
     return tke;
@@ -468,7 +494,8 @@ bool twoTemperatureModel::valid() const
         Tl_.dimensions() != dimTemperature ||
         Ce_.dimensions() != dimEnergy/dimVolume/dimTemperature ||
         Cl_.dimensions() != dimEnergy/dimVolume/dimTemperature ||
-        G_.dimensions() != dimEnergy/dimVolume/dimTime/dimTemperature)
+        G_.dimensions() != dimEnergy/dimVolume/dimTime/dimTemperature ||
+        De_.dimensions() != dimLength*dimLength/dimTime)
     {
         return false;
     }
@@ -506,47 +533,8 @@ void twoTemperatureModel::write() const
 
 tmp<volScalarField> Foam::twoTemperatureModel::ke() const
 {
-    // Return electronic thermal conductivity
-    tmp<volScalarField> tke
-    (
-        new volScalarField
-        (
-            IOobject
-            (
-                "ke",
-                mesh_.time().timeName(),
-                mesh_,
-                IOobject::NO_READ,
-                IOobject::NO_WRITE
-            ),
-            mesh_,
-            dimensionedScalar("ke", dimPower/dimLength/dimTemperature, 0.0)
-        )
-    );
-
-    volScalarField& ke = tke.ref();
-
-    // Calculate temperature-dependent electronic thermal conductivity
-    // Using Wiedemann-Franz law and electron temperature dependence
-    forAll(mesh_.C(), cellI)
-    {
-       
-scalar Te = max(Te_[cellI], 300.0); // Ensure minimum temperature
-scalar safeG = max(G_.value(), SMALL); // Prevent division by zero
-
-// Modified thermal conductivity with more physically-based high-temp behavior
-ke[cellI] = Ce_.value() * Te / (3.0 * safeG);
-  
-// More physically accurate high-temperature model
-if (Te > 1000.0)
-{
-    // More gradual transition based on established electron-phonon scattering models
-    scalar tempRatio = Te/1000.0;
-    ke[cellI] *= pow(tempRatio, 0.5) / (1.0 + 0.1 * tempRatio);
-}
-    }
-
-    return tke;
+    // Electronic thermal conductivity derived from constant diffusivity
+    return electronThermalConductivity();
 }
 tmp<volScalarField> Foam::twoTemperatureModel::kl() const
 {

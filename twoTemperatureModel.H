@@ -62,6 +62,8 @@ private:
         dimensionedScalar Ce_;     //- Electron heat capacity [J/m³/K]
         dimensionedScalar Cl_;     //- Lattice heat capacity [J/m³/K]
         dimensionedScalar G_;      //- Electron-phonon coupling [W/m³/K]
+        dimensionedScalar De_;     //- Electron thermal diffusivity [m^2/s]
+
 
         //- Energy Conservation Tracking
         mutable dimensionedScalar lastTotalEnergy_;  //- Previous total energy [J]
@@ -142,6 +144,8 @@ public:
 
         //- Return electron-phonon coupling
         const dimensionedScalar& G() const { return G_; }
+        //- Return electron thermal diffusivity
+        const dimensionedScalar& De() const { return De_; }
 };
 
 } // End namespace Foam

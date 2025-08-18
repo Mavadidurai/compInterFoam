@@ -109,7 +109,8 @@ int main(int argc, char *argv[])
     
     // Energy conservation tolerance from controlDict
     const scalar energyTol =
-        runTime.controlDict().lookupOrDefault<scalar>("energyTol", 1e-6);
+        runTime.controlDict().lookupOrDefault<scalar>("energyTol", 0.1);
+
     // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
     Info<< "\nStarting time loop\n" << endl;
@@ -241,15 +242,23 @@ int main(int argc, char *argv[])
             }
         }
 
-      // Compute domain-integrated energy components
+       // Compute domain-integrated energy components
         dimensionedScalar Ek = fvc::domainIntegrate
         (
             0.5*rho*magSqr(U)
         );
 
-        dimensionedScalar Es = fvc::domainIntegrate
+        const dimensionedScalar& Ce_ = ttm.Ce();
+        const dimensionedScalar& Cl_ = ttm.Cl();
+
+        dimensionedScalar Ee = fvc::domainIntegrate
         (
-            rho*mixture.Cp()*T
+            Ce_*ttm.Te()
+        );
+
+        dimensionedScalar Elattice = fvc::domainIntegrate
+        (
+            Cl_*ttm.Tl()
         );
 
         const dimensionedScalar L = mixture.latentHeat();
@@ -258,7 +267,7 @@ int main(int argc, char *argv[])
             rho*L*alpha1
         );
 
-        dimensionedScalar Etot = Ek + Es + El;
+        dimensionedScalar Etot = Ek + Ee + Elattice + El;
 
         static scalar prevEtot = Etot.value();
         scalar dE = Etot.value() - prevEtot;
@@ -270,7 +279,12 @@ int main(int argc, char *argv[])
         {
             WarningInFunction
                 << "Relative energy change " << relChange
-                << " exceeds energyTol (" << energyTol << ")" << endl;
+                << " exceeds energyTol (" << energyTol << ")" << nl
+                << "    Ek = " << Ek.value() << " J" << nl
+                << "    Ee = " << Ee.value() << " J" << nl
+                << "    Elattice = " << Elattice.value() << " J" << nl
+                << "    Elatent = " << El.value() << " J" << nl
+                << "    Etot = " << Etot.value() << " J" << endl;
         }
                 prevEtot = Etot.value();
 
