@@ -291,14 +291,14 @@ IOdictionary laserPropertiesDict
 femtosecondLaserModel laser(mesh, laserPropertiesDict);
 
 Info<< "Creating two-temperature model\n" << endl;
-const scalar energyTol =
-    runTime.controlDict().lookupOrDefault<scalar>("energyTol", 0.1);
-
 dictionary twoTemperatureDict
 (
     runTime.controlDict().subDict("twoTemperatureProperties")
 );
-twoTemperatureDict.set("energyTolerance", energyTol);
+
+const scalar energyTolerance =
+    twoTemperatureDict.lookupOrDefault<scalar>("energyTolerance", 0.1);
+twoTemperatureDict.set("energyTolerance", energyTolerance);
 
 twoTemperatureModel ttm
 (

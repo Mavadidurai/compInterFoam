@@ -271,11 +271,11 @@ int main(int argc, char *argv[])
         
         Info<< "Total energy change: " << dE << " J (" << relChange << ")" << endl;
 
-        if (relChange > energyTol)
+        if (relChange > energyTolerance)
         {
             WarningInFunction
                 << "Relative energy change " << relChange
-                << " exceeds energyTol (" << energyTol << ")" << nl
+                << " exceeds energyTolerance (" << energyTolerance << ")" << nl
                 << "    Ek = " << Ek.value() << " J" << nl
                 << "    Ee = " << Ee.value() << " J" << nl
                 << "    Elattice = " << Elattice.value() << " J" << nl

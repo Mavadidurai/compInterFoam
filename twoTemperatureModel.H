@@ -26,8 +26,8 @@ SourceFiles
     twoTemperatureModel.C
         Dictionary entries:
         energyTolerance   Relative energy conservation tolerance
-                          used by checkEnergyConservation (optional,
-                          default = 0.1)
+                          used by checkEnergyConservation
+
 
 \*---------------------------------------------------------------------------*/
 
