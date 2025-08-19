@@ -39,9 +39,9 @@ laserModel      gaussian;
 
 // --- Energy & timing ---
 pulseEnergy     1e-6;         // [J] total energy
-pulseWidth      1e-6;         // [s] 1 µs pulse width
+pulseWidth      100e-15;         // [s] 1 µs pulse width
 laserStartTime  0;            // [s]
-laserEndTime    1e-6;         // [s] = start + pulseWidth
+laserEndTime    100e-15;         // [s] = start + pulseWidth
 
 // --- Spatial Gaussian (match the box center and film depth) ---
 spotSize        5e-6;         // [m] beam diameter
@@ -63,6 +63,6 @@ gaussianProfile     true;
 maxReflections      1;
 
 // Optional intensity entry (keep but consistent with chosen pulse width)
-peakIntensity       1e8;      // [W/m^2] (not strictly needed if model uses energy)
+peakIntensity       1e15;      // [W/m^2] (not strictly needed if model uses energy)
 continuousLaser     false;
 // ************************************************************************* //
