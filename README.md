@@ -9,6 +9,9 @@ solver with femtosecond laser modeling, two-temperature physics, and
 advanced interface capturing geared toward Laser-Induced Forward Transfer
 (LIFT) studies.
 
+The two-temperature model enforces energy conservation using an
+`energyTolerance` parameter specified in case dictionaries.
+
 ## Required OpenFOAM version and dependencies
 
 * OpenFOAM v10 or later
