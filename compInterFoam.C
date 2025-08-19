@@ -215,9 +215,6 @@ int main(int argc, char *argv[])
 
             #include "UEqn.H"
 
-            // Ensure exported laser source matches current femtosecond model
-            mixture.setQLaser(laserSrc());
-
             ttm.solve(laserSrc(), mixture.phaseChangeSource());
 
             

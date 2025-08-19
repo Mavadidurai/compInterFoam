@@ -167,9 +167,6 @@ public:
         //  i.e. rho = const
         virtual bool isochoric() const;
         
-        //- Return laser heating source term
-       // virtual tmp<volScalarField> computeLaserHeating() const;
-
         //- Compute and return phase change source term
         virtual tmp<volScalarField> computePhaseChange() const;
  

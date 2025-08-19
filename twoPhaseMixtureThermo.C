@@ -183,13 +183,18 @@ Foam::tmp<Foam::volScalarField> Foam::twoPhaseMixtureThermo::computePhaseChange(
     volScalarField& source = tSource.ref();
     
     // Get local thermodynamic properties with proper dimensions
-    const volScalarField Cp = thermo1_->Cp();
+    const volScalarField CpField = thermo1_->Cp();
     const dimensionedScalar dt = T_.time().deltaT();
     const dimensionedScalar L = latentHeat();
     
     forAll(T_, cellI)
     {
-        const dimensionedScalar CpCell("CpCell", Cp.dimensions(), Cp[cellI]);
+        const dimensionedScalar CpCell
+        (
+            "CpCell",
+            CpField.dimensions(),
+            CpField[cellI]
+        );
 
         if (T_[cellI] > T_melt_ && alpha1()[cellI] > 0.99)
         {
@@ -205,9 +210,6 @@ Foam::tmp<Foam::volScalarField> Foam::twoPhaseMixtureThermo::computePhaseChange(
             source[cellI] = src.value();
         }
     }
-
-    // Set field dimensions explicitly
-    //source.dimensions().reset(L.dimensions()/(Cp.dimensions()*dimTime));
     
     return tSource;
 }
