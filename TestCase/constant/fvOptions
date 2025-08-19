@@ -17,16 +17,16 @@ FoamFile
 
 substrateFixedVelocity
 {
-    type            fixedVelocity;
+    type            vectorFixedValueConstraint;
     active          yes;
+
     selectionMode   cellZone;
-    // Apply to the substrate cell zone defined in topoSet
     cellZone        substrate;
-    fields
+
+    fieldValues
     {
         U   (0 0 0);
     }
 }
-
 
 // ************************************************************************* //
