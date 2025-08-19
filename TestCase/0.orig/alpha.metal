@@ -20,13 +20,14 @@ dimensions      [0 0 0 0 0 0 0];
 
 // SLM: Metal powder initially absent (set by setFieldsDict)
 internalField   uniform 0;
+
 boundaryField
 {
-    zMax
+    yMax
     {
         type        zeroGradient;
     }
-    zMin
+    yMin
     {
         type        zeroGradient;
     }
@@ -38,11 +39,11 @@ boundaryField
     {
         type            zeroGradient;
     }
-    yMin
+    zMin
     {
         type            zeroGradient;
     }
-    yMax
+    zMax
     {
         type            zeroGradient;
     }

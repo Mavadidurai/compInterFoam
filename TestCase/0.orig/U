@@ -23,13 +23,13 @@ internalField   uniform (0 0 0);    // Initially at rest
 boundaryField
 {
 
-    zMax
+    yMax
     {
         type            slip;
         value       uniform (0 0 0);
     }
-    
-    zMin
+
+    yMin
     {
         type        noSlip;
     }
@@ -41,11 +41,12 @@ boundaryField
     {
         type            zeroGradient;
     }
-    yMin
+    zMin
     {
-        type            zeroGradient;
+        type            slip;
+        value       uniform (0 0 0);
     }
-    yMax
+    zMax
     {
         type            zeroGradient;
     }

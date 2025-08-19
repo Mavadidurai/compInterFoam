@@ -20,15 +20,14 @@ dimensions      [0 0 0 1 0 0 0];
 
 internalField   uniform 300;
 
-
 boundaryField
 {
-    zMax
+    yMax
     {
         type            zeroGradient;
-        
+
     }
-    zMin
+    yMin
     {
         type            fixedValue;
         value           uniform 300;
@@ -41,11 +40,11 @@ boundaryField
     {
         type            zeroGradient;
     }
-    yMin
+    zMin
     {
         type            zeroGradient;
     }
-    yMax
+    zMax
     {
         type            zeroGradient;
     }

@@ -22,11 +22,11 @@ internalField   uniform 1e5;      // ✅ FIXED: Start with zero relative pressur
 
 boundaryField
 {
-    zMax
+    yMax
     {
         type        zeroGradient;
     }
-    zMin
+    yMin
     {
         type        zeroGradient;
     }
@@ -38,11 +38,11 @@ boundaryField
     {
         type            zeroGradient;
     }
-    yMin
+    zMin
     {
         type            zeroGradient;
     }
-    yMax
+    zMax
     {
         type            zeroGradient;
     }
