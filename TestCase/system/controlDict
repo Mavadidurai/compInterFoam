@@ -21,13 +21,13 @@ application     compInterFoam;
 startFrom       startTime;
 startTime       0;
 stopAt          endTime;
-endTime         2e-3;              // keep; you can shorten for fs-only tests
+endTime         1e-6;              // keep; you can shorten for fs-only tests
 
 deltaT          1e-13;
 adjustTimeStep  yes;
 maxCo           0.2;
 maxAlphaCo      0.2;
-maxDeltaT       1e-7;
+maxDeltaT       1e-9;
 
 writeControl    timeStep;
 writeInterval   100;               // fields every 100 steps (~1e-11 s if Δt=1e-13)

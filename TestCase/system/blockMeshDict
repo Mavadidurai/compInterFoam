@@ -14,7 +14,7 @@ FoamFile
 }
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
-convertToMeters 1e-6; // coordinates in micrometers
+scale 1e-6; // coordinates in micrometers
 
 vertices
 (
@@ -41,7 +41,7 @@ blocks
     // substrate: 0–8 µm
     hex (0 1 2 3 8 9 10 11)   (25 80 10) simpleGrading (1 0.2 1)
     // metal film: 8–10 µm
-    hex (3 2 5 4 11 10 13 12) (25 20 10) simpleGrading (1 20 1)
+    hex (3 2 5 4 11 10 13 12) (25 100 10) simpleGrading (1 50 1)
     // air gap: 10–20 µm
     hex (4 5 6 7 12 13 14 15) (25 100 10) simpleGrading (1 5 1)
 );
@@ -52,7 +52,7 @@ boundary
 (
     zMax		//top
     {
-        type wall;
+        type patch;
         faces
         (
             (8 9 10 11)
@@ -72,7 +72,7 @@ boundary
     }
     xMin		//inlet
     {
-        type wall;
+        type patch;
         faces
         (
             (0 3 11 8)
@@ -82,7 +82,7 @@ boundary
     }
     xMax		//outlet
     {
-        type wall;
+        type patch;
         faces
         (
             (1 2 10 9)
@@ -92,12 +92,12 @@ boundary
     }
     yMin		//front
     {
-        type wall;
+        type patch;
         faces ((0 1 9 8));         // y=0 plane
     }
     yMax		//back
     {
-        type wall;
+        type patch;
         faces ((7 6 14 15));       // y=20 μm plane
     }
 );
