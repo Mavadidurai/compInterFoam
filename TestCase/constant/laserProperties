@@ -38,7 +38,7 @@ FoamFile
 laserModel      gaussian;
 
 // --- Energy & timing ---
-pulseEnergy     1e-6;         // [J] total energy
+pulseEnergy     1e-4;         // [J] total energy
 pulseWidth      100e-15;         // [s] 1 µs pulse width
 laserStartTime  0;            // [s]
 laserEndTime    100e-15;         // [s] = start + pulseWidth
@@ -63,6 +63,6 @@ gaussianProfile     true;
 maxReflections      1;
 
 // Optional intensity entry (keep but consistent with chosen pulse width)
-peakIntensity       1e15;      // [W/m^2] (not strictly needed if model uses energy)
+peakIntensity       5e15;      // [W/m^2] (not strictly needed if model uses energy)
 continuousLaser     false;
 // ************************************************************************* //
