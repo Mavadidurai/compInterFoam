@@ -256,7 +256,7 @@ bool twoTemperatureModel::checkEnergyConservation() const
         (mag(lastTotalEnergy_.value()) + SMALL)
     );
 
-    return energyError < dict_.lookup<scalar>("energyTolerance");
+    return energyError < dict_.get<scalar>("energyTolerance");
 }
 
 void twoTemperatureModel::updateEnergyTracking() const
