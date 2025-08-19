@@ -40,8 +40,6 @@ timePrecision   12;
 fileHandler     collated;
 
 runTimeModifiable yes;
-energyTol       0.1;
-
 
 // solver switches (kept as in your file)
 useAdvancedInterfaceCapturing  true;
