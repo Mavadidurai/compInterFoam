@@ -277,7 +277,7 @@ if (pimple.momentumPredictor())
         }
     }
 
-    maxVelAfterSolve = gMax(mag(U)).value();
+    maxVelAfterSolve = gMax(mag(U)().internalField());
     reduce(invalidCells, sumOp<label>());
     reduce(limitedCells, sumOp<label>());
 
