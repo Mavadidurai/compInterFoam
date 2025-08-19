@@ -20,6 +20,7 @@ substrateFixedVelocity
     type            fixedVelocity;
     active          yes;
     selectionMode   cellZone;
+    // Apply to the substrate cell zone defined in topoSet
     cellZone        substrate;
     fields
     {

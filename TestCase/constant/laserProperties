@@ -38,8 +38,9 @@ FoamFile
 laserModel      gaussian;
 
 // --- Energy & timing ---
-pulseEnergy     1e-4;         // [J] total energy
-pulseWidth      100e-15;         // [s] 1 µs pulse width
+// Increase energy/intensity for metal ablation while keeping pulse width physical
+pulseEnergy     1e-3;         // [J] total energy
+pulseWidth      100e-15;      // [s] 100 fs pulse width
 laserStartTime  0;            // [s]
 laserEndTime    100e-15;         // [s] = start + pulseWidth
 
@@ -54,7 +55,7 @@ direction       (0 1 0);
 wavelength          1.03e-6;  // [m]
 
 // Absorption
-absorptionCoeff     5e7;      // [1/m]
+absorptionCoeff     5e7;      // [1/m] ~20–50 nm optical depth
 
 
 // Reflectivity / profile
@@ -63,6 +64,6 @@ gaussianProfile     true;
 maxReflections      1;
 
 // Optional intensity entry (keep but consistent with chosen pulse width)
-peakIntensity       5e15;      // [W/m^2] (not strictly needed if model uses energy)
+peakIntensity       1e16;      // [W/m^2] (raised to >10^12 W/m^2)
 continuousLaser     false;
 // ************************************************************************* //
