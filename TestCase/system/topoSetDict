@@ -24,7 +24,8 @@ actions
         source      boxToCell;
         sourceInfo
         {
-            box (0 0 0) (50 8 10);
+            // Bounding box defined in SI units (meters)
+            box (0 0 0) (50e-6 8e-6 10e-6);
         }
     }
     {

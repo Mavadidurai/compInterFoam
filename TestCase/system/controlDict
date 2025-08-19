@@ -21,13 +21,13 @@ application     compInterFoam;
 startFrom       startTime;
 startTime       0;
 stopAt          endTime;
-endTime         1e-6;              // keep; you can shorten for fs-only tests
+endTime         5e-12;              // keep; you can shorten for fs-only tests
 
-deltaT          1e-13;
+deltaT          1e-15;
 adjustTimeStep  yes;
 maxCo           0.2;
 maxAlphaCo      0.2;
-maxDeltaT       1e-9;
+maxDeltaT       1e-15;
 
 writeControl    timeStep;
 writeInterval   100;               // fields every 100 steps (~1e-11 s if Δt=1e-13)
@@ -55,8 +55,7 @@ twoTemperatureProperties
     Ce  2.0e6;
     Cl  3.0e6;
     G   2.0e16;
-    energyTolerance 0.1;
-
+    energyTolerance 0.1; // relative energy change tolerance
 }
 
 functions
