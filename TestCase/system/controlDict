@@ -14,7 +14,6 @@ FoamFile
     object      controlDict;
 }
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
-/* v2406 :: LIFT ultrafast mode (fs–ns) */
 
 application     compInterFoam;
 
@@ -55,16 +54,16 @@ twoTemperatureProperties
     Ce  2.0e6;
     Cl  3.0e6;
     G   2.0e16;
-    energyTolerance 0.1; // relative energy change tolerance
+    energyTol 0.1; // relative energy change tolerance
 }
 
 functions
 {
-    QlaserWrite
+    fieldWrite
     {
         type              writeObjects;
         libs              ("libutilityFunctionObjects.so");
-        objects           (Q_laser);
+        objects           (Q_laser U p_rgh p T alpha.metal);
         writeOnExecution  true;
     }
 

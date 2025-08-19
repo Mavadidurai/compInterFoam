@@ -38,8 +38,8 @@ FoamFile
 laserModel      gaussian;
 
 // --- Energy & timing ---
-// Increase energy/intensity for metal ablation while keeping pulse width physical
-pulseEnergy     4e-8;         // [J] total energy
+// Reduced energy/intensity to match realistic fluence
+pulseEnergy     2e-12;         // [J] total energy
 pulseWidth      100e-15;      // [s] 100 fs pulse width
 laserStartTime  0;            // [s]
 laserEndTime    100e-15;         // [s] = start + pulseWidth
@@ -64,6 +64,6 @@ gaussianProfile     true;
 maxReflections      1;
 
 // Optional intensity entry (keep but consistent with chosen pulse width)
-peakIntensity       2e16;      // [W/m^2] (raised to >10^12 W/m^2)
+peakIntensity       1e12;      // [W/m^2] (raised to >10^12 W/m^2)
 continuousLaser     false;
 // ************************************************************************* //
