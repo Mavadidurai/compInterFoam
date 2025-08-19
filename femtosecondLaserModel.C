@@ -83,7 +83,9 @@ femtosecondLaserModel::femtosecondLaserModel
     continuousLaser_(dict.getOrDefault<bool>("continuousLaser", false)),
     laserStartTime_(dict.getOrDefault<scalar>("laserStartTime", 0.0)),
     laserEndTime_(dict.getOrDefault<scalar>("laserEndTime", 2e-12)),
-    sourceValid_(false)
+    sourceValid_(false),
+    cumulativeEnergy_(0.0),
+    lastTimeIndex_(mesh.time().timeIndex())
 {
     // Normalize direction vector
     direction_ /= mag(direction_) + SMALL;
@@ -426,6 +428,13 @@ void femtosecondLaserModel::calculateSource() const
     const dimensionedScalar dt = mesh_.time().deltaT();
     const label timeIndex = mesh_.time().timeIndex();
     
+    // Reset cumulative energy if simulation restarted
+    if (timeIndex < lastTimeIndex_)
+    {
+        cumulativeEnergy_ = 0.0;
+    }
+    lastTimeIndex_ = timeIndex;
+    
     // Check if laser is active
     bool laserActive = false;
     
@@ -535,6 +544,9 @@ void femtosecondLaserModel::calculateSource() const
     {
         avgIntensityInBeam = totalSourceIntegral / totalBeamVolume;
     }
+        dimensionedScalar totalEnergyDeposited =
+        fvc::domainIntegrate(source * dt);
+        cumulativeEnergy_ += totalEnergyDeposited.value();
 
     Info<< "🔍 LASER DIAGNOSTICS:" << nl
         << "  Input peak intensity: " << peakIntensity_.value() << " W/m²" << nl
@@ -548,9 +560,6 @@ void femtosecondLaserModel::calculateSource() const
     // Report laser activity
     if (laserActive && (timeIndex % 10 == 0))
     {
-        dimensionedScalar totalEnergyDeposited = 
-            fvc::domainIntegrate(source * dt);
-            
         Info<< "🔥 LASER ENERGY DEPOSITION:" << nl
             << "  Time: " << t*1e12 << " ps" << nl
             << "  Temporal factor: " << temporalTerm << nl
@@ -559,8 +568,9 @@ void femtosecondLaserModel::calculateSource() const
             << "  Max intensity: " << maxSourceValue/1e12 << " TW/m³" << nl
             << "  Total power: " << totalSourceIntegral/1e12 << " TW" << nl
             << "  Time step: " << dt.value() << " s" << nl
-            << "  Energy this step: " << totalEnergyDeposited.value() << " J" << endl;
-            
+            << "  Energy this step: " << totalEnergyDeposited.value() << " J" << nl
+            << "  Cumulative energy: " << cumulativeEnergy_ << " J" << endl;
+
         // Diagnostics
         if (cellsInBeam == 0)
         {
@@ -569,11 +579,11 @@ void femtosecondLaserModel::calculateSource() const
                 << "Focus: " << focus_ << nl
                 << "Domain bounds: " << mesh_.bounds() << endl;
         }
-        
+
         if (cellsInFilm == 0 && cellsInBeam > 0)
         {
             WarningInFunction
-                << "Beam hits " << cellsInBeam 
+                << "Beam hits " << cellsInBeam
                 << " cells but none in metal film region" << endl;
         }
     }
@@ -608,15 +618,16 @@ void femtosecondLaserModel::write() const
     if (tSource_.valid())
     {
         const dimensionedScalar maxIntensity = max(tSource_());
-        const dimensionedScalar totalEnergy = 
+        const dimensionedScalar totalEnergy =
             fvc::domainIntegrate(tSource_() * mesh_.time().deltaT());
 
         Info<< "Source statistics:" << nl
             << "  Maximum intensity: " << maxIntensity.value() << " W/m³" << nl
             << "  Energy this timestep: " << totalEnergy.value() << " J" << endl;
     }
-}
 
+    Info<< "  Cumulative energy: " << cumulativeEnergy_ << " J" << endl;
+}
 } // End namespace Foam
 
 // ************************************************************************* //

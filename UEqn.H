@@ -268,8 +268,6 @@ if (pimple.momentumPredictor())
         else
         {
             scalar velMag = mag(U[cellI]);
-            maxVelAfterSolve = max(maxVelAfterSolve, velMag);
-
             // Bound extreme velocities
             if (velMag > maxVelocity)
             {
@@ -279,7 +277,7 @@ if (pimple.momentumPredictor())
         }
     }
 
-    reduce(maxVelAfterSolve, maxOp<scalar>());
+    maxVelAfterSolve = gMax(mag(U)).value();
     reduce(invalidCells, sumOp<label>());
     reduce(limitedCells, sumOp<label>());
 
@@ -293,9 +291,9 @@ if (pimple.momentumPredictor())
         Info<< "  Limited " << limitedCells << " velocity cells exceeding "
             << maxVelocity << " m/s" << endl;
     }
-    
+
     Info<< "Momentum predictor:" << nl
-        << "  Max velocity after solve: " << maxVelAfterSolve << " m/s" << endl;
+        << "  Max velocity after limiting: " << maxVelAfterSolve << " m/s" << endl;
 }
 
 // Update fluxes

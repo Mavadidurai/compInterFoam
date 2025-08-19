@@ -314,23 +314,8 @@ void twoTemperatureModel::solve
     latticeDict.add("maxIter", 500);
     
     TlEqn.solve(latticeDict);
-    // Create energy source field
-    volScalarField energySource
-    (
-        IOobject
-        (
-            "energySource",
-            mesh_.time().timeName(),
-            mesh_,
-            IOobject::NO_READ,
-            IOobject::NO_WRITE
-        ),
-        mesh_,
-        dimensionedScalar("zero", dimEnergy/dimVolume/dimTime, 0.0)
-    );
+    TlEqn.solve(latticeDict);
 
-    energySource = laserSource;  // Direct assignment
-    
     // Create a more stable matrix system for the electron temperature
     fvScalarMatrix TeEqn
     (
@@ -338,9 +323,10 @@ void twoTemperatureModel::solve
       - fvm::laplacian(ke, Te_)
       + fvm::Sp(G, Te_)
      ==
-        energySource
+        laserSource
       + G*Tl_
     );
+
 
     // Apply stronger under-relaxation to electron equation
     TeEqn.relax(relaxFactor);

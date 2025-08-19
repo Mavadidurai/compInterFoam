@@ -74,8 +74,14 @@ private:
         // Cached fields
         mutable tmp<volScalarField> tSource_;  // Laser source field
         mutable bool sourceValid_;             // Source validity flag
+        
+        //- Running total of energy deposited [J]
+        mutable scalar cumulativeEnergy_;
 
-    // Private Member Functions
+        //- Last processed time index for restart detection
+        mutable label lastTimeIndex_;
+
+     // Private Member Functions
 
         //- Calculate laser source term
         void calculateSource() const;

@@ -98,12 +98,21 @@
             << maxRAUf << "]: min=" << min(rAUf).value()
             << " max=" << max(rAUf).value() << endl;
     }
-    
-    // Create pressure equation with robust interpolation
-    fvScalarMatrix pEqn
-    (
-        fvm::laplacian(rAUf, p_rgh)
+
+ // Construct HbyA and corresponding flux
+    volVectorField HbyA(
+        IOobject("HbyA", runTime.timeName(), mesh, IOobject::NO_READ, IOobject::NO_WRITE),
+        constrainHbyA(rAU*UEqn.H(), U, p_rgh)
     );
+
+    surfaceScalarField phiHbyA(
+        IOobject("phiHbyA", runTime.timeName(), mesh, IOobject::NO_READ, IOobject::NO_WRITE),
+        (fvc::interpolate(HbyA) & mesh.Sf())
+    );
+
+    constrainPressure(p_rgh, U, phiHbyA, rAUf);
+
+    fvScalarMatrix pEqn(fvm::laplacian(rAUf, p_rgh) == fvc::div(phiHbyA));
     
     // Set reference and apply adaptive under-relaxation
     pEqn.setReference(pRefCell, pRefValue);
@@ -115,34 +124,27 @@
         "targetResP", 0.1);
     pEqn.relax(relaxP);
     
-    // Create backup of p_rgh in case solver fails
+    // Create backups in case solver diverges
     volScalarField p_rgh_old(p_rgh);
-    
-    // Solve
-    bool solveOK = true;
-    try
-    {
-        // Use check on initial residual instead of good()
-        SolverPerformance<scalar> solverPerf = pEqn.solve();
-        scalar residual = solverPerf.initialResidual();
-        Info<< "pEqn initial residual: " << residual << endl;
-        solveOK = (residual < 1e3);
-        relaxP = max(min(relaxP * targetResP/(residual + SMALL), 0.7), 0.1);
-        Info<< "  Updated relaxP: " << relaxP << endl;
+    surfaceScalarField phi_old(phi);
+    volVectorField U_old(U);
 
-    }
-    catch(...)
-    {
-        solveOK = false;
-        Warning << "Exception caught in pressure solver - reverting to previous solution" << endl;
-        p_rgh = p_rgh_old;
-    }
-    
-    if (!solveOK)
+    // Solve and inspect initial residual
+    SolverPerformance<scalar> solverPerf = pEqn.solve();
+    scalar residual = solverPerf.initialResidual();
+    Info<< "pEqn initial residual: " << residual << endl;
+    relaxP = max(min(relaxP * targetResP/(residual + SMALL), 0.7), 0.1);
+    Info<< "  Updated relaxP: " << relaxP << endl;
+
+    // Revert to previous solution if residual too large
+    if (residual >= 1e3)
     {
         Warning << "Pressure solve appears unstable - reverting to previous solution" << endl;
         p_rgh = p_rgh_old;
+        phi = phi_old;
+        U = U_old;
     }
+
     
     // Check for invalid values after solve
     bool hasInvalidValues = false;
