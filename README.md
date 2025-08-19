@@ -10,7 +10,7 @@ advanced interface capturing geared toward Laser-Induced Forward Transfer
 (LIFT) studies.
 
 The two-temperature model enforces energy conservation using an
-`energyTolerance` parameter specified in case dictionaries.
+`energyTol`/`energyTolerance` parameter specified in case dictionaries.
 
 ## Required OpenFOAM version and dependencies
 
