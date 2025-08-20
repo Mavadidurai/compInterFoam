@@ -38,11 +38,11 @@ FoamFile
 laserModel      gaussian;
 
 // --- Energy & timing ---
-// Reduced energy/intensity to match realistic fluence
-pulseEnergy     2e-12;         // [J] total energy
-pulseWidth      100e-15;      // [s] 100 fs pulse width
-laserStartTime  0;            // [s]
-laserEndTime    100e-15;         // [s] = start + pulseWidth
+// Boosted energy/intensity to reach melt/ablation threshold
+pulseEnergy     1e-6;          // [J] total energy (~5 J/cm^2)
+pulseWidth      100e-15;       // [s] 100 fs pulse width
+laserStartTime  0;             // [s]
+laserEndTime    100e-15;       // [s] = start + pulseWidth
 
 // --- Spatial Gaussian (match the box center and film depth) ---
 spotSize        5e-6;         // [m] beam diameter
@@ -63,7 +63,7 @@ reflectivity        0.3;
 gaussianProfile     true;
 maxReflections      1;
 
-// Optional intensity entry (keep but consistent with chosen pulse width)
-peakIntensity       1e12;      // [W/m^2] (raised to >10^12 W/m^2)
+// Optional intensity entry (consistent with pulseEnergy & pulseWidth)
+peakIntensity       5e17;      // [W/m^2]
 continuousLaser     false;
 // ************************************************************************* //
