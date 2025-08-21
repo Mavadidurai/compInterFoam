@@ -60,7 +60,7 @@ sigma           sigma [ 1 0 -2 0 0 0 0 ] 1.5;         // N/m - Metal-air surface
 
 // ✅ NEW: Substrate-metal interface tension (affects wetting)
 sigmaSM         sigmaSM [ 1 0 -2 0 0 0 0 ] 2.0;       // N/m - Substrate-metal interface
-contactAngle    110;                                  // degrees - Contact angle on substrate
+contactAngle    100;                                  // degrees - Contact angle on substrate
 
 // ✅ OPTIMIZED: Interface compression for substrate system
 cAlpha          0.5;        // ✅ REDUCED: Less aggressive for stability with substrate
@@ -71,18 +71,18 @@ scAlpha         0;          // Shear compression (disabled)
 liftParameters
 {
     // Ejection characteristics
-    ejectionVelocityScale   100;       // m/s - Typical LIFT ejection velocity
-    dropletSizeScale        1e-6;      // m - Typical droplet size
+    ejectionVelocityScale   200;       // m/s - Typical LIFT ejection velocity
+    dropletSizeScale        8e-7;      // m - Typical droplet size
     
     // Thermal transport enhancement at interface
-    interfaceEnhancement    2.0;       // Enhancement factor for interface transport
+    interfaceEnhancement    3.0;       // Enhancement factor for interface transport
     
     // Substrate constraint effects
-    substrateConstraintFactor  0.1;    // Fraction of motion allowed in substrate region
+    substrateConstraintFactor  0.05;    // Fraction of motion allowed in substrate region
     
     // Phase change enhancement
-    nucleationSites         1e12;      // sites/m² - Nucleation site density
-    superheatingLimit       300;       // K - Maximum superheat before nucleation
+    nucleationSites         5e12;      // sites/m² - Nucleation site density
+    superheatingLimit       400;       // K - Maximum superheat before nucleation
 }
 // ✅ ENHANCED: Temperature-dependent properties
 temperatureDependence
