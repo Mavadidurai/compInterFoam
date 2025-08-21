@@ -71,20 +71,19 @@ scAlpha         0;          // Shear compression (disabled)
 liftParameters
 {
     // Ejection characteristics
-    ejectionVelocityScale   80;        // m/s - Typical LIFT ejection velocity
-    dropletSizeScale        1.2e-6;       // m - Typical droplet size
+    ejectionVelocityScale   100;       // m/s - Typical LIFT ejection velocity
+    dropletSizeScale        1e-6;      // m - Typical droplet size
     
     // Thermal transport enhancement at interface
-    interfaceEnhancement    1.5;        // Enhancement factor for interface transport
+    interfaceEnhancement    2.0;       // Enhancement factor for interface transport
     
     // Substrate constraint effects
-    substrateConstraintFactor  0.2;     // Fraction of motion allowed in substrate region
+    substrateConstraintFactor  0.1;    // Fraction of motion allowed in substrate region
     
     // Phase change enhancement
-    nucleationSites         5e11;       // sites/m² - Nucleation site density
-    superheatingLimit       250;        // K - Maximum superheat before nucleation
+    nucleationSites         1e12;      // sites/m² - Nucleation site density
+    superheatingLimit       300;       // K - Maximum superheat before nucleation
 }
-
 // ✅ ENHANCED: Temperature-dependent properties
 temperatureDependence
 {
