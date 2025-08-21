@@ -39,16 +39,16 @@ laserModel      gaussian;
 
 // --- Energy & timing ---
 // Boosted energy/intensity to reach melt/ablation threshold
-pulseEnergy     1.8e-6;        // [J] total energy (~5 J/cm^2)
-pulseWidth      200e-15;       // [s] 200 fs pulse width
+pulseEnergy     8e-7;          // [J] total energy (~5 J/cm^2)
+pulseWidth      150e-15;       // [s] 150 fs pulse width
 laserStartTime  0;             // [s]
-laserEndTime    200e-15;       // [s] = start + pulseWidth
+laserEndTime    #calc "$laserStartTime + $pulseWidth"; // [s]
 
 // --- Spatial Gaussian (match the box center and film depth) ---
-spotSize        4e-6;         // [m] beam diameter
+spotSize        6e-6;         // [m] beam diameter
 
-// Put the beam center inside the domain (mid x,z; inside metal at y≈8.5 µm)
-focus           (25e-6 8.5e-6 5e-6);
+// Put the beam center inside the domain (mid x,z; inside metal at y≈9.5 µm)
+focus           (25e-6 9.5e-6 5e-6);
 direction       (0 1 0);
 
 // --- Wavelength / interaction ---
