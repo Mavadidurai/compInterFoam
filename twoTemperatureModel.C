@@ -313,7 +313,8 @@ void twoTemperatureModel::solve
     latticeDict.add("relTol", 0.01);
     latticeDict.add("maxIter", 500);
     
-    TlEqn.solve(latticeDict);
+    // Perform lattice temperature solve; any additional iterations are
+    // handled by the solver controls (maxIter, tolerance, etc.)
     TlEqn.solve(latticeDict);
 
     // Create a more stable matrix system for the electron temperature
@@ -341,9 +342,19 @@ void twoTemperatureModel::solve
     
     TeEqn.solve(electronDict);
 
-    // Apply temperature bounds with more conservative limits
-    dimensionedScalar minTemp("minTemp", dimTemperature, 300.0);  // Increased from SMALL
-    dimensionedScalar maxTemp("maxTemp", dimTemperature,  3500.0);
+    // Apply temperature bounds from dictionary
+    dimensionedScalar minTemp
+    (
+        "minTemp",
+        dimTemperature,
+        dict_.lookupOrDefault<scalar>("minTe", 300.0)
+    );
+    dimensionedScalar maxTemp
+    (
+        "maxTemp",
+        dimTemperature,
+        dict_.lookupOrDefault<scalar>("maxTe", 3500.0)
+    );
 
     // Bound fields safely
     forAll(Te_, cellI)
@@ -351,8 +362,9 @@ void twoTemperatureModel::solve
         Te_[cellI] = max(min(Te_[cellI], maxTemp.value()), minTemp.value());
         Tl_[cellI] = max(min(Tl_[cellI], maxTemp.value()), minTemp.value());
     }
-	 Tl_.correctBoundaryConditions();
-	 Te_.correctBoundaryConditions();
+
+    Te_.correctBoundaryConditions();
+    Tl_.correctBoundaryConditions();
     // Check energy conservation
     if (!checkEnergyConservation())
     {

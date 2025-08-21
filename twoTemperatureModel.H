@@ -27,7 +27,8 @@ SourceFiles
         Dictionary entries:
         energyTolerance   Relative energy conservation tolerance
                           used by checkEnergyConservation
-
+        minTe             Minimum temperature bound for Te and Tl [K]
+        maxTe             Maximum temperature bound for Te and Tl [K]
 
 \*---------------------------------------------------------------------------*/
 

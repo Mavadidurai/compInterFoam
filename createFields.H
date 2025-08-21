@@ -296,8 +296,10 @@ dictionary twoTemperatureDict
     runTime.controlDict().subDict("twoTemperatureProperties")
 );
 
-const scalar energyTolerance =
+scalar energyTolerance =
     twoTemperatureDict.lookupOrDefault<scalar>("energyTolerance", 0.1);
+energyTolerance =
+    twoTemperatureDict.lookupOrDefault<scalar>("energyTol", energyTolerance);
 twoTemperatureDict.set("energyTolerance", energyTolerance);
 
 twoTemperatureModel ttm

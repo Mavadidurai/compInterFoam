@@ -83,6 +83,8 @@ femtosecondLaserModel::femtosecondLaserModel
     continuousLaser_(dict.getOrDefault<bool>("continuousLaser", false)),
     laserStartTime_(dict.getOrDefault<scalar>("laserStartTime", 0.0)),
     laserEndTime_(dict.getOrDefault<scalar>("laserEndTime", 2e-12)),
+    filmYMin_(dict.getOrDefault<scalar>("filmYMin", 8e-6)),
+    filmYMax_(dict.getOrDefault<scalar>("filmYMax", 10e-6)),
     sourceValid_(false),
     cumulativeEnergy_(0.0),
     lastTimeIndex_(mesh.time().timeIndex())
@@ -144,11 +146,13 @@ femtosecondLaserModel::femtosecondLaserModel
         << "  Direction: " << direction_ << nl
         << "  Active time: " << laserStartTime_ << " to " << laserEndTime_ << " s" << endl;
         
-    // Validate focus position for LIFT geometry  
-    if (focus_.y() < 8e-6 || focus_.y() > 10e-6) 
+    // Validate focus position for LIFT geometry
+    if (focus_.y() < filmYMin_ || focus_.y() > filmYMax_)
     {
         WarningInFunction
-            << "Focus Y-coordinate (" << focus_.y()*1e6 << " μm) is outside donor film region (8-10 μm)" << nl
+            << "Focus Y-coordinate (" << focus_.y()*1e6
+            << " μm) is outside donor film region ("
+            << filmYMin_*1e6 << "-" << filmYMax_*1e6 << " μm)" << nl
             << "LIFT efficiency may be reduced" << endl;
     }
     
@@ -177,7 +181,9 @@ femtosecondLaserModel::femtosecondLaserModel
             "maxReflections",
             "continuousLaser",
             "laserStartTime",
-            "laserEndTime"
+            "laserEndTime",
+            "filmYMin",
+            "filmYMax"
         }
     );
 
@@ -488,8 +494,8 @@ void femtosecondLaserModel::calculateSource() const
     {
         const point& cellCenter = mesh_.C()[cellI];
         
-        // Check if in metal film region (8-10μm)
-        bool inFilm = (cellCenter.y() >= 8e-6 && cellCenter.y() <= 10e-6);
+        // Check if in metal film region
+        bool inFilm = (cellCenter.y() >= filmYMin_ && cellCenter.y() <= filmYMax_);
         if (inFilm) cellsInFilm++;
         
         if (isInBeam(cellCenter))
@@ -544,9 +550,17 @@ void femtosecondLaserModel::calculateSource() const
     {
         avgIntensityInBeam = totalSourceIntegral / totalBeamVolume;
     }
-        dimensionedScalar totalEnergyDeposited =
+    dimensionedScalar totalEnergyDeposited =
         fvc::domainIntegrate(source * dt);
-        cumulativeEnergy_ += totalEnergyDeposited.value();
+    cumulativeEnergy_ += totalEnergyDeposited.value();
+
+    if (!checkEnergyConservation())
+    {
+        WarningInFunction
+            << "Energy conservation check failed at timestep "
+            << timeIndex << ": energy = "
+            << totalEnergyDeposited.value() << " J" << endl;
+    }
 
     Info<< "🔍 LASER DIAGNOSTICS:" << nl
         << "  Input peak intensity: " << peakIntensity_.value() << " W/m²" << nl

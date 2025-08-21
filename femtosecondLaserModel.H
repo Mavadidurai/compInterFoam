@@ -70,6 +70,9 @@ private:
         bool continuousLaser_;          // Continuous vs pulsed mode
         scalar laserStartTime_;         // Laser start time [s]
         scalar laserEndTime_;           // Laser end time [s]
+        //- Donor film bounds in y-direction [m]
+        scalar filmYMin_;              // Lower y bound of metal film
+        scalar filmYMax_;              // Upper y bound of metal film
 
         // Cached fields
         mutable tmp<volScalarField> tSource_;  // Laser source field
