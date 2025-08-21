@@ -28,11 +28,11 @@ FoamFile
 // --- Layering along Y ---
 /* substrate: y in [0.0,      8.0e-6]  m */
 /* metal:     y in [8.0e-6,   1.0e-5]  m */
-/* air:       y in [1.0e-5,   2.0e-5]  m */
+/* air:       y in [1.0e-5,   3.0e-5]  m */
 
 // --- Initial conditions ---
 /* Temperatures: */  // K
-// T0 = 300; Te0 = 300; Tl0 = 300;
+// T0 = 500; Te0 = 500; Tl0 = 500;
 /* Velocity: */     // m/s
 // U0 = (0 0 0);
 /* Pressure: */
@@ -43,9 +43,9 @@ FoamFile
 
 defaultFieldValues
 (
-    volScalarFieldValue T           300
-    volScalarFieldValue Te          300
-    volScalarFieldValue Tl          300
+    volScalarFieldValue T           500
+    volScalarFieldValue Te          500
+    volScalarFieldValue Tl          500
     volVectorFieldValue U         (0 0 0)
     volScalarFieldValue p_rgh     0
 
@@ -66,9 +66,9 @@ regions
         (
             volScalarFieldValue alpha.metal 1
             volScalarFieldValue alpha.air   0
-            volScalarFieldValue T           300
-            volScalarFieldValue Te          300
-            volScalarFieldValue Tl          300
+            volScalarFieldValue T           500
+            volScalarFieldValue Te          500
+            volScalarFieldValue Tl          500
 
         );
     }
@@ -82,25 +82,26 @@ regions
         (
             volScalarFieldValue alpha.metal 1
             volScalarFieldValue alpha.air   0
-            volScalarFieldValue T           300
-            volScalarFieldValue Te          300
-            volScalarFieldValue Tl          300
+            volScalarFieldValue T           500
+            volScalarFieldValue Te          500
+            volScalarFieldValue Tl          500
 
         );
     }
 
-    // Air: y in [10 µm, 20 µm]
+    // Air: y in [10 µm, 30 µm]
+
     boxToCell
     {
         box (0       1.0e-05   0)
-            (5.0e-05 2.0e-05   1.0e-05);
+            (5.0e-05 3.0e-05   1.0e-05);
         fieldValues
         (
             volScalarFieldValue alpha.metal 0
             volScalarFieldValue alpha.air   1
-            volScalarFieldValue T           300
-            volScalarFieldValue Te          300
-            volScalarFieldValue Tl          300
+            volScalarFieldValue T           500
+            volScalarFieldValue Te          500
+            volScalarFieldValue Tl          500
   
         );
     }
