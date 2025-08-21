@@ -26,7 +26,7 @@ deltaT          1e-15;
 adjustTimeStep  yes;
 maxCo           0.2;
 maxAlphaCo      0.2;
-maxDeltaT       2e-12;            // allow growth after pulse
+maxDeltaT       1e-12;            // allow growth after pulse
 
 writeControl    runTime;
 writeInterval   1e-9;              // write every 1 ns of simulated time
@@ -46,12 +46,12 @@ dynamicRefineFvMeshCoeffs
 {
     field            alpha.metal;
     refineInterval   1;
-    lowerRefineLevel 0.05;
+    lowerRefineLevel 0.1;
     upperRefineLevel 0.98;
     unrefineLevel    0.001;
     nBufferLayers    1;
-    maxRefinement    3;
-    maxCells         4000000;
+    maxRefinement    2;
+    maxCells         2000000;
     correctFluxes    (phi none);
 }
 
