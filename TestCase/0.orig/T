@@ -18,8 +18,7 @@ FoamFile
 
 dimensions      [0 0 0 1 0 0 0];
 
-internalField   uniform 300;
-
+internalField   uniform 500;
 
 boundaryField
 {
@@ -31,7 +30,7 @@ boundaryField
     yMin
     {
         type            fixedValue;
-        value           uniform 300;
+        value           uniform 500;
     }
     xMin
     {

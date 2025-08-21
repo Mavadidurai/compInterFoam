@@ -24,7 +24,8 @@ boundaryField
 {
     yMax
     {
-        type            fixedFluxPressure;
+        type            totalPressure;
+        p0              uniform 0;
         value           uniform 0;
     }
     yMin
@@ -38,7 +39,8 @@ boundaryField
     }
     xMax
     {
-        type            fixedFluxPressure;
+        type            totalPressure;
+        p0              uniform 0;
         value           uniform 0;
     }
     zMin
