@@ -121,19 +121,18 @@ temperatureDependentProperties
 liftPhysics
 {
     // Nucleation and bubble formation
-    nucleationThreshold     50;             // K - Superheat for nucleation
-    bubbleGrowthRate       3e6;             // m/s - Bubble expansion rate
+    nucleationThreshold     60;             // K - Superheat for nucleation
+    bubbleGrowthRate       4e6;             // m/s - Bubble expansion rate
     criticalBubbleSize     1e-7;            // m - Critical bubble size
 
     // Ejection dynamics
-    recoilPressureScale    3e5;             // Pa - Characteristic recoil pressure
-    ejectionEfficiency     0.5;             // Fraction of thermal energy → kinetic energy
+    recoilPressureScale    4e5;             // Pa - Characteristic recoil pressure
+    ejectionEfficiency     0.6;             // Fraction of thermal energy → kinetic energy
 
     // Droplet formation
-    dropletBreakupLength   5e-6;            // m - Characteristic breakup length
-    webberNumber           8;                // Critical Weber number for breakup
+    dropletBreakupLength   4e-6;            // m - Characteristic breakup length
+    webberNumber           10;                // Critical Weber number for breakup
 }
-
 // ************************************************************************* //
 //
 // ✅ MAJOR ENHANCEMENTS for SUBSTRATE LIFT:
