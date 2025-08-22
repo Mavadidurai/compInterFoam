@@ -33,9 +33,36 @@ cd $FOAM_USER_APPBIN
 # git clone <repository-url> compInterFoam
 cd compInterFoam
 wmake
+# or build from the OpenFOAM tree
+wmake applications/solvers/compInterFoam
 ```
 
 The executable will be placed in `$FOAM_USER_APPBIN`.
+
+## Key dictionary entries
+
+Some solver features rely on additional entries in case dictionaries:
+
+* `recoilMax` (`controlDict`): cap on recoil pressure used by advanced
+  interface capturing, default `5e6` Pa.
+* `recoilUpdateInterval` (`controlDict`): number of time steps between recoil
+  field updates, default `5`.
+* `useAdvancedInterfaceCapturing` (`controlDict`): enable the recoil-based
+  interface capturing model.
+* `energyTolerance`/`energyTol` (`twoTemperatureProperties`): threshold for
+  two-temperature energy conservation.
+
+## Relevant source files
+
+* `compInterFoam.C` – solver main.
+* `alphaEqnSubCycle.H`, `UEqn.H`, `pEqn.H`, `TEqn.H` – phase, momentum,
+  pressure and temperature equations.
+* `advancedInterfaceCapturing.C/H` – VOF interface capturing with recoil
+  pressure; defines `recoilMax`.
+* `femtosecondLaserModel.C/H` – laser energy deposition.
+* `twoTemperatureModel.C/H` – electron/phonon energy coupling.
+* `twoPhaseMixtureThermo.C/H` – thermophysical properties.
+* `DimensionValidator.C/H` – run-time dimension checks.
 
 ## Example usage
 
