@@ -70,6 +70,8 @@ Some solver features rely on additional entries in case dictionaries:
   number of time steps between recoil field updates, default `5`.
 * `useAdvancedInterfaceCapturing` (`controlDict`): enable the recoil-based
   interface capturing model.
+  * `verbose` (`controlDict`): set to `true` to enable additional runtime
+  logging for debugging; default `false`.
 * `laserProperties` (`constant/laserProperties`): configure the femtosecond
   laser model. Common entries include `laserModel`, `pulseEnergy`,
   `pulseWidth`, `spotSize`, `focus`, `direction`, `wavelength`, optional
