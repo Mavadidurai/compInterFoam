@@ -18,11 +18,23 @@ if (pInterfaceCapturing.valid())
     rho = alpha1*rho1 + alpha2*rho2;
     rhoPhi = alphaPhi10*fvc::interpolate(rho1) + (phi - alphaPhi10)*fvc::interpolate(rho2);
 
-    // Calculate continuity error for momentum equation
+    // Calculate continuity error for diagnostics
     volScalarField::Internal contErr
     (
         (fvc::ddt(rho) + fvc::div(rhoPhi))()
     );
+
+    scalar sumLocalContErr = runTime.deltaT().value()*
+        mag(contErr).weightedAverage(mesh.V()).value();
+    scalar globalContErr = runTime.deltaT().value()*
+        contErr.weightedAverage(mesh.V()).value();
+
+    if (!std::isfinite(sumLocalContErr)) sumLocalContErr = 0.0;
+    if (!std::isfinite(globalContErr)) globalContErr = 0.0;
+
+    Info<< "Continuity errors:" << nl
+        << "  Sum local: " << sumLocalContErr << nl
+        << "  Global: " << globalContErr << endl;
 
     // Check for phase fraction correctness
     Info<< "Phase-1 volume fraction = "
@@ -100,8 +112,20 @@ else
     
     rho = alpha1*rho1 + alpha2*rho2;
         
-    volScalarField::Internal contErr
+ volScalarField::Internal contErr
     (
         (fvc::ddt(rho) + fvc::div(rhoPhi))()
     );
+
+    scalar sumLocalContErr = runTime.deltaT().value()*
+        mag(contErr).weightedAverage(mesh.V()).value();
+    scalar globalContErr = runTime.deltaT().value()*
+        contErr.weightedAverage(mesh.V()).value();
+
+    if (!std::isfinite(sumLocalContErr)) sumLocalContErr = 0.0;
+    if (!std::isfinite(globalContErr)) globalContErr = 0.0;
+
+    Info<< "Continuity errors:" << nl
+        << "  Sum local: " << sumLocalContErr << nl
+        << "  Global: " << globalContErr << endl;
 }
