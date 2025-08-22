@@ -109,15 +109,38 @@ mpirun -np <N> compInterFoam -parallel -case path/to/case
 
 ### Provided `TestCase`
 
-The repository includes a minimal LIFT setup in `TestCase`:
+The repository includes a minimal LIFT setup in `TestCase`. Run it with:
 
-```bash
-cd TestCase
-./Allclean      # optional: reset case
-cp -r 0.orig 0  # populate initial fields
-blockMesh
-compInterFoam   # or mpirun -np <N> compInterFoam -parallel
-```
+1. **Clean the case** *(optional)*:
+   ```bash
+   cd TestCase
+   ./Allclean
+   ```
+2. **Generate the mesh**:
+   ```bash
+   blockMesh
+   ```
+3. **Set up initial fields**:
+   ```bash
+   cp -r 0.orig 0   # or use: setFields
+   ```
+4. **Decompose for parallel runs** *(optional)*:
+   ```bash
+   decomposePar
+   ```
+5. **Launch the simulation**:
+   ```bash
+   compInterFoam                        # serial
+   mpirun -np <N> compInterFoam -parallel  # parallel
+   ```
+6. **Post-process** *(optional)*:
+   ```bash
+   reconstructPar
+   foamToVTK
+   paraFoam
+   ```
+
+Log files can be captured by redirecting command output, e.g. `blockMesh > log.blockMesh` and `compInterFoam | tee log.compInterFoam`. Output fields are written to time directories (e.g. `0`, `0.001`, …) in the case folder, or to `processor*/` subdirectories during parallel runs. After `reconstructPar`, fields are merged back into the main case directory for visualization.
 
 ## References
 
