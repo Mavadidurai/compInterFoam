@@ -43,14 +43,23 @@ The executable will be placed in `$FOAM_USER_APPBIN`.
 
 Some solver features rely on additional entries in case dictionaries:
 
-* `recoilMax` (`controlDict`): cap on recoil pressure used by advanced
-  interface capturing, default `5e6` Pa.
-* `recoilUpdateInterval` (`controlDict`): number of time steps between recoil
-  field updates, default `5`.
+* `pressureScale` (`controlDict` → `advancedInterfaceCapturing`):
+  nondimensional scaling for evaporation-induced recoil pressure.
+* `recoilMax` (`controlDict` → `advancedInterfaceCapturing`): cap on recoil
+  pressure, default `5e6` Pa.
+* `recoilUpdateInterval` (`controlDict` → `advancedInterfaceCapturing`):
+  number of time steps between recoil field updates, default `5`.
 * `useAdvancedInterfaceCapturing` (`controlDict`): enable the recoil-based
   interface capturing model.
-* `energyTolerance`/`energyTol` (`twoTemperatureProperties`): threshold for
-  two-temperature energy conservation.
+* `laserProperties` (`constant/laserProperties`): configure the femtosecond
+  laser model. Common entries include `laserModel`, `pulseEnergy`,
+  `pulseWidth`, `spotSize`, `focus`, `direction`, `wavelength`, optional
+  scanning entries (`scanVelocity`, `pulseFrequency`, `pulseDutyCycle`) and
+  `continuousLaser`.
+* `twoTemperatureProperties` (`system/controlDict`): coefficients for the
+  two‑temperature model—electron heat capacity `Ce`, lattice heat capacity
+  `Cl`, coupling factor `G`, and the energy conservation tolerance
+  `energyTol`/`energyTolerance`.
 
 ## Relevant source files
 
@@ -78,6 +87,28 @@ For parallel runs:
 decomposePar -case path/to/case
 mpirun -np <N> compInterFoam -parallel -case path/to/case
 ```
+
+### Provided `TestCase`
+
+The repository includes a minimal LIFT setup in `TestCase`:
+
+```bash
+cd TestCase
+./Allclean      # optional: reset case
+cp -r 0.orig 0  # populate initial fields
+blockMesh
+compInterFoam   # or mpirun -np <N> compInterFoam -parallel
+```
+
+## References
+
+* Brown, M. S., & Arnold, C. B. (2010). *Fundamentals of Laser-Induced Forward
+  Transfer*. Journal of Laser Micro/Nanoengineering, 5(3), 236–258.
+  https://doi.org/10.2961/jlmn.2010.03.0001
+* Anisimov, S. I., Kapeliovich, B. L., & Perel'man, T. L. (1974). *Electron
+  emission from metal surfaces by ultrashort laser pulses*. Soviet Physics JETP,
+  39(2), 375–377.
+
 
 Refer to the standard OpenFOAM multiphase tutorials for sample cases and
 adapt them for compressible and laser-induced physics scenarios.
