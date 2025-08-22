@@ -27,7 +27,8 @@ adjustTimeStep  yes;
 maxCo           0.2;
 maxAlphaCo      0.2;
 maxDeltaT       5e-12;            // allow growth after pulse
-
+// optional runtime output verbosity
+verbose         false;
 writeControl    runTime;
 writeInterval   1e-9;              // write every 1 ns of simulated time
 purgeWrite      100;               // retain a broader history
