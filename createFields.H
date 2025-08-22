@@ -81,7 +81,8 @@ volScalarField T
 // Create the thermo system - this will create alpha.metal and alpha.air fields
 Info<< "Constructing twoPhaseMixtureThermo\n" << endl;
 twoPhaseMixtureThermo mixture(U, phi);
-
+// Set verbosity flag from controlDict now that runTime is available
+verbose = runTime.controlDict().lookupOrDefault<Switch>("verbose", false);
 // ✅ INTUITIVE: Access alpha fields using clear naming
 // The mixture.alpha1() refers to the first phase (metal)
 // The mixture.alpha2() refers to the second phase (air)
