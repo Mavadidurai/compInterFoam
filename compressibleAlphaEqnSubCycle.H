@@ -1,3 +1,6 @@
+// Flag that the alpha subcycle has been executed
+alphaSubCycleExecuted = true;
+
 // Check if using standard subcycling or advanced interface capturing
 // After: guard against null pointer and use the correct pointer name
 if (pInterfaceCapturing.valid())
@@ -30,16 +33,19 @@ if (pInterfaceCapturing.valid())
     if (!std::isfinite(sumLocalContErr)) sumLocalContErr = 0.0;
     if (!std::isfinite(globalContErr)) globalContErr = 0.0;
 
-    Info<< "Continuity errors:" << nl
-        << "  Sum local: " << sumLocalContErr << nl
-        << "  Global: " << globalContErr << endl;
+    if (verbose)
+    {
+        Info<< "Continuity errors:" << nl
+            << "  Sum local: " << sumLocalContErr << nl
+            << "  Global: " << globalContErr << endl;
 
-    // Check for phase fraction correctness
-    Info<< "Phase-1 volume fraction = "
-        << alpha1.weightedAverage(mesh.V()).value()
-        << "  Min(alpha1) = " << min(alpha1).value()
-        << "  Max(alpha1) = " << max(alpha1).value()
-        << endl;
+        // Check for phase fraction correctness
+        Info<< "Phase-1 volume fraction = "
+            << alpha1.weightedAverage(mesh.V()).value()
+            << "  Min(alpha1) = " << min(alpha1).value()
+            << "  Max(alpha1) = " << max(alpha1).value()
+            << endl;
+    }
 }
 
 else
@@ -122,7 +128,10 @@ else
     if (!std::isfinite(sumLocalContErr)) sumLocalContErr = 0.0;
     if (!std::isfinite(globalContErr)) globalContErr = 0.0;
 
-    Info<< "Continuity errors:" << nl
-        << "  Sum local: " << sumLocalContErr << nl
-        << "  Global: " << globalContErr << endl;
+    if (verbose)
+    {
+        Info<< "Continuity errors:" << nl
+            << "  Sum local: " << sumLocalContErr << nl
+            << "  Global: " << globalContErr << endl;
+    }
 }
