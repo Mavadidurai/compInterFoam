@@ -28,10 +28,29 @@ Ensure that your OpenFOAM environment variables (e.g. `WM_PROJECT_DIR`,
 Inside a configured OpenFOAM environment:
 
 ```bash
+# 1. Source your OpenFOAM installation
+source /path/to/OpenFOAM-<version>/etc/bashrc
+
+# 2. Confirm the build tool is available
+command -v wmake
+
+# 3. Inspect the user application directory derived from the environment
+echo $FOAM_USER_APPBIN
+
+# 4. Move to the application directory
 cd $FOAM_USER_APPBIN
 # Clone this repository if not already present
 # git clone <repository-url> compInterFoam
 cd compInterFoam
+
+# 5. Build bundled libraries (required before compiling the solver)
+wmake libso DimensionValidator
+wmake libso twoPhaseMixtureThermo
+wmake libso femtosecondLaserModel
+wmake libso twoTemperatureModel
+wmake libso advancedInterfaceCapturing
+
+# 6. Build the solver
 wmake
 # or build from the OpenFOAM tree
 wmake applications/solvers/compInterFoam
