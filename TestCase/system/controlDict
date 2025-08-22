@@ -73,15 +73,13 @@ advancedInterfaceCapturing
         alphaMax 0.999;
     }
 }
-// rAUf clamp range used in pEqn.H
-enableRAUfClamp   true;
-minRAUf           1e-12;
-maxRAUf           1e8;
-
-// pressure clamp used in pEqn.H
-pressureClamp     true;
-minPressure       1e2;     // Pa
-maxPressure       5e8;     // Pa  (allow tens/hundreds of MPa if needed)
+// Clamps used in pEqn.H to maintain numerical stability
+pressureClamp     true;    // enable pressure clamping
+minPressure       1e2;     // Pa lower bound
+maxPressure       5e8;     // Pa upper bound (allow tens/hundreds of MPa)
+enableRAUfClamp   true;    // clamp reciprocal momentum coefficient
+minRAUf           1e-12;   // lower rAUf limit
+maxRAUf           1e8;     // upper rAUf limit
 
 // adaptive relaxation used in pEqn.H
 relaxP            0.2;
@@ -94,13 +92,7 @@ minT                           250;
 maxT                           8000;
 // Temperature offset below melting point to activate recoil pressure (K)
 recoilTempOffset               100;
-pressureClamp                  false;
-
-minPressure                    100;
-maxPressure                    1e9;
 maxVelocity                    3000;
-minRAUf                        1e-12;
-maxRAUf                        1e8;
 
 densityClamp                   true;
 minDensity                     0.5;
