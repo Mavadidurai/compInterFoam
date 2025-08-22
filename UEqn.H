@@ -103,10 +103,12 @@ if (corruptedRhoCells > 0)
 }
 // Update thermophysical properties and phase-change source
 mixture.correct();
-// Refresh interface capturing so recoil pressure uses latest source term
+// Refresh only the recoil pressure using latest phase-change source.
+// The alpha field has already been corrected in the alpha subcycle,
+// so avoid a second full interface-capturing solve here.
 if (useAdvancedCapturing && pInterfaceCapturing.valid())
 {
-    pInterfaceCapturing->correct();
+    pInterfaceCapturing->calculateRecoilPressure();
 }
 // Create momentum equation
 fvVectorMatrix UEqn(fvm::ddt(rho, U) + fvm::div(rhoPhi, U));

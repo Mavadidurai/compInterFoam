@@ -277,7 +277,8 @@ Foam::tmp<Foam::scalarField> Foam::twoPhaseMixtureThermo::THE
     const labelList& cells
 ) const
 {
-    NotImplemented;
+    WarningInFunction
+        << "THE() is unsupported; returning starting temperature" << endl;
     return T0;
 }
 Foam::tmp<Foam::scalarField> Foam::twoPhaseMixtureThermo::THE
@@ -288,7 +289,8 @@ Foam::tmp<Foam::scalarField> Foam::twoPhaseMixtureThermo::THE
     const label patchi
 ) const
 {
-    NotImplemented;
+    WarningInFunction
+        << "THE() is unsupported; returning starting temperature" << endl;
     return T0;
 }
 Foam::tmp<Foam::volScalarField> Foam::twoPhaseMixtureThermo::Cp() const
@@ -306,6 +308,19 @@ Foam::tmp<Foam::scalarField> Foam::twoPhaseMixtureThermo::Cp
         alpha1().boundaryField()[patchi]*thermo1_->Cp(p, T, patchi)
       + alpha2().boundaryField()[patchi]*thermo2_->Cp(p, T, patchi);
 }
+
+Foam::tmp<Foam::scalarField> Foam::twoPhaseMixtureThermo::Cp
+(
+    const scalarField& p,
+    const scalarField& T,
+    const labelList& cells
+) const
+{
+    return
+        scalarField(alpha1(), cells)*thermo1_->Cp(p, T, cells)
+      + scalarField(alpha2(), cells)*thermo2_->Cp(p, T, cells);
+}
+
 Foam::tmp<Foam::volScalarField> Foam::twoPhaseMixtureThermo::Cv() const
 {
     return alpha1()*thermo1_->Cv() + alpha2()*thermo2_->Cv();
@@ -320,6 +335,18 @@ Foam::tmp<Foam::scalarField> Foam::twoPhaseMixtureThermo::Cv
     return
         alpha1().boundaryField()[patchi]*thermo1_->Cv(p, T, patchi)
       + alpha2().boundaryField()[patchi]*thermo2_->Cv(p, T, patchi);
+}
+
+Foam::tmp<Foam::scalarField> Foam::twoPhaseMixtureThermo::rhoEoS
+(
+    const scalarField& p,
+    const scalarField& T,
+    const labelList& cells
+) const
+{
+    return
+        scalarField(alpha1(), cells)*thermo1_->rhoEoS(p, T, cells)
+      + scalarField(alpha2(), cells)*thermo2_->rhoEoS(p, T, cells);
 }
 Foam::tmp<Foam::volScalarField> Foam::twoPhaseMixtureThermo::gamma() const
 {

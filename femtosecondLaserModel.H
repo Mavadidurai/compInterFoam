@@ -73,6 +73,9 @@ private:
         //- Donor film bounds in y-direction [m]
         scalar filmYMin_;              // Lower y bound of metal film
         scalar filmYMax_;              // Upper y bound of metal film
+        //- Scaling factor and maximum intensity when outside donor film
+        scalar offFilmScale_;          // Intensity scaling outside film [-]
+        scalar offFilmMax_;            // Max volumetric intensity outside film [W/m^3]
 
         // Cached fields
         mutable tmp<volScalarField> tSource_;  // Laser source field

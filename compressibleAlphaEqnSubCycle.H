@@ -18,16 +18,14 @@ if (pInterfaceCapturing.valid())
     rho = alpha1*rho1 + alpha2*rho2;
     rhoPhi = alphaPhi10*fvc::interpolate(rho1) + (phi - alphaPhi10)*fvc::interpolate(rho2);
 
-    // Calculate continuity error for diagnostics
-    volScalarField::Internal contErr
-    (
-        (fvc::ddt(rho) + fvc::div(rhoPhi))()
-    );
+       // Calculate continuity error for diagnostics
+    tmp<volScalarField> tContErr = fvc::ddt(rho) + fvc::div(rhoPhi);
+    const volScalarField& contErr = tContErr();
 
-    scalar sumLocalContErr = runTime.deltaT().value()*
-        mag(contErr).weightedAverage(mesh.V()).value();
-    scalar globalContErr = runTime.deltaT().value()*
-        contErr.weightedAverage(mesh.V()).value();
+    scalar sumLocalContErr = runTime.deltaT().value()
+        * mag(contErr).weightedAverage(mesh.V()).value();
+    scalar globalContErr = runTime.deltaT().value()
+        * contErr.weightedAverage(mesh.V()).value();
 
     if (!std::isfinite(sumLocalContErr)) sumLocalContErr = 0.0;
     if (!std::isfinite(globalContErr)) globalContErr = 0.0;
@@ -112,15 +110,14 @@ else
     
     rho = alpha1*rho1 + alpha2*rho2;
         
- volScalarField::Internal contErr
-    (
-        (fvc::ddt(rho) + fvc::div(rhoPhi))()
-    );
+    // Calculate continuity error for diagnostics
+    tmp<volScalarField> tContErr = fvc::ddt(rho) + fvc::div(rhoPhi);
+    const volScalarField& contErr = tContErr();
 
-    scalar sumLocalContErr = runTime.deltaT().value()*
-        mag(contErr).weightedAverage(mesh.V()).value();
-    scalar globalContErr = runTime.deltaT().value()*
-        contErr.weightedAverage(mesh.V()).value();
+    scalar sumLocalContErr = runTime.deltaT().value()
+        * mag(contErr).weightedAverage(mesh.V()).value();
+    scalar globalContErr = runTime.deltaT().value()
+        * contErr.weightedAverage(mesh.V()).value();
 
     if (!std::isfinite(sumLocalContErr)) sumLocalContErr = 0.0;
     if (!std::isfinite(globalContErr)) globalContErr = 0.0;

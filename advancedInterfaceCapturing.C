@@ -59,6 +59,10 @@ advancedInterfaceCapturing::advancedInterfaceCapturing
     (
         mesh.time().controlDict().lookupOrDefault<label>("recoilUpdateInterval", 5)
     ),
+    recoilTempOffset_
+    (
+        mesh.time().controlDict().lookupOrDefault<scalar>("recoilTempOffset", 100.0)
+    ),
     alphaMin_
     (
         mesh.time().controlDict().lookupOrDefault<scalar>("alphaMin", 0.01)
@@ -79,7 +83,8 @@ advancedInterfaceCapturing::advancedInterfaceCapturing
         ),
         mesh,
         dimensionedScalar("zero", dimPressure, 0.0)
-    )
+    ),
+    callCount_(0)
 {
     // Simple initialization, no calculations in constructor to avoid MPI issues
     Info<< "Advanced interface capturing initialized" << endl;
@@ -90,7 +95,8 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
     // OPTIMIZED: Calculate once, reuse multiple times
     const scalar currentTime = mesh_.time().value();
     const scalar maxTemp = max(T_).value();
-    const scalar minTempThreshold = meltingTemp_ - 100.0;
+    const scalar minTempThreshold = meltingTemp_ - recoilTempOffset_;
+
     
     Info<< "Calculating recoil pressure at t = " << currentTime 
         << "s, max T = " << maxTemp 
@@ -122,7 +128,7 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
     // Compute recoil pressure based on evaporation rate
     forAll(TField, cellI)
     {
-        if (TField[cellI] < meltingTemp_ - 100.0) continue;
+        if (TField[cellI] < meltingTemp_ - recoilTempOffset_) continue;
 
         const scalar alpha = alpha1Field[cellI];
         scalar alphaDamp = 4.0 * alpha * (1.0 - alpha);
@@ -144,8 +150,7 @@ void Foam::advancedInterfaceCapturing::correct()
     
     // First update the recoil pressure field
     // Only do this every few steps to reduce MPI communication
-static label callCount = 0;
-    if (recoilUpdateInterval_ <= 1 || callCount++ % recoilUpdateInterval_ == 0)
+    if (recoilUpdateInterval_ <= 1 || callCount_++ % recoilUpdateInterval_ == 0)
     {
         calculateRecoilPressure();
     }

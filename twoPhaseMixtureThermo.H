@@ -45,6 +45,7 @@ SourceFiles
 #include "interfaceProperties.H"
 #include "DimensionValidator.H"
 #include "dimensionedScalar.H"
+#include "error.H"
 
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
@@ -180,16 +181,22 @@ public:
 
             //- Enthalpy/Internal energy [J/kg]
             //  Non-const access allowed for transport equations
+            //- Direct access to mixture enthalpy/internal energy is
+            //  currently unsupported and returns a null field. A runtime
+            //  warning is issued to discourage use.
             virtual volScalarField& he()
             {
-                NotImplemented;
+                WarningInFunction
+                    << "twoPhaseMixtureThermo::he() is unsupported." << endl;
                 return const_cast<volScalarField&>(volScalarField::null());
             }
 
             //- Enthalpy/Internal energy [J/kg]
+            //  Unsupported: returns a null field with a warning.
             virtual const volScalarField& he() const
             {
-                NotImplemented;
+                WarningInFunction
+                    << "twoPhaseMixtureThermo::he() const is unsupported." << endl;
                 return volScalarField::null();
             }
 
@@ -221,6 +228,8 @@ public:
             virtual tmp<volScalarField> hc() const;
 
             //- Temperature from enthalpy/internal energy for cell-set
+            //  Currently unsupported. Returns the starting temperature
+            //  and emits a runtime warning.
             virtual tmp<scalarField> THE
             (
                 const scalarField& h,
@@ -230,6 +239,8 @@ public:
             ) const;
 
             //- Temperature from enthalpy/internal energy for patch
+            //  Currently unsupported. Returns the starting temperature
+            //  and emits a runtime warning.
             virtual tmp<scalarField> THE
             (
                 const scalarField& h,
@@ -258,11 +269,7 @@ public:
                 const scalarField& p,
                 const scalarField& T,
                 const labelList& cells
-            ) const
-            {
-                NotImplemented;
-                return nullptr;
-            }
+            ) const;
 
             //- Heat capacity at constant volume [J/kg/K]
             virtual tmp<volScalarField> Cv() const;
@@ -281,11 +288,7 @@ public:
                 const scalarField& p,
                 const scalarField& T,
                 const labelList& cells
-            ) const
-            {
-                NotImplemented;
-                return nullptr;
-            }
+            ) const;
 
             //- Gamma = Cp/Cv []
             virtual tmp<volScalarField> gamma() const;

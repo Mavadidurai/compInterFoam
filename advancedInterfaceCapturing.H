@@ -29,10 +29,16 @@ private:
     scalar pressureScale_;           // Scaling factor for evaporation rate
     scalar recoilMax_;               // Maximum allowed recoil pressure
     label  recoilUpdateInterval_;    // Steps between recoil pressure updates
+    scalar recoilTempOffset_;         // Temperature offset for recoil activation
+
     scalar alphaMin_;               // Minimum alpha for recoil activation
     scalar alphaMax_;               // Maximum alpha for recoil activation
     // Field for recoil pressure
     volScalarField recoilPressure_;  // Recoil pressure from vaporization
+    
+    //- Track number of correct() calls
+    label callCount_;
+
 
 public:
     // Constructor
@@ -68,6 +74,7 @@ public:
 {
     // Reset internal fields to prevent memory issues
     recoilPressure_ = dimensionedScalar("zero", dimPressure, 0.0);
+    callCount_ = 0;
 }
 };
 

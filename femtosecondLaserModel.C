@@ -85,6 +85,8 @@ femtosecondLaserModel::femtosecondLaserModel
     laserEndTime_(dict.getOrDefault<scalar>("laserEndTime", 2e-12)),
     filmYMin_(dict.getOrDefault<scalar>("filmYMin", 8e-6)),
     filmYMax_(dict.getOrDefault<scalar>("filmYMax", 10e-6)),
+    offFilmScale_(dict.getOrDefault<scalar>("offFilmScale", 0.1)),
+    offFilmMax_(dict.getOrDefault<scalar>("offFilmMax", 1e14)),
     sourceValid_(false),
     cumulativeEnergy_(0.0),
     lastTimeIndex_(mesh.time().timeIndex())
@@ -183,7 +185,9 @@ femtosecondLaserModel::femtosecondLaserModel
             "laserStartTime",
             "laserEndTime",
             "filmYMin",
-            "filmYMax"
+            "filmYMax",
+            "offFilmScale",
+            "offFilmMax"
         }
     );
 
@@ -527,10 +531,14 @@ void femtosecondLaserModel::calculateSource() const
                     source[cellI] = volumetricIntensity;  // No artificial limit!
                 }
                 else
-                {
-                    source[cellI] = min(volumetricIntensity * 0.1, 1e14);  // Reduced outside film
+                {                
+                    source[cellI] = min
+                    (
+                        volumetricIntensity * offFilmScale_,
+                        offFilmMax_
+                    );  // Reduced outside film
                 }
-                
+                                
                 maxSourceValue = max(maxSourceValue, source[cellI]);
                 totalSourceIntegral += source[cellI] * mesh_.V()[cellI];
             }
