@@ -144,12 +144,23 @@ Log files can be captured by redirecting command output, e.g. `blockMesh > log.b
 
 ## References
 
-* Brown, M. S., & Arnold, C. B. (2010). *Fundamentals of Laser-Induced Forward
-  Transfer*. Journal of Laser Micro/Nanoengineering, 5(3), 236–258.
-  https://doi.org/10.2961/jlmn.2010.03.0001
+* Kaganov, I. M., Lifshitz, I. M., & Tanatarov, L. V. (1957). *Relaxation between
+  electrons and the crystalline lattice*. Soviet Physics JETP, 4, 173–178.
 * Anisimov, S. I., Kapeliovich, B. L., & Perel'man, T. L. (1974). *Electron
   emission from metal surfaces by ultrashort laser pulses*. Soviet Physics JETP,
   39(2), 375–377.
+* Anisimov, S. I., Bäuerle, D., & Luk'yanchuk, B. S. (1997). *Gas-dynamics and
+  recoil pressure in pulsed laser ablation of solids*. Applied Surface Science,
+  96–98, 24–32. https://doi.org/10.1016/S0169-4332(96)00564-0
+* Brown, M. S., & Arnold, C. B. (2010). *Fundamentals of Laser-Induced Forward
+  Transfer*. Journal of Laser Micro/Nanoengineering, 5(3), 236–258.
+  https://doi.org/10.2961/jlmn.2010.03.0001
+* Piqué, A., & Serra, P. (2013). *Laser-Induced Forward Transfer: Fundamentals
+  and Applications*. Applied Surface Science, 274, 52–58.
+  https://doi.org/10.1016/j.apsusc.2012.07.029
+* Rethfeld, B., Sokolowski-Tinten, K., von der Linde, D., & Anisimov, S. I.
+  (2017). *Modelling ultrafast laser ablation*. Progress in Surface Science,
+  92(1), 273–325. https://doi.org/10.1016/j.progsurf.2017.04.001
 
 
 Refer to the standard OpenFOAM multiphase tutorials for sample cases and
