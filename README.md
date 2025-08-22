@@ -79,6 +79,33 @@ Some solver features rely on additional entries in case dictionaries:
   two‑temperature model—electron heat capacity `Ce`, lattice heat capacity
   `Cl`, coupling factor `G`, and the energy conservation tolerance
   `energyTol`/`energyTolerance`.
+### Sample `controlDict` excerpt
+
+```cpp
+advancedInterfaceCapturing
+{
+    meltingTemperature   1941;    // [K]
+    vaporTemperature     3200;    // [K]
+    pressureScale        2e4;     // 1e4–1e5 [-], cf. Brown & Arnold (2010)
+    recoilMax            5e7;     // 1e6–1e8 Pa, cf. Brown & Arnold (2010)
+    recoilUpdateInterval 1;       // 1–10 steps
+}
+```
+
+### Sample `laserProperties` snippet
+
+```cpp
+laserModel      gaussian;
+pulseEnergy     8e-7;      // 10⁻⁸–10⁻⁶ J, cf. Brown & Arnold (2010)
+pulseWidth      150e-15;   // 100–300 fs, cf. Anisimov et al. (1974)
+spotSize        6e-6;      // 5–50 µm, cf. Brown & Arnold (2010)
+wavelength      1.03e-6;   // 0.8–1.1 µm, cf. Brown & Arnold (2010)
+absorptionCoeff 5e7;       // 10⁷–10⁸ m⁻¹, cf. Anisimov et al. (1974)
+```
+
+Typical ranges above are drawn from the LIFT and ultrafast laser literature
+([Brown & Arnold, 2010](https://doi.org/10.2961/jlmn.2010.03.0001);
+[Anisimov et al., 1974](https://doi.org/10.1134/1.1478536)).
 
 ## Relevant source files
 
