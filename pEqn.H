@@ -2,8 +2,12 @@
   Robust pressure equation with effective numerical safeguards
 \*---------------------------------------------------------------------------*/
 #include <cmath>
+extern Foam::Switch verbose;
 {
-    Info<< "Solving pressure equation" << endl;
+    if (verbose)
+    {
+        Info<< "Solving pressure equation" << endl;
+    }
     
     // Create robust interpolation of rAU
     surfaceScalarField rAUf("rAUf", fvc::interpolate(rAU));
@@ -87,16 +91,22 @@
     reduce(maxRAUfCount, sumOp<label>());
     if (enableRAUfClamp && (minRAUfCount > 0 || maxRAUfCount > 0))
     {
-        Info<< "rAUf clamping stats: " << minRAUfCount
-            << " faces to minRAUf (" << minRAUf << "), "
-            << maxRAUfCount << " faces to maxRAUf (" << maxRAUf << ")" << endl;
+        if (verbose)
+        {
+            Info<< "rAUf clamping stats: " << minRAUfCount
+                << " faces to minRAUf (" << minRAUf << "), "
+                << maxRAUfCount << " faces to maxRAUf (" << maxRAUf << ")" << endl;
+        }
     }
     else if (!enableRAUfClamp &&
         (min(rAUf).value() < minRAUf || max(rAUf).value() > maxRAUf))
     {
-        Info<< "rAUf outside expected range [" << minRAUf << ", "
-            << maxRAUf << "]: min=" << min(rAUf).value()
-            << " max=" << max(rAUf).value() << endl;
+        if (verbose)
+        {
+            Info<< "rAUf outside expected range [" << minRAUf << ", "
+                << maxRAUf << "]: min=" << min(rAUf).value()
+                << " max=" << max(rAUf).value() << endl;
+        }
     }
 
  // Construct HbyA and corresponding flux
@@ -132,9 +142,15 @@
     // Solve and inspect initial residual
     SolverPerformance<scalar> solverPerf = pEqn.solve();
     scalar residual = solverPerf.initialResidual();
-    Info<< "pEqn initial residual: " << residual << endl;
+    if (verbose)
+    {
+        Info<< "pEqn initial residual: " << residual << endl;
+    }
     relaxP = max(min(relaxP * targetResP/(residual + SMALL), 0.7), 0.1);
-    Info<< "  Updated relaxP: " << relaxP << endl;
+    if (verbose)
+    {
+        Info<< "  Updated relaxP: " << relaxP << endl;
+    }
 
     // Revert to previous solution if residual too large
     if (residual >= 1e3)
@@ -230,10 +246,13 @@
         reduce(minPressureCount, sumOp<label>());
         reduce(maxPressureCount, sumOp<label>());
 
-        Info<< "Pressure clamping stats: " << minPressureCount
-            << " cells to minPressure (" << minPressure << "), "
-            << maxPressureCount << " cells to maxPressure (" << maxPressure
-            << ")" << endl;
+        if (verbose)
+        {
+            Info<< "Pressure clamping stats: " << minPressureCount
+                << " cells to minPressure (" << minPressure << "), "
+                << maxPressureCount << " cells to maxPressure (" << maxPressure
+                << ")" << endl;
+        }
     }
 
     // Update pressure field
@@ -309,15 +328,21 @@
         reduce(minRhoCount, sumOp<label>());
         reduce(maxRhoCount, sumOp<label>());
 
-        Info<< "Density clamping stats: " << minRhoCount
-            << " cells to minDensity (" << minDensity << "), "
-            << maxRhoCount << " cells to maxDensity (" << maxDensity
-            << ")" << endl;
+        if (verbose)
+        {
+            Info<< "Density clamping stats: " << minRhoCount
+                << " cells to minDensity (" << minDensity << "), "
+                << maxRhoCount << " cells to maxDensity (" << maxDensity
+                << ")" << endl;
+        }
     }
 
     // Update kinetic energy
     K = 0.5*magSqr(U);
     
-    Info<< "Pressure solve complete: max p = " << max(p).value() 
-        << " Pa, min p = " << min(p).value() << " Pa" << endl;
+    if (verbose)
+    {
+        Info<< "Pressure solve complete: max p = " << max(p).value()
+            << " Pa, min p = " << min(p).value() << " Pa" << endl;
+    }
 }

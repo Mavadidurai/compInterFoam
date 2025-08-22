@@ -206,20 +206,6 @@ int main(int argc, char *argv[])
             // Solve alpha transport using the unified compressible path
             #include "compressibleAlphaEqnSubCycle.H"
 
-            // Update mesh refinement based on interface gradient
-            volScalarField gradAlpha1Mag
-            (
-                IOobject
-                (
-                    "gradAlpha1Mag",
-                    runTime.timeName(),
-                    mesh,
-                    IOobject::NO_READ,
-                    IOobject::NO_WRITE
-                ),
-                mag(fvc::grad(alpha1))
-            );
-
             turbulence.correctPhasePhi();
 
             #include "UEqn.H"
@@ -234,7 +220,6 @@ int main(int argc, char *argv[])
 
             ttm.solve(laserSrc(), mixture.phaseChangeSource());
 
-            
             #include "TEqn.H"
             
             // --- Pressure corrector loop

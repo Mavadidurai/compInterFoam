@@ -21,7 +21,9 @@
 #include "twoTemperatureModel.H"
 #include "fvc.H"
 #include "fvm.H"
+#include "fieldAverage.H"
 #include <cmath>
+extern Foam::Switch verbose;
 namespace Foam
 {
 
@@ -131,6 +133,8 @@ twoTemperatureModel::twoTemperatureModel
     ),
     energyInitialized_(false)
 {
+        const bool verbose =
+        mesh_.time().controlDict().lookupOrDefault<Switch>("verbose", false);
     if (!validateParameters())
     {
         FatalErrorInFunction
@@ -150,6 +154,14 @@ twoTemperatureModel::twoTemperatureModel
 
     // Initialize energy tracking
     updateEnergyTracking();
+        if (verbose)
+    {
+        Info<< "Two-temperature model initialized:" << nl
+            << "  Ce = " << Ce_.value() << " J/m³/K" << nl
+            << "  Cl = " << Cl_.value() << " J/m³/K" << nl
+            << "  G = " << G_.value() << " W/m³/K" << nl
+            << "  De = " << De_.value() << " m²/s" << endl;
+    }
 }
 
 twoTemperatureModel::~twoTemperatureModel()
@@ -280,8 +292,12 @@ void twoTemperatureModel::solve
 
     // Store initial energy
     updateEnergyTracking();
+    if (verbose)
+    {
         Info<< "max(laserSource) = " << max(laserSource).value()
-        << ", max(Tl_) = " << max(Tl_).value() << endl;
+            << ", max(Tl_) = " << max(Tl_).value() << endl;
+    }
+
 
     // Calculate temperature-dependent properties
     volScalarField ke = electronThermalConductivity();
@@ -390,12 +406,15 @@ void twoTemperatureModel::solve
     // Report solution statistics with more detail
     volScalarField tempDiff = mag(Te_ - Tl_);
     
-    Info<< "Two-temperature solve:" << nl
-        << "  Te range: " << min(Te_).value() << " - " << max(Te_).value() << " K" << nl
-        << "  Tl range: " << min(Tl_).value() << " - " << max(Tl_).value() << " K" << nl
-        << "  Max temperature difference: " << max(tempDiff).value() << " K" << nl
-        << "  Mean Te: " << gAverage(Te_) << " K" << nl
-        << "  Mean Tl: " << gAverage(Tl_) << " K" << endl;
+    if (verbose)
+    {
+        Info<< "Two-temperature solve:" << nl
+            << "  Te range: " << min(Te_).value() << " - " << max(Te_).value() << " K" << nl
+            << "  Tl range: " << min(Tl_).value() << " - " << max(Tl_).value() << " K" << nl
+            << "  Max temperature difference: " << max(tempDiff).value() << " K" << nl
+            << "  Mean Te: " << gAverage(Te_) << " K" << nl
+            << "  Mean Tl: " << gAverage(Tl_) << " K" << endl;
+    }
 }
 tmp<volScalarField> twoTemperatureModel::electronThermalConductivity() const
 {
@@ -504,16 +523,19 @@ bool twoTemperatureModel::valid() const
 
 void twoTemperatureModel::write() const
 {
-    Info<< "Two-temperature model:" << nl
-        << "Parameters:" << nl
-        << "  Ce = " << Ce_.value() << " J/m³/K" << nl
-        << "  Cl = " << Cl_.value() << " J/m³/K" << nl
-        << "  G = " << G_.value() << " W/m³/K" << nl
-        << "Field statistics:" << nl
-        << "  Te range: " << min(Te_).value() << " - " << max(Te_).value() << " K" << nl
-        << "  Tl range: " << min(Tl_).value() << " - " << max(Tl_).value() << " K" << nl
-        << "  Mean Te: " << average(Te_).value() << " K" << nl
-        << "  Mean Tl: " << average(Tl_).value() << " K" << nl;
+    if (verbose)
+    {
+        Info<< "Two-temperature model:" << nl
+            << "Parameters:" << nl
+            << "  Ce = " << Ce_.value() << " J/m³/K" << nl
+            << "  Cl = " << Cl_.value() << " J/m³/K" << nl
+            << "  G = " << G_.value() << " W/m³/K" << nl
+            << "Field statistics:" << nl
+            << "  Te range: " << min(Te_).value() << " - " << max(Te_).value() << " K" << nl
+            << "  Tl range: " << min(Tl_).value() << " - " << max(Tl_).value() << " K" << nl
+            << "  Mean Te: " << average(Te_).value() << " K" << nl
+            << "  Mean Tl: " << average(Tl_).value() << " K" << nl;
+    }
 
     if (energyInitialized_)
     {
@@ -524,9 +546,12 @@ void twoTemperatureModel::write() const
             (mag(lastTotalEnergy_.value()) + SMALL)
         );
         
-        Info<< "Energy conservation:" << nl
-            << "  Current total energy: " << currentEnergy.value() << " J" << nl
-            << "  Energy error: " << energyError * 100 << " %" << endl;
+        if (verbose)
+        {
+            Info<< "Energy conservation:" << nl
+                << "  Current total energy: " << currentEnergy.value() << " J" << nl
+                << "  Energy error: " << energyError * 100 << " %" << endl;
+        }
     }
 }
 

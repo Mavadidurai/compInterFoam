@@ -4,7 +4,10 @@
 extern Foam::Switch verbose;
 
 {
-    Info<< "Solving temperature equation" << endl;
+    if (verbose)
+    {
+        Info<< "Solving temperature equation" << endl;
+    }
     
    // Since ttm.solve(laserSource, mixture.phaseChangeSource()) is called
     // before this in compInterFoam.C, the two-temperature model has already

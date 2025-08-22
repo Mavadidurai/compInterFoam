@@ -4,7 +4,10 @@ bool LTS = fv::localEulerDdt::enabled(mesh);
 tmp<volScalarField> trDeltaT;
 if (LTS)
 {
-    Info<< "Using LTS" << endl;
+    if (verbose)
+    {
+        Info<< "Using LTS" << endl;
+    }
     trDeltaT = tmp<volScalarField>
     (
         new volScalarField
@@ -24,7 +27,10 @@ if (LTS)
     );
 }
 
-Info<< "Reading field p_rgh\n" << endl;
+if (verbose)
+{
+    Info<< "Reading field p_rgh\n" << endl;
+}
 volScalarField p_rgh
 (
     IOobject
@@ -38,7 +44,10 @@ volScalarField p_rgh
     mesh
 );
 
-Info<< "Reading field U\n" << endl;
+if (verbose)
+{
+    Info<< "Reading field U\n" << endl;
+}
 volVectorField U
 (
     IOobject
@@ -52,7 +61,10 @@ volVectorField U
     mesh
 );
 
-Info<< "Reading/calculating face flux field phi\n" << endl;
+if (verbose)
+{
+    Info<< "Reading/calculating face flux field phi\n" << endl;
+}
 surfaceScalarField phi
 (
     IOobject
@@ -65,7 +77,10 @@ surfaceScalarField phi
     ),
     fvc::flux(U)
 );
-Info<< "Reading field T\n" << endl;
+if (verbose)
+{
+    Info<< "Reading field T\n" << endl;
+}
 volScalarField T
 (
     IOobject
@@ -80,7 +95,10 @@ volScalarField T
     dimensionedScalar("T", dimTemperature, 300.0)
 );
 // Create the thermo system - this will create alpha.metal and alpha.air fields
-Info<< "Constructing twoPhaseMixtureThermo\n" << endl;
+if (verbose)
+{
+    Info<< "Constructing twoPhaseMixtureThermo\n" << endl;
+}
 twoPhaseMixtureThermo mixture(U, phi);
 // Set verbosity flag from controlDict now that runTime is available
 verbose = runTime.controlDict().lookupOrDefault<Foam::Switch>("verbose", false);
@@ -110,7 +128,10 @@ if (verbose)
         << ", air: " << mixture.phase2Name() << endl;
 }
 
-Info<< "Reading thermophysical properties\n" << endl;
+if (verbose)
+{
+    Info<< "Reading thermophysical properties\n" << endl;
+}
 
 const volScalarField& rho1 = mixture.thermo1().rho();
 const volScalarField& rho2 = mixture.thermo2().rho();
@@ -131,7 +152,10 @@ volScalarField rho
 mesh.setFluxRequired(p_rgh.name());
 mesh.setFluxRequired(alpha1.name());
 
-Info<< "Reading g\n" << endl;
+if (verbose)
+{
+    Info<< "Reading g\n" << endl;
+}
 uniformDimensionedVectorField g
 (
     IOobject
@@ -193,8 +217,11 @@ surfaceScalarField rhoPhi
 
 // Mass-transfer rate provided by twoPhaseMixtureThermo
 const volScalarField& dgdt = mixture.dgdt();
-Info<< "Mass-transfer rate - dgdt: min = " << min(dgdt).value()
-    << ", max = " << max(dgdt).value() << endl;
+if (verbose)
+{
+    Info<< "Mass-transfer rate - dgdt: min = " << min(dgdt).value()
+        << ", max = " << max(dgdt).value() << endl;
+}
 IOobject alphaPhi10Header
 (
     "alphaPhi10",
@@ -272,7 +299,11 @@ bool useAdvancedCapturing =
     runTime.controlDict().lookupOrDefault<bool>("useAdvancedInterfaceCapturing", false);
     
 // Create LIFT-specific models
-Info<< "Creating femtosecond laser model\n" << endl;
+if (verbose)
+{
+    Info<< "Creating femtosecond laser model\n" << endl;
+}
+
 IOdictionary laserPropertiesDict
 (
     IOobject
@@ -286,7 +317,10 @@ IOdictionary laserPropertiesDict
 );
 femtosecondLaserModel laser(mesh, laserPropertiesDict);
 
-Info<< "Creating two-temperature model\n" << endl;
+if (verbose)
+{
+    Info<< "Creating two-temperature model\n" << endl;
+}
 dictionary twoTemperatureDict
 (
     runTime.controlDict().subDict("twoTemperatureProperties")
@@ -332,7 +366,10 @@ autoPtr<advancedInterfaceCapturing> pInterfaceCapturing;
 
 if (useAdvancedCapturing)
 {
-    Info<< "Creating advanced interface capturing\n" << endl;
+    if (verbose)
+    {
+        Info<< "Creating advanced interface capturing\n" << endl;
+    }
     pInterfaceCapturing.reset
     (
         new advancedInterfaceCapturing
@@ -347,7 +384,10 @@ if (useAdvancedCapturing)
 }
 else
 {
-    Info<< "Using standard interface capturing\n" << endl;
+    if (verbose)
+    {
+        Info<< "Using standard interface capturing\n" << endl;
+    }
 }
 
 // ✅ CLEAR: Field validation with intuitive naming

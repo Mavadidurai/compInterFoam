@@ -19,6 +19,7 @@
 #include "mathematicalConstants.H"
 #include "HashSet.H"
 #include <cmath>
+extern Foam::Switch verbose;
 
 namespace Foam
 {
@@ -91,6 +92,8 @@ femtosecondLaserModel::femtosecondLaserModel
     cumulativeEnergy_(0.0),
     lastTimeIndex_(mesh.time().timeIndex())
 {
+       const bool verbose =
+        mesh_.time().controlDict().lookupOrDefault<Switch>("verbose", false);
     // Normalize direction vector
     direction_ /= mag(direction_) + SMALL;
 
@@ -137,16 +140,19 @@ femtosecondLaserModel::femtosecondLaserModel
             << abort(FatalError);
     }
 
-    Info<< "✅ Femtosecond laser model initialized:" << nl
-        << "  Mode: " << (continuousLaser_ ? "Continuous" : "Pulsed") << nl
-        << "  Peak intensity: " << peakIntensity_.value() << " W/m²" << nl
-        << "  Pulse width: " << pulseWidth_.value() << " s" << nl
-        << "  Wavelength: " << wavelength_.value() << " m" << nl
-        << "  Spot size: " << spotSize_.value() << " m" << nl
-        << "  Pulse energy: " << pulseEnergy_.value() << " J" << nl
-        << "  Focus: " << focus_ << nl
-        << "  Direction: " << direction_ << nl
-        << "  Active time: " << laserStartTime_ << " to " << laserEndTime_ << " s" << endl;
+    if (verbose)
+    {
+        Info<< "✅ Femtosecond laser model initialized:" << nl
+            << "  Mode: " << (continuousLaser_ ? "Continuous" : "Pulsed") << nl
+            << "  Peak intensity: " << peakIntensity_.value() << " W/m²" << nl
+            << "  Pulse width: " << pulseWidth_.value() << " s" << nl
+            << "  Wavelength: " << wavelength_.value() << " m" << nl
+            << "  Spot size: " << spotSize_.value() << " m" << nl
+            << "  Pulse energy: " << pulseEnergy_.value() << " J" << nl
+            << "  Focus: " << focus_ << nl
+            << "  Direction: " << direction_ << nl
+            << "  Active time: " << laserStartTime_ << " to " << laserEndTime_ << " s" << endl;
+    }
         
     // Validate focus position for LIFT geometry
     if (focus_.y() < filmYMin_ || focus_.y() > filmYMax_)
@@ -160,8 +166,11 @@ femtosecondLaserModel::femtosecondLaserModel
     
     // Check timing
     scalar pulseDuration = laserEndTime_ - laserStartTime_;
-    Info<< "  Pulse duration: " << pulseDuration*1e12 << " ps" << endl;
-    
+    if (verbose)
+    {
+        Info<< "  Pulse duration: " << pulseDuration*1e12 << " ps" << endl;
+    }
+
     // Warn about any unhandled dictionary entries
     wordHashSet handled
     (
@@ -459,11 +468,11 @@ void femtosecondLaserModel::calculateSource() const
     }
     
     // Report laser status
-    if (timeIndex % 50 == 0)  // Every 50 timesteps
+    if (timeIndex % 50 == 0 && verbose)  // Every 50 timesteps
     {
-        Info<< "🔍 LASER @ step=" << timeIndex 
-            << ": t=" << t*1e12 << "ps, " 
-            << (laserActive ? "ACTIVE" : "inactive") 
+        Info<< "🔍 LASER @ step=" << timeIndex
+            << ": t=" << t*1e12 << "ps, "
+            << (laserActive ? "ACTIVE" : "inactive")
             << " (window: " << laserStartTime_*1e12 << "-" << laserEndTime_*1e12 << "ps)" << endl;
     }
 
@@ -570,17 +579,20 @@ void femtosecondLaserModel::calculateSource() const
             << totalEnergyDeposited.value() << " J" << endl;
     }
 
-    Info<< "🔍 LASER DIAGNOSTICS:" << nl
-        << "  Input peak intensity: " << peakIntensity_.value() << " W/m²" << nl
-        << "  Average volumetric intensity in beam: " << avgIntensityInBeam << " W/m³" << nl
-        << "  Absorption coefficient: " << absorptionCoeff_.value() << " 1/m" << nl
-        << "  Spot radius: " << spotSize_.value()/2.0*1e6 << " μm" << nl
-        << "  Beam area: " << 3.14159*sqr(spotSize_.value()/2.0)*1e12 << " μm²" << endl;
+    if (verbose)
+    {
+        Info<< "🔍 LASER DIAGNOSTICS:" << nl
+            << "  Input peak intensity: " << peakIntensity_.value() << " W/m²" << nl
+            << "  Average volumetric intensity in beam: " << avgIntensityInBeam << " W/m³" << nl
+            << "  Absorption coefficient: " << absorptionCoeff_.value() << " 1/m" << nl
+            << "  Spot radius: " << spotSize_.value()/2.0*1e6 << " μm" << nl
+            << "  Beam area: " << 3.14159*sqr(spotSize_.value()/2.0)*1e12 << " μm²" << endl;
+    }
 
     sourceValid_ = true;
 
     // Report laser activity
-    if (laserActive && (timeIndex % 10 == 0))
+    if (laserActive && (timeIndex % 10 == 0) && verbose)
     {
         Info<< "🔥 LASER ENERGY DEPOSITION:" << nl
             << "  Time: " << t*1e12 << " ps" << nl
@@ -624,18 +636,21 @@ bool femtosecondLaserModel::valid() const
 
 void femtosecondLaserModel::write() const
 {
-    Info<< "Femtosecond laser model status:" << nl
-        << "  Mode: " << (continuousLaser_ ? "Continuous" : "Pulsed") << nl
-        << "  Peak intensity: " << peakIntensity_.value() << " W/m²" << nl
-        << "  Pulse width: " << pulseWidth_.value() << " s" << nl
-        << "  Wavelength: " << wavelength_.value() << " m" << nl
-        << "  Spot size: " << spotSize_.value() << " m" << nl
-        << "  Pulse energy: " << pulseEnergy_.value() << " J" << nl
-        << "  Absorption coefficient: " << absorptionCoeff_.value() << " 1/m" << nl
-        << "  Reflectivity: " << reflectivity_ << nl
-        << "  Focus: " << focus_ << nl
-        << "  Direction: " << direction_ << nl
-        << "  Active time: " << laserStartTime_ << " to " << laserEndTime_ << " s" << endl;
+    if (verbose)
+    {
+        Info<< "Femtosecond laser model status:" << nl
+            << "  Mode: " << (continuousLaser_ ? "Continuous" : "Pulsed") << nl
+            << "  Peak intensity: " << peakIntensity_.value() << " W/m²" << nl
+            << "  Pulse width: " << pulseWidth_.value() << " s" << nl
+            << "  Wavelength: " << wavelength_.value() << " m" << nl
+            << "  Spot size: " << spotSize_.value() << " m" << nl
+            << "  Pulse energy: " << pulseEnergy_.value() << " J" << nl
+            << "  Absorption coefficient: " << absorptionCoeff_.value() << " 1/m" << nl
+            << "  Reflectivity: " << reflectivity_ << nl
+            << "  Focus: " << focus_ << nl
+            << "  Direction: " << direction_ << nl
+            << "  Active time: " << laserStartTime_ << " to " << laserEndTime_ << " s" << endl;
+    }
 
     if (tSource_.valid())
     {
@@ -643,12 +658,17 @@ void femtosecondLaserModel::write() const
         const dimensionedScalar totalEnergy =
             fvc::domainIntegrate(tSource_() * mesh_.time().deltaT());
 
-        Info<< "Source statistics:" << nl
-            << "  Maximum intensity: " << maxIntensity.value() << " W/m³" << nl
-            << "  Energy this timestep: " << totalEnergy.value() << " J" << endl;
+        if (verbose)
+        {
+            Info<< "Source statistics:" << nl
+                << "  Maximum intensity: " << maxIntensity.value() << " W/m³" << nl
+                << "  Energy this timestep: " << totalEnergy.value() << " J" << endl;
+        }
     }
-
-    Info<< "  Cumulative energy: " << cumulativeEnergy_ << " J" << endl;
+    if (verbose)
+    {
+        Info<< "  Cumulative energy: " << cumulativeEnergy_ << " J" << endl;
+    }
 }
 } // End namespace Foam
 

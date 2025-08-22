@@ -1,10 +1,10 @@
-// Flag that the alpha subcycle has been executed
-alphaSubCycleExecuted = true;
-
 // Check if using standard subcycling or advanced interface capturing
 // After: guard against null pointer and use the correct pointer name
 if (pInterfaceCapturing.valid())
 {
+    // Flag that the alpha subcycle has been executed
+    alphaSubCycleExecuted = true;
+
     // perform advanced interface capturing only if the object exists
     pInterfaceCapturing->correct();
 
@@ -21,20 +21,19 @@ if (pInterfaceCapturing.valid())
     rho = alpha1*rho1 + alpha2*rho2;
     rhoPhi = alphaPhi10*fvc::interpolate(rho1) + (phi - alphaPhi10)*fvc::interpolate(rho2);
 
-       // Calculate continuity error for diagnostics
-    tmp<volScalarField> tContErr = fvc::ddt(rho) + fvc::div(rhoPhi);
-    const volScalarField& contErr = tContErr();
-
-    scalar sumLocalContErr = runTime.deltaT().value()
-        * mag(contErr)().weightedAverage(mesh.V()).value();
-    scalar globalContErr = runTime.deltaT().value()
-        * contErr.weightedAverage(mesh.V()).value();
-
-    if (!std::isfinite(sumLocalContErr)) sumLocalContErr = 0.0;
-    if (!std::isfinite(globalContErr)) globalContErr = 0.0;
-
-    if (verbose)
+          if (verbose)
     {
+        // Calculate continuity error for diagnostics
+        tmp<volScalarField> tContErr = fvc::ddt(rho) + fvc::div(rhoPhi);
+        const volScalarField& contErr = tContErr();
+
+        scalar sumLocalContErr = runTime.deltaT().value()
+            * mag(contErr)().weightedAverage(mesh.V()).value();
+        scalar globalContErr = runTime.deltaT().value()
+            * contErr.weightedAverage(mesh.V()).value();
+
+        if (!std::isfinite(sumLocalContErr)) sumLocalContErr = 0.0;
+        if (!std::isfinite(globalContErr)) globalContErr = 0.0;
         Info<< "Continuity errors:" << nl
             << "  Sum local: " << sumLocalContErr << nl
             << "  Global: " << globalContErr << endl;
@@ -116,20 +115,20 @@ else
     
     rho = alpha1*rho1 + alpha2*rho2;
         
-    // Calculate continuity error for diagnostics
-    tmp<volScalarField> tContErr = fvc::ddt(rho) + fvc::div(rhoPhi);
-    const volScalarField& contErr = tContErr();
-
-    scalar sumLocalContErr = runTime.deltaT().value()
-        * mag(contErr)().weightedAverage(mesh.V()).value();
-    scalar globalContErr = runTime.deltaT().value()
-        * contErr.weightedAverage(mesh.V()).value();
-
-    if (!std::isfinite(sumLocalContErr)) sumLocalContErr = 0.0;
-    if (!std::isfinite(globalContErr)) globalContErr = 0.0;
-
     if (verbose)
     {
+        // Calculate continuity error for diagnostics
+        tmp<volScalarField> tContErr = fvc::ddt(rho) + fvc::div(rhoPhi);
+        const volScalarField& contErr = tContErr();
+
+        scalar sumLocalContErr = runTime.deltaT().value()
+            * mag(contErr)().weightedAverage(mesh.V()).value();
+        scalar globalContErr = runTime.deltaT().value()
+            * contErr.weightedAverage(mesh.V()).value();
+
+        if (!std::isfinite(sumLocalContErr)) sumLocalContErr = 0.0;
+        if (!std::isfinite(globalContErr)) globalContErr = 0.0;
+
         Info<< "Continuity errors:" << nl
             << "  Sum local: " << sumLocalContErr << nl
             << "  Global: " << globalContErr << endl;

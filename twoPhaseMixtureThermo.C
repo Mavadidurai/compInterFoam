@@ -202,28 +202,27 @@ Foam::tmp<Foam::volScalarField> Foam::twoPhaseMixtureThermo::computePhaseChange(
     const volScalarField CpField = thermo1_->Cp();
     const dimensionedScalar dt = T_.time().deltaT();
     const dimensionedScalar L = latentHeat();
-    
+
+    // Dimensioned pre-factor for unit checking
+    const dimensionedScalar LOverCpDtDimCheck =
+        L/(dimensionedScalar("Cp", CpField.dimensions(), 1.0)*dt);
+
+    const scalar LVal = L.value();
+    const scalar dtVal = dt.value();
+    (void)LOverCpDtDimCheck; // keep unit checking in debug builds
+
     forAll(T_, cellI)
     {
-        const dimensionedScalar CpCell
-        (
-            "CpCell",
-            CpField.dimensions(),
-            CpField[cellI]
-        );
+        const scalar CpCell = CpField[cellI];
+        const scalar LOverCpDt = LVal/(CpCell*dtVal);
 
         if (T_[cellI] > T_melt_ && alpha1()[cellI] > 0.99)
         {
-            // Convert latent heat [J/kg] to temperature rate [K/s]
-            // Dimensioned arithmetic guarantees unit consistency
-
-            const dimensionedScalar src = -L/(CpCell * dt); // src retains [K/s] dimensions, ensuring automatic unit checking
-            source[cellI] = src.value();
+            source[cellI] = -LOverCpDt;
         }
         else if (T_[cellI] < T_melt_ && alpha1()[cellI] < 0.01)
         {
-            const dimensionedScalar src = L/(CpCell * dt); // src retains [K/s] dimensions, ensuring automatic unit checking
-            source[cellI] = src.value();
+            source[cellI] = LOverCpDt;
         }
     }
     
