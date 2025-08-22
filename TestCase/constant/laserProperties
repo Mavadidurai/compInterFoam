@@ -32,6 +32,8 @@ FoamFile
 //   continuousLaser     [bool]
 //   laserStartTime      [s]
 //   laserEndTime        [s]
+//   offFilmScale        [-, optional, default 0.1]
+//   offFilmMax          [W/m^3, optional, default 1e14]
 // Gaussian pulse focused in the 2 µm metal film (y=8–10 µm)
 // Domain: x∈[0,50e-6], y∈[0,20e-6], z∈[0,10e-6]
 
@@ -40,6 +42,8 @@ laserModel      gaussian;
 // geometry coupling
 filmYMin    8e-6;
 filmYMax    1e-5;
+offFilmScale    0.1;       // Intensity scaling outside donor film [-]
+offFilmMax      1e14;      // Max volumetric intensity outside film [W/m^3]
 // --- Energy & timing ---
 // Boosted energy/intensity to reach melt/ablation threshold
 pulseEnergy     8e-7;          // [J] total energy
