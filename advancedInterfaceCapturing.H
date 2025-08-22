@@ -30,7 +30,7 @@ private:
     scalar recoilMax_;               // Maximum allowed recoil pressure
     label  recoilUpdateInterval_;    // Steps between recoil pressure updates
     scalar recoilTempOffset_;         // Temperature offset for recoil activation
-
+    // Valid alpha range (controlDict → advancedInterfaceCapturing → alphaBounds)
     scalar alphaMin_;               // Minimum alpha for recoil activation
     scalar alphaMax_;               // Maximum alpha for recoil activation
     // Field for recoil pressure

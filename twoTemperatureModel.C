@@ -280,6 +280,8 @@ void twoTemperatureModel::solve
 
     // Store initial energy
     updateEnergyTracking();
+        Info<< "max(laserSource) = " << max(laserSource).value()
+        << ", max(Tl_) = " << max(Tl_).value() << endl;
 
     // Calculate temperature-dependent properties
     volScalarField ke = electronThermalConductivity();

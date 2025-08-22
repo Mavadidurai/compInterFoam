@@ -223,6 +223,14 @@ int main(int argc, char *argv[])
             turbulence.correctPhasePhi();
 
             #include "UEqn.H"
+            dimensionedScalar maxLaserSrc = max(laserSrc());
+            const scalar laserSrcThreshold = 1e-6;
+            if (maxLaserSrc.value() < laserSrcThreshold)
+            {
+                WarningInFunction
+                    << "Maximum laser source (" << maxLaserSrc.value()
+                    << ") below threshold " << laserSrcThreshold << endl;
+            }
 
             ttm.solve(laserSrc(), mixture.phaseChangeSource());
 
@@ -302,6 +310,19 @@ int main(int argc, char *argv[])
         }
 
         runTime.write();
+        if (!U.headerOk())
+        {
+            WarningInFunction
+                << "Field U failed to write. Ensure initial conditions"
+                << " and write intervals are set." << endl;
+        }
+
+        if (!p_rgh.headerOk())
+        {
+            WarningInFunction
+                << "Field p_rgh failed to write. Ensure initial conditions"
+                << " and write intervals are set." << endl;
+        }
 
         runTime.printExecutionTime(Info);
     }

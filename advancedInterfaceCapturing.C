@@ -47,30 +47,12 @@ advancedInterfaceCapturing::advancedInterfaceCapturing
             )
         )
     ),
-    pressureScale_
-    (
-        mesh.time().controlDict().lookupOrDefault<scalar>("pressureScale", 20000.0)
-    ),
-    recoilMax_
-    (
-        mesh.time().controlDict().lookupOrDefault<scalar>("recoilMax", 5e6)
-    ),
-    recoilUpdateInterval_
-    (
-        mesh.time().controlDict().lookupOrDefault<label>("recoilUpdateInterval", 5)
-    ),
-    recoilTempOffset_
-    (
-        mesh.time().controlDict().lookupOrDefault<scalar>("recoilTempOffset", 100.0)
-    ),
-    alphaMin_
-    (
-        mesh.time().controlDict().lookupOrDefault<scalar>("alphaMin", 0.01)
-    ),
-    alphaMax_
-    (
-        mesh.time().controlDict().lookupOrDefault<scalar>("alphaMax", 0.99)
-    ),
+    pressureScale_(20000.0),
+    recoilMax_(5e6),
+    recoilUpdateInterval_(5),
+    recoilTempOffset_(100.0),
+    alphaMin_(0.01),
+    alphaMax_(0.99),
     recoilPressure_
     (
         IOobject
@@ -86,6 +68,29 @@ advancedInterfaceCapturing::advancedInterfaceCapturing
     ),
     callCount_(0)
 {
+        const dictionary& aicDict =
+        mesh.time().controlDict().subOrEmptyDict("advancedInterfaceCapturing");
+
+    pressureScale_ = aicDict.lookupOrDefault<scalar>
+    (
+        "pressureScale",
+        pressureScale_
+    );
+    recoilMax_ = aicDict.lookupOrDefault<scalar>("recoilMax", recoilMax_);
+    recoilUpdateInterval_ = aicDict.lookupOrDefault<label>
+    (
+        "recoilUpdateInterval",
+        recoilUpdateInterval_
+    );
+    recoilTempOffset_ = aicDict.lookupOrDefault<scalar>
+    (
+        "recoilTempOffset",
+        recoilTempOffset_
+    );
+
+    const dictionary& alphaBounds = aicDict.subOrEmptyDict("alphaBounds");
+    alphaMin_ = alphaBounds.lookupOrDefault<scalar>("alphaMin", alphaMin_);
+    alphaMax_ = alphaBounds.lookupOrDefault<scalar>("alphaMax", alphaMax_);
     // Simple initialization, no calculations in constructor to avoid MPI issues
     const bool verbose = mesh.time().controlDict().lookupOrDefault<Switch>("verbose", false);
     if (verbose)
