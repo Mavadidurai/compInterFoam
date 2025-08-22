@@ -39,7 +39,7 @@ air
 // ✅ ENHANCED: Phase change properties for LIFT with substrate effects
 meltingTemperature      1941.0;     // K - Titanium melting point
 vaporTemperature        3560.0;     // K - Titanium vaporization point  
-latentHeat              435e3;      // J/kg - Titanium latent heat of fusion
+latentHeat      latentHeat [1 2 -2 0 0 0 0] 4.35e5;     // J/kg - Titanium latent heat of fusion
 
 // ✅ NEW: Substrate thermal properties (for boundary conditions)
 substrateProperties

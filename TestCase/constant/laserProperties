@@ -37,6 +37,9 @@ FoamFile
 
 laserModel      gaussian;
 
+// geometry coupling
+filmYMin    8e-6;
+filmYMax    1e-5;
 // --- Energy & timing ---
 // Boosted energy/intensity to reach melt/ablation threshold
 pulseEnergy     8e-7;          // [J] total energy
@@ -66,4 +69,5 @@ maxReflections      1;
 // Optional intensity entry (consistent with pulseEnergy & pulseWidth)
 peakIntensity       5e17;      // [W/m^2]
 continuousLaser     false;
+
 // ************************************************************************* //
