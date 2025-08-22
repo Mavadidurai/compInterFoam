@@ -4,7 +4,11 @@
 
 #include <cmath>
 
-Info<< "Solving momentum equation" << endl;
+if (verbose)
+{
+    Info<< "Solving momentum equation" << endl;
+}
+
 
 // Solver controls dictionary
 const dictionary& solverControls = mesh.solutionDict().subOrEmptyDict("compInterFoamCoeffs");
@@ -53,10 +57,13 @@ reduce(maxVelMagnitude, maxOp<scalar>());
 reduce(hasVelocityIssues, orOp<bool>());
 reduce(corruptedVelCells, sumOp<label>());
 
-Info<< "Velocity field statistics:" << nl
-    << "  Maximum velocity: " << maxVelMagnitude << " m/s" << endl;
+if (verbose)
+{
+    Info<< "Velocity field statistics:" << nl
+        << "  Maximum velocity: " << maxVelMagnitude << " m/s" << endl;
+}
 
-if (corruptedVelCells > 0)
+if (verbose && corruptedVelCells > 0)
 {
     Info<< "  Fixed " << corruptedVelCells << " corrupted velocity values" << endl;
 }
@@ -97,16 +104,15 @@ forAll(rho, cellI)
 }
 
 reduce(corruptedRhoCells, sumOp<label>());
-if (corruptedRhoCells > 0)
+if (verbose && corruptedRhoCells > 0)
 {
     Info<< "  Fixed " << corruptedRhoCells << " corrupted density values" << endl;
 }
 // Update thermophysical properties and phase-change source
 mixture.correct();
-// Refresh only the recoil pressure using latest phase-change source.
-// The alpha field has already been corrected in the alpha subcycle,
-// so avoid a second full interface-capturing solve here.
-if (useAdvancedCapturing && pInterfaceCapturing.valid())
+// Recoil pressure is normally updated during the alpha subcycle.
+// Recompute here only if that subcycle was skipped.
+if (!alphaSubCycleExecuted && useAdvancedCapturing && pInterfaceCapturing.valid())
 {
     pInterfaceCapturing->calculateRecoilPressure();
 }
@@ -141,11 +147,14 @@ if (useAdvancedCapturing && pInterfaceCapturing.valid())
         // Add recoil pressure gradient
         UEqn -= fvc::grad(recoilPressure);
         
-        // Add recoil pressure-induced momentum source
+                // Add recoil pressure-induced momentum source
         UEqn += (recoilPressure / rho) * fvc::grad(alpha1);
-        
-        Info<< "Recoil pressure effects:" << nl
-            << "  Maximum: " << maxRecoil << " Pa" << endl;
+
+        if (verbose)
+        {
+            Info<< "Recoil pressure effects:" << nl
+                << "  Maximum: " << maxRecoil << " Pa" << endl;
+        }
     }
 }
 
@@ -233,18 +242,21 @@ forAll(rAU, cellI)
 
 reduce(minRauCells, sumOp<label>());
 reduce(maxRauCells, sumOp<label>());
-if (enableRAUClamp && (minRauCells > 0 || maxRauCells > 0))
+if (verbose)
 {
-    Info<< "rAU clamping stats: " << minRauCells
-        << " cells to minRAU (" << minRau << "), "
-        << maxRauCells << " cells to maxRAU (" << maxRau << ")" << endl;
-}
-else if (!enableRAUClamp &&
-         (min(rAU).value() < minRau || max(rAU).value() > maxRau))
-{
-    Info<< "rAU outside expected range [" << minRau << ", " << maxRau
-        << "]: min=" << min(rAU).value()
-        << " max=" << max(rAU).value() << endl;
+    if (enableRAUClamp && (minRauCells > 0 || maxRauCells > 0))
+    {
+        Info<< "rAU clamping stats: " << minRauCells
+            << " cells to minRAU (" << minRau << "), "
+            << maxRauCells << " cells to maxRAU (" << maxRau << ")" << endl;
+    }
+    else if (!enableRAUClamp &&
+             (min(rAU).value() < minRau || max(rAU).value() > maxRau))
+    {
+        Info<< "rAU outside expected range [" << minRau << ", " << maxRau
+            << "]: min=" << min(rAU).value()
+            << " max=" << max(rAU).value() << endl;
+    }
 }
 
 rAU.correctBoundaryConditions();
@@ -286,19 +298,22 @@ if (pimple.momentumPredictor())
     reduce(invalidCells, sumOp<label>());
     reduce(limitedCells, sumOp<label>());
 
-    if (invalidCells > 0)
+       if (verbose && invalidCells > 0)
     {
         Info<< "  Fixed " << invalidCells << " corrupted velocity values after solve" << endl;
     }
 
-    if (limitedCells > 0)
+    if (verbose && limitedCells > 0)
     {
         Info<< "  Limited " << limitedCells << " velocity cells exceeding "
             << maxVelocity << " m/s" << endl;
     }
 
-    Info<< "Momentum predictor:" << nl
-        << "  Max velocity after limiting: " << maxVelAfterSolve << " m/s" << endl;
+    if (verbose)
+    {
+        Info<< "Momentum predictor:" << nl
+            << "  Max velocity after limiting: " << maxVelAfterSolve << " m/s" << endl;
+    }
 }
 
 // Update fluxes
@@ -327,12 +342,18 @@ scalar globalContErr = runTime.deltaT().value() *
 if (!std::isfinite(sumLocalContErr)) sumLocalContErr = 0.0;
 if (!std::isfinite(globalContErr)) globalContErr = 0.0;
 
-Info<< "Continuity errors:" << nl
-    << "  Sum local: " << sumLocalContErr << nl
-    << "  Global: " << globalContErr << endl;
+if (verbose)
+{
+    Info<< "Continuity errors:" << nl
+        << "  Sum local: " << sumLocalContErr << nl
+        << "  Global: " << globalContErr << endl;
+}
 
 // Boundary conditions and turbulence
 U.correctBoundaryConditions();
 turbulence.correct();
 
-Info<< "Momentum equation completed" << endl;
+if (verbose)
+{
+    Info<< "Momentum equation completed" << endl;
+}

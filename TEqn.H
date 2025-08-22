@@ -1,6 +1,7 @@
 /*---------------------------------------------------------------------------*\
   Temperature equation for LIFT simulation with two-temperature model
 \*---------------------------------------------------------------------------*/
+extern Foam::Switch verbose;
 
 {
     Info<< "Solving temperature equation" << endl;

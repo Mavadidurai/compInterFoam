@@ -87,7 +87,11 @@ advancedInterfaceCapturing::advancedInterfaceCapturing
     callCount_(0)
 {
     // Simple initialization, no calculations in constructor to avoid MPI issues
-    Info<< "Advanced interface capturing initialized" << endl;
+    const bool verbose = mesh.time().controlDict().lookupOrDefault<Switch>("verbose", false);
+    if (verbose)
+    {
+        Info<< "Advanced interface capturing initialized" << endl;
+    }
 }
 
 void advancedInterfaceCapturing::calculateRecoilPressure()
@@ -98,16 +102,25 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
     const scalar minTempThreshold = meltingTemp_ - recoilTempOffset_;
 
     
-    Info<< "Calculating recoil pressure at t = " << currentTime 
-        << "s, max T = " << maxTemp 
-        << "K, melting temp = " << meltingTemp_ << "K" << endl;
+    const bool verbose = mesh_.time().controlDict().lookupOrDefault<Switch>("verbose", false);
+
+    if (verbose)
+    {
+        Info<< "Calculating recoil pressure at t = " << currentTime
+            << "s, max T = " << maxTemp
+            << "K, melting temp = " << meltingTemp_ << "K" << endl;
+    }
+
     
     // OPTIMIZED: Early exit using cached values
     if (maxTemp < minTempThreshold)
     {
         // OPTIMIZED: Use cached zero value instead of creating new one
         recoilPressure_ = dimensionedScalar("zero", dimPressure, 0.0);
-        Info<< "Temperature too low for recoil pressure" << endl;
+        if (verbose)
+        {
+            Info<< "Temperature too low for recoil pressure" << endl;
+        }
         return;
     }
     
@@ -128,7 +141,7 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
     // Compute recoil pressure based on evaporation rate
     forAll(TField, cellI)
     {
-        if (TField[cellI] < meltingTemp_ - recoilTempOffset_) continue;
+        if (TField[cellI] < minTempThreshold) continue;
 
         const scalar alpha = alpha1Field[cellI];
         scalar alphaDamp = 4.0 * alpha * (1.0 - alpha);
@@ -146,7 +159,11 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
 
 void Foam::advancedInterfaceCapturing::correct()
 {
-    Info<< "Performing simplified interface capturing" << endl;
+    const bool verbose = mesh_.time().controlDict().lookupOrDefault<Switch>("verbose", false);
+    if (verbose)
+    {
+        Info<< "Performing simplified interface capturing" << endl;
+    }
     
     // First update the recoil pressure field
     // Only do this every few steps to reduce MPI communication
@@ -174,12 +191,15 @@ void Foam::advancedInterfaceCapturing::correct()
     alpha1_ = max(min(alpha1_, scalar(1)), scalar(0));
     alpha1_.correctBoundaryConditions();
 
-    Info<< "Phase-1 volume fraction = "
-        << alpha1_.weightedAverage(mesh_.V()).value()
-        << "  Min(alpha1) = " << min(alpha1_).value()
-        << "  Max(alpha1) = " << max(alpha1_).value()
-        << "  Max recoil pressure = " << max(recoilPressure_).value()
-        << endl;
+    if (verbose)
+    {
+        Info<< "Phase-1 volume fraction = "
+            << alpha1_.weightedAverage(mesh_.V()).value()
+            << "  Min(alpha1) = " << min(alpha1_).value()
+            << "  Max(alpha1) = " << max(alpha1_).value()
+            << "  Max recoil pressure = " << max(recoilPressure_).value()
+            << endl;
+    }
 }
 
 void advancedInterfaceCapturing::write() const

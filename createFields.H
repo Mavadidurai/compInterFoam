@@ -1,3 +1,4 @@
+extern Foam::Switch verbose;
 
 bool LTS = fv::localEulerDdt::enabled(mesh);
 tmp<volScalarField> trDeltaT;
@@ -82,7 +83,8 @@ volScalarField T
 Info<< "Constructing twoPhaseMixtureThermo\n" << endl;
 twoPhaseMixtureThermo mixture(U, phi);
 // Set verbosity flag from controlDict now that runTime is available
-verbose = runTime.controlDict().lookupOrDefault<Switch>("verbose", false);
+verbose = runTime.controlDict().lookupOrDefault<Foam::Switch>("verbose", false);
+
 // ✅ INTUITIVE: Access alpha fields using clear naming
 // The mixture.alpha1() refers to the first phase (metal)
 // The mixture.alpha2() refers to the second phase (air)

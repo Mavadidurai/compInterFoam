@@ -67,6 +67,7 @@ Description
 #include "twoTemperatureModel.H"
 #include "advancedInterfaceCapturing.H"
 #include "DimensionValidator.H"
+Foam::Switch verbose(false);
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
@@ -87,13 +88,6 @@ int main(int argc, char *argv[])
    #include "createMesh.H"
 
     #include "createTimeControls.H"
-    
-        // Optional verbose runtime output controlled via controlDict
-    const Switch verbose
-    (
-        runTime.controlDict().lookupOrDefault<Switch>("verbose", false)
-    );
-
     
     #include "createFields.H"
 
@@ -208,6 +202,7 @@ int main(int argc, char *argv[])
         // --- Pressure-velocity PIMPLE corrector loop
         while (pimple.loop())
         {
+             bool alphaSubCycleExecuted = false;
             // Solve alpha transport using the unified compressible path
             #include "compressibleAlphaEqnSubCycle.H"
 
