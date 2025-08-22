@@ -70,6 +70,9 @@ Some solver features rely on additional entries in case dictionaries:
   number of time steps between recoil field updates, default `5`.
 * `useAdvancedInterfaceCapturing` (`controlDict`): enable the recoil-based
   interface capturing model.
+  * `alphaBounds` (`controlDict` → `advancedInterfaceCapturing` → `alphaBounds`):
+  bounds the phase fraction range contributing to recoil pressure. Defaults:
+  `alphaMin 0.001; alphaMax 0.999;`.
   * `verbose` (`controlDict`): set to `true` to enable additional runtime
   logging for debugging; default `false`.
 * `laserProperties` (`constant/laserProperties`): configure the femtosecond
