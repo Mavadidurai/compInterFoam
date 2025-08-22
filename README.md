@@ -91,6 +91,11 @@ advancedInterfaceCapturing
     pressureScale        2e4;     // 1e4–1e5 [-], cf. Brown & Arnold (2010)
     recoilMax            5e7;     // 1e6–1e8 Pa, cf. Brown & Arnold (2010)
     recoilUpdateInterval 1;       // 1–10 steps
+    alphaBounds
+    {
+        alphaMin 0.001;           // default 0.001
+        alphaMax 0.999;           // default 0.999
+    }
 }
 ```
 
