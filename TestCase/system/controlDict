@@ -67,6 +67,11 @@ advancedInterfaceCapturing
     pressureScale        2e4;      // nondim scale used in your model
     recoilMax            5e7;      // Pa cap (was too low by default)
     recoilUpdateInterval 1;        // evaluate every step
+    alphaBounds
+    {
+        alphaMin 0.001;
+        alphaMax 0.999;
+    }
 }
 // rAUf clamp range used in pEqn.H
 enableRAUfClamp   true;
@@ -96,15 +101,11 @@ maxPressure                    1e9;
 maxVelocity                    3000;
 minRAUf                        1e-12;
 maxRAUf                        1e8;
-//pressureScale                  2e4;
-//recoilMax                      5e6;
-//recoilUpdateInterval           1;
 
 densityClamp                   true;
 minDensity                     0.5;
 maxDensity                     15000;
-alphaMin                       0.001;
-alphaMax                       0.999;
+
 twoTemperatureProperties
 {
     Ce  2.5e6;
