@@ -131,12 +131,14 @@ alphaEqn.H based on official OpenFOAM v2406 pattern
         {
             if (dgdt[celli] > 0.0)
             {
-                SpInternal[celli] -= dgdt[celli]/max(1.0 - alpha1[celli], 1e-4);
-                SuInternal[celli] += dgdt[celli]/max(1.0 - alpha1[celli], 1e-4);
+                // Evaporation: remove mass from liquid
+                SpInternal[celli] -= dgdt[celli]/max(alpha1[celli], 1e-4);
             }
             else if (dgdt[celli] < 0.0)
             {
-                SpInternal[celli] += dgdt[celli]/max(alpha1[celli], 1e-4);
+                // Condensation: add mass to liquid
+                SpInternal[celli] += dgdt[celli]/max(1.0 - alpha1[celli], 1e-4);
+                SuInternal[celli] -= dgdt[celli]/max(1.0 - alpha1[celli], 1e-4);
             }
         }
 

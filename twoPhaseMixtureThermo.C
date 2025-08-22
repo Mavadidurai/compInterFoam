@@ -89,6 +89,19 @@ Foam::twoPhaseMixtureThermo::twoPhaseMixtureThermo
         ),
         U.mesh(),
         dimensionedScalar("source", dimTemperature/dimTime, 0.0)  // [K/s]
+       ),
+    dgdt_
+    (
+        IOobject
+        (
+            "dgdt",
+            U.mesh().time().timeName(),
+            U.mesh(),
+            IOobject::NO_READ,
+            IOobject::AUTO_WRITE
+        ),
+        U.mesh(),
+        dimensionedScalar("dgdt", dimless/dimTime, 0.0)
     )
 {
     {
@@ -137,6 +150,9 @@ void Foam::twoPhaseMixtureThermo::correct()
 
     phaseChangeSource_ = computePhaseChange()();
     phaseChangeSource_.correctBoundaryConditions();
+     // Compute mass-transfer rate [1/s]
+    dgdt_ = phaseChangeSource_*Cp()/latentHeat();
+    dgdt_.correctBoundaryConditions();
 
 }
 void Foam::twoPhaseMixtureThermo::setQLaser(const volScalarField& src)

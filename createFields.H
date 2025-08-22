@@ -185,19 +185,8 @@ surfaceScalarField rhoPhi
     fvc::interpolate(rho)*phi
 );
 
-volScalarField dgdt
-(
-    IOobject
-    (
-        "dgdt",
-        runTime.timeName(),
-        mesh,
-        IOobject::READ_IF_PRESENT,
-        IOobject::AUTO_WRITE
-    ),
-    mesh,
-    dimensionedScalar("dgdt", dimless/dimTime, 0)
-);
+// Mass-transfer rate provided by twoPhaseMixtureThermo
+const volScalarField& dgdt = mixture.dgdt();
 
 IOobject alphaPhi10Header
 (

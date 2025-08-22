@@ -81,6 +81,8 @@ class twoPhaseMixtureThermo
 
         //- Phase change source term
         volScalarField phaseChangeSource_;
+        //- Mass-transfer rate due to phase change [1/s]
+        volScalarField dgdt_;
 
 public:
 
@@ -149,7 +151,11 @@ public:
         {
             return phaseChangeSource_;
         }
-
+	 //- Access dg/dt field [1/s]
+        const volScalarField& dgdt() const
+        {
+            return dgdt_;
+        }
         //- Correct the thermodynamics of each phase
         virtual void correctThermo();
         

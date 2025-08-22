@@ -29,6 +29,8 @@ private:
     scalar pressureScale_;           // Scaling factor for evaporation rate
     scalar recoilMax_;               // Maximum allowed recoil pressure
     label  recoilUpdateInterval_;    // Steps between recoil pressure updates
+    scalar alphaMin_;               // Minimum alpha for recoil activation
+    scalar alphaMax_;               // Maximum alpha for recoil activation
     // Field for recoil pressure
     volScalarField recoilPressure_;  // Recoil pressure from vaporization
 

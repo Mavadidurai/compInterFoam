@@ -172,13 +172,13 @@
     const scalar maxPressure = runTime.controlDict().lookupOrDefault<scalar>
     (
         "maxPressure",
-        1e6
+        1e9
     );
 
     const scalar minPressure = runTime.controlDict().lookupOrDefault<scalar>
     (
         "minPressure",
-        1e3
+        1e2
     );
 
    // Apply pressure limits only when enabled and count clamped cells
@@ -246,23 +246,24 @@
     // Update density
     rho = alpha1*rho1 + alpha2*rho2;
 
-    // Apply limits to density for safety and make bounds configurable
-    const bool densityClamp = runTime.controlDict().lookupOrDefault<bool>
+        // The limits can be specified in the compInterFoamCoeffs sub-dictionary
+    // within fvSolution or directly in the controlDict for quick tuning
+    const bool densityClamp = solverControls.lookupOrDefault<Switch>
     (
         "densityClamp",
-        true
+        controlDict.lookupOrDefault<Switch>("densityClamp", true)
     );
 
-    const scalar maxDensity = runTime.controlDict().lookupOrDefault<scalar>
+    const scalar maxDensity = solverControls.lookupOrDefault<scalar>
     (
         "maxDensity",
-        10000.0
+        controlDict.lookupOrDefault<scalar>("maxDensity", 10000.0)
     );
 
-    const scalar minDensity = runTime.controlDict().lookupOrDefault<scalar>
+    const scalar minDensity = solverControls.lookupOrDefault<scalar>
     (
         "minDensity",
-        1.0
+        controlDict.lookupOrDefault<scalar>("minDensity", 1.0)
     );
 
     label minRhoCount = 0;

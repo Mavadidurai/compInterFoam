@@ -139,6 +139,9 @@ if (useAdvancedCapturing && pInterfaceCapturing.valid())
         // Add recoil pressure gradient
         UEqn -= fvc::grad(recoilPressure);
         
+        // Add recoil pressure-induced momentum source
+        UEqn += (recoilPressure / rho) * fvc::grad(alpha1);
+        
         Info<< "Recoil pressure effects:" << nl
             << "  Maximum: " << maxRecoil << " Pa" << endl;
     }

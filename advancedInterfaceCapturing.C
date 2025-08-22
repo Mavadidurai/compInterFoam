@@ -59,6 +59,14 @@ advancedInterfaceCapturing::advancedInterfaceCapturing
     (
         mesh.time().controlDict().lookupOrDefault<label>("recoilUpdateInterval", 5)
     ),
+    alphaMin_
+    (
+        mesh.time().controlDict().lookupOrDefault<scalar>("alphaMin", 0.01)
+    ),
+    alphaMax_
+    (
+        mesh.time().controlDict().lookupOrDefault<scalar>("alphaMax", 0.99)
+    ),
     recoilPressure_
     (
         IOobject
@@ -118,7 +126,7 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
 
         const scalar alpha = alpha1Field[cellI];
         scalar alphaDamp = 4.0 * alpha * (1.0 - alpha);
-        if (alpha < 0.01 || alpha > 0.99)
+        if (alpha < alphaMin_ || alpha > alphaMax_)
         {
             alphaDamp = 0.0;
         }
