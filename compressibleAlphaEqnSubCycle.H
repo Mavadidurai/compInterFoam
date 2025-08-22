@@ -23,7 +23,7 @@ if (pInterfaceCapturing.valid())
     const volScalarField& contErr = tContErr();
 
     scalar sumLocalContErr = runTime.deltaT().value()
-        * mag(contErr).weightedAverage(mesh.V()).value();
+        * mag(contErr)().weightedAverage(mesh.V()).value();
     scalar globalContErr = runTime.deltaT().value()
         * contErr.weightedAverage(mesh.V()).value();
 
@@ -115,7 +115,7 @@ else
     const volScalarField& contErr = tContErr();
 
     scalar sumLocalContErr = runTime.deltaT().value()
-        * mag(contErr).weightedAverage(mesh.V()).value();
+        * mag(contErr)().weightedAverage(mesh.V()).value();
     scalar globalContErr = runTime.deltaT().value()
         * contErr.weightedAverage(mesh.V()).value();
 

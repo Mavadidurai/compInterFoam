@@ -95,14 +95,17 @@ if (alpha1.timeIndex() > 0)
     alpha2.oldTime();
 }
 
-Info<< "Phase fractions - alpha.metal: min = " << min(alpha1).value() 
-    << ", max = " << max(alpha1).value() << endl;
-Info<< "Phase fractions - alpha.air: min = " << min(alpha2).value() 
-    << ", max = " << max(alpha2).value() << endl;
+if (verbose)
+{
+    Info<< "Phase fractions - alpha.metal: min = " << min(alpha1).value()
+        << ", max = " << max(alpha1).value() << endl;
+    Info<< "Phase fractions - alpha.air: min = " << min(alpha2).value()
+        << ", max = " << max(alpha2).value() << endl;
 
-// Verify phase naming consistency
-Info<< "Phase names - metal: " << mixture.phase1Name() 
-    << ", air: " << mixture.phase2Name() << endl;
+    // Verify phase naming consistency
+    Info<< "Phase names - metal: " << mixture.phase1Name()
+        << ", air: " << mixture.phase2Name() << endl;
+}
 
 Info<< "Reading thermophysical properties\n" << endl;
 
@@ -187,7 +190,8 @@ surfaceScalarField rhoPhi
 
 // Mass-transfer rate provided by twoPhaseMixtureThermo
 const volScalarField& dgdt = mixture.dgdt();
-
+Info<< "Mass-transfer rate - dgdt: min = " << min(dgdt).value()
+    << ", max = " << max(dgdt).value() << endl;
 IOobject alphaPhi10Header
 (
     "alphaPhi10",
@@ -199,7 +203,7 @@ IOobject alphaPhi10Header
 
 const bool alphaRestart = alphaPhi10Header.typeHeaderOk<surfaceScalarField>();
 
-if (alphaRestart)
+if (alphaRestart && verbose)
 {
     Info << "Restarting alpha flux field" << endl;
 }
@@ -349,21 +353,24 @@ scalar totalDomainVolume = gSum(mesh.V());
 scalar metalVolume_um3 = totalMetalVOF.value() * 1e18;  // Convert m³ to μm³
 scalar metalFraction = totalMetalVOF.value() / totalDomainVolume;
 
-Info<< "LIFT Field Validation:" << nl
-    << "  Total domain volume: " << totalDomainVolume*1e18 << " μm³" << nl
-    << "  Total metal volume: " << metalVolume_um3 << " μm³" << nl  
-    << "  Metal fraction: " << metalFraction*100 << "%" << endl;
-
-if (metalFraction > 0.001)  // If some metal detected
+if (verbose)
 {
-    Info<< "✅ Metal film detected: " << metalFraction*100 << "% of domain" << endl;
-}
-else
-{
-    WarningInFunction
-        << "Very low metal content detected!" << nl
-        << "  Found: " << metalFraction*100 << "% (" << metalVolume_um3 << " μm³)" << nl
-        << "  Make sure to run 'setFields' to initialize the metal film!" << endl;
-}
+    Info<< "LIFT Field Validation:" << nl
+        << "  Total domain volume: " << totalDomainVolume*1e18 << " μm³" << nl
+        << "  Total metal volume: " << metalVolume_um3 << " μm³" << nl
+        << "  Metal fraction: " << metalFraction*100 << "%" << endl;
 
-Info<< "Field setup completed successfully!" << endl;
+    if (metalFraction > 0.001)  // If some metal detected
+    {
+        Info<< "✅ Metal film detected: " << metalFraction*100 << "% of domain" << endl;
+    }
+    else
+    {
+        WarningInFunction
+            << "Very low metal content detected!" << nl
+            << "  Found: " << metalFraction*100 << "% (" << metalVolume_um3 << " μm³)" << nl
+            << "  Make sure to run 'setFields' to initialize the metal film!" << endl;
+    }
+
+    Info<< "Field setup completed successfully!" << endl;
+}

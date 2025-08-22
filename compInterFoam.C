@@ -87,6 +87,14 @@ int main(int argc, char *argv[])
    #include "createMesh.H"
 
     #include "createTimeControls.H"
+    
+        // Optional verbose runtime output controlled via controlDict
+    const Switch verbose
+    (
+        runTime.controlDict().lookupOrDefault<Switch>("verbose", false)
+    );
+
+    
     #include "createFields.H"
 
     // Reference to psi fields (needed for compressibility)
@@ -149,9 +157,12 @@ int main(int argc, char *argv[])
             
             rDeltaT.correctBoundaryConditions();
             
-            Info<< "Flow time scale min/max = "
-                << gMin(1/rDeltaT.primitiveField())
-                << ", " << gMax(1/rDeltaT.primitiveField()) << endl;
+            if (verbose)
+            {
+                Info<< "Flow time scale min/max = "
+                    << gMin(1/rDeltaT.primitiveField())
+                    << ", " << gMax(1/rDeltaT.primitiveField()) << endl;
+            }
         }
         else
         {
@@ -173,8 +184,11 @@ int main(int argc, char *argv[])
                 meanAlphaCoNum = 0.5*(gSum(sumPhi)/gSum(mesh.V().field()))*runTime.deltaTValue();
             }
             
-            Info<< "Interface Courant Number mean: " << meanAlphaCoNum
-                << " max: " << alphaCoNum << endl;
+            if (verbose)
+            {
+                Info<< "Interface Courant Number mean: " << meanAlphaCoNum
+                    << " max: " << alphaCoNum << endl;
+            }
             
             // Standard time step setting
             #include "setDeltaT.H"
@@ -263,7 +277,10 @@ int main(int argc, char *argv[])
         scalar dE = Etot.value() - prevEtot;
         scalar relChange = mag(Etot.value() - prevEtot)/max(mag(prevEtot), VSMALL);
         
-        Info<< "Total energy change: " << dE << " J (" << relChange << ")" << endl;
+        if (verbose)
+        {
+            Info<< "Total energy change: " << dE << " J (" << relChange << ")" << endl;
+        }
 
         if (relChange > energyTolerance)
         {
@@ -297,7 +314,10 @@ int main(int argc, char *argv[])
     // Clean up dynamically allocated interface capturing object
     if (pInterfaceCapturing.valid())
     {
-        Info<< "Interface capturing object will be automatically cleaned up" << endl;
+        if (verbose)
+        {
+            Info<< "Interface capturing object will be automatically cleaned up" << endl;
+        }
         pInterfaceCapturing->clearInternalFields();
     }
 

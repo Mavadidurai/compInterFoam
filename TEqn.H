@@ -19,9 +19,12 @@
     scalar maxT = max(T).value();
     scalar meanT = gAverage(T);
     
-    Info<< "Temperature field after TTM synchronization:" << nl
-        << "  T range: " << minT << " - " << maxT << " K" << nl
-        << "  Mean T: " << meanT << " K" << endl;
+    if (verbose)
+    {
+        Info<< "Temperature field after TTM synchronization:" << nl
+            << "  T range: " << minT << " - " << maxT << " K" << nl
+            << "  Mean T: " << meanT << " K" << endl;
+    }
     
     // Apply physical bounds to prevent numerical issues
     const dictionary& ctrl = runTime.controlDict();
@@ -51,16 +54,22 @@
         reduce(maxTCells, sumOp<label>());
         if (minTCells > 0 || maxTCells > 0)
         {
-            Info<< "Temperature clamping stats: " << minTCells
-                << " cells to minT (" << minPhysicalTemp << "), "
-                << maxTCells << " cells to maxT (" << maxPhysicalTemp << ")" << endl;
+            if (verbose)
+            {
+                Info<< "Temperature clamping stats: " << minTCells
+                    << " cells to minT (" << minPhysicalTemp << "), "
+                    << maxTCells << " cells to maxT (" << maxPhysicalTemp << ")" << endl;
+            }
         }
     }
     else if (minT < minPhysicalTemp || maxT > maxPhysicalTemp)
     {
-        Info<< "Temperature out of bounds: range " << minT << " - " << maxT
-            << " K; allowed range " << minPhysicalTemp << " - "
-            << maxPhysicalTemp << " K" << endl;
+        if (verbose)
+        {
+            Info<< "Temperature out of bounds: range " << minT << " - " << maxT
+                << " K; allowed range " << minPhysicalTemp << " - "
+                << maxPhysicalTemp << " K" << endl;
+        }
     }
     
     // Ensure boundary conditions are properly applied
@@ -105,15 +114,18 @@
         reduce(meltedCells, sumOp<label>());
         reduce(meltedVolume, sumOp<scalar>());
         
-        Info<< "LIFT Process Statistics:" << nl
-            << "  Cells above melting point: " << meltedCells << nl
-            << "  Melted metal volume: " << meltedVolume*1e18 << " μm³" << nl
-            << "  Max temperature: " << maxT << " K" << nl
-            << "  Melting point: " << mixture.T_melt() << " K" << endl;
-        
-        if (maxT > mixture.T_melt() + 1000.0)
+        if (verbose)
         {
-            Info<< "Note: Significant overheating detected - typical for laser heating" << endl;
+            Info<< "LIFT Process Statistics:" << nl
+                << "  Cells above melting point: " << meltedCells << nl
+                << "  Melted metal volume: " << meltedVolume*1e18 << " μm³" << nl
+                << "  Max temperature: " << maxT << " K" << nl
+                << "  Melting point: " << mixture.T_melt() << " K" << endl;
+
+            if (maxT > mixture.T_melt() + 1000.0)
+            {
+                Info<< "Note: Significant overheating detected - typical for laser heating" << endl;
+            }
         }
     }
     
@@ -123,10 +135,16 @@
     
     if (maxTempDiff > 500.0)  // Significant electron-lattice temperature difference
     {
-        Info<< "Two-temperature model status:" << nl
-            << "  Max Te-Tl difference: " << maxTempDiff << " K" << nl
-            << "  This indicates strong electron-phonon coupling effects" << endl;
+        if (verbose)
+        {
+            Info<< "Two-temperature model status:" << nl
+                << "  Max Te-Tl difference: " << maxTempDiff << " K" << nl
+                << "  This indicates strong electron-phonon coupling effects" << endl;
+        }
     }
     
-    Info<< "Temperature equation completed successfully" << endl;
+    if (verbose)
+    {
+        Info<< "Temperature equation completed successfully" << endl;
+    }
 }
