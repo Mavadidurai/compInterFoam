@@ -86,7 +86,8 @@ targetResP        0.05;
 enableTClamp                   true;
 minT                           250;
 maxT                           8000;
-
+// Temperature offset below melting point to activate recoil pressure (K)
+recoilTempOffset               100;
 pressureClamp                  false;
 
 minPressure                    100;
