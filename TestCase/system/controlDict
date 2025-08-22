@@ -56,15 +56,53 @@ dynamicRefineFvMeshCoeffs
 }
 // solver switches (kept as in your file)
 useAdvancedInterfaceCapturing  true;
+advancedInterfaceCapturing
+{
+    // thresholds (must match your transportProperties metal)
+    meltingTemperature   1941;     // K
+    vaporTemperature     3200;     // K (onset of strong recoil)
+
+    // strength & stability
+    pressureScale        2e4;      // nondim scale used in your model
+    recoilMax            5e7;      // Pa cap (was too low by default)
+    recoilUpdateInterval 1;        // evaluate every step
+}
+// rAUf clamp range used in pEqn.H
+enableRAUfClamp   true;
+minRAUf           1e-12;
+maxRAUf           1e8;
+
+// pressure clamp used in pEqn.H
+pressureClamp     true;
+minPressure       1e2;     // Pa
+maxPressure       5e8;     // Pa  (allow tens/hundreds of MPa if needed)
+
+// adaptive relaxation used in pEqn.H
+relaxP            0.2;
+targetResP        0.05;
+
+// (keep your existing maxCo/maxAlphaCo)
+
 enableTClamp                   true;
 minT                           250;
 maxT                           8000;
 
+pressureClamp                  false;
+
 minPressure                    100;
-maxPressure                    5e7;
+maxPressure                    1e9;
 maxVelocity                    3000;
 minRAUf                        1e-12;
 maxRAUf                        1e8;
+//pressureScale                  2e4;
+//recoilMax                      5e6;
+//recoilUpdateInterval           1;
+
+densityClamp                   true;
+minDensity                     0.5;
+maxDensity                     15000;
+alphaMin                       0.001;
+alphaMax                       0.999;
 twoTemperatureProperties
 {
     Ce  2.5e6;

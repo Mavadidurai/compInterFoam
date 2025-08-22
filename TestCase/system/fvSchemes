@@ -20,12 +20,12 @@ FoamFile
 
 ddtSchemes
 {
-    default         localEuler;              // First-order for stability
-    ddt(alpha)      localEuler;              // Compatible with your alphaEqn.H
+    default          localEuler;              // First-order for stability
+    ddt(alpha)       localEuler;              // Compatible with your alphaEqn.H
     ddt(alpha.metal) localEuler;             // Metal phase time discretization
-    ddt(alpha.air)  localEuler;              // Air phase time discretization
-    ddt(rho,U)      localEuler;              // Momentum equation
-    ddt(rho)        localEuler;              // Continuity equation
+    ddt(alpha.air)   localEuler;              // Air phase time discretization
+    ddt(rho,U)       localEuler;              // Momentum equation
+    ddt(rho)         localEuler;              // Continuity equation
 }
 
 gradSchemes
@@ -55,11 +55,12 @@ divSchemes
     default         Gauss linear;
     
     // ✅ ENHANCED ALPHA TRANSPORT - Critical for interface capturing
-    div(phi,alpha)          Gauss vanLeer;          // TVD scheme for sharpness
-    div(phir,alpha)         Gauss interfaceCompression; // Interface compression
-    div(phi,alpha.metal)    Gauss vanLeer;          // Metal phase transport
+    // Use limitedLinear to reduce excessive compression
+    div(phi,alpha)          Gauss limitedLinear 1.0;    // Moderated TVD for stability
+    div(phir,alpha)         Gauss interfaceCompression; // Compression with lower cAlpha
+    div(phi,alpha.metal)    Gauss limitedLinear 1.0;    // Metal phase transport
     div(phir,alpha.metal)   Gauss interfaceCompression; // Metal compression
-    div(phi,alpha.air)      Gauss vanLeer;          // Air phase transport
+    div(phi,alpha.air)      Gauss limitedLinear 1.0;    // Air phase transport
     
     // ✅ MOMENTUM TRANSPORT - Enhanced for interface dynamics
     div(rhoPhi,U)           Gauss linearUpwindV grad(U); // Stable momentum

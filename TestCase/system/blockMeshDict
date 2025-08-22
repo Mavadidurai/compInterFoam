@@ -13,71 +13,74 @@ FoamFile
     object      blockMeshDict;
 }
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
-
 scale 1e-6; // coordinates in micrometers
 
 vertices
 (
-    (0   0   0)   // 0  y=0   z=0
-    (50  0   0)   // 1  y=0   z=0
-    (50  8   0)   // 2  y=8µm z=0
-    (0   8   0)   // 3  y=8µm z=0
-    (0   10  0)   // 4  y=10µm z=0
-    (50  10  0)   // 5  y=10µm z=0
-    (50  30  0)   // 6  y=30µm z=0
-    (0   30  0)   // 7  y=30µm z=0
-    (0   0   10)  // 8  y=0   z=10µm
-    (50  0   10)  // 9  y=0   z=10µm
-    (50  8   10)  // 10 y=8µm z=10µm
-    (0   8   10)  // 11 y=8µm z=10µm
-    (0   10  10)  // 12 y=10µm z=10µm
-    (50  10  10)  // 13 y=10µm z=10µm
-    (50  30  10)  // 14 y=30µm z=10µm
-    (0   30  10)  // 15 y=30µm z=10µm
-    (0   9   0)   // 16 y=9µm z=0
-    (50  9   0)   // 17 y=9µm z=0
-    (50  9   10)  // 18 y=9µm z=10µm
-    (0   9   10)  // 19 y=9µm z=10µm
+    (0   0   0)    // 0
+    (50  0   0)    // 1
+    (50  8   0)    // 2
+    (0   8   0)    // 3
+    (0   10  0)    // 4
+    (50  10  0)    // 5
+    (50  30  0)    // 6
+    (0   30  0)    // 7
+    (0   0   10)   // 8
+    (50  0   10)   // 9
+    (50  8   10)   // 10
+    (0   8   10)   // 11
+    (0   10  10)   // 12
+    (50  10  10)   // 13
+    (50  30  10)   // 14
+    (0   30  10)   // 15
+    (0   9   0)    // 16
+    (50  9   0)    // 17
+    (50  9   10)   // 18
+    (0   9   10)   // 19
 );
 
 blocks
 (
-    // substrate: 0–8 µm
-    hex (0 1 2 3 8 9 10 11)   (25 80 10) simpleGrading (1 0.2 1)
-    // metal film: 8–9 µm
-    hex (3 2 17 16 11 10 18 19) (25 50 10) simpleGrading (1 5 1)
-    // metal film: 9–10 µm
-    hex (16 17 5 4 19 18 13 12) (25 50 10) simpleGrading (1 5 1)
-    // air gap: 10–30 µm
-    hex (4 5 6 7 12 13 14 15) (25 150 10) simpleGrading (1 5 1)
+    // substrate: 0–8 µm (Δy = 0.1 µm)
+    hex (0 1 2 3 8 9 10 11)     (25 80 10) simpleGrading (1 1 1)
+
+    // metal film: 8–9 µm (Δy = 0.1 µm)
+    hex (3 2 17 16 11 10 18 19) (25 10 10) simpleGrading (1 1 1)
+
+    // metal film: 9–10 µm (Δy = 0.1 µm)
+    hex (16 17 5 4 19 18 13 12) (25 10 10) simpleGrading (1 1 1)
+
+    // air gap: 10–30 µm (Δy = 0.1 µm)
+    hex (4 5 6 7 12 13 14 15)   (25 200 10) simpleGrading (1 1 1)
 );
+
+
 edges ();
 
 boundary
 (
-    yMax                //top
+    // y = 30 μm (top)
+    yMax
     {
         type patch;
         faces
         (
-            (8 9 10 11)
-            (11 10 18 19)
-            (19 18 13 12)
-            (12 13 14 15)
+            (7 6 14 15)
         );
     }
-    yMin                //bottom
+
+    // y = 0 (bottom)
+    yMin
     {
         type wall;
         faces
         (
-            (0 1 2 3)
-            (3 2 17 16)
-            (16 17 5 4)
-            (4 5 6 7)
+            (0 1 9 8)
         );
     }
-    xMin		//inlet
+
+    // x = 0 (side)
+    xMin
     {
         type patch;
         faces
@@ -88,7 +91,9 @@ boundary
             (4 7 15 12)
         );
     }
-    xMax		//outlet
+
+    // x = 50 μm (side)
+    xMax
     {
         type patch;
         faces
@@ -99,17 +104,33 @@ boundary
             (5 6 14 13)
         );
     }
-    zMin                //front
+
+    // z = 0 (front)
+    zMin
     {
         type patch;
-        faces ((0 1 9 8));         // y=0 plane
+        faces
+        (
+            (0 1 2 3)
+            (3 2 17 16)
+            (16 17 5 4)
+            (4 5 6 7)
+        );
     }
-    zMax                //back
+
+    // z = 10 μm (back)
+    zMax
     {
         type patch;
-        faces ((7 6 14 15));       // y=30 μm plane
+        faces
+        (
+            (8 9 10 11)
+            (11 10 18 19)
+            (19 18 13 12)
+            (12 13 14 15)
+        );
     }
 );
 
-mergePatchPairs ();
+mergePatchPairs();
 // ************************************************************************* //

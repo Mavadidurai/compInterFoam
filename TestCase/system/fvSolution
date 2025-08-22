@@ -26,7 +26,7 @@ solvers
         
         nAlphaCorr      2;              
         nAlphaSubCycles 1;              
-        cAlpha          0.5;            // Conservative interface compression
+        cAlpha          0.2;            // Conservative interface compression
         icAlpha         0;              
         scAlpha         0;              
         MULESCorr       false;          

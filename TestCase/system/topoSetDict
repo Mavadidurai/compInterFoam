@@ -15,8 +15,10 @@ FoamFile
 }
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
+
 actions
 (
+    // Substrate: y in [0, 8 µm]
     {
         name        substrate;
         type        cellSet;
@@ -24,7 +26,6 @@ actions
         source      boxToCell;
         sourceInfo
         {
-            // Bounding box in SI units (meters)
             box (0 0 0) (50e-6 8e-6 10e-6);
         }
     }
@@ -33,11 +34,26 @@ actions
         type        cellZoneSet;
         action      new;
         source      setToCellZone;
+        sourceInfo { set substrate; }
+    }
+
+    // Metal film: y in [8, 10 µm]
+    {
+        name        metalFilm;
+        type        cellSet;
+        action      new;
+        source      boxToCell;
         sourceInfo
         {
-            set substrate;
+            box (0 8e-6 0) (50e-6 10e-6 10e-6);
         }
     }
+    {
+        name        metalFilm;
+        type        cellZoneSet;
+        action      new;
+        source      setToCellZone;
+        sourceInfo { set metalFilm; }
+    }
 );
-
 // ************************************************************************* //
