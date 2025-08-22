@@ -1,7 +1,7 @@
 /*---------------------------------------------------------------------------*\
 alphaEqn.H based on official OpenFOAM v2406 pattern
 \*---------------------------------------------------------------------------*/
-
+extern Foam::Switch verbose;
 {
     word scheme("div(phi,alpha)");
     word schemer("div(phir,alpha)");
@@ -203,12 +203,6 @@ alphaEqn.H based on official OpenFOAM v2406 pattern
 
         alpha1Eqn.solve();
 
-        Info<< "Phase-1 volume fraction = "
-            << alpha1.weightedAverage(mesh.Vsc()).value()
-            << "  Min(" << alpha1.name() << ") = " << min(alpha1).value()
-            << "  Max(" << alpha1.name() << ") = " << max(alpha1).value()
-            << endl;
-
         // Get flux safely without tmp issues
         alphaPhi10 = alpha1Eqn.flux();
 
@@ -227,11 +221,14 @@ alphaEqn.H based on official OpenFOAM v2406 pattern
 
         alpha2 = 1.0 - alpha1;
 
-        Info<< "Phase-1 volume fraction = "
-            << alpha1.weightedAverage(mesh.Vsc()).value()
-            << "  Min(" << alpha1.name() << ") = " << min(alpha1).value()
-            << "  Max(" << alpha1.name() << ") = " << max(alpha1).value()
-            << endl;
+        if (verbose)
+        {
+            Info<< "Phase-1 volume fraction = "
+                << alpha1.weightedAverage(mesh.Vsc()).value()
+                << "  Min(" << alpha1.name() << ") = " << min(alpha1).value()
+                << "  Max(" << alpha1.name() << ") = " << max(alpha1).value()
+                << endl;
+        }
     }
 
     rhoPhi = alphaPhi10*(fvc::interpolate(rho1) - fvc::interpolate(rho2)) + phiCN*fvc::interpolate(rho2);

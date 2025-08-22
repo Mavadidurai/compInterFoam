@@ -30,6 +30,8 @@ void DimensionValidator::validateTEqnTerms
     const volScalarField& phaseChangeSource
 )
 {
+    const bool verbose =
+        T.mesh().time().controlDict().lookupOrDefault<Switch>("verbose", false);
     // Check dimensions of each term
     checkVolFieldDimensions(T, dimTemperature, "Temperature");
     checkVolFieldDimensions(rho, dimDensity, "Density");
@@ -39,7 +41,10 @@ void DimensionValidator::validateTEqnTerms
     checkVolFieldDimensions(phaseChangeSource, dimTempRate, "Phase Change Source");
 
     // Log validation
-    Info<< "Temperature equation terms validated successfully" << endl;
+    if (verbose)
+    {
+        Info<< "Temperature equation terms validated successfully" << endl;
+    }
 }
 
 void DimensionValidator::validateSourceTerms
@@ -51,6 +56,8 @@ void DimensionValidator::validateSourceTerms
     const dimensionedScalar& latentHeat
 )
 {
+    const bool verbose =
+        Q_laser.mesh().time().controlDict().lookupOrDefault<Switch>("verbose", false);
     // Check source term dimensions
     checkVolFieldDimensions(Q_laser, dimHeatSource, "Laser Source");
     checkVolFieldDimensions(phaseChangeSource, dimTempRate, "Phase Change Source");
@@ -74,7 +81,10 @@ void DimensionValidator::validateSourceTerms
             << "Invalid latent heat dimensions" << abort(FatalError);
     }
 
-    Info<< "Source terms validated successfully" << endl;
+    if (verbose)
+    {
+        Info<< "Source terms validated successfully" << endl;
+    }
 }
 
 void DimensionValidator::checkPhysicalConstraints
@@ -84,6 +94,8 @@ void DimensionValidator::checkPhysicalConstraints
     volScalarField& alpha1
 )
 {
+        const bool verbose =
+        T.mesh().time().controlDict().lookupOrDefault<Switch>("verbose", false);
     // Traditional OpenFOAM: Reference values for reporting only
     const scalar roomTemperature = 300.0;        // K
     const scalar vaporTemperature = 3560.0;      // K - Titanium vaporization
@@ -105,18 +117,21 @@ void DimensionValidator::checkPhysicalConstraints
     scalar meanAlpha = gAverage(alpha1);
     
     // Traditional reporting
-    Info<< "Field validation statistics:" << nl
-        << "Temperature field:" << nl
-        << "  Range: " << minT << " to " << maxT << " K" << nl
-        << "  Mean: " << meanT << " K" << nl;
-    
-    Info<< "Pressure field:" << nl
-        << "  Range: " << minP << " to " << maxP << " Pa" << nl
-        << "  Mean: " << meanP << " Pa" << nl;
-    
-    Info<< "Phase fraction field:" << nl
-        << "  Range: " << minAlpha << " to " << maxAlpha << nl
-        << "  Mean: " << meanAlpha << endl;
+    if (verbose)
+    {
+        Info<< "Field validation statistics:" << nl
+            << "Temperature field:" << nl
+            << "  Range: " << minT << " to " << maxT << " K" << nl
+            << "  Mean: " << meanT << " K" << nl;
+
+        Info<< "Pressure field:" << nl
+            << "  Range: " << minP << " to " << maxP << " Pa" << nl
+            << "  Mean: " << meanP << " Pa" << nl;
+
+        Info<< "Phase fraction field:" << nl
+            << "  Range: " << minAlpha << " to " << maxAlpha << nl
+            << "  Mean: " << meanAlpha << endl;
+    }
     
     // Traditional approach: Only fix truly unphysical values
     label corruptedTempCells = 0;
@@ -172,20 +187,22 @@ void DimensionValidator::checkPhysicalConstraints
     }
     
     // Traditional warnings for extreme but physically possible values
-    if (maxT > vaporTemperature)
+    if (maxT > vaporTemperature && verbose)
     {
-        Info<< "Note: Temperatures above vaporization point detected (" 
+        Info<< "Note: Temperatures above vaporization point detected ("
             << maxT << " K > " << vaporTemperature << " K)" << nl
             << "This is physically possible for LIFT process" << endl;
     }
     
-    if (minT < roomTemperature * 0.9) // 10% below room temp
+    if (minT < roomTemperature * 0.9 && verbose) // 10% below room temp
+
     {
         Info<< "Note: Low temperatures detected (" << minT << " K)" << nl
             << "Check initial conditions if unexpected" << endl;
     }
     
-    if (maxP > 10.0 * atmosphericPressure) // 10 atm
+    if (maxP > 10.0 * atmosphericPressure && verbose) // 10 atm
+
     {
         Info<< "Note: High pressures detected (" << maxP/1e6 << " MPa)" << nl
             << "This may be normal for LIFT recoil pressure" << endl;
