@@ -23,7 +23,9 @@ metal
 {
     transportModel  Newtonian;
     nu              nu [ 0 2 -1 0 0 0 0 ] 5e-7;     // Kinematic viscosity
-    rho             rho [ 1 -3 0 0 0 0 0 ] 4500;     // Titanium density
+    rho             rho [ 1 -3 0 0 0 0 0 ] 4515;     // Titanium density
+    hf              hf [ 0 2 -2 0 0 0 0 ] 3.65e5;    // J/kg - Latent heat of fusion
+    Tsol            Tsol [ 0 0 0 1 0 0 0 ] 1941;     // K - Solidus temperature
 }
 
 // ✅ AIR PHASE: Air with substrate region simulation
@@ -35,12 +37,12 @@ air
 }
 
 // ✅ ENHANCED: Interface properties with substrate effects
-sigma           sigma [ 1 0 -2 0 0 0 0 ] 1.5;          // N/m - Metal-air surface tension
+sigma           sigma [ 1 0 -2 0 0 0 0 ] 1.64;         // N/m - Metal-air surface tension
 
 // ✅ ENHANCED: Phase change properties for substrate-backed LIFT
 meltingTemperature      1941.0;             // K - Titanium melting point
 vaporTemperature        3560.0;             // K - Titanium vaporization point
-latentHeat              435e3;              // J/kg - Latent heat of fusion
+latentHeat              3.65e5;             // J/kg - Latent heat of fusion
 
 // ✅ NEW: Substrate thermal influence on phase change
 substrateThermalEffects
