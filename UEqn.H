@@ -116,41 +116,10 @@ fvVectorMatrix UEqn(fvm::ddt(rho, U) + fvm::div(rhoPhi, U));
 
 UEqn += turbulence.divDevRhoReff(U);
 
-// Add recoil pressure effects
+// Add recoil pressure gradient
 if (useAdvancedCapturing && pInterfaceCapturing.valid())
 {
-    const volScalarField& recoilPressure = pInterfaceCapturing->recoilPressure();
-    
-    // Check recoil pressure validity
-    bool recoilValid = true;
-    scalar maxRecoil = 0.0;
-    forAll(recoilPressure, cellI)
-    {
-        if (!std::isfinite(recoilPressure[cellI]))
-        {
-            recoilValid = false;
-            break;
-        }
-        maxRecoil = max(maxRecoil, mag(recoilPressure[cellI]));
-    }
-    
-    reduce(recoilValid, andOp<bool>());
-    reduce(maxRecoil, maxOp<scalar>());
-    
-    if (recoilValid && maxRecoil > SMALL)
-    {
-        // Add recoil pressure gradient
-        UEqn -= fvc::grad(recoilPressure);
-        
-        // Add recoil pressure-induced momentum source
-        UEqn += recoilPressure * fvc::grad(alpha1);
-
-        if (verbose)
-        {
-            Info<< "Recoil pressure effects:" << nl
-                << "  Maximum: " << maxRecoil << " Pa" << endl;
-        }
-    }
+    UEqn -= fvc::grad(pInterfaceCapturing->recoilPressure());
 }
 
 // Apply adaptive momentum relaxation

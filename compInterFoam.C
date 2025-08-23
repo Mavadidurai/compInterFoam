@@ -234,6 +234,10 @@ int main(int argc, char *argv[])
                     pInterfaceCapturing->calculateRecoilPressure();
                 }
             }
+           if (useAdvancedCapturing && pInterfaceCapturing.valid())
+            {
+                pInterfaceCapturing->correct();
+            }
 
             #include "UEqn.H"
             #include "TEqn.H"
