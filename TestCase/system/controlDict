@@ -64,7 +64,7 @@ advancedInterfaceCapturing
     vaporTemperature     3200;     // K (onset of strong recoil)
 
     // strength & stability
-    pressureScale        2e4;      // nondim scale used in your model
+    pressureScale        1e5;      // nondim scale used in your model
     recoilMax            5e7;      // Pa cap (was too low by default)
     recoilUpdateInterval 1;        // evaluate every step
     recoilTempOffset     100;      // K below melting point for activation
