@@ -1,0 +1,135 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+| =========                 |                                                 |
+| \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox           |
+|  \\    /   O peration     | Version:  v2406                                 |
+|   \\  /    A nd           | Website:  www.openfoam.com                      |
+|    \\/     M anipulation  |                                                 |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    object      blockMeshDict;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+scale 1e-6; // coordinates in micrometers
+
+vertices
+(
+    (0   0   0)    // 0
+    (50  0   0)    // 1
+    (50  8   0)    // 2
+    (0   8   0)    // 3
+    (0   10  0)    // 4
+    (50  10  0)    // 5
+    (50  30  0)    // 6
+    (0   30  0)    // 7
+    (0   0   10)   // 8
+    (50  0   10)   // 9
+    (50  8   10)   // 10
+    (0   8   10)   // 11
+    (0   10  10)   // 12
+    (50  10  10)   // 13
+    (50  30  10)   // 14
+    (0   30  10)   // 15
+    (0   9   0)    // 16
+    (50  9   0)    // 17
+    (50  9   10)   // 18
+    (0   9   10)   // 19
+);
+
+blocks
+(
+    // substrate: 0–8 µm (Δy = 0.1 µm)
+    hex (0 1 2 3 8 9 10 11)     (100 80 20) simpleGrading (1 1 1)
+
+    // metal film: 8–9 µm (Δy = 0.1 µm)
+    hex (3 2 17 16 11 10 18 19) (100 10 20) simpleGrading (1 1 1)
+
+    // metal film: 9–10 µm (Δy = 0.1 µm)
+    hex (16 17 5 4 19 18 13 12) (100 10 20) simpleGrading (1 1 1)
+
+    // air gap: 10–30 µm (Δy = 0.1 µm)
+    hex (4 5 6 7 12 13 14 15)   (100 200 20) simpleGrading (1 1 1)
+);
+
+edges ();
+
+boundary
+(
+    // y = 30 μm (top)
+    yMax
+    {
+        type patch;
+        faces
+        (
+            (7 6 14 15)
+        );
+    }
+
+    // y = 0 (bottom)
+    yMin
+    {
+        type wall;
+        faces
+        (
+            (0 1 9 8)
+        );
+    }
+
+    // x = 0 (side)
+    xMin
+    {
+        type patch;
+        faces
+        (
+            (0 3 11 8)
+            (3 16 19 11)
+            (16 4 12 19)
+            (4 7 15 12)
+        );
+    }
+
+    // x = 50 μm (side)
+    xMax
+    {
+        type patch;
+        faces
+        (
+            (1 2 10 9)
+            (2 17 18 10)
+            (17 5 13 18)
+            (5 6 14 13)
+        );
+    }
+
+    // z = 0 (front)
+    zMin
+    {
+        type patch;
+        faces
+        (
+            (0 1 2 3)
+            (3 2 17 16)
+            (16 17 5 4)
+            (4 5 6 7)
+        );
+    }
+
+    // z = 10 μm (back)
+    zMax
+    {
+        type patch;
+        faces
+        (
+            (8 9 10 11)
+            (11 10 18 19)
+            (19 18 13 12)
+            (12 13 14 15)
+        );
+    }
+);
+
+mergePatchPairs();
+// ************************************************************************* //
