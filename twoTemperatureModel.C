@@ -269,21 +269,26 @@ bool twoTemperatureModel::validateFields() const
     return valid;
 }
 
-bool twoTemperatureModel::checkEnergyConservation() const
+bool twoTemperatureModel::checkEnergyConservation
+(
+    const dimensionedScalar& expectedEnergyChange
+) const
 {
     if (!energyInitialized_)
     {
         return true;
     }
 
-    dimensionedScalar currentEnergy = 
+    dimensionedScalar currentEnergy =
         fvc::domainIntegrate(Ce_*Te_ + Cl_*Tl_);
+    dimensionedScalar expectedEnergy = lastTotalEnergy_ + expectedEnergyChange;
 
     scalar energyError = mag
     (
-        (currentEnergy.value() - lastTotalEnergy_.value())/
-        (mag(lastTotalEnergy_.value()) + SMALL)
+        (currentEnergy.value() - expectedEnergy.value())/
+        (mag(expectedEnergy.value()) + SMALL)
     );
+
 
     return energyError < dict_.get<scalar>("energyTolerance");
 }
@@ -313,6 +318,8 @@ void twoTemperatureModel::solve
     dimensionedScalar latticeEnergyBefore = fvc::domainIntegrate(Cl_*Tl_);
     dimensionedScalar laserEnergy =
         fvc::domainIntegrate(laserSource)*mesh_.time().deltaT();
+    dimensionedScalar phaseChangeEnergy =
+        fvc::domainIntegrate(Cl_*phaseChangeSource)*mesh_.time().deltaT();
     if (verbose)
     {
         Info<< "max(laserSource) = " << max(laserSource).value()
@@ -392,6 +399,8 @@ void twoTemperatureModel::solve
             << latticeEnergyBefore.value() << " J" << nl
             << "  Laser energy input: "
             << laserEnergy.value() << " J" << nl
+            << "  Phase-change energy input: "
+            << phaseChangeEnergy.value() << " J" << nl
             << "  Electron energy after laser: "
             << electronEnergyAfter.value() << " J" << nl
             << "  Lattice energy after laser: "
@@ -423,13 +432,16 @@ void twoTemperatureModel::solve
     Tl_.correctBoundaryConditions();
     
     // Check energy conservation
-    if (!checkEnergyConservation())
+    if (!checkEnergyConservation(laserEnergy + phaseChangeEnergy))
     {
-        dimensionedScalar currentEnergy = fvc::domainIntegrate(Ce_*Te_ + Cl_*Tl_);
+        dimensionedScalar currentEnergy =
+            fvc::domainIntegrate(Ce_*Te_ + Cl_*Tl_);
+        dimensionedScalar expectedEnergy =
+            lastTotalEnergy_ + laserEnergy + phaseChangeEnergy;
         scalar energyError = mag
         (
-            (currentEnergy.value() - lastTotalEnergy_.value())/
-            (mag(lastTotalEnergy_.value()) + SMALL)
+            (currentEnergy.value() - expectedEnergy.value())/
+            (mag(expectedEnergy.value()) + SMALL)
         );
         
         // Characteristic time-scales based on Ce/G and Cl/G
@@ -441,6 +453,9 @@ void twoTemperatureModel::solve
             << "Energy conservation violation detected" << nl
             << "Error = " << energyError * 100 << " %" << nl
             << "Previous energy: " << lastTotalEnergy_.value() << " J" << nl
+            << "Source energy: "
+            << (laserEnergy + phaseChangeEnergy).value() << " J" << nl
+            << "Expected energy: " << expectedEnergy.value() << " J" << nl
             << "Current energy: " << currentEnergy.value() << " J" << nl
             << "Ce = " << Ce_.value() << " J/m^3/K" << nl
             << "Cl = " << Cl_.value() << " J/m^3/K" << nl

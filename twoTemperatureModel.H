@@ -81,8 +81,11 @@ private:
         //- Validate temperature field values
         bool validateFields() const;
 
-        //- Check energy conservation
-        bool checkEnergyConservation() const;
+        //- Check energy conservation with expected energy change
+        bool checkEnergyConservation
+        (
+            const dimensionedScalar& expectedEnergyChange
+        ) const;
 
         //- Update energy tracking variables
         void updateEnergyTracking() const;
