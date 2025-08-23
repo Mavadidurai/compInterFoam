@@ -1,10 +1,10 @@
-/*--------------------------------*- C++ -*----------------------------------*\
+/*--------------------------------*- C++ -*----------------------------------*\\
 | =========                 |                                                 |
 | \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox           |
 |  \\    /   O peration     | Version:  v2406                                 |
 |   \\  /    A nd           | Website:  www.openfoam.com                      |
 |    \\/     M anipulation  |                                                 |
-\*---------------------------------------------------------------------------*/
+\\*---------------------------------------------------------------------------*/
 FoamFile
 {
     version     2.0;
@@ -15,125 +15,30 @@ FoamFile
 }
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
-// ✅ ENHANCED: Three-phase transport properties for realistic LIFT
-// Note: Using two-phase approach but with substrate effects in boundary conditions
-
 phases (metal air);
 
-// ✅ METAL PHASE: Titanium donor film properties
 metal
 {
     transportModel  Newtonian;
-    nu              nu [ 0 2 -1 0 0 0 0 ] 5e-7;     // ✅ OPTIMIZED: Higher viscosity for stability
-    rho             rho [ 1 -3 0 0 0 0 0 ] 4515;     // Titanium density
+    nu              nu [ 0 2 -1 0 0 0 0 ] 5e-7;
+    rho             rho [ 1 -3 0 0 0 0 0 ] 4515;
 }
 
-// ✅ AIR PHASE: Includes substrate simulation in lower region
 air
 {
     transportModel  Newtonian;
-    nu              nu [ 0 2 -1 0 0 0 0 ] 1.48e-5;   // Air kinematic viscosity  
-    rho             rho [ 1 -3 0 0 0 0 0 ] 1.2;       // Air density (substrate simulated via BC)
+    nu              nu [ 0 2 -1 0 0 0 0 ] 1.48e-5;
+    rho             rho [ 1 -3 0 0 0 0 0 ] 1.2;
 }
 
-// ✅ ENHANCED: Phase change properties for LIFT with substrate effects
-meltingTemperature      meltingTemperature [0 0 0 1 0 0 0] 1941.0;     // K - Titanium melting point
-vaporTemperature        vaporTemperature [0 0 0 1 0 0 0] 3560.0;     // K - Titanium vaporization point
-latentHeat      latentHeat [0 2 -2 0 0 0 0] 3.65e5;     // J/kg - Titanium latent heat of fusion
+meltingTemperature      meltingTemperature [0 0 0 1 0 0 0] 1941.0;
+vaporTemperature        vaporTemperature [0 0 0 1 0 0 0] 3560.0;
+latentHeat              latentHeat [0 2 -2 0 0 0 0] 3.65e5;
 
-// ✅ NEW: Substrate thermal properties (for boundary conditions)
-substrateProperties
-{
-    // Glass substrate thermal characteristics
-    thermalConductivity     1.3;        // W/m/K - Glass thermal conductivity
-    heatCapacity           840;         // J/kg/K - Glass specific heat
-    density               2500;         // kg/m³ - Glass density
-    thermalDiffusivity    6.2e-7;      // m²/s - Glass thermal diffusivity
-    
-    // Interface properties
-    interfaceThermalResistance  1e-8;   // m²K/W - Substrate/metal interface
-    interfaceRoughness         1e-9;    // m - Surface roughness
-}
+sigma           sigma [ 1 0 -2 0 0 0 0 ] 1.64;
 
-// ✅ ENHANCED: Surface tension between phases (including substrate effects)
-sigma           sigma [ 1 0 -2 0 0 0 0 ] 1.64;         // N/m - Metal-air surface tension
-
-// ✅ NEW: Substrate-metal interface tension (affects wetting)
-sigmaSM         sigmaSM [ 1 0 -2 0 0 0 0 ] 2.0;       // N/m - Substrate-metal interface
-contactAngle    100;                                  // degrees - Contact angle on substrate
-
-// ✅ OPTIMIZED: Interface compression for substrate system
-cAlpha          0.5;        // ✅ REDUCED: Less aggressive for stability with substrate
-icAlpha         0;          // Isotropic compression (disabled)
-scAlpha         0;          // Shear compression (disabled)
-
-// ✅ NEW: LIFT-specific transport parameters
-liftParameters
-{
-    // Ejection characteristics
-    ejectionVelocityScale   200;       // m/s - Typical LIFT ejection velocity
-    dropletSizeScale        8e-7;      // m - Typical droplet size
-    
-    // Thermal transport enhancement at interface
-    interfaceEnhancement    3.0;       // Enhancement factor for interface transport
-    
-    // Substrate constraint effects
-    substrateConstraintFactor  0.05;    // Fraction of motion allowed in substrate region
-    
-    // Phase change enhancement
-    nucleationSites         5e12;      // sites/m² - Nucleation site density
-    superheatingLimit       400;       // K - Maximum superheat before nucleation
-}
-// ✅ ENHANCED: Temperature-dependent properties
-temperatureDependence
-{
-    // Metal viscosity temperature dependence
-    metalViscosityModel     "Arrhenius";
-    metalViscosityCoeffs
-    {
-        mu0     1e-3;       // Pa·s - Reference viscosity
-        E       20000;      // J/mol - Activation energy
-        Tref    1941;       // K - Reference temperature
-    }
-    
-    // Surface tension temperature dependence  
-    sigmaTempCoeff  -2e-4;              // N/m/K - Temperature coefficient
-}
+cAlpha          cAlpha [0 0 0 0 0 0 0] 0.5;
+icAlpha         icAlpha [0 0 0 0 0 0 0] 0;
+scAlpha         scAlpha [0 0 0 0 0 0 0] 0;
 
 // ************************************************************************* //
-//
-// ✅ KEY ENHANCEMENTS for SUBSTRATE LIFT:
-// ========================================
-//
-// 1. SUBSTRATE PROPERTIES:
-//    - Glass thermal properties for realistic heat sink
-//    - Interface thermal resistance
-//    - Surface roughness effects
-//
-// 2. ENHANCED INTERFACES:
-//    - Metal-air surface tension (standard)
-//    - Substrate-metal interface tension (new)
-//    - Contact angle for wetting behavior
-//
-// 3. LIFT-SPECIFIC PARAMETERS:
-//    - Ejection velocity and droplet size scales
-//    - Interface transport enhancement
-//    - Substrate constraint factors
-//    - Nucleation characteristics
-//
-// 4. TEMPERATURE DEPENDENCE:
-//    - Viscosity variation with temperature
-//    - Surface tension temperature effects
-//    - More realistic material behavior
-//
-// 5. OPTIMIZED STABILITY:
-//    - Reduced interface compression for substrate system
-//    - Enhanced transport properties
-//    - Better numerical characteristics
-//
-// This provides:
-// - Realistic substrate backing effects
-// - Enhanced interface physics
-// - Temperature-dependent material properties
-// - Improved LIFT process representation
-// - Better numerical stability with three-material system

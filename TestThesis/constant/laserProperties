@@ -36,12 +36,12 @@ FoamFile
 //   offFilmMax          [W/m^3, optional, default 1e14]
 // Parameter checks enforce pulseWidth 10fs–10ps, wavelength 100nm–2µm
 // and peakIntensity ≤1e16 W/m^2.
-// Gaussian pulse focused in the 2 µm metal film (y=8–10 µm)
+// Gaussian pulse focused in the 71.4 nm donor film (y=8.0–8.0714 µm)
 // Domain: x∈[0,50e-6], y∈[0,20e-6], z∈[0,10e-6]
 
 // geometry coupling
 // Center donor film around laser focus so focus y lies within film bounds
-filmYMin    9.4643e-6;
+filmYMin    8.0e-6;
 filmYMax    #calc "$filmYMin + 7.14e-8"; // 71.4 nm donor film thickness
 offFilmScale    0.1;       // Intensity scaling outside donor film [-]
 offFilmMax      1e14;      // Max volumetric intensity outside film [W/m^3]
@@ -55,8 +55,8 @@ laserEndTime    #calc "$laserStartTime + $pulseWidth"; // [s]
 // --- Spatial Gaussian (match the box center and film depth) ---
 spotSize        6e-6;         // [m] beam diameter
 
-// Put the beam center inside the domain (mid x,z; inside metal at y≈9.5 µm)
-focus           (25e-6 9.5e-6 5e-6);
+// Put the beam center inside the domain (mid x,z; inside donor film at y≈8.0357 µm)
+focus           (25e-6 8.0357e-6 5e-6);
 direction       (0 1 0);
 
 // --- Wavelength / interaction ---
