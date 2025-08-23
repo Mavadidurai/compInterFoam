@@ -30,12 +30,20 @@ jobs:
           echo "WM_PROJECT_DIR=$WM_PROJECT_DIR"
           echo "WM_PROJECT_VERSION=$WM_PROJECT_VERSION"
           echo "WM_OPTIONS=$WM_OPTIONS"
+          echo "WM_PROJECT_USER_DIR=$WM_PROJECT_USER_DIR" >> $GITHUB_ENV
 
       - name: Configure build flags (DP, 32-bit labels)
         shell: bash -l {0}
         run: |
           echo "WM_LABEL_SIZE=32" >> $GITHUB_ENV
           echo "WM_PRECISION_OPTION=DP" >> $GITHUB_ENV
+
+      - name: Cache wmake outputs
+        id: cache-wmake
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.WM_PROJECT_USER_DIR }}/platforms
+          key: ${{ runner.os }}-wmake-${{ hashFiles('**/Make/files', '**/Make/options') }}
 
       - name: Build compInterFoam with wmake
         shell: bash -l {0}
@@ -61,7 +69,9 @@ jobs:
           fi
 
           pushd "$SOLVER_DIR"
-          wclean all || true
+          if [ "${{ steps.cache-wmake.outputs.cache-hit }}" != 'true' ]; then
+            wclean all || true
+          fi
           set +e
           wmake -j "$(nproc)" 2>&1 | tee "$GITHUB_WORKSPACE/build.log"
           BUILD_STATUS=${PIPESTATUS[0]}
