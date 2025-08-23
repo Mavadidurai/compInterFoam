@@ -147,8 +147,8 @@ if (useAdvancedCapturing && pInterfaceCapturing.valid())
         // Add recoil pressure gradient
         UEqn -= fvc::grad(recoilPressure);
         
-                // Add recoil pressure-induced momentum source
-        UEqn += (recoilPressure / rho) * fvc::grad(alpha1);
+        // Add recoil pressure-induced momentum source
+        UEqn += recoilPressure * fvc::grad(alpha1);
 
         if (verbose)
         {

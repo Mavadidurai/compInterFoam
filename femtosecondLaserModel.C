@@ -142,7 +142,7 @@ femtosecondLaserModel::femtosecondLaserModel
 
     if (verbose)
     {
-        Info<< "✅ Femtosecond laser model initialized:" << nl
+        Info<< "Femtosecond laser model initialized:" << nl
             << "  Mode: " << (continuousLaser_ ? "Continuous" : "Pulsed") << nl
             << "  Peak intensity: " << peakIntensity_.value() << " W/m²" << nl
             << "  Pulse width: " << pulseWidth_.value() << " s" << nl
@@ -470,7 +470,7 @@ void femtosecondLaserModel::calculateSource() const
     // Report laser status
     if (timeIndex % 50 == 0 && verbose)  // Every 50 timesteps
     {
-        Info<< "🔍 LASER @ step=" << timeIndex
+        Info<< "LASER @ step=" << timeIndex
             << ": t=" << t*1e12 << "ps, "
             << (laserActive ? "ACTIVE" : "inactive")
             << " (window: " << laserStartTime_*1e12 << "-" << laserEndTime_*1e12 << "ps)" << endl;
@@ -581,7 +581,7 @@ void femtosecondLaserModel::calculateSource() const
 
     if (verbose)
     {
-        Info<< "🔍 LASER DIAGNOSTICS:" << nl
+        Info<< "LASER DIAGNOSTICS:" << nl
             << "  Input peak intensity: " << peakIntensity_.value() << " W/m²" << nl
             << "  Average volumetric intensity in beam: " << avgIntensityInBeam << " W/m³" << nl
             << "  Absorption coefficient: " << absorptionCoeff_.value() << " 1/m" << nl
@@ -594,7 +594,7 @@ void femtosecondLaserModel::calculateSource() const
     // Report laser activity
     if (laserActive && (timeIndex % 10 == 0) && verbose)
     {
-        Info<< "🔥 LASER ENERGY DEPOSITION:" << nl
+        Info<< "LASER ENERGY DEPOSITION:" << nl
             << "  Time: " << t*1e12 << " ps" << nl
             << "  Temporal factor: " << temporalTerm << nl
             << "  Cells in beam: " << cellsInBeam << nl

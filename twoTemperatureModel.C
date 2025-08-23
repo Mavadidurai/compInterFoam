@@ -21,6 +21,7 @@
 #include "twoTemperatureModel.H"
 #include "fvc.H"
 #include "fvm.H"
+//#include "fieldAverage.H"
 #include <cmath>
 extern Foam::Switch verbose;
 namespace Foam

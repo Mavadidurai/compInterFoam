@@ -49,10 +49,11 @@ advancedInterfaceCapturing::advancedInterfaceCapturing
     ),
     pressureScale_(20000.0),
     recoilMax_(5e6),
-    recoilUpdateInterval_(5),
+    recoilUpdateInterval_(1),
     recoilTempOffset_(100.0),
-    alphaMin_(0.01),
-    alphaMax_(0.99),
+    // Relaxed default bounds to reduce clipping of interface values
+    alphaMin_(0.001),
+    alphaMax_(0.999),
     recoilPressure_
     (
         IOobject
