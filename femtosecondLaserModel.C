@@ -79,6 +79,8 @@ femtosecondLaserModel::femtosecondLaserModel
     pulseFrequency_(dict.getOrDefault<scalar>("pulseFrequency", 0.0)),
     pulseDutyCycle_(dict.getOrDefault<scalar>("pulseDutyCycle", 1.0)),
     reflectivity_(dict.getOrDefault<scalar>("reflectivity", 0.05)),
+    transmission_(dict.getOrDefault<scalar>("transmission", -1.0)),
+    incidenceAngle_(dict.getOrDefault<scalar>("incidenceAngle", 0.0)),
     gaussianProfile_(dict.getOrDefault<bool>("gaussianProfile", true)),
     maxReflections_(dict.getOrDefault<label>("maxReflections", 2)),
     continuousLaser_(dict.getOrDefault<bool>("continuousLaser", false)),
@@ -188,6 +190,8 @@ femtosecondLaserModel::femtosecondLaserModel
             "pulseFrequency",
             "pulseDutyCycle",
             "reflectivity",
+            "transmission",
+            "incidenceAngle",
             "gaussianProfile",
             "maxReflections",
             "continuousLaser",
@@ -310,7 +314,29 @@ bool femtosecondLaserModel::validateParameters() const
     {
         valid = false;
     }
+    // Check donor film thickness
+    const scalar filmThickness = filmYMax_ - filmYMin_;
+    const scalar expectedThickness = 7.14e-8; // [m]
+    const scalar tolerance = 0.1*expectedThickness; // 10% tolerance
 
+    if (filmThickness <= 0)
+    {
+        FatalErrorInFunction
+            << "Non-positive donor film thickness (filmYMax - filmYMin = "
+            << filmThickness << " m)" << nl
+            << "Check filmYMin and filmYMax in laserProperties" << nl
+            << abort(FatalError);
+    }
+
+    if (mag(filmThickness - expectedThickness) > tolerance)
+    {
+        FatalErrorInFunction
+            << "Donor film thickness (" << filmThickness
+            << " m) deviates from expected " << expectedThickness
+            << " m by more than " << tolerance << " m" << nl
+            << "Adjust filmYMin and filmYMax to match physical film thickness" << nl
+            << abort(FatalError);
+    }
     return valid;
 }
 
@@ -531,12 +557,39 @@ void femtosecondLaserModel::calculateSource() const
             
             scalar spatialTerm = calculateGaussianIntensity(R, z);
             scalar absorptionTerm = exp(-absorptionCoeff_.value() * max(z, 0.0));
+            
+            scalar transmissionFactor = 1.0 - reflectivity_;
+            if (transmission_ >= 0)
+            {
+                transmissionFactor = transmission_;
+            }
+            else if (incidenceAngle_ > VSMALL)
+            {
+                const scalar n1 = 1.0; // assume incident medium is air
+                const scalar sqrtR = sqrt(max(0.0, reflectivity_));
+                const scalar n2 = (1.0 + sqrtR)/max(VSMALL, (1.0 - sqrtR));
+                const scalar sinThetaT = n1/n2 * sin(incidenceAngle_);
+                if (mag(sinThetaT) < 1.0)
+                {
+                    const scalar cosTheta = cos(incidenceAngle_);
+                    const scalar cosThetaT = sqrt(1.0 - sqr(sinThetaT));
+                    const scalar Rs = sqr((n1*cosTheta - n2*cosThetaT)
+                                        /(n1*cosTheta + n2*cosThetaT));
+                    const scalar Rp = sqr((n1*cosThetaT - n2*cosTheta)
+                                        /(n1*cosThetaT + n2*cosTheta));
+                    transmissionFactor = 1.0 - 0.5*(Rs + Rp);
+                }
+                else
+                {
+                    transmissionFactor = 0.0; // total internal reflection
+                }
+            }
 
             scalar intensity = peakIntensity_.value() *
                               temporalTerm *
                               spatialTerm *
                               absorptionTerm *
-                              (1.0 - reflectivity_);
+                              transmissionFactor;
 
             scalar volumetricIntensity = intensity * absorptionCoeff_.value();
 
@@ -654,6 +707,8 @@ void femtosecondLaserModel::write() const
             << "  Pulse energy: " << pulseEnergy_.value() << " J" << nl
             << "  Absorption coefficient: " << absorptionCoeff_.value() << " 1/m" << nl
             << "  Reflectivity: " << reflectivity_ << nl
+            << "  Transmission: " << (transmission_ >= 0 ? transmission_ : (1.0 - reflectivity_)) << nl
+            << "  Incidence angle: " << incidenceAngle_ << " rad" << nl
             << "  Focus: " << focus_ << nl
             << "  Direction: " << direction_ << nl
             << "  Active time: " << laserStartTime_ << " to " << laserEndTime_ << " s" << endl;

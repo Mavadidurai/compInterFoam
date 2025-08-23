@@ -51,9 +51,13 @@ advancedInterfaceCapturing::advancedInterfaceCapturing
     recoilMax_(5e6),
     recoilUpdateInterval_(1),
     recoilTempOffset_(100.0),
+    clampRecoil_(true),
+    scaleRecoilMax_(false),
     // Relaxed default bounds to reduce clipping of interface values
     alphaMin_(0.001),
     alphaMax_(0.999),
+    C0_(0.0),
+    C1_(0.0),
     recoilPressure_
     (
         IOobject
@@ -88,9 +92,21 @@ advancedInterfaceCapturing::advancedInterfaceCapturing
         "recoilTempOffset",
         recoilTempOffset_
     );
+    clampRecoil_ = aicDict.lookupOrDefault<Switch>
+    (
+        "clampRecoil",
+        clampRecoil_
+    );
+    scaleRecoilMax_ = aicDict.lookupOrDefault<Switch>
+    (
+        "scaleRecoilMax",
+        scaleRecoilMax_
+    );
 
     alphaMin_ = aicDict.lookupOrDefault<scalar>("alphaMin", alphaMin_);
     alphaMax_ = aicDict.lookupOrDefault<scalar>("alphaMax", alphaMax_);
+    C0_ = aicDict.lookupOrDefault<scalar>("C0", C0_);
+    C1_ = aicDict.lookupOrDefault<scalar>("C1", C1_);
     // Simple initialization, no calculations in constructor to avoid MPI issues
     const bool verbose = mesh.time().controlDict().lookupOrDefault<Switch>("verbose", false);
     if (verbose)
@@ -134,7 +150,8 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
 
     // Constants for recoil pressure model sourced from dictionaries
     const scalar pressureScale = pressureScale_;
-    const scalar recoilMax = recoilMax_;
+    const bool clampRecoil = clampRecoil_;
+    const bool scaleRecoilMax = scaleRecoilMax_;
 
     // Access fields only once for efficiency
     const scalarField& TField = T_.primitiveField();
@@ -155,8 +172,12 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
             alphaDamp = 0.0;
         }
 
-        const scalar pressureValue = pressureScale * max(phaseChangeField[cellI], 0.0);
-        recoilField[cellI] = min(pressureValue * alphaDamp, recoilMax);
+        const scalar phaseChangeVal = max(phaseChangeField[cellI], 0.0);
+        const scalar pressureValue = pressureScale * phaseChangeVal;
+        const scalar localRecoilMax =
+            scaleRecoilMax ? recoilMax_ * phaseChangeVal : recoilMax_;
+        const scalar unclamped = pressureValue * alphaDamp;
+        recoilField[cellI] = clampRecoil ? min(unclamped, localRecoilMax) : unclamped;
     }
     // Ensure boundary conditions are correct
     recoilPressure_.correctBoundaryConditions();

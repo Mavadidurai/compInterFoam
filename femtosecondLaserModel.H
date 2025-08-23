@@ -62,6 +62,8 @@ private:
         
         // Optional parameters
         scalar reflectivity_;           // Surface reflectivity [-]
+        scalar transmission_;           // Optional transmission factor [-]
+        scalar incidenceAngle_;         // Incidence angle for Fresnel calc [rad]
         bool gaussianProfile_;          // Use Gaussian spatial profile
         label maxReflections_;          // Maximum number of reflections
         

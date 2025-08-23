@@ -39,6 +39,8 @@ SourceFiles
 #include "volFields.H"
 #include "fvMatrices.H"
 #include "dictionary.H"
+#include "autoPtr.H"
+#include "Function1.H"
 
 namespace Foam
 {
@@ -67,6 +69,12 @@ private:
         dimensionedScalar Cl_;     //- Lattice heat capacity [J/m³/K]
         dimensionedScalar G_;      //- Electron-phonon coupling [W/m³/K]
         dimensionedScalar De_;     //- Electron thermal diffusivity [m^2/s]
+        
+        //- Optional temperature-dependent electron heat capacity Ce(T)
+        autoPtr<Function1<scalar>> CeFunction_;
+
+        //- Optional temperature-dependent coupling factor G(T)
+        autoPtr<Function1<scalar>> GFunction_;
 
 
         //- Energy Conservation Tracking

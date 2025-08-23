@@ -68,62 +68,28 @@ twoTemperatureModel::twoTemperatureModel
     (
         "Ce",
         dimEnergy/dimVolume/dimTemperature,
-        dict.lookupOrDefault<dimensionedScalar>
-        (
-            "Ce",
-            dimensionedScalar
-            (
-                "Ce_default",
-                dimEnergy/dimVolume/dimTemperature,
-                210.0
-            )
-        ).value()
+        210.0
     ),
     Cl_
     (
         "Cl",
         dimEnergy/dimVolume/dimTemperature,
-        dict.lookupOrDefault<dimensionedScalar>
-        (
-            "Cl",
-            dimensionedScalar
-            (
-                "Cl_default",
-                dimEnergy/dimVolume/dimTemperature,
-                2.3e6
-            )
-        ).value()
+        2.3e6
     ),
     G_
     (
         "G",
         dimEnergy/dimVolume/dimTime/dimTemperature,
-        dict.lookupOrDefault<dimensionedScalar>
-        (
-            "G",
-            dimensionedScalar
-            (
-                "G_default",
-                dimEnergy/dimVolume/dimTime/dimTemperature,
-                5e17
-            )
-        ).value()
+        5e17
     ),
-        De_
+    De_
     (
         "De",
         dimLength*dimLength/dimTime,
-        dict.lookupOrDefault<dimensionedScalar>
-        (
-            "De",
-            dimensionedScalar
-            (
-                "De_default",
-                dimLength*dimLength/dimTime,
-                1e-4
-            )
-        ).value()
+        1e-4
     ),
+    CeFunction_(nullptr),
+    GFunction_(nullptr),
     lastTotalEnergy_
     (
         "lastTotalEnergy",
@@ -134,6 +100,39 @@ twoTemperatureModel::twoTemperatureModel
 {
         const bool verbose =
         mesh_.time().controlDict().lookupOrDefault<Switch>("verbose", false);
+            if (dict.found("Ce"))
+    {
+        if (dict.isDict("Ce"))
+        {
+            CeFunction_.reset(Function1<scalar>::New("Ce", dict.subDict("Ce")).ptr());
+        }
+        else
+        {
+            Ce_ = dict.lookupOrDefault<dimensionedScalar>("Ce", Ce_);
+        }
+    }
+
+    if (dict.found("Cl"))
+    {
+        Cl_ = dict.lookupOrDefault<dimensionedScalar>("Cl", Cl_);
+    }
+
+    if (dict.found("G"))
+    {
+        if (dict.isDict("G"))
+        {
+            GFunction_.reset(Function1<scalar>::New("G", dict.subDict("G")).ptr());
+        }
+        else
+        {
+            G_ = dict.lookupOrDefault<dimensionedScalar>("G", G_);
+        }
+    }
+
+    if (dict.found("De"))
+    {
+        De_ = dict.lookupOrDefault<dimensionedScalar>("De", De_);
+    }
     if (!validateParameters())
     {
         FatalErrorInFunction
@@ -153,7 +152,7 @@ twoTemperatureModel::twoTemperatureModel
 
     // Initialize energy tracking
     updateEnergyTracking();
-        if (verbose)
+    if (verbose)
     {
         Info<< "Two-temperature model initialized:" << nl
             << "  Ce = " << Ce_.value() << " J/m³/K" << nl
@@ -279,8 +278,10 @@ bool twoTemperatureModel::checkEnergyConservation
         return true;
     }
 
+    tmp<volScalarField> tCe = electronHeatCapacity();
+    const volScalarField& CeField = tCe();
     dimensionedScalar currentEnergy =
-        fvc::domainIntegrate(Ce_*Te_ + Cl_*Tl_);
+        fvc::domainIntegrate(CeField*Te_ + Cl_*Tl_);
     dimensionedScalar expectedEnergy = lastTotalEnergy_ + expectedEnergyChange;
 
     scalar energyError = mag
@@ -295,7 +296,9 @@ bool twoTemperatureModel::checkEnergyConservation
 
 void twoTemperatureModel::updateEnergyTracking() const
 {
-    lastTotalEnergy_ = fvc::domainIntegrate(Ce_*Te_ + Cl_*Tl_);
+    tmp<volScalarField> tCe = electronHeatCapacity();
+    const volScalarField& CeField = tCe();
+    lastTotalEnergy_ = fvc::domainIntegrate(CeField*Te_ + Cl_*Tl_);
     energyInitialized_ = true;
 }
 
@@ -314,7 +317,8 @@ void twoTemperatureModel::solve
 
     // Store initial energy
     updateEnergyTracking();
-    dimensionedScalar electronEnergyBefore = fvc::domainIntegrate(Ce_*Te_);
+    volScalarField Ce = electronHeatCapacity();
+    dimensionedScalar electronEnergyBefore = fvc::domainIntegrate(Ce*Te_);
     dimensionedScalar latticeEnergyBefore = fvc::domainIntegrate(Cl_*Tl_);
     dimensionedScalar laserEnergy =
         fvc::domainIntegrate(laserSource)*mesh_.time().deltaT();
@@ -329,7 +333,6 @@ void twoTemperatureModel::solve
 
     // Calculate temperature-dependent properties
     volScalarField ke = electronThermalConductivity();
-    volScalarField Ce = electronHeatCapacity();
     volScalarField G = electronPhononCoupling();
 
     // Apply strong under-relaxation for stability
@@ -388,7 +391,8 @@ void twoTemperatureModel::solve
     
         TeEqn.solve(electronDict);
 
-    dimensionedScalar electronEnergyAfter = fvc::domainIntegrate(Ce_*Te_);
+    volScalarField CeAfter = electronHeatCapacity();
+    dimensionedScalar electronEnergyAfter = fvc::domainIntegrate(CeAfter*Te_);
     dimensionedScalar latticeEnergyAfter = fvc::domainIntegrate(Cl_*Tl_);
     if (verbose)
     {
@@ -434,8 +438,10 @@ void twoTemperatureModel::solve
     // Check energy conservation
     if (!checkEnergyConservation(laserEnergy + phaseChangeEnergy))
     {
-        dimensionedScalar currentEnergy =
-            fvc::domainIntegrate(Ce_*Te_ + Cl_*Tl_);
+   tmp<volScalarField> tCe = electronHeatCapacity();
+    const volScalarField& CeField = tCe();
+    dimensionedScalar currentEnergy =
+        fvc::domainIntegrate(CeField*Te_ + Cl_*Tl_);
         dimensionedScalar expectedEnergy =
             lastTotalEnergy_ + laserEnergy + phaseChangeEnergy;
         scalar energyError = mag
@@ -483,7 +489,9 @@ void twoTemperatureModel::solve
             fvc::domainIntegrate(laserSource) * mesh_.time().deltaT();
         cumulativeLaserEnergy += laserEnergyThisStep;
 
-        dimensionedScalar electronEnergy = fvc::domainIntegrate(Ce_*Te_);
+        tmp<volScalarField> tCeDiag = electronHeatCapacity();
+        const volScalarField& CeDiag = tCeDiag();
+        dimensionedScalar electronEnergy = fvc::domainIntegrate(CeDiag*Te_);
         dimensionedScalar latticeEnergy  = fvc::domainIntegrate(Cl_*Tl_);
 
         Info<< "Energy diagnostics:" << nl
@@ -560,6 +568,16 @@ tmp<volScalarField> twoTemperatureModel::electronHeatCapacity() const
             Ce_
         )
     );
+        volScalarField& CeField = tCe.ref();
+
+    if (CeFunction_.valid())
+    {
+        forAll(CeField, cellI)
+        {
+            CeField[cellI] = CeFunction_->value(Te_[cellI]);
+        }
+    }
+
 
     return tCe;
 }
@@ -583,6 +601,15 @@ tmp<volScalarField> twoTemperatureModel::electronPhononCoupling() const
             G_
         )
     );
+        volScalarField& GField = tG.ref();
+
+    if (GFunction_.valid())
+    {
+        forAll(GField, cellI)
+        {
+            GField[cellI] = GFunction_->value(Te_[cellI]);
+        }
+    }
 
     return tG;
 }
@@ -631,7 +658,9 @@ void twoTemperatureModel::write() const
 
     if (energyInitialized_)
     {
-        dimensionedScalar currentEnergy = fvc::domainIntegrate(Ce_*Te_ + Cl_*Tl_);
+        tmp<volScalarField> tCeW = electronHeatCapacity();
+        const volScalarField& CeW = tCeW();
+        dimensionedScalar currentEnergy = fvc::domainIntegrate(CeW*Te_ + Cl_*Tl_);
         scalar energyError = mag
         (
             (currentEnergy.value() - lastTotalEnergy_.value())/

@@ -27,12 +27,17 @@ private:
     dimensionedScalar latentHeat_;   // Latent heat of fusion
         // User-configurable recoil pressure parameters
     scalar pressureScale_;           // Scaling factor for evaporation rate
-    scalar recoilMax_;               // Maximum allowed recoil pressure
+    scalar recoilMax_;               // Base recoil pressure cap
     label  recoilUpdateInterval_;    // Steps between recoil pressure updates
-    scalar recoilTempOffset_;         // Temperature offset for recoil activation
+    scalar recoilTempOffset_;        // Temperature offset for recoil activation
+    Switch clampRecoil_;             // Enable/disable recoil pressure clamping
+    Switch scaleRecoilMax_;          // Scale recoilMax with phase-change rate
     // Valid alpha range (controlDict → advancedInterfaceCapturing)
     scalar alphaMin_;               // Minimum alpha for recoil activation
     scalar alphaMax_;               // Maximum alpha for recoil activation
+   // Ejection velocity coefficients
+    scalar C0_;
+    scalar C1_;
     // Field for recoil pressure
     volScalarField recoilPressure_;  // Recoil pressure from vaporization
     
@@ -62,6 +67,8 @@ public:
     // Access functions
     const volScalarField& recoilPressure() const { return recoilPressure_; }
     label recoilUpdateInterval() const { return recoilUpdateInterval_; }
+    scalar C0() const { return C0_; }
+    scalar C1() const { return C1_; }
 
     // Access functions for validation
     dimensionedScalar latentHeat() const { return latentHeat_; }

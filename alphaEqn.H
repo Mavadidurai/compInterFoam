@@ -55,6 +55,16 @@ extern Foam::Switch verbose;
 
     // Set the time blending factor, 1 for Euler
     scalar cnCoeff = 1.0/(1.0 + ocCoeff);
+        // Runtime selection of interface sharpening scheme
+    const dictionary& alphaControls = mesh.solverDict(alpha1.name());
+    const word sharpeningScheme
+    (
+        alphaControls.lookupOrDefault<word>("sharpeningScheme", "standard")
+    );
+    const scalar thinFilmCoeff
+    (
+        alphaControls.lookupOrDefault<scalar>("thinFilmCoeff", 0.0)
+    );
 
     // Standard face-flux compression coefficient
     surfaceScalarField phic(mixture.cAlpha()*mag(phi/mesh.magSf()));
@@ -95,7 +105,31 @@ extern Foam::Switch verbose;
         phiCN = cnCoeff*phi + (1.0 - cnCoeff)*phi.oldTime();
     }
 
+    // Construct interface compression flux with optional limiter
     surfaceScalarField phir(phic*nHatf);
+
+    if (sharpeningScheme == "enhancedLimiter")
+    {
+        surfaceScalarField limiter
+        (
+            IOobject
+            (
+                "thinFilmLimiter",
+                runTime.timeName(),
+                mesh,
+                IOobject::NO_READ,
+                IOobject::NO_WRITE
+            ),
+            1.0 - thinFilmCoeff*fvc::interpolate(min(alpha1, alpha2))
+        );
+
+        limiter = max(min(limiter, scalar(1)), scalar(0));
+        phir = phic*limiter*nHatf;
+    }
+    else if (sharpeningScheme == "isoAdvector")
+    {
+        Info<< "isoAdvector selected but not available - using standard scheme" << endl;
+    }
 
     for (int aCorr=0; aCorr<nAlphaCorr; aCorr++)
     {
