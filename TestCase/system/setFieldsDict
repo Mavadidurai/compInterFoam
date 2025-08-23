@@ -26,9 +26,9 @@ FoamFile
 // Lz = 4.0e-5 m (40 µm)
 
 // --- Layering along Y ---
-/* substrate: y in [0.0,      8.0e-6]  m */
-/* metal:     y in [8.0e-6,   1.0e-5]  m */
-/* air:       y in [1.0e-5,   3.0e-5]  m */
+/* substrate: y in [0.0,       8.0e-6]    m */
+/* metal:     y in [8.0e-6,    8.0714e-6] m */  // 71.4 nm thick
+/* air:       y in [8.0714e-6, 3.0e-5]    m */
 
 // --- Initial conditions ---
 /* Temperatures: */  // K
@@ -73,11 +73,11 @@ regions
         );
     }
 
-    // Metal thin film: y in [8 µm, 10 µm]
+    // Metal thin film: y in [8 µm, 8.0714 µm] (~71.4 nm)
     boxToCell
     {
-        box (0       8.0e-06   0)
-            (5.0e-05 1.0e-05   1.0e-05);
+        box (0       8.0e-06    0)
+            (5.0e-05 8.0714e-06 1.0e-05);
         fieldValues
         (
             volScalarFieldValue alpha.metal 1
@@ -89,11 +89,11 @@ regions
         );
     }
 
-    // Air: y in [10 µm, 30 µm]
+    // Air: y in [8.0714 µm, 30 µm]
 
     boxToCell
     {
-        box (0       1.0e-05   0)
+        box (0       8.0714e-06 0)
             (5.0e-05 3.0e-05   1.0e-05);
         fieldValues
         (
@@ -117,13 +117,13 @@ regions
 //    - Provides heat sink effect
 //    - Prevents downward expansion of metal
 //
-// 2. METAL FILM (Y = 8-10μm):
+// 2. METAL FILM (Y = 8-8.0714μm):
 //    - Pure titanium donor material
-//    - 2μm thickness (realistic for LIFT)
+//    - 71.4 nm thickness
 //    - Will be heated by laser and undergo phase change
 //    - Source of ejected droplets
 //
-// 3. AIR GAP (Y = 10-20μm):
+// 3. AIR GAP (Y = 8.0714-30μm):
 //    - Space for droplet ejection and flight
 //    - Collection zone for LIFT process
 //    - Allows visualization of ejection dynamics

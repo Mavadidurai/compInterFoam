@@ -34,17 +34,19 @@ FoamFile
 //   laserEndTime        [s]
 //   offFilmScale        [-, optional, default 0.1]
 //   offFilmMax          [W/m^3, optional, default 1e14]
+// Parameter checks enforce pulseWidth 10fs–10ps, wavelength 100nm–2µm
+// and peakIntensity ≤1e16 W/m^2.
 // Gaussian pulse focused in the 2 µm metal film (y=8–10 µm)
 // Domain: x∈[0,50e-6], y∈[0,20e-6], z∈[0,10e-6]
 
 // geometry coupling
 filmYMin    8e-6;
-filmYMax    1e-5;
+filmYMax    #calc "$filmYMin + 7.14e-8"; // 71.4 nm donor film thickness
 offFilmScale    0.1;       // Intensity scaling outside donor film [-]
 offFilmMax      1e14;      // Max volumetric intensity outside film [W/m^3]
 // --- Energy & timing ---
 // Boosted energy/intensity to reach melt/ablation threshold
-pulseEnergy     8e-7;          // [J] total energy
+pulseEnergy     4.2e-8;          // [J] total energy
 pulseWidth      150e-15;       // [s] 150 fs pulse width
 laserStartTime  0;             // [s]
 laserEndTime    #calc "$laserStartTime + $pulseWidth"; // [s]
@@ -63,12 +65,12 @@ wavelength          1.03e-6;  // [m]
 absorptionCoeff     5e7;      // [1/m] ~20–50 nm optical depth
 
 // Reflectivity / profile
-reflectivity        0.3;
+reflectivity        0.55;
 gaussianProfile     true;
 maxReflections      1;
 
 // Optional intensity entry (consistent with pulseEnergy & pulseWidth)
-peakIntensity       1.886e17;      // [W/m^2] from pulseEnergy
+peakIntensity       1e16;      // [W/m^2] from pulseEnergy
 continuousLaser     false;
 
 // ************************************************************************* //

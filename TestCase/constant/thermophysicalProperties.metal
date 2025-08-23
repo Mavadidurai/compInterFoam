@@ -34,9 +34,9 @@ mixture
     }
     
     thermodynamics
-    {
-        Cp              520;            // J/kg·K - Heat capacity
-        Hf              0.0;            // J/kg - Heat of formation  
+   {
+        Cp              560;            // J/kg·K - Heat capacity
+        Hf              0.0;            // J/kg - Heat of formation
         Tref            300;            // K - Reference temperature
         Href            0;              // J/kg - Reference enthalpy
     }
@@ -49,14 +49,14 @@ mixture
     
     equationOfState
     {
-        rho             4500;           // kg/m³ - Titanium density
+        rho             4515;           // kg/m³ - Titanium density
     }
 }
 
 // LIFT-specific properties
 Tsol                1941.0;             // K - Solidus temperature
-Tliq                1941.0;             // K - Liquidus temperature  
-hf                  4.35e5;              // J/kg - Latent heat of fusion
-kappa               21.9;               // W/m·K - Thermal conductivity
+Tliq                1941.0;             // K - Liquidus temperature
+hf                  3.65e5;              // J/kg - Latent heat of fusion
+kappa               17.2;               // W/m·K - Thermal conductivity
 
 // ************************************************************************* //
