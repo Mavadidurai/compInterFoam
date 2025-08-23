@@ -116,6 +116,19 @@ absorptionCoeff 5e7;       // 10⁷–10⁸ m⁻¹, cf. Anisimov et al. (1974)
 Typical ranges above are drawn from the LIFT and ultrafast laser literature
 ([Brown & Arnold, 2010](https://doi.org/10.2961/jlmn.2010.03.0001);
 [Anisimov et al., 1974](https://doi.org/10.1134/1.1478536)).
+The `femtosecondLaserModel` validates these entries at run time. If the
+computed peak intensity
+
+\[
+I_0 = \frac{2\,E}{\pi r^2 \tau}
+\]
+
+exceeds `1e16` W m⁻² (or other bounds) the solver aborts with a
+`FatalError`. For example, choosing `spotSize = 10e-6` m and
+`pulseWidth = 200e-15` s limits `pulseEnergy` to roughly `3e-7` J to stay
+within the threshold (`pulseEnergy = 2e-7` J yields
+`I_0 ≈ 6.4e15` W m⁻²). When limits are violated, `FatalError` messages in
+the log identify the offending field.
 
 ## Relevant source files
 
