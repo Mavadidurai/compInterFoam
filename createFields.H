@@ -316,13 +316,6 @@ IOdictionary laserPropertiesDict
     )
 );
 femtosecondLaserModel laser(mesh, laserPropertiesDict);
-// Ensure laser setup is physically meaningful
-if (!laser.valid())
-{
-    FatalErrorInFunction
-        << "Invalid femtosecond laser configuration"
-        << abort(FatalError);
-}
 if (verbose)
 {
     Info<< "Creating two-temperature model\n" << endl;

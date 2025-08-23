@@ -132,7 +132,7 @@ femtosecondLaserModel::femtosecondLaserModel
     if (!valid())
     {
         FatalErrorInFunction
-            << "Invalid laser parameters" << nl
+            << "Invalid femtosecond laser configuration" << nl
             << "  Peak intensity: " << peakIntensity_.value() << nl
             << "  Pulse width: " << pulseWidth_.value() << nl
             << "  Wavelength: " << wavelength_.value() << nl
@@ -319,11 +319,16 @@ bool femtosecondLaserModel::checkPhysicalBounds() const
     bool valid = true;
 
     // Check femtosecond regime (10fs - 10ps acceptable for debug)
-    if (!continuousLaser_ && (pulseWidth_.value() < 1e-16 || pulseWidth_.value() > 1e-11))
+    if
+    (
+        !continuousLaser_
+     && (pulseWidth_.value() < 1e-16 || pulseWidth_.value() > 1e-11)
+    )
     {
         WarningInFunction
             << "Pulse width outside reasonable range: "
             << pulseWidth_.value() << " s" << endl;
+             valid = false;
     }
 
     // Check wavelength (visible to near-IR)
@@ -332,6 +337,7 @@ bool femtosecondLaserModel::checkPhysicalBounds() const
         WarningInFunction
             << "Wavelength outside typical range: "
             << wavelength_.value() << " m" << endl;
+            valid = false;
     }
 
     // Check intensity (reasonable for LIFT)
@@ -340,6 +346,7 @@ bool femtosecondLaserModel::checkPhysicalBounds() const
         WarningInFunction
             << "Very high peak intensity: "
             << peakIntensity_.value() << " W/m²" << endl;
+             valid = false;
     }
 
     return valid;

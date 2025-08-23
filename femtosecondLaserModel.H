@@ -45,9 +45,9 @@ private:
         const dictionary& dict_;
 
         // Laser parameters
-        dimensionedScalar peakIntensity_;    // Peak intensity [W/m²]
-        dimensionedScalar pulseWidth_;       // Pulse duration [s]
-        dimensionedScalar wavelength_;       // Laser wavelength [m]
+        dimensionedScalar peakIntensity_;    // Peak intensity [W/m²], <= 1e16
+        dimensionedScalar pulseWidth_;       // Pulse duration [s], 1e-16–1e-11
+        dimensionedScalar wavelength_;       // Laser wavelength [m], 1e-7–2e-6
         dimensionedScalar absorptionCoeff_;  // Absorption coefficient [1/m]
         dimensionedScalar spotSize_;         // Laser spot size [m]
         dimensionedScalar pulseEnergy_;      // Pulse energy [J]
@@ -95,6 +95,8 @@ private:
         bool validateParameters() const;
 
         //- Check physical bounds of parameters
+        //  (pulse width 10 fs–10 ps, wavelength 100 nm–2 µm,
+        //   peak intensity <= 1e16 W/m²)
         bool checkPhysicalBounds() const;
 
         //- Calculate Gaussian intensity profile
