@@ -22,8 +22,8 @@ private:
     const volScalarField& T_;        // Temperature field for phase change
 
     // Physical parameters - minimal set
-    scalar meltingTemp_;             // Melting temperature
-    scalar vaporTemp_;               // Vaporization temperature
+    dimensionedScalar meltingTemp_;             // Melting temperature
+    dimensionedScalar vaporTemp_;               // Vaporization temperature
     dimensionedScalar latentHeat_;   // Latent heat of fusion
         // User-configurable recoil pressure parameters
     scalar pressureScale_;           // Scaling factor for evaporation rate
@@ -73,8 +73,8 @@ public:
     // Access functions for validation
     dimensionedScalar latentHeat() const { return latentHeat_; }
 
-    scalar meltingTemperature() const { return meltingTemp_; }
-    scalar vaporTemperature() const { return vaporTemp_; }
+    dimensionedScalar meltingTemperature() const { return meltingTemp_; }
+    dimensionedScalar vaporTemperature() const { return vaporTemp_; }
 
     // Write functions
     void write() const;

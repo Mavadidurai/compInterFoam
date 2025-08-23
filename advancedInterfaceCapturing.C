@@ -25,14 +25,22 @@ advancedInterfaceCapturing::advancedInterfaceCapturing
     meltingTemp_
     (
         mesh.lookupObject<dictionary>("transportProperties")
-        .lookupOrDefault<scalar>("meltingTemperature", 1941.0)
+        .lookupOrDefault<dimensionedScalar>
+        (
+            "meltingTemperature",
+            dimensionedScalar("meltingTemperature", dimTemperature, 1941.0)
+        )
     ),
     vaporTemp_
     (
         mesh.lookupObject<dictionary>("transportProperties")
-        .lookupOrDefault<scalar>("vaporTemperature", 3560.0)
+        .lookupOrDefault<dimensionedScalar>
+        (
+            "vaporTemperature",
+            dimensionedScalar("vaporTemperature", dimTemperature, 3560.0)
+        )
     ),
-        latentHeat_
+    latentHeat_
     (
         mesh.lookupObject<dictionary>("transportProperties")
         .lookupOrDefault<dimensionedScalar>
@@ -120,8 +128,7 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
     // OPTIMIZED: Calculate once, reuse multiple times
     const scalar currentTime = mesh_.time().value();
     const scalar maxTemp = max(T_).value();
-    const scalar minTempThreshold = meltingTemp_ - recoilTempOffset_;
-
+    const scalar minTempThreshold = meltingTemp_.value() - recoilTempOffset_;
     
     const bool verbose = mesh_.time().controlDict().lookupOrDefault<Switch>("verbose", false);
 
@@ -129,7 +136,7 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
     {
         Info<< "Calculating recoil pressure at t = " << currentTime
             << "s, max T = " << maxTemp
-            << "K, melting temp = " << meltingTemp_ << "K" << endl;
+            << "K, melting temp = " << meltingTemp_.value() << "K" << endl;
     }
 
     
