@@ -31,7 +31,6 @@ License
 #include "mixedEnergyFvPatchScalarField.H"
 #include "collatedFileOperation.H"
 #include "dimensionSets.H"
-//#include "DimensionValidator.H"
 
 // * * * * * * * * * * * * * * Static Data Members * * * * * * * * * * * * * //
 
@@ -174,7 +173,7 @@ Foam::dimensionedScalar Foam::twoPhaseMixtureThermo::latentHeat() const
     return Foam::dimensionedScalar
     (
         "latentHeat",
-        DimensionValidator::dimLatentHeat,
+        Foam::dimLatentHeat,
         latentHeat_
     );
 }

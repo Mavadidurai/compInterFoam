@@ -110,12 +110,7 @@ if (verbose && corruptedRhoCells > 0)
 }
 // Update thermophysical properties and phase-change source
 mixture.correct();
-// Recoil pressure is normally updated during the alpha subcycle.
-// Recompute here only if that subcycle was skipped.
-if (!alphaSubCycleExecuted && useAdvancedCapturing && pInterfaceCapturing.valid())
-{
-    pInterfaceCapturing->calculateRecoilPressure();
-}
+
 // Create momentum equation
 fvVectorMatrix UEqn(fvm::ddt(rho, U) + fvm::div(rhoPhi, U));
 

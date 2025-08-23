@@ -21,7 +21,6 @@
 #include "twoTemperatureModel.H"
 #include "fvc.H"
 #include "fvm.H"
-//#include "fieldAverage.H"
 #include <cmath>
 extern Foam::Switch verbose;
 namespace Foam
@@ -383,6 +382,7 @@ void twoTemperatureModel::solve
 
     Te_.correctBoundaryConditions();
     Tl_.correctBoundaryConditions();
+    
     // Check energy conservation
     if (!checkEnergyConservation())
     {
@@ -393,19 +393,57 @@ void twoTemperatureModel::solve
             (mag(lastTotalEnergy_.value()) + SMALL)
         );
         
+        // Characteristic time-scales based on Ce/G and Cl/G
+        scalar dt = mesh_.time().deltaTValue();
+        scalar tauE = Ce_.value()/G_.value();
+        scalar tauL = Cl_.value()/G_.value();
+
         WarningInFunction
             << "Energy conservation violation detected" << nl
             << "Error = " << energyError * 100 << " %" << nl
             << "Previous energy: " << lastTotalEnergy_.value() << " J" << nl
-            << "Current energy: " << currentEnergy.value() << " J" << endl;
+            << "Current energy: " << currentEnergy.value() << " J" << nl
+            << "Ce = " << Ce_.value() << " J/m^3/K" << nl
+            << "Cl = " << Cl_.value() << " J/m^3/K" << nl
+            << "G  = " << G_.value()  << " W/m^3/K" << nl
+            << "deltaT = " << dt << " s" << nl
+            << "Characteristic times: Ce/G = " << tauE
+            << " s, Cl/G = " << tauL << " s" << nl
+            << "Suggested max deltaT: " << 0.2*Foam::min(tauE, tauL)
+            << " s" << endl;
     }
 
     // Update energy tracking
     updateEnergyTracking();
 
+    // Diagnostics: track cumulative laser energy versus lattice/electron energy
+    {
+        static dimensionedScalar cumulativeLaserEnergy
+        (
+            "cumulativeLaserEnergy",
+            dimEnergy,
+            0.0
+        );
+
+        dimensionedScalar laserEnergyThisStep =
+            fvc::domainIntegrate(laserSource) * mesh_.time().deltaT();
+        cumulativeLaserEnergy += laserEnergyThisStep;
+
+        dimensionedScalar electronEnergy = fvc::domainIntegrate(Ce_*Te_);
+        dimensionedScalar latticeEnergy  = fvc::domainIntegrate(Cl_*Tl_);
+
+        Info<< "Energy diagnostics:" << nl
+            << "  Cumulative laser energy: "
+            << cumulativeLaserEnergy.value() << " J" << nl
+            << "  Electron energy: " << electronEnergy.value() << " J" << nl
+            << "  Lattice energy: " << latticeEnergy.value() << " J" << nl
+            << "  Total energy: "
+            << (electronEnergy + latticeEnergy).value() << " J" << endl;
+    }
+
     // Report solution statistics with more detail
     volScalarField tempDiff = mag(Te_ - Tl_);
-    
+
     if (verbose)
     {
         Info<< "Two-temperature solve:" << nl

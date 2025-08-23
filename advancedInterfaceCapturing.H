@@ -6,7 +6,7 @@
 #include "fvc.H"
 #include "surfaceFields.H"
 #include "twoPhaseMixtureThermo.H"
-//#include "DimensionValidator.H"
+
 
 namespace Foam
 {
@@ -30,7 +30,7 @@ private:
     scalar recoilMax_;               // Maximum allowed recoil pressure
     label  recoilUpdateInterval_;    // Steps between recoil pressure updates
     scalar recoilTempOffset_;         // Temperature offset for recoil activation
-    // Valid alpha range (controlDict → advancedInterfaceCapturing → alphaBounds)
+    // Valid alpha range (controlDict → advancedInterfaceCapturing)
     scalar alphaMin_;               // Minimum alpha for recoil activation
     scalar alphaMax_;               // Maximum alpha for recoil activation
     // Field for recoil pressure
@@ -61,7 +61,8 @@ public:
 
     // Access functions
     const volScalarField& recoilPressure() const { return recoilPressure_; }
-    
+    label recoilUpdateInterval() const { return recoilUpdateInterval_; }
+
     // Access functions for validation
     dimensionedScalar latentHeat() const { return latentHeat_; }
 

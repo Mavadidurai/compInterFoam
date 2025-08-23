@@ -66,7 +66,7 @@ Description
 #include "femtosecondLaserModel.H"
 #include "twoTemperatureModel.H"
 #include "advancedInterfaceCapturing.H"
-//#include "DimensionValidator.H"
+
 Foam::Switch verbose(false);
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
@@ -90,6 +90,8 @@ int main(int argc, char *argv[])
     #include "createTimeControls.H"
     
     #include "createFields.H"
+    // Track recoil pressure update intervals when alpha subcycle is skipped
+    label recoilCallCount = 0;
 
     // Reference to psi fields (needed for compressibility)
     #ifndef NDEBUG
@@ -208,7 +210,6 @@ int main(int argc, char *argv[])
 
             turbulence.correctPhasePhi();
 
-            #include "UEqn.H"
             dimensionedScalar maxLaserSrc = max(laserSrc());
             const scalar laserSrcThreshold = 1e-6;
             if (maxLaserSrc.value() < laserSrcThreshold)
@@ -219,7 +220,22 @@ int main(int argc, char *argv[])
             }
 
             ttm.solve(laserSrc(), mixture.phaseChangeSource());
+            // If alpha subcycling did not execute, update recoil pressure
+            if
+            (
+                !alphaSubCycleExecuted
+             && useAdvancedCapturing
+             && pInterfaceCapturing.valid()
+            )
+            {
+                const label interval = pInterfaceCapturing->recoilUpdateInterval();
+                if (interval <= 1 || recoilCallCount++ % interval == 0)
+                {
+                    pInterfaceCapturing->calculateRecoilPressure();
+                }
+            }
 
+            #include "UEqn.H"
             #include "TEqn.H"
             
             // --- Pressure corrector loop

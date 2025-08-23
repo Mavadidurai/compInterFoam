@@ -3,7 +3,6 @@
 #include "fvm.H"
 #include "wallFvPatch.H"
 #include "fvPatchField.H"
-//#include "DimensionValidator.H"
 #include "dimensionSets.H"
 
 namespace Foam
@@ -42,7 +41,7 @@ advancedInterfaceCapturing::advancedInterfaceCapturing
             dimensionedScalar
             (
                 "latentHeat",
-                DimensionValidator::dimLatentHeat,
+                Foam::dimLatentHeat,
                 mesh.lookupObject<dictionary>("thermophysicalProperties")
                 .subDict("metal").lookupOrDefault<scalar>("hf", 435e3)
             )
@@ -90,9 +89,8 @@ advancedInterfaceCapturing::advancedInterfaceCapturing
         recoilTempOffset_
     );
 
-    const dictionary& alphaBounds = aicDict.subOrEmptyDict("alphaBounds");
-    alphaMin_ = alphaBounds.lookupOrDefault<scalar>("alphaMin", alphaMin_);
-    alphaMax_ = alphaBounds.lookupOrDefault<scalar>("alphaMax", alphaMax_);
+    alphaMin_ = aicDict.lookupOrDefault<scalar>("alphaMin", alphaMin_);
+    alphaMax_ = aicDict.lookupOrDefault<scalar>("alphaMax", alphaMax_);
     // Simple initialization, no calculations in constructor to avoid MPI issues
     const bool verbose = mesh.time().controlDict().lookupOrDefault<Switch>("verbose", false);
     if (verbose)
