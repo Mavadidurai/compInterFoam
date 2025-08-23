@@ -208,7 +208,25 @@ bool twoTemperatureModel::validateParameters() const
             << abort(FatalError);
         valid = false;
     }
-
+	    // Warn if material properties appear outside typical ranges
+    if (Ce_.value() < 1e4 || Ce_.value() > 1e8)
+    {
+        WarningInFunction
+            << "Ce (" << Ce_.value() << " J/m³/K) outside typical range [1e4, 1e8]"
+            << endl;
+    }
+    if (Cl_.value() < 1e6 || Cl_.value() > 1e8)
+    {
+        WarningInFunction
+            << "Cl (" << Cl_.value() << " J/m³/K) outside typical range [1e6, 1e8]"
+            << endl;
+    }
+    if (G_.value() < 1e15 || G_.value() > 1e19)
+    {
+        WarningInFunction
+            << "G (" << G_.value() << " W/m³/K) outside typical range [1e15, 1e19]"
+            << endl;
+    }
     // Validate thermal conductivity dimensions from Ce and De
     if ((Ce_ * De_).dimensions() != dimPower/dimLength/dimTemperature)
     {
@@ -291,6 +309,10 @@ void twoTemperatureModel::solve
 
     // Store initial energy
     updateEnergyTracking();
+    dimensionedScalar electronEnergyBefore = fvc::domainIntegrate(Ce_*Te_);
+    dimensionedScalar latticeEnergyBefore = fvc::domainIntegrate(Cl_*Tl_);
+    dimensionedScalar laserEnergy =
+        fvc::domainIntegrate(laserSource)*mesh_.time().deltaT();
     if (verbose)
     {
         Info<< "max(laserSource) = " << max(laserSource).value()
@@ -357,7 +379,24 @@ void twoTemperatureModel::solve
     electronDict.add("relTol", 0.01);  // Looser relative tolerance
     electronDict.add("maxIter", 1000);
     
-    TeEqn.solve(electronDict);
+        TeEqn.solve(electronDict);
+
+    dimensionedScalar electronEnergyAfter = fvc::domainIntegrate(Ce_*Te_);
+    dimensionedScalar latticeEnergyAfter = fvc::domainIntegrate(Cl_*Tl_);
+    if (verbose)
+    {
+        Info<< "Energy diagnostics:" << nl
+            << "  Electron energy before laser: "
+            << electronEnergyBefore.value() << " J" << nl
+            << "  Lattice energy before laser: "
+            << latticeEnergyBefore.value() << " J" << nl
+            << "  Laser energy input: "
+            << laserEnergy.value() << " J" << nl
+            << "  Electron energy after laser: "
+            << electronEnergyAfter.value() << " J" << nl
+            << "  Lattice energy after laser: "
+            << latticeEnergyAfter.value() << " J" << endl;
+    }
 
     // Apply temperature bounds from dictionary
     dimensionedScalar minTemp
