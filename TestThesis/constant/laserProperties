@@ -40,7 +40,8 @@ FoamFile
 // Domain: x∈[0,50e-6], y∈[0,20e-6], z∈[0,10e-6]
 
 // geometry coupling
-filmYMin    8e-6;
+// Center donor film around laser focus so focus y lies within film bounds
+filmYMin    9.4643e-6;
 filmYMax    #calc "$filmYMin + 7.14e-8"; // 71.4 nm donor film thickness
 offFilmScale    0.1;       // Intensity scaling outside donor film [-]
 offFilmMax      1e14;      // Max volumetric intensity outside film [W/m^3]

@@ -66,6 +66,8 @@ advancedInterfaceCapturing
     // strength & stability
     pressureScale        1e5;      // nondim scale used in your model
     recoilMax            5e7;      // Pa cap (was too low by default)
+    clampRecoil          true;     // disable to remove cap
+    scaleRecoilMax       false;    // scale cap with phase change
     recoilUpdateInterval 1;        // evaluate every step
     recoilTempOffset     100;      // K below melting point for activation
     alphaMin             0.001;

@@ -28,10 +28,12 @@ solvers
         nAlphaSubCycles 1;              
         cAlpha          0.2;            // Conservative interface compression
         icAlpha         0;              
-        scAlpha         0;              
-        MULESCorr       false;          
-        nLimiterIter    3;              
-        alphaApplyPrevCorr false;       
+        scAlpha         0;
+        MULESCorr       false;
+        nLimiterIter    3;
+        alphaApplyPrevCorr false;
+        sharpeningScheme standard;
+        thinFilmCoeff   0.0;    
     }
     
     p_rgh

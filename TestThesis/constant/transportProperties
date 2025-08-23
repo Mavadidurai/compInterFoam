@@ -37,9 +37,9 @@ air
 }
 
 // ✅ ENHANCED: Phase change properties for LIFT with substrate effects
-meltingTemperature      1941.0;     // K - Titanium melting point
-vaporTemperature        3560.0;     // K - Titanium vaporization point  
-latentHeat      latentHeat [1 2 -2 0 0 0 0] 3.65e5;     // J/kg - Titanium latent heat of fusion
+meltingTemperature      meltingTemperature [0 0 0 1 0 0 0] 1941.0;     // K - Titanium melting point
+vaporTemperature        vaporTemperature [0 0 0 1 0 0 0] 3560.0;     // K - Titanium vaporization point
+latentHeat      latentHeat [0 2 -2 0 0 0 0] 3.65e5;     // J/kg - Titanium latent heat of fusion
 
 // ✅ NEW: Substrate thermal properties (for boundary conditions)
 substrateProperties
@@ -56,7 +56,7 @@ substrateProperties
 }
 
 // ✅ ENHANCED: Surface tension between phases (including substrate effects)
-sigma           sigma [ 1 0 -2 0 0 0 0 ] 1.5;         // N/m - Metal-air surface tension
+sigma           sigma [ 1 0 -2 0 0 0 0 ] 1.64;         // N/m - Metal-air surface tension
 
 // ✅ NEW: Substrate-metal interface tension (affects wetting)
 sigmaSM         sigmaSM [ 1 0 -2 0 0 0 0 ] 2.0;       // N/m - Substrate-metal interface
