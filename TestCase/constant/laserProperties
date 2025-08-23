@@ -37,8 +37,6 @@ FoamFile
 // Gaussian pulse focused in the 2 µm metal film (y=8–10 µm)
 // Domain: x∈[0,50e-6], y∈[0,20e-6], z∈[0,10e-6]
 
-laserModel      gaussian;
-
 // geometry coupling
 filmYMin    8e-6;
 filmYMax    1e-5;
@@ -64,14 +62,13 @@ wavelength          1.03e-6;  // [m]
 // Absorption
 absorptionCoeff     5e7;      // [1/m] ~20–50 nm optical depth
 
-
 // Reflectivity / profile
 reflectivity        0.3;
 gaussianProfile     true;
 maxReflections      1;
 
 // Optional intensity entry (consistent with pulseEnergy & pulseWidth)
-peakIntensity       5e17;      // [W/m^2]
+peakIntensity       1.886e17;      // [W/m^2] from pulseEnergy
 continuousLaser     false;
 
 // ************************************************************************* //
