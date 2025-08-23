@@ -1,10 +1,11 @@
+---
 name: OpenFOAM v2406 — compInterFoam CI
 
-on:
+"on":
   push:
-    branches: [ "**" ]
+    branches: ["**"]
   pull_request:
-    branches: [ "**" ]
+    branches: ["**"]
 
 permissions:
   contents: read
@@ -13,23 +14,30 @@ jobs:
   build-compInterFoam:
     name: Build compInterFoam (OpenFOAM v2406)
     runs-on: ubuntu-latest
-    # Use the official OpenCFD Docker image with v2406 toolchain preinstalled
-    # Ref: opencfd/openfoam-dev:2406
-    container:
-      image: opencfd/openfoam-dev:2406
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Install OpenFOAM v2406
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y openfoam2406
+
       - name: Show OpenFOAM environment
         shell: bash -l {0}
         run: |
-          source /usr/lib/openfoam/openfoam2406/etc/bashrc
+          source /opt/openfoam2406/etc/bashrc
           foamVersion || true
           echo "WM_PROJECT_DIR=$WM_PROJECT_DIR"
           echo "WM_PROJECT_VERSION=$WM_PROJECT_VERSION"
           echo "WM_OPTIONS=$WM_OPTIONS"
+
+      - name: Verify wmake availability
+        shell: bash -l {0}
+        run: |
+          source /opt/openfoam2406/etc/bashrc
+          wmake -help
 
       - name: Configure build flags (DP, 32-bit labels)
         shell: bash -l {0}
@@ -44,11 +52,14 @@ jobs:
           WM_PRECISION_OPTION: ${{ env.WM_PRECISION_OPTION }}
         run: |
           set -euo pipefail
-          source /usr/lib/openfoam/openfoam2406/etc/bashrc
-          echo "Using WM_LABEL_SIZE=$WM_LABEL_SIZE WM_PRECISION_OPTION=$WM_PRECISION_OPTION"
+          source /opt/openfoam2406/etc/bashrc
+          echo "Using WM_LABEL_SIZE=$WM_LABEL_SIZE"
+          echo "WM_PRECISION_OPTION=$WM_PRECISION_OPTION"
 
           # Try to locate the solver directory automatically
-          SOLVER_DIR=$(git ls-files | grep -E '(^|/)compInterFoam/Make/files$' | sed 's#/Make/files##' | head -n1 || true)
+          SOLVER_DIR=$(git ls-files | \
+            grep -E '(^|/)compInterFoam/Make/files$' | \
+            sed 's#/Make/files##' | head -n1 || true)
           if [ -z "$SOLVER_DIR" ]; then
             # Fallback to common location
             SOLVER_DIR=applications/solvers/multiphase/compInterFoam
@@ -72,8 +83,9 @@ jobs:
         id: findbin
         shell: bash -l {0}
         run: |
-          source /usr/lib/openfoam/openfoam2406/etc/bashrc
-          BIN_PATH=$(find "$WM_PROJECT_USER_DIR" -type f -path '*/platforms/*/bin/compInterFoam' | head -n1 || true)
+          source /opt/openfoam2406/etc/bashrc
+          BIN_PATH=$(find "$WM_PROJECT_USER_DIR" -type f \
+            -path '*/platforms/*/bin/compInterFoam' | head -n1 || true)
           if [ -z "$BIN_PATH" ]; then
             echo "Binary not found under $WM_PROJECT_USER_DIR/platforms" >&2
             exit 1
@@ -84,14 +96,15 @@ jobs:
       - name: Smoke test (help only)
         shell: bash -l {0}
         run: |
-          source /usr/lib/openfoam/openfoam2406/etc/bashrc
-          "${{ steps.findbin.outputs.bin }}" -help | head -n 50 | tee solver-help.txt
+          source /opt/openfoam2406/etc/bashrc
+          "${{ steps.findbin.outputs.bin }}" -help | head -n 50 | \
+            tee solver-help.txt
 
-      - name: Optional: run minimal case if present
+      - name: "Optional: run minimal case if present"
         if: ${{ hashFiles('cases/minimal/system/controlDict') != '' }}
         shell: bash -l {0}
         run: |
-          source /usr/lib/openfoam/openfoam2406/etc/bashrc
+          source /opt/openfoam2406/etc/bashrc
           BIN="${{ steps.findbin.outputs.bin }}"
           cd cases/minimal
           blockMesh || true
@@ -106,9 +119,9 @@ jobs:
             ${{ steps.findbin.outputs.bin }}
             build.log
             solver-help.txt
-            cases/minimal/constant  
-            cases/minimal/system    
-            cases/minimal/0*        
+            cases/minimal/constant
+            cases/minimal/system
+            cases/minimal/0*
           if-no-files-found: warn
 
   cppcheck:
