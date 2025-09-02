@@ -199,6 +199,9 @@ volScalarField p
     ),
     p_rgh + rho*gh
 );
+label pRefCell = 0;
+scalar pRefValue = 0.0;
+setRefCell(p_rgh, mesh.solutionDict().subDict("PIMPLE"), pRefCell, pRefValue);
 surfaceScalarField rho1f(fvc::interpolate(rho1));
 surfaceScalarField rho2f(fvc::interpolate(rho2));
 

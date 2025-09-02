@@ -125,7 +125,10 @@ extern Foam::Switch verbose;
     fvScalarMatrix pEqn(fvm::laplacian(rAUf, p_rgh) == fvc::div(phiHbyA));
     
     // Set reference and apply adaptive under-relaxation
-    pEqn.setReference(pRefCell, pRefValue);
+   if (p_rgh.needReference())
+    {
+        pEqn.setReference(pRefCell, pRefValue);
+    }
     static scalar relaxP
     (
         mesh.solutionDict().lookupOrDefault<scalar>("relaxP", 0.3)
