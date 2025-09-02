@@ -295,8 +295,8 @@ IOdictionary transportProperties
     )
 );
 
-bool useAdvancedCapturing = 
-    runTime.controlDict().lookupOrDefault<bool>("useAdvancedInterfaceCapturing", false);
+bool useAdvancedCapturing =
+    runTime.controlDict().lookupOrDefault<bool>("useAdvancedInterfaceCapturing", true);
     
 // Create LIFT-specific models
 if (verbose)
@@ -354,40 +354,32 @@ scalar scAlpha(0.0);
 (void)scAlpha;
 (void)fvOptions;
 
-// Pressure reference
-label pRefCell = 0;
-scalar pRefValue = 0.0;
-setRefCell(p_rgh, mesh.solutionDict().subDict("PIMPLE"), pRefCell, pRefValue);
-mesh.setFluxRequired(p_rgh.name());
-
-// Create advanced interface capturing if needed
+// Always create the interface-capturing model so a recoil-pressure field exists
 autoPtr<advancedInterfaceCapturing> pInterfaceCapturing;
+pInterfaceCapturing.reset
+(
+    new advancedInterfaceCapturing
+    (
+        mesh,
+        alpha1,
+        phi,
+        mixture,
+        T
+    )
+);
 
-if (useAdvancedCapturing)
+if (verbose)
 {
-    if (verbose)
+    if (useAdvancedCapturing)
     {
         Info<< "Creating advanced interface capturing\n" << endl;
     }
-    pInterfaceCapturing.reset
-    (
-        new advancedInterfaceCapturing
-        (
-            mesh,
-            alpha1,
-            phi,
-            mixture,
-            T
-        )
-    );
-}
-else
-{
-    if (verbose)
+    else
     {
-        Info<< "Using standard interface capturing\n" << endl;
+        Info<< "Advanced interface capturing disabled; using basic recoil model\n" << endl;
     }
 }
+
 
 // ✅ CLEAR: Field validation with intuitive naming
 dimensionedScalar totalMetalVOF = fvc::domainIntegrate(alpha1);

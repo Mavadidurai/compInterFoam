@@ -116,8 +116,8 @@ fvVectorMatrix UEqn(fvm::ddt(rho, U) + fvm::div(rhoPhi, U));
 
 UEqn += turbulence.divDevRhoReff(U);
 
-// Add recoil pressure gradient
-if (useAdvancedCapturing && pInterfaceCapturing.valid())
+// Add recoil pressure gradient whenever the model is available
+if (pInterfaceCapturing.valid())
 {
     UEqn -= fvc::grad(pInterfaceCapturing->recoilPressure());
 }

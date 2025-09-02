@@ -1,5 +1,5 @@
-// Check if using standard subcycling or advanced interface capturing
-// After: guard against null pointer and use the correct pointer name
+// Execute interface capturing if the model is available
+
 if (pInterfaceCapturing.valid())
 {
     // Flag that the alpha subcycle has been executed

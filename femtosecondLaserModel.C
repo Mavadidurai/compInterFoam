@@ -228,7 +228,7 @@ void femtosecondLaserModel::update()
     
     if (mag(scanVelocity_) > VSMALL)
     {
-focus_ = initialFocus_ + scanVelocity_ * mesh_.time().value();
+	focus_ = initialFocus_ + scanVelocity_ * mesh_.time().value();
     }
 
     // Determine if the laser pulse is active at the supplied time.  For a

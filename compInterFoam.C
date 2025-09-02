@@ -224,7 +224,6 @@ int main(int argc, char *argv[])
             if
             (
                 !alphaSubCycleExecuted
-             && useAdvancedCapturing
              && pInterfaceCapturing.valid()
             )
             {
