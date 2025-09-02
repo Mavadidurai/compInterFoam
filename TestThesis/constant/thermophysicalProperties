@@ -131,7 +131,7 @@ liftPhysics
 
     // Droplet formation
     dropletBreakupLength   5e-6;            // m - Characteristic breakup length
-    webberNumber           8;                // Critical Weber number for breakup
+    weberNumber           8;                // Critical Weber number for breakup
 }
 // ************************************************************************* //
 //

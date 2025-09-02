@@ -25,8 +25,8 @@ solvers
         maxIter         50;             
         
         nAlphaCorr      2;              
-        nAlphaSubCycles 1;              
-        cAlpha          0.2;            // Conservative interface compression
+        nAlphaSubCycles 2;              
+        cAlpha          1;            // Conservative interface compression
         icAlpha         0;              
         scAlpha         0;
         MULESCorr       false;
@@ -132,7 +132,18 @@ compInterFoamCoeffs
     maxReasonableVelocity  250;     // UEqn.H
     defaultMetalDensity    4500;    // UEqn.H (fallback if rho1 invalid)
     defaultAirDensity      1.2;     // UEqn.H (fallback if rho2 invalid)
-    maxVelocity            1000;    // UEqn.H velocity limiter
-    targetResU             0.1;     // UEqn.H adaptive relaxation driver
+    maxVelocity            5000;    // UEqn.H velocity limiter
+    // Keep α bounded but not over-restricted
+    enableAlphaClamp  true;
+    minAlpha          0.0;
+    maxAlpha          1.0;
+
+    // Momentum matrix safety (also read from controlDict as fallback)
+    enableRAUClamp    true;
+    minRAU            1e-10;
+    maxRAU            1e6;
+
+    // Optional residual targeting used in your code
+    targetResU        0.05;
 }
 

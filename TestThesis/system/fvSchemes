@@ -56,11 +56,12 @@ divSchemes
     
     // ✅ ENHANCED ALPHA TRANSPORT - Critical for interface capturing
     // Use limitedLinear to reduce excessive compression
-    div(phi,alpha)          Gauss limitedLinear 1.0;    // Moderated TVD for stability
+    div(phi,alpha)        Gauss vanLeer;
+    div(phirb,alpha)      Gauss interfaceCompression;
     div(phir,alpha)         Gauss interfaceCompression; // Compression with lower cAlpha
-    div(phi,alpha.metal)    Gauss limitedLinear 1.0;    // Metal phase transport
+    div(phi,alpha.metal)    Gauss vanLeer;    // Metal phase transport
     div(phir,alpha.metal)   Gauss interfaceCompression; // Metal compression
-    div(phi,alpha.air)      Gauss limitedLinear 1.0;    // Air phase transport
+    div(phi,alpha.air)      Gauss vanLeer;    // Air phase transport
     
     // ✅ MOMENTUM TRANSPORT - Enhanced for interface dynamics
     div(rhoPhi,U)           Gauss linearUpwindV grad(U); // Stable momentum

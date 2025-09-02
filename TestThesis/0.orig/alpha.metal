@@ -23,11 +23,11 @@ internalField   uniform 0;
 
 boundaryField
 {
-    yMax
+    zMax
     {
         type        zeroGradient;
     }
-    yMin
+    zMin
     {
         type        zeroGradient;
     }
@@ -39,13 +39,20 @@ boundaryField
     {
         type            zeroGradient;
     }
-    zMin
+    yMin
     {
-        type            zeroGradient;
+        type            constantAlphaContactAngle;
+        theta0          2;              // degrees (2–5 is fine)
+        limit           gradient;       // or 'theta' if you prefer
+        value           uniform 1;      // metal: 1 / air: 0
     }
-    zMax
+
+    // TOP (atmosphere/open) — let α leave the domain
+    yMax
     {
-        type            zeroGradient;
+        type            inletOutlet;
+        inletValue      uniform 0;
+        value           uniform 0;      // metal: 0 / air: 1
     }
 }
 
