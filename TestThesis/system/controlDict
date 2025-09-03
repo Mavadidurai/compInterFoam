@@ -24,9 +24,9 @@ endTime         5e-8;               // extend into tens of nanoseconds
 
 deltaT          1e-15;
 adjustTimeStep  yes;
-maxCo           0.2;
+maxCo           0.05;
 maxAlphaCo      0.2;
-maxDeltaT       5e-12;            // allow growth after pulse
+maxDeltaT       1e-12;            // allow growth after pulse
 // optional runtime output verbosity
 verbose         true;
 writeControl    runTime;
@@ -65,23 +65,23 @@ advancedInterfaceCapturing
 
     // strength & stability
     pressureScale        1e5;      // nondim scale used in your model
-    recoilMax            5e7;      // Pa cap (was too low by default)
+    recoilMax            1e7;      // Pa cap moderated for stability
     clampRecoil          true;     // disable to remove cap
-    scaleRecoilMax       false;    // scale cap with phase change
+    scaleRecoilMax       true;     // scale cap with phase change
     recoilUpdateInterval 1;        // evaluate every step
-    recoilTempOffset     100;      // K below melting point for activation
-    alphaMin             0.001;
-    alphaMax             0.999;
+    recoilTempOffset     300;      // K above melting point for activation
+    alphaMin             0.05;
+    alphaMax             0.95;
 }
 // Clamps used in pEqn.H to maintain numerical stability
 pressureClamp     false;    // enable pressure clamping
 //minPressure       1e2;     // Pa lower bound
 //maxPressure       5e8;     // Pa upper bound (allow tens/hundreds of MPa)
 enableRAUfClamp   true;    // clamp reciprocal momentum coefficient
-minRAUf           1e-10;   // lower rAUf limit
+minRAUf           1e-12;   // lower rAUf limit
 maxRAUf           1e6;     // upper rAUf limit
 enableRAUClamp                  true;
-minRAU                          1e-10;
+minRAU                          1e-12;
 maxRAU                          1e6;
 
 // adaptive relaxation used in pEqn.H
@@ -93,7 +93,7 @@ targetResP        0.05;
 enableTClamp                   true;
 minT                           250;
 maxT                           8000;
-maxVelocity                    3000;
+maxVelocity                    1000;
 
 densityClamp                   true;
 minDensity                     0.5;

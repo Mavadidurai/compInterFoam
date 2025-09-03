@@ -48,7 +48,7 @@ offFilmMax      1e14;      // Max volumetric intensity outside film [W/m^3]
 // --- Energy & timing ---
 // Boosted energy/intensity to reach melt/ablation threshold
 pulseEnergy     4.2e-8;          // [J] total energy
-pulseWidth      150e-15;       // [s] 150 fs pulse width
+pulseWidth      0.50e-12;       // [s] 150 fs pulse width
 laserStartTime  0;             // [s]
 laserEndTime    #calc "$laserStartTime + $pulseWidth"; // [s]
 
@@ -72,6 +72,6 @@ maxReflections      1;
 
 // Optional intensity entry (consistent with pulseEnergy & pulseWidth)
 peakIntensity       1e16;      // [W/m^2] from pulseEnergy
-continuousLaser     false;
+continuousLaser     true;
 
 // ************************************************************************* //

@@ -25,11 +25,11 @@ solvers
         maxIter         100;             
         
         nAlphaCorr      2;              
-        nAlphaSubCycles 2;              
-        cAlpha          1.0;            // Conservative interface compression
+        nAlphaSubCycles 4;              
+        cAlpha          1.5;            // Conservative interface compression
         icAlpha         0;              
         scAlpha         0;
-        MULESCorr       false;
+        MULESCorr       true;
         nLimiterIter    3;
         alphaApplyPrevCorr false;
         sharpeningScheme standard;

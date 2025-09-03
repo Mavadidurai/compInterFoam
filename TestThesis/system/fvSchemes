@@ -58,7 +58,7 @@ divSchemes
     // Use limitedLinear to reduce excessive compression
     div(phi,alpha)        Gauss vanLeer;
     div(phirb,alpha)      Gauss interfaceCompression;
-    div(phir,alpha)         Gauss interfaceCompression; // Compression with lower cAlpha
+    div(phir,alpha)         Gauss interfaceCompression 0.5; // Reduced interface compression to limit smearing
     div(phi,alpha.metal)    Gauss vanLeer;    // Metal phase transport
     div(phir,alpha.metal)   Gauss interfaceCompression; // Metal compression
     div(phi,alpha.air)      Gauss vanLeer;    // Air phase transport
