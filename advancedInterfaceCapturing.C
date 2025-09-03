@@ -61,6 +61,7 @@ advancedInterfaceCapturing::advancedInterfaceCapturing
     recoilTempOffset_(100.0),
     clampRecoil_(true),
     scaleRecoilMax_(false),
+    relaxFactor_(0.5),
     // Relaxed default bounds to reduce clipping of interface values
     alphaMin_(0.001),
     alphaMax_(0.999),
@@ -110,7 +111,11 @@ advancedInterfaceCapturing::advancedInterfaceCapturing
         "scaleRecoilMax",
         scaleRecoilMax_
     );
-
+    relaxFactor_ = aicDict.lookupOrDefault<scalar>
+    (
+        "relaxFactor",
+        relaxFactor_
+    );
     alphaMin_ = aicDict.lookupOrDefault<scalar>("alphaMin", alphaMin_);
     alphaMax_ = aicDict.lookupOrDefault<scalar>("alphaMax", alphaMax_);
     C0_ = aicDict.lookupOrDefault<scalar>("C0", C0_);
@@ -213,8 +218,8 @@ void Foam::advancedInterfaceCapturing::correct()
     );
     
     // Apply relaxation for stability
-    scalar relaxFactor = 0.5;
-    alpha1Eqn.relax(relaxFactor);
+    alpha1Eqn.relax(relaxFactor_);
+
     
     // Solve with standard settings
     alpha1Eqn.solve();

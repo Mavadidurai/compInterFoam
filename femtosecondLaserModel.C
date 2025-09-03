@@ -94,8 +94,6 @@ femtosecondLaserModel::femtosecondLaserModel
     cumulativeEnergy_(0.0),
     lastTimeIndex_(mesh.time().timeIndex())
 {
-       const bool verbose =
-        mesh_.time().controlDict().lookupOrDefault<Switch>("verbose", false);
     // Normalize direction vector
     direction_ /= mag(direction_) + SMALL;
 
@@ -380,13 +378,13 @@ bool femtosecondLaserModel::checkPhysicalBounds() const
 
 scalar femtosecondLaserModel::calculateGaussianIntensity
 (
-    const scalar R,
-    const scalar z
+const scalar R
 ) const
 {
     if (gaussianProfile_)
     {
-        // Gaussian beam profile: I = I0 * exp(-2*r²/w²)
+        // Gaussian beam profile (radial only): I = I0 * exp(-2*r²/w²)
+        // Axial attenuation is handled separately via an absorption term
         scalar beamRadius = spotSize_.value() / 2.0;  // Convert diameter to radius
         return exp(-2.0*sqr(R)/sqr(beamRadius));
     }
@@ -555,7 +553,7 @@ void femtosecondLaserModel::calculateSource() const
             r -= z*direction_;
             scalar R = mag(r);
             
-            scalar spatialTerm = calculateGaussianIntensity(R, z);
+            scalar spatialTerm = calculateGaussianIntensity(R);
             scalar absorptionTerm = exp(-absorptionCoeff_.value() * max(z, 0.0));
             
             scalar transmissionFactor = 1.0 - reflectivity_;

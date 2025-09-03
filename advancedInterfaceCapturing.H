@@ -32,6 +32,8 @@ private:
     scalar recoilTempOffset_;        // Temperature offset for recoil activation
     Switch clampRecoil_;             // Enable/disable recoil pressure clamping
     Switch scaleRecoilMax_;          // Scale recoilMax with phase-change rate
+    scalar relaxFactor_;             // Relaxation factor for alpha transport
+
     // Valid alpha range (controlDict → advancedInterfaceCapturing)
     scalar alphaMin_;               // Minimum alpha for recoil activation
     scalar alphaMax_;               // Maximum alpha for recoil activation
@@ -67,6 +69,7 @@ public:
     // Access functions
     const volScalarField& recoilPressure() const { return recoilPressure_; }
     label recoilUpdateInterval() const { return recoilUpdateInterval_; }
+    scalar relaxFactor() const { return relaxFactor_; }
     scalar C0() const { return C0_; }
     scalar C1() const { return C1_; }
 

@@ -101,11 +101,11 @@ private:
         //   peak intensity <= 1e16 W/m²)
         bool checkPhysicalBounds() const;
 
-        //- Calculate Gaussian intensity profile
+        //- Calculate Gaussian intensity profile based on radial distance only
+        //  (axial attenuation handled via separate absorption term)
         scalar calculateGaussianIntensity
         (
-            const scalar R,      // Radial distance from beam center
-            const scalar z       // Axial distance along beam
+            const scalar R       // Radial distance from beam center
         ) const;
 
         //- Check if point is within laser beam
