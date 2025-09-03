@@ -30,7 +30,7 @@ ddtSchemes
 
 gradSchemes
 {
-    default         Gauss linear;       // Standard second-order
+    default   cellLimited Gauss linear 1;
     
     // ✅ ENHANCED PRESSURE GRADIENTS (critical for momentum)
     grad(p_rgh)     Gauss linear;
@@ -97,7 +97,7 @@ divSchemes
 
 laplacianSchemes
 {
-    default                              Gauss linear corrected;
+    default                          Gauss linear limited 0.33;
     
     // ✅ PRESSURE LAPLACIANS - Critical for pressure-velocity coupling
     laplacian((1|A(U)),p_rgh)           Gauss linear corrected;

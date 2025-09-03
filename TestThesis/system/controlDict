@@ -41,7 +41,7 @@ fileHandler     collated;
 
 runTimeModifiable yes;
 
-dynamicFvMesh   dynamicRefineFvMesh;
+dynamicFvMesh   none;
 
 dynamicRefineFvMeshCoeffs
 {

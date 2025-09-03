@@ -20,13 +20,13 @@ solvers
     {
         solver          smoothSolver;
         smoother        symGaussSeidel;
-        tolerance       1e-6;           // Relaxed tolerance
-        relTol          0.1;            
-        maxIter         50;             
+        tolerance       1e-8;           // Relaxed tolerance
+        relTol          0.0;            
+        maxIter         100;             
         
         nAlphaCorr      2;              
         nAlphaSubCycles 2;              
-        cAlpha          1;            // Conservative interface compression
+        cAlpha          1.0;            // Conservative interface compression
         icAlpha         0;              
         scAlpha         0;
         MULESCorr       false;
@@ -93,9 +93,9 @@ solvers
 PIMPLE
 {
     momentumPredictor           true;   
-    nOuterCorrectors            3;      // Reduced - don't need so many
+    nOuterCorrectors            2;      // Reduced - don't need so many
     nCorrectors                 2;      
-    nNonOrthogonalCorrectors    0;      
+    nNonOrthogonalCorrectors    3;      
     
     outerCorrectorResidualControl
     {
@@ -111,12 +111,12 @@ relaxationFactors
 {
     fields
     {
-        p_rgh           0.5;            
+        p_rgh           0.2;            
         "alpha.*"       0.5;            
     }
     equations
     {
-        U               0.3;            // More aggressive - stable at this scale
+        U               0.5;            // More aggressive - stable at this scale
         UFinal          1.0;            
         T               0.5;            
         Te              0.5;            // Still conservative for electron temp
