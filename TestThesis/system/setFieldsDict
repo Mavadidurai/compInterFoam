@@ -60,8 +60,8 @@ regions
     // Heat sink:  y in [0, 8 µm]
     boxToCell
     {
-        box (0       0.0       0)
-            (5.0e-05 8.0e-06   1.0e-05);
+        box (2e-07    0.0       2e-07)
+            (3.98e-05 8.0e-06   3.98e-05); 
         fieldValues
         (
             volScalarFieldValue alpha.metal 1
@@ -76,8 +76,8 @@ regions
     // Metal thin film: y in [8 µm, 8.0714 µm] (~71.4 nm)
     boxToCell
     {
-        box (0       8.0e-06    0)
-            (5.0e-05 8.0714e-06 1.0e-05);
+        box (2e-07    8.0e-06     2e-07)
+            (3.98e-05 8.0714e-06  3.98e-05);
         fieldValues
         (
             volScalarFieldValue alpha.metal 1
@@ -93,8 +93,8 @@ regions
 
     boxToCell
     {
-        box (0       8.0714e-06 0)
-            (5.0e-05 3.0e-05   1.0e-05);
+        box (2e-07    8.0714e-06  2e-07)
+            (3.98e-05 3.0e-05     3.98e-05);
         fieldValues
         (
             volScalarFieldValue alpha.metal 0

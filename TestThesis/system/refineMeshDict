@@ -1,0 +1,43 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+| =========                 |                                                 |
+| \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox           |
+|  \\    /   O peration     | Version:  v2406                                 |
+|   \\  /    A nd           | Website:  www.openfoam.com                      |
+|    \\/     M anipulation  |                                                 |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    location    "system";
+    object      refineMeshDict;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+//|refineMeshDict : refine only Y in a thin band around the film
+
+
+    // Refine the cells in this set (made by topoSet)
+    set              refBand;
+
+    // Global Cartesian directions
+    coordinateSystem global;
+
+    // Split only Y (x,z unchanged)
+directions (x y z);
+
+    // Keep hex topology (you have pure hex)
+    useHexTopology   yes;
+    
+// Write the refined mesh each pass
+writeMesh        yes;
+
+    // Use topological (not geometric) splitting
+    geometricCut     no;
+
+    // Safety limit
+    maxGlobalCells   10000000;
+
+
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //

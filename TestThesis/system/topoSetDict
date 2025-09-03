@@ -15,10 +15,9 @@ FoamFile
 }
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
-
 actions
 (
-    // Substrate: y in [0, 8 µm]
+    // --- Substrate zone: y in [0, 8e-6]
     {
         name        substrate;
         type        cellSet;
@@ -26,7 +25,8 @@ actions
         source      boxToCell;
         sourceInfo
         {
-            box (0 0 0) (50e-6 8e-6 10e-6);
+            box (0       0.0     0)
+                (5.0e-05 8.0e-06 1.0e-05);
         }
     }
     {
@@ -37,23 +37,38 @@ actions
         sourceInfo { set substrate; }
     }
 
-    // Metal film: y in [8, 10 µm]
+    // --- Exact thin metal film zone: y in [8.0000e-6, 8.0714e-6], padded laterally
     {
-        name        metalFilm;
+        name        metalFilmExact;
         type        cellSet;
         action      new;
         source      boxToCell;
         sourceInfo
         {
-            box (0 8e-6 0) (50e-6 10e-6 10e-6);
+            box (1.0e-06  8.0000e-06  1.0e-06)
+                (4.9e-05  8.0714e-06  9.0e-06);
         }
     }
     {
-        name        metalFilm;
+        name        metalFilmExact;
         type        cellZoneSet;
         action      new;
         source      setToCellZone;
-        sourceInfo { set metalFilm; }
+        sourceInfo { set metalFilmExact; }
+    }
+
+    // --- Refinement band: y in [7.9e-6, 8.2e-6], padded laterally
+    {
+        name        refBand;
+        type        cellSet;
+        action      new;
+        source      boxToCell;
+        sourceInfo
+        {
+            box (1.0e-06  7.9e-06  1.0e-06)
+                (4.9e-05  8.2e-06  9.0e-06);
+        }
     }
 );
+
 // ************************************************************************* //
