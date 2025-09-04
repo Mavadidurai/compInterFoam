@@ -25,12 +25,14 @@ boundaryField
 
     yMax
     {
-        type        slip;
+        type        pressureInletOutletVelocity;
+        value uniform (0 0 0);
     }
 
     yMin
     {
-        type        slip;
+        type        fixedValue;
+        value       uniform (0 0 0);
     }
     xMin
     {

@@ -68,7 +68,9 @@ solvers
         smoother        symGaussSeidel;
         tolerance       1e-6;           
         relTol          0.1;            
-        maxIter         50;             
+        maxIter         50;     
+        minIter         1;
+        
     }
     
     Te
@@ -77,7 +79,8 @@ solvers
         smoother        symGaussSeidel;
         tolerance       1e-5;           // Very relaxed
         relTol          0.1;            
-        maxIter         50;             
+        maxIter         50;        
+        minIter         1;             
     }
     
     Tl
@@ -86,7 +89,8 @@ solvers
         smoother        symGaussSeidel;
         tolerance       1e-6;           
         relTol          0.1;            
-        maxIter         50;             
+        maxIter         50;   
+        minIter         1;                  
     }
 }
 
@@ -132,20 +136,21 @@ compInterFoamCoeffs
     maxReasonableVelocity  250;     // UEqn.H
     defaultMetalDensity    4500;    // UEqn.H (fallback if rho1 invalid)
     defaultAirDensity      1.2;     // UEqn.H (fallback if rho2 invalid)
-    maxVelocity            5000;    // UEqn.H velocity limiter
+    maxVelocity            300;    // UEqn.H velocity limiter
     // Keep α bounded but not over-restricted
     enableAlphaClamp  true;
     minAlpha          0.0;
     maxAlpha          1.0;
-
+    pressureClamp   true;
+    maxPressure   1e8;     // 100 MPa is plenty and cuts clamp spread
+    minPressure   1e3;     // keep a modest floor
     // Momentum matrix safety (also read from controlDict as fallback)
     enableRAUClamp    true;
     minRAU            1e-12;
     maxRAU            1e4;
+	minRAUf            1e-12;
+	maxRAUf            1e4;
 
-    pressureClamp     true;
-    minPressure       1e3;
-    maxPressure       1e8;
     // Optional residual targeting used in your code
     targetResU        0.05;
 }

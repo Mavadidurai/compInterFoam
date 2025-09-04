@@ -24,9 +24,9 @@ endTime         5e-8;               // extend into tens of nanoseconds
 
 deltaT          1e-15;
 adjustTimeStep  yes;
-maxCo           0.03;
+maxCo           0.02;
 maxAlphaCo      0.1;
-maxDeltaT       5e-13;            // allow growth after pulse
+maxDeltaT       2e-13;            // allow growth after pulse
 // optional runtime output verbosity
 verbose         true;
 writeControl    runTime;
@@ -69,20 +69,10 @@ advancedInterfaceCapturing
     clampRecoil          true;     // disable to remove cap
     scaleRecoilMax       true;     // scale cap with phase change
     recoilUpdateInterval 1;        // evaluate every step
-    recoilTempOffset     300;      // K above melting point for activation
-    alphaMin             0.05;
-    alphaMax             0.95;
+    recoilTempOffset     0;      // K above melting point for activation
+    alphaMin             0.01;
+    alphaMax             0.99;
 }
-// Clamps used in pEqn.H to maintain numerical stability
-pressureClamp     false;    // enable pressure clamping
-//minPressure       1e2;     // Pa lower bound
-//maxPressure       5e8;     // Pa upper bound (allow tens/hundreds of MPa)
-enableRAUfClamp   true;    // clamp reciprocal momentum coefficient
-minRAUf           1e-12;   // lower rAUf limit
-maxRAUf           1e6;     // upper rAUf limit
-enableRAUClamp                  true;
-minRAU                          1e-12;
-maxRAU                          1e6;
 
 // adaptive relaxation used in pEqn.H
 relaxP            0.2;
@@ -93,8 +83,6 @@ targetResP        0.05;
 enableTClamp                   true;
 minT                           250;
 maxT                           12000;
-// Raised to 12000 K to avoid artificial clamping during high-energy heating
-maxVelocity                    1000;
 
 densityClamp                   true;
 minDensity                     0.5;
@@ -114,7 +102,7 @@ functions
     {
         type              writeObjects;
         libs              ("libutilityFunctionObjects.so");
-        objects           (Q_laser U p_rgh T alpha.metal);
+        objects           (Q_laser U p_rgh T alpha.metal recoilPressure);
         writeOnExecution  true;
     }
 

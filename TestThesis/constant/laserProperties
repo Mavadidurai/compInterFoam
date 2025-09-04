@@ -42,7 +42,7 @@ FoamFile
 // geometry coupling
 // Center donor film around laser focus so focus y lies within film bounds
 filmYMin    8.0e-6;
-filmYMax    #calc "$filmYMin + 7.14e-8"; // 71.4 nm donor film thickness
+filmYMax            8.0714e-6;   // from setFields metal film
 offFilmScale    0.1;       // Intensity scaling outside donor film [-]
 offFilmMax      1e14;      // Max volumetric intensity outside film [W/m^3]
 // --- Energy & timing ---
@@ -50,7 +50,7 @@ offFilmMax      1e14;      // Max volumetric intensity outside film [W/m^3]
 pulseEnergy     4.2e-8;          // [J] total energy
 pulseWidth      5e-13;          // [s] 0.5 ps pulse width
 laserStartTime  0;              // [s]
-laserEndTime    5e-13;          // [s] ensure laser remains active to 0.5 ps
+laserEndTime    6e-12;          // [s] ensure laser remains active to 0.5 ps
 
 // --- Spatial Gaussian (match the box center and film depth) ---
 spotSize        6e-6;         // [m] beam diameter
@@ -71,7 +71,7 @@ gaussianProfile     true;
 maxReflections      1;
 
 // Optional intensity entry (consistent with pulseEnergy & pulseWidth)
-peakIntensity       1e16;      // [W/m^2] from pulseEnergy
+peakIntensity       1e15;      // [W/m^2] from pulseEnergy
 continuousLaser     true;
 
 // ************************************************************************* //

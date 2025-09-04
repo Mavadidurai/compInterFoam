@@ -56,11 +56,6 @@ substrateThermalEffects
     interfaceThermalResistance  1e-8;       // m²K/W - Substrate/metal interface
 }
 
-// ✅ OPTIMIZED: Interface compression for substrate system
-cAlpha          0.5;              // Reduced compression for stability
-icAlpha         0;                // Isotropic compression (disabled)
-scAlpha         0;                // Shear compression (disabled)
-
 // ✅ ENHANCED: Reference conditions with substrate considerations
 pRef            100000;                     // Pa - Reference pressure
 TRef            300;                        // K - Reference temperature
