@@ -48,9 +48,9 @@ offFilmMax      1e14;      // Max volumetric intensity outside film [W/m^3]
 // --- Energy & timing ---
 // Boosted energy/intensity to reach melt/ablation threshold
 pulseEnergy     4.2e-8;          // [J] total energy
-pulseWidth      0.50e-12;       // [s] 150 fs pulse width
-laserStartTime  0;             // [s]
-laserEndTime    #calc "$laserStartTime + $pulseWidth"; // [s]
+pulseWidth      5e-13;          // [s] 0.5 ps pulse width
+laserStartTime  0;              // [s]
+laserEndTime    5e-13;          // [s] ensure laser remains active to 0.5 ps
 
 // --- Spatial Gaussian (match the box center and film depth) ---
 spotSize        6e-6;         // [m] beam diameter
