@@ -148,9 +148,9 @@ compInterFoamCoeffs
     minPressure   1e3;     // keep a modest floor
     // Momentum matrix safety (also read from controlDict as fallback)
     enableRAUClamp    true;
-    minRAU            1e-12;
+    minRAU            1e-14;
     maxRAU            1e6;
-    minRAUf            1e-12;
+    minRAUf            1e-14;
     maxRAUf            1e6;
 
     // Optional residual targeting used in your code

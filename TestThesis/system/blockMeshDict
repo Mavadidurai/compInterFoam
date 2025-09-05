@@ -48,7 +48,7 @@ boundary
   zMax { type symmetryPlane; faces ((3 2 6 7)(7 6 10 11)(11 10 14 15)); }
 
   yMin { type wall;  faces ((0 1 2 3)); }         // donor glass bottom wall
-  yMax { type wall;  faces ((12 13 14 15)); }     // receiver wall (top of air gap)
+  yMax { type patch;  faces ((12 13 14 15)); }     // receiver wall (top of air gap)
 );
 
 mergePatchPairs();

@@ -29,7 +29,7 @@ useHexTopology      yes;
 geometricCut        yes;             // preserves nicer splits on hexes
 writeMesh           no;
 
-nBufferLayers        0;
+nBufferLayers        1;
 maxGlobalCells       30000000;
 maxLocalCells        30000000;
 minRefinementCells   0;
