@@ -53,7 +53,7 @@ laserStartTime  0;        // [s] begin 0.25 ps before pulse center
 laserEndTime    2.14e-13;        // [s] end 0.25 ps after, bracketing 0.5 ps pulse
 
 // --- Spatial Gaussian (match the box center and film depth) ---
-spotSize        3.4e-6;         // [m] beam diameter
+spotSize        6.8e-6;         // [m] beam diameter
 
 // Put the beam center inside the domain (mid x,z; inside donor film at y≈8.0357 µm)
 focus           (25e-6 8.0357e-6 5e-6);
