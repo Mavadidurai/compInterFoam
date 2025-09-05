@@ -365,7 +365,7 @@ bool femtosecondLaserModel::checkPhysicalBounds() const
     }
 
     // Check intensity (reasonable for LIFT)
-    if (peakIntensity_.value() > 1e16)
+    if (peakIntensity_.value() > 6e16)
     {
         WarningInFunction
             << "Very high peak intensity: "
