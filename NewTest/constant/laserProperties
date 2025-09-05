@@ -57,7 +57,7 @@ spotSize        6.8e-6;         // [m] beam diameter
 
 // Put the beam center inside the domain (mid x,z; inside donor film at y≈8.0357 µm)
 focus           (25e-6 8.0357e-6 5e-6);
-direction       (0 1 0);
+direction       (0 -1 0);
 
 // --- Wavelength / interaction ---
 wavelength          1.03e-6;  // [m]
@@ -72,7 +72,7 @@ maxReflections      1;
 transmission    0.445; 	 // through-glass fraction reaching film
 
 // Optional intensity entry (consistent with pulseEnergy & pulseWidth)
-peakIntensity       1e15;      // [W/m^2] from pulseEnergy
+//peakIntensity       1e15;      // [W/m^2] from pulseEnergy
 continuousLaser     false;
 
 // ************************************************************************* //

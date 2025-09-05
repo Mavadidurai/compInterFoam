@@ -40,5 +40,24 @@ sigma           sigma [ 1 0 -2 0 0 0 0 ] 1.64;
 cAlpha          cAlpha [0 0 0 0 0 0 0] 1;
 icAlpha         icAlpha [0 0 0 0 0 0 0] 0;
 scAlpha         scAlpha [0 0 0 0 0 0 0] 0;
-
+phaseChangeCoeffs
+{
+    model          temperatureWindow;
+    Tsolidus       1941;
+    Tliquidus      1941;
+    Tvapor         3560;
+    windowWidth    50;
+    onlyAboveMelt  true;
+    onlyAboveVapor true;
+    activationTime (2.5e-13 7.5e-13); // optional pulse window
+}
+massTransferCoeffs
+{
+    model     timeAndTemperatureWindow;
+    tStart    2.5e-13;
+    tEnd      7.5e-13;
+    Tsolidus  1941;
+    Tvapor    3560;
+    rateMax   0;          // solver computes only inside the window
+}
 // ************************************************************************* //
