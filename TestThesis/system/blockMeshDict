@@ -15,120 +15,40 @@ FoamFile
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 scale 1e-6; // coordinates in micrometers
 
+// Domain: x:[0,50] µm, z:[0,10] µm, y vertical (up)
+// y-planes (12 µm gap): 0.0000, 8.0000, 8.0714, 20.0714
 vertices
 (
-    (0   0   0)    // 0
-    (50  0   0)    // 1
-    (50  8   0)    // 2
-    (0   8   0)    // 3
-    (0   10  0)    // 4
-    (50  10  0)    // 5
-    (50  30  0)    // 6
-    (0   30  0)    // 7
-    (0   0   10)   // 8
-    (50  0   10)   // 9
-    (50  8   10)   // 10
-    (0   8   10)   // 11
-    (0   10  10)   // 12
-    (50  10  10)   // 13
-    (50  30  10)   // 14
-    (0   30  10)   // 15
-    (0   9   0)    // 16
-    (50  9   0)    // 17
-    (50  9   10)   // 18
-    (0   9   10)   // 19
+    // y0 = 0.0000 (donor glass bottom)
+    (0   0.0000  0)  (50  0.0000  0)  (50  0.0000 10)  (0   0.0000 10)
+    // y1 = 8.0000 (top of glass = bottom of Ti)
+    (0   8.0000  0)  (50  8.0000  0)  (50  8.0000 10)  (0   8.0000 10)
+    // y2 = 8.0714 (top of Ti) 71.4 nm
+    (0   8.0714  0)  (50  8.0714  0)  (50  8.0714 10)  (0   8.0714 10)
+    // y3 = 20.0714 (Ti top + 12 µm air gap)  ← top is the receiver wall
+    (0  20.0714  0)  (50 20.0714  0)  (50 20.0714 10)  (0  20.0714 10)
 );
+
 
 blocks
 (
-    // substrate: 0–8 µm (Δy = 0.1 µm)
-    hex (0 1 2 3 8 9 10 11)     (100 80 20) simpleGrading (1 1 1)
-
-    // metal film: 8–9 µm (Δy = 0.1 µm)
-    hex (3 2 17 16 11 10 18 19) (100 10 20) simpleGrading (1 1 1)
-
-    // metal film: 9–10 µm (Δy = 0.1 µm)
-    hex (16 17 5 4 19 18 13 12) (100 10 20) simpleGrading (1 1 1)
-
-    // air gap: 10–30 µm (Δy = 0.1 µm)
-    hex (4 5 6 7 12 13 14 15)   (100 200 20) simpleGrading (1 1 1)
+    //                bottom (z=0)    top (z=10)         Nx   Ny  Nz
+    hex ( 0  1  5  4   3  2  6  7)   (240  80  20)  simpleGrading (1 1 1)  // Glass
+    hex ( 4  5  9  8   7  6 10 11)   (240   8  20)  simpleGrading (1 1 1)  // Ti film (8 cells across 71.4 nm)
+    hex ( 8  9 13 12  11 10 14 15)   (240 120  20)  simpleGrading (1 1 1)  // Air gap (12 µm)
 );
-
 edges ();
 
 boundary
 (
-    // y = 30 μm (top)
-    yMax
-    {
-        type patch;
-        faces
-        (
-            (7 6 14 15)
-        );
-    }
+  xMin { type symmetryPlane; faces ((0 3 7 4)(4 7 11 8)(8 11 15 12)); }
+  xMax { type symmetryPlane; faces ((1 5 6 2)(5 9 10 6)(9 13 14 10)); }
 
-    // y = 0 (bottom)
-    yMin
-    {
-        type wall;
-        faces
-        (
-            (0 1 9 8)
-        );
-    }
+  zMin { type symmetryPlane; faces ((0 1 5 4)(4 5 9 8)(8 9 13 12)); }
+  zMax { type symmetryPlane; faces ((3 2 6 7)(7 6 10 11)(11 10 14 15)); }
 
-    // x = 0 (side)
-    xMin
-    {
-        type patch;
-        faces
-        (
-            (0 3 11 8)
-            (3 16 19 11)
-            (16 4 12 19)
-            (4 7 15 12)
-        );
-    }
-
-    // x = 50 μm (side)
-    xMax
-    {
-        type patch;
-        faces
-        (
-            (1 2 10 9)
-            (2 17 18 10)
-            (17 5 13 18)
-            (5 6 14 13)
-        );
-    }
-
-    // z = 0 (front)
-    zMin
-    {
-        type patch;
-        faces
-        (
-            (0 1 2 3)
-            (3 2 17 16)
-            (16 17 5 4)
-            (4 5 6 7)
-        );
-    }
-
-    // z = 10 μm (back)
-    zMax
-    {
-        type patch;
-        faces
-        (
-            (8 9 10 11)
-            (11 10 18 19)
-            (19 18 13 12)
-            (12 13 14 15)
-        );
-    }
+  yMin { type wall;  faces ((0 1 2 3)); }         // donor glass bottom wall
+  yMax { type wall;  faces ((12 13 14 15)); }     // receiver wall (top of air gap)
 );
 
 mergePatchPairs();

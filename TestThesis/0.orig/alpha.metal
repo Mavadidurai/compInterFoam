@@ -25,34 +25,32 @@ boundaryField
 {
     zMax
     {
-        type        zeroGradient;
+        type        symmetryPlane;
     }
     zMin
     {
-        type        zeroGradient;
+        type        symmetryPlane;
     }
     xMin
     {
-        type            zeroGradient;
+        type        symmetryPlane;
     }
     xMax
     {
-        type            zeroGradient;
+        type        symmetryPlane;
     }
     yMin
     {
-        type            constantAlphaContactAngle;
-        theta0          2;              // degrees (2–5 is fine)
-        limit           gradient;       // or 'theta' if you prefer
-        value           uniform 1;      // metal: 1 / air: 0
+        type    constantAlphaContactAngle;
+        theta0  2;           // degrees
+        limit   gradient;
+        value   uniform 1;   // metal wetting at the substrate side
     }
-
-    // TOP (atmosphere/open) — let α leave the domain
     yMax
     {
-        type            inletOutlet;
-        inletValue      uniform 0;
-        value           uniform 0;      // metal: 0 / air: 1
+        type        inletOutlet;
+        inletValue  uniform 0;
+        value       uniform 0;
     }
 }
 

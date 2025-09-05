@@ -28,5 +28,16 @@ substrateFixedVelocity
         U   (0 0 0);
     }
 }
+substrateFixedTemperature
+{
+    type            scalarFixedValueConstraint;
+    active          no;
+    selectionMode   cellZone;
+    cellZone        substrate;
 
+    fieldValues
+    {
+        T   500;
+    }
+}
 // ************************************************************************* //

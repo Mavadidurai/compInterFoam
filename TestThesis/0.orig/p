@@ -18,34 +18,16 @@ FoamFile
 
 dimensions      [1 -1 -2 0 0 0 0];
 
-internalField   uniform 1e5;      // ✅ FIXED: Start with zero relative pressure
+internalField   uniform 1e5;     // ambient reference
 
 boundaryField
 {
-    yMax
-    {
-        type        zeroGradient;
-    }
-    yMin
-    {
-        type        zeroGradient;
-    }
-    xMin
-    {
-        type            zeroGradient;
-    }
-    xMax
-    {
-        type            zeroGradient;
-    }
-    zMin
-    {
-        type            zeroGradient;
-    }
-    zMax
-    {
-        type            zeroGradient;
-    }
+  xMin     { type symmetryPlane; }
+  xMax     { type symmetryPlane; }
+  zMin     { type symmetryPlane; }
+  zMax     { type symmetryPlane; }
+  yMin     { type calculated; value uniform 1e5; }
+  yMax     { type calculated; value uniform 1e5; }
 }
 
 // ************************************************************************* //

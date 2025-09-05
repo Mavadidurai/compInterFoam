@@ -17,58 +17,14 @@ FoamFile
 
 actions
 (
-    // --- Substrate zone: y in [0, 8e-6]
-    {
-        name        substrate;
-        type        cellSet;
-        action      new;
-        source      boxToCell;
-        sourceInfo
-        {
-            box (0       0.0     0)
-                (5.0e-05 8.0e-06 1.0e-05);
-        }
-    }
-    {
-        name        substrate;
-        type        cellZoneSet;
-        action      new;
-        source      setToCellZone;
-        sourceInfo { set substrate; }
-    }
+  // Focus/jet region (meters)
+  { name focusBox; type cellSet; action new; source boxToCell;
+    sourceInfo { box (1.7e-5 7.95e-6 0) (3.3e-5 2.00e-5 1.0e-5); } }
 
-    // --- Exact thin metal film zone: y in [8.0000e-6, 8.0714e-6], padded laterally
-    {
-        name        metalFilmExact;
-        type        cellSet;
-        action      new;
-        source      boxToCell;
-        sourceInfo
-        {
-            box (1.0e-06  8.0000e-06  1.0e-06)
-                (4.9e-05  8.0714e-06  9.0e-06);
-        }
-    }
-    {
-        name        metalFilmExact;
-        type        cellZoneSet;
-        action      new;
-        source      setToCellZone;
-        sourceInfo { set metalFilmExact; }
-    }
-
-    // --- Refinement band: y in [7.9e-6, 8.2e-6], padded laterally
-    {
-        name        refBand;
-        type        cellSet;
-        action      new;
-        source      boxToCell;
-        sourceInfo
-        {
-            box (1.0e-06  7.9e-06  1.0e-06)
-                (4.9e-05  8.2e-06  9.0e-06);
-        }
-    }
+  // Substrate only below the Ti film: y ∈ [0, 8.0000 µm]
+  { name substrateSet; type cellSet; action new; source boxToCell;
+    sourceInfo { box (0 0 0) (5.0e-5 8.0000e-6 1.0e-5); } }
+  { name substrate; type cellZoneSet; action new; source setToCellZone;
+    sourceInfo { set substrateSet; } }
 );
-
 // ************************************************************************* //

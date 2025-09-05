@@ -40,13 +40,15 @@ solvers
     {
         solver          GAMG;
         smoother        GaussSeidel;
-        tolerance       1e-7;           // Good enough for millisecond scale
-        relTol          0.01;           
-        maxIter         100;            
+        tolerance       1e-8;           // Good enough for millisecond scale
+        relTol          0.05;           
+        maxIter         100;   
+        nPreSweeps      0;
+        nPostSweeps     2;         
         cacheAgglomeration true;
-        nCellsInCoarsestLevel 10;
+        nCellsInCoarsestLevel 20;
         agglomerator    faceAreaPair;
-        mergeLevels     1;
+        mergeLevels     2;
     }
     
     p_rghFinal { $p_rgh; relTol 0; }
@@ -55,8 +57,8 @@ solvers
     {
         solver          smoothSolver;
         smoother        symGaussSeidel;
-        tolerance       1e-6;           
-        relTol          0.1;            
+        tolerance       1e-8;           
+        relTol          0.05;            
         maxIter         50;             
     }
     
@@ -133,23 +135,23 @@ relaxP      0.3;   // pEqn.H reads from mesh.solutionDict()
 targetResP  0.1;   // pEqn.H reads from mesh.solutionDict()
 compInterFoamCoeffs
 {
-    maxReasonableVelocity  250;     // UEqn.H
+    maxReasonableVelocity  1e5;     // UEqn.H
+    maxVelocity            5000;    // UEqn.H velocity limiter
     defaultMetalDensity    4500;    // UEqn.H (fallback if rho1 invalid)
     defaultAirDensity      1.2;     // UEqn.H (fallback if rho2 invalid)
-    maxVelocity            300;    // UEqn.H velocity limiter
     // Keep α bounded but not over-restricted
     enableAlphaClamp  true;
     minAlpha          0.0;
     maxAlpha          1.0;
     pressureClamp   true;
-    maxPressure   1e8;     // 100 MPa is plenty and cuts clamp spread
+    maxPressure   5e8;     // 100 MPa is plenty and cuts clamp spread
     minPressure   1e3;     // keep a modest floor
     // Momentum matrix safety (also read from controlDict as fallback)
     enableRAUClamp    true;
     minRAU            1e-12;
-    maxRAU            1e4;
-	minRAUf            1e-12;
-	maxRAUf            1e4;
+    maxRAU            1e6;
+    minRAUf            1e-12;
+    maxRAUf            1e6;
 
     // Optional residual targeting used in your code
     targetResU        0.05;

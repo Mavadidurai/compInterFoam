@@ -23,29 +23,18 @@ internalField   uniform 1;
 
 boundaryField
 {
+    xMin { type symmetryPlane; }
+    xMax { type symmetryPlane; }
+    zMin { type symmetryPlane; }
+    zMax { type symmetryPlane; }
+
+    yMin { type zeroGradient; }
+
     yMax
     {
-        type        zeroGradient;
-    }
-    yMin
-    {
-        type        zeroGradient;
-    }
-    xMin
-    {
-        type            zeroGradient;
-    }
-    xMax
-    {
-        type            zeroGradient;
-    }
-    zMin
-    {
-        type            zeroGradient;
-    }
-    zMax
-    {
-        type            zeroGradient;
+        type        inletOutlet;
+        inletValue  uniform 1;
+        value       uniform 1;
     }
 }
 // ************************************************************************* //

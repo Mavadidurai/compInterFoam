@@ -41,26 +41,26 @@ FoamFile
 
 // geometry coupling
 // Center donor film around laser focus so focus y lies within film bounds
-filmYMin    8.0e-6;
-filmYMax            8.0714e-6;   // from setFields metal film
+filmYMin        8.0000e-6;
+filmYMax        8.0714e-6;   // from setFields metal film
 offFilmScale    0.1;       // Intensity scaling outside donor film [-]
 offFilmMax      1e14;      // Max volumetric intensity outside film [W/m^3]
 // --- Energy & timing ---
 // Boosted energy/intensity to reach melt/ablation threshold
-pulseEnergy     4.2e-8;          // [J] total energy
-pulseWidth      5e-13;          // [s] 0.5 ps pulse width
-laserStartTime  0;              // [s]
-laserEndTime    6e-12;          // [s] ensure laser remains active to 0.5 ps
+pulseEnergy     6.7e-8;          // [J] total energy
+pulseWidth      2.14e-13;          // [s] 0.5 ps pulse width
+laserStartTime  0;        // [s] begin 0.25 ps before pulse center
+laserEndTime    2.14e-13;        // [s] end 0.25 ps after, bracketing 0.5 ps pulse
 
 // --- Spatial Gaussian (match the box center and film depth) ---
-spotSize        6e-6;         // [m] beam diameter
+spotSize        3.4e-6;         // [m] beam diameter
 
 // Put the beam center inside the domain (mid x,z; inside donor film at y≈8.0357 µm)
 focus           (25e-6 8.0357e-6 5e-6);
-direction       (0 1 0);
+direction       (0 -1 0);
 
 // --- Wavelength / interaction ---
-wavelength          1.03e-6;  // [m]
+wavelength          3.43e-7;  // [m]
 
 // Absorption
 absorptionCoeff     5e7;      // [1/m] ~20–50 nm optical depth
@@ -69,9 +69,10 @@ absorptionCoeff     5e7;      // [1/m] ~20–50 nm optical depth
 reflectivity        0.55;
 gaussianProfile     true;
 maxReflections      1;
+transmission    0.445; 	 // through-glass fraction reaching film
 
 // Optional intensity entry (consistent with pulseEnergy & pulseWidth)
-peakIntensity       1e15;      // [W/m^2] from pulseEnergy
-continuousLaser     true;
+//peakIntensity       1e15;      // [W/m^2] from pulseEnergy
+continuousLaser     false;
 
 // ************************************************************************* //

@@ -18,36 +18,17 @@ FoamFile
 
 dimensions      [0 0 0 1 0 0 0];
 
-internalField   uniform 500;
+internalField   uniform 300;
 
 boundaryField
 {
-    yMax
-    {
-        type            zeroGradient;
+  xMin     { type symmetryPlane; }
+  xMax     { type symmetryPlane; }
+  zMin     { type symmetryPlane; }
+  zMax     { type symmetryPlane; }
 
-    }
-    yMin
-    {
-        type            fixedValue;
-        value           uniform 500;
-    }
-    xMin
-    {
-        type            zeroGradient;
-    }
-    xMax
-    {
-        type            zeroGradient;
-    }
-    zMin
-    {
-        type            zeroGradient;
-    }
-    zMax
-    {
-        type            zeroGradient;
-    }
+  yMin { type fixedValue; value uniform 300; }
+  yMax { type  zeroGradient; }
 }
 
 

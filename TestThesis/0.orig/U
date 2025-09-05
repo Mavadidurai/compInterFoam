@@ -18,40 +18,17 @@ FoamFile
 
 dimensions      [0 1 -1 0 0 0 0];
 
-internalField   uniform (0 0 0);    // Initially at rest
+internalField   uniform (0 0 0);
 
 boundaryField
 {
+  xMin     { type symmetryPlane; }
+  xMax     { type symmetryPlane; }
+  zMin     { type symmetryPlane; }
+  zMax     { type symmetryPlane; }
 
-    yMax
-    {
-        type        pressureInletOutletVelocity;
-        value uniform (0 0 0);
-    }
-
-    yMin
-    {
-        type        fixedValue;
-        value       uniform (0 0 0);
-    }
-    xMin
-    {
-        type        slip;
-    }
-    xMax
-    {
-        type        slip;
-    }
-    zMin
-    {
-        type        slip;
-        value       uniform (0 0 0);
-    }
-    zMax
-    {
-            type                pressureInletOutletVelocity;
-    	    value               uniform (0 0 0);
-    }
+  yMin     { type fixedValue; value uniform (0 0 0); }   // donor glass wall
+  yMax     { type  zeroGradient; }   // receiver wall
 }
 
 

@@ -15,36 +15,25 @@ FoamFile
 }
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
-// ✅ ENHANCED fvSchemes for Microsecond LIFT with Advanced Interface Capturing
-// =============================================================================
-
 ddtSchemes
 {
-    default          localEuler;              // First-order for stability
-    ddt(alpha)       localEuler;              // Compatible with your alphaEqn.H
-    ddt(alpha.metal) localEuler;             // Metal phase time discretization
-    ddt(alpha.air)   localEuler;              // Air phase time discretization
-    ddt(rho,U)       localEuler;              // Momentum equation
-    ddt(rho)         localEuler;              // Continuity equation
+    default          backward;
+    ddt(alpha)       Euler;
+    ddt(alpha.metal) backward;
+    ddt(alpha.air)   backward;
+    ddt(rho,U)       backward;
+    ddt(rho)         backward;
 }
 
 gradSchemes
 {
-    default   cellLimited Gauss linear 1;
-    
-    // ✅ ENHANCED PRESSURE GRADIENTS (critical for momentum)
+    default         Gauss linear;
     grad(p_rgh)     Gauss linear;
     grad(p)         Gauss linear;
-    
-    // ✅ ENHANCED INTERFACE GRADIENTS (critical for surface tension)
-    grad(alpha.metal)   Gauss linear;
-    grad(alpha.air)     Gauss linear;
-    grad(alpha)         Gauss vanLeer;
-    
-    // ✅ VELOCITY GRADIENTS (for viscous terms)
+    grad(alpha.metal) Gauss linear;
+    grad(alpha.air)   Gauss linear;
+    grad(alpha)       Gauss linear;
     grad(U)         Gauss linear;
-    
-    // ✅ TEMPERATURE GRADIENTS (for two-temperature model)
     grad(T)         Gauss linear;
     grad(Te)        Gauss linear;
     grad(Tl)        Gauss linear;
@@ -52,134 +41,103 @@ gradSchemes
 
 divSchemes
 {
-    default         Gauss linear;
-    
-    // ✅ ENHANCED ALPHA TRANSPORT - Critical for interface capturing
-    // Use limitedLinear to reduce excessive compression
-    div(phi,alpha)        Gauss vanLeer;
-    div(phirb,alpha)      Gauss interfaceCompression;
-    div(phir,alpha)         Gauss interfaceCompression; // Reduced interface compression to limit smearing
-    div(phi,alpha.metal)    Gauss vanLeer;    // Metal phase transport
-    div(phir,alpha.metal)   Gauss interfaceCompression; // Metal compression
-    div(phi,alpha.air)      Gauss vanLeer;    // Air phase transport
-    
-    // ✅ MOMENTUM TRANSPORT - Enhanced for interface dynamics
-    div(rhoPhi,U)           Gauss linearUpwindV grad(U); // Stable momentum
-    div(phi,U)              Gauss linearUpwindV grad(U); // Alternative momentum
-    
-    // ✅ PRESSURE TRANSPORT
-    div(phi,p_rgh)          Gauss linear;
-    
-    // ✅ TEMPERATURE TRANSPORT - Conservative for thermal diffusion
-    div(phi,T)              Gauss limitedLinear 1.0;    // Limited for stability
-    div(phi,Te)             Gauss upwind;               // Upwind for electron temp
-    div(phi,Tl)             Gauss limitedLinear 1.0;    // Limited for lattice temp
-    
-    // ✅ ENERGY TRANSPORT
-    div(phi,K)              Gauss linear;
-    div(phi,h)              Gauss limitedLinear 1.0;
-    div(phi,e)              Gauss limitedLinear 1.0;
-    
-    // ✅ VISCOUS STRESS TERMS
+    default                     Gauss linear;
+
+    div(phi,alpha)              Gauss vanLeer;
+    div(phirb,alpha)            Gauss interfaceCompression;
+    div(phir,alpha)             Gauss interfaceCompression;
+    div(phi,alpha.metal)        Gauss vanLeer;
+    div(phir,alpha.metal)       Gauss interfaceCompression;
+    div(phi,alpha.air)          Gauss vanLeer;
+
+    div(rhoPhi,U)               Gauss linearUpwindV grad(U);
+    div(phi,U)                  Gauss linearUpwindV grad(U);
+    div(phi,p_rgh)              Gauss linear;
+
+    div(phi,T)                  Gauss limitedLinear 1.0;
+    div(phi,Te)                 Gauss limitedLinear 1.0;
+    div(phi,Tl)                 Gauss limitedLinear 1.0;
+
+    div(phi,K)                  Gauss linear;
+    div(phi,h)                  Gauss limitedLinear 1.0;
+    div(phi,e)                  Gauss limitedLinear 1.0;
+
     div(((rho*nuEff)*dev2(T(grad(U))))) Gauss linear;
-    div((nuEff*dev2(T(grad(U)))))        Gauss linear;
-    
-    // ✅ TURBULENCE TERMS (if used)
-    div(phi,k)              Gauss limitedLinear 1.0;
-    div(phi,epsilon)        Gauss limitedLinear 1.0;
-    div(phi,omega)          Gauss limitedLinear 1.0;
-    
-    // ✅ THERMAL DIFFUSION (two-temperature model)
-    div((alphaEff*grad(T))) Gauss linear;
-    div((ke*grad(Te)))      Gauss linear;
-    div((kl*grad(Tl)))      Gauss linear;
+    div((nuEff*dev2(T(grad(U)))))       Gauss linear;
+
+    div(phi,k)                  Gauss limitedLinear 1.0;
+    div(phi,epsilon)            Gauss limitedLinear 1.0;
+    div(phi,omega)              Gauss limitedLinear 1.0;
+
+    div((alphaEff*grad(T)))     Gauss linear;
+    div((ke*grad(Te)))          Gauss linear;
+    div((kl*grad(Tl)))          Gauss linear;
 }
 
 laplacianSchemes
 {
-    default                          Gauss linear limited 0.33;
-    
-    // ✅ PRESSURE LAPLACIANS - Critical for pressure-velocity coupling
-    laplacian((1|A(U)),p_rgh)           Gauss linear corrected;
-    laplacian(rAU,p_rgh)                Gauss linear corrected;
-    laplacian((1|A(U)),p)               Gauss linear corrected;
-    
-    // ✅ MOMENTUM DIFFUSION
-    laplacian(nuEff,U)                  Gauss linear corrected;
-    laplacian((rho*nuEff),U)            Gauss linear corrected;
-    
-    // ✅ THERMAL DIFFUSION - Enhanced for two-temperature model
-    laplacian(alphaEff,T)               Gauss linear corrected;
-    laplacian(kappaEff,T)               Gauss linear corrected;
-    laplacian(kappa,T)                  Gauss linear corrected;
-    
-    // ✅ TWO-TEMPERATURE MODEL DIFFUSION (matches your solver)
-    laplacian(ke,Te)                    Gauss linear corrected;
-    laplacian(kl,Tl)                    Gauss linear corrected;
-    
-    // ✅ TURBULENCE DIFFUSION (if used)
-    laplacian(DkEff,k)                  Gauss linear corrected;
-    laplacian(DepsilonEff,epsilon)      Gauss linear corrected;
-    laplacian(DomegaEff,omega)          Gauss linear corrected;
+    default                     Gauss linear corrected;
+
+    laplacian((1|A(U)),p_rgh)   Gauss linear corrected;
+    laplacian(rAU,p_rgh)        Gauss linear corrected;
+    laplacian((1|A(U)),p)       Gauss linear corrected;
+
+    laplacian(nuEff,U)          Gauss linear corrected;
+    laplacian((rho*nuEff),U)    Gauss linear corrected;
+
+    laplacian(alphaEff,T)       Gauss linear corrected;
+    laplacian(kappaEff,T)       Gauss linear corrected;
+    laplacian(kappa,T)          Gauss linear corrected;
+
+    laplacian(ke,Te)            Gauss linear corrected;
+    laplacian(kl,Tl)            Gauss linear corrected;
+
+    laplacian(DkEff,k)          Gauss linear corrected;
+    laplacian(DepsilonEff,epsilon) Gauss linear corrected;
+    laplacian(DomegaEff,omega)  Gauss linear corrected;
 }
 
 interpolationSchemes
 {
     default         linear;
-    
-    // ✅ PHASE FRACTION INTERPOLATION - Critical for interface
     interpolate(alpha.metal)    linear;
     interpolate(alpha.air)      linear;
     interpolate(alpha)          linear;
-    
-    // ✅ MATERIAL PROPERTIES
     interpolate(rho)            linear;
     interpolate(mu)             linear;
     interpolate(kappa)          linear;
-    
-    // ✅ TWO-TEMPERATURE INTERPOLATION
     interpolate(Te)             linear;
     interpolate(Tl)             linear;
     interpolate(ke)             linear;
     interpolate(kl)             linear;
-    
-    // ✅ PRESSURE-VELOCITY COUPLING
     interpolate((1|A(U)))       linear;
     interpolate(rAU)            linear;
 }
 
 snGradSchemes
 {
-    default         corrected;          // Better for interface normal gradients
-    
-    // ✅ PRESSURE GRADIENTS
+    default         corrected;
     snGrad(p_rgh)   corrected;
     snGrad(p)       corrected;
-    
-    // ✅ TEMPERATURE GRADIENTS
     snGrad(T)       corrected;
     snGrad(Te)      corrected;
     snGrad(Tl)      corrected;
-    
-    // ✅ INTERFACE GRADIENTS
     snGrad(alpha.metal) corrected;
     snGrad(alpha)   corrected;
 }
 
 wallDist
 {
-    method          meshWave;           // Standard wall distance
+    method          meshWave;
 }
 
 fluxRequired
 {
     default         no;
-    
-    // ✅ REQUIRED FLUX CALCULATIONS
-    p_rgh           yes;                // Pressure flux
-    alpha.metal     yes;                // Metal phase flux
-    alpha.air       yes;                // Air phase flux
-    alpha           yes;                // Generic alpha flux
+    p_rgh           yes;
+    alpha.metal     yes;
+    alpha.air       yes;
+    alpha           yes;
 }
 
 // ************************************************************************* //
