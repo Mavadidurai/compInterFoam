@@ -1,0 +1,72 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+| =========                 |                                                 |
+| \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox           |
+|  \\    /   O peration     | Version:  v2406                                 |
+|   \\  /    A nd           | Website:  www.openfoam.com                      |
+|    \\/     M anipulation  |                                                 |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    location    "constant";
+    object      turbulenceProperties;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+// ✅ FIXED TURBULENCE PROPERTIES FOR OPENFOAM v2406
+// ==================================================
+// LIFT operates at microscale with high viscosity - typically laminar
+
+simulationType  laminar;
+
+// ✅ FIXED: v2406 requires valid laminar model (not 'laminar')
+laminar
+{
+    model           Stokes;         // ← CORRECT MODEL for v2406 (simple viscous flow)
+    printCoeffs     true;
+}
+
+// Alternative: If high velocities develop during ejection
+RAS
+{
+    model           kOmegaSST;      // ✅ Standard k-omega SST model
+    turbulence      off;            // Start with off, enable if needed
+    printCoeffs     on;
+
+    kOmegaSSTCoeffs
+    {
+        // Standard coefficients - no modifications needed
+        alphaK1         0.85;
+        alphaK2         1.0;
+        alphaOmega1     0.5;
+        alphaOmega2     0.856;
+        beta1           0.075;
+        beta2           0.0828;
+        betaStar        0.09;
+        gamma1          0.555556;
+        gamma2          0.44;
+        a1              0.31;
+        b1              1.0;
+        c1              10.0;
+        F3              false;
+    }
+}
+
+// LES not needed for basic test case
+LES
+{
+    model           Smagorinsky;    // ✅ Standard Smagorinsky model
+    turbulence      off;
+    printCoeffs     on;
+    delta           cubeRootVol;
+
+    SmagorinskyCoeffs
+    {
+        Cs              0.1;
+        Pr              0.7;
+    }
+}
+
+// ************************************************************************* //
