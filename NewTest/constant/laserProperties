@@ -48,16 +48,16 @@ offFilmMax      1e14;      // Max volumetric intensity outside film [W/m^3]
 // --- Energy & timing ---
 // Boosted energy/intensity to reach melt/ablation threshold
 pulseEnergy     6.7e-8;          // [J] total energy
-pulseWidth      2.14e-13;          // [s] 0.5 ps pulse width
-laserStartTime  0;        // 
-laserEndTime    2.14e-13;        // [s] end 0.25 ps after, bracketing 0.5 ps pulse
+pulseWidth      2.14e-13;          // [s] 214 fs pulse width
+laserStartTime  0;        // [s] pulse begins
+laserEndTime    2.14e-13;        // [s] pulse ends (214 fs duration)
 
 // --- Spatial Gaussian (match the box center and film depth) ---
 spotSize        6.8e-6;         // [m] beam diameter
 
 // Put the beam center inside the domain (mid x,z; inside donor film at y≈8.0357 µm)
 focus           (25e-6 8.0357e-6 5e-6);
-direction       (0 -1 0);
+direction       (0 1 0);
 
 // --- Wavelength / interaction ---
 wavelength          3.43e-7;  // [m]
