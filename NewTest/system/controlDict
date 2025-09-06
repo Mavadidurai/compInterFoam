@@ -20,19 +20,19 @@ application     compInterFoam;
 startFrom       startTime;
 startTime       0;
 stopAt          endTime;
-endTime         5e-13;
+endTime         1e-7;
 
 deltaT          5e-16;
 adjustTimeStep  yes;
 maxCo           0.07;
 maxAlphaCo      0.07;
-maxDeltaT       2e-12;            // allow growth after pulse
+maxDeltaT       2e-12;           // allow growth after pulse
 // optional runtime output verbosity
 verbose         true;
 
-writeControl    timeStep;           // consistent spacing despite variable Δt
-writeInterval   1e-11;             // write every 0.2 ns (keeps disk sane)
-purgeWrite      120;            // retain a broader history
+writeControl    runTime;           // consistent spacing despite variable Δt
+writeInterval   1e-9;             // write every 0.2 ns (keeps disk sane)
+purgeWrite      200;            // retain a broader history
 writeFormat     ascii;
 writePrecision  10;
 writeCompression on;
@@ -42,8 +42,8 @@ fileHandler     collated;
 
 runTimeModifiable yes;
 
-dynamicFvMesh   none;
-/*
+dynamicFvMesh   dynamicRefineFvMesh;
+
 dynamicRefineFvMeshCoeffs
 {
     field            alpha.metal;
@@ -56,7 +56,7 @@ dynamicRefineFvMeshCoeffs
     maxCells         4000000;
     correctFluxes    (phi none);
 }
-*/
+
 // solver switches (kept as in your file)
 useAdvancedInterfaceCapturing  true;
 advancedInterfaceCapturing
@@ -71,7 +71,7 @@ advancedInterfaceCapturing
     clampRecoil          false;     // disable to remove cap
     scaleRecoilMax       true;     // scale cap with phase change
     recoilUpdateInterval 1;        // evaluate every step
-    recoilTempOffset     100;      // K above melting point for activation
+    recoilTempOffset     0;      // K above melting point for activation
     alphaMin             0.05;
     alphaMax             0.98;
     phaseChangeTempOffset  10;
@@ -101,51 +101,61 @@ twoTemperatureProperties
 
 functions
 {
-    fieldWrite
-    {
-        type              writeObjects;
-        libs              ("libutilityFunctionObjects.so");
-        objects           (Q_laser U T alpha.metal p_rgh);
-        writeControl runTime;
-        writeInterval 2e-10;     // match writeInterval above
-    }
-
+    // keep probes (tiny files), great for spotting jet arrival
     probesTTM_fs
     {
-        type            probes;
-        libs            ("libsampling.so");
-        fields          (Te Tl T p_rgh U alpha.metal);
-        probeLocations  ((2.5e-05 7.95e-06 5e-06) (2.5e-05 8.02e-06 5e-06) (2.5e-05 1.20e-05 5e-06));
-        writeControl    runTime;
-        writeInterval   5e-14;    // 50 fs snapshots
-        timeStart       0;
-        timeEnd         1e-11;    // stop at 10 ps
+        type probes; libs ("libsampling.so");
+        fields (Te Tl T p_rgh U alpha.metal);
+        probeLocations ((2.5e-05 7.95e-06 5e-06) (2.5e-05 8.02e-06 5e-06) (2.5e-05 1.20e-05 5e-06));
+        writeControl runTime; writeInterval 5e-14;
+        timeStart 0; timeEnd 1e-11;
     }
     probesTTM
     {
-        type            probes;
-        libs            ("libsampling.so");
-        fields          (Te Tl T p_rgh U alpha.metal);
-        probeLocations  ((2.5e-05 7.95e-06 5e-06) (2.5e-05 8.02e-06 5e-06) (2.5e-05 1.20e-05 5e-06));
-        writeControl    runTime;
-        writeInterval   1e-11;    // 10 ps
-        timeStart       1e-11;    // start after the fs window
-    }
-    CourantNo
-    {
-        type CourantNo; libs ("libutilityFunctionObjects.so");
+        type probes; libs ("libsampling.so");
+        fields (Te Tl T p_rgh U alpha.metal);
+        probeLocations ((2.5e-05 7.95e-06 5e-06) (2.5e-05 8.02e-06 5e-06) (2.5e-05 1.20e-05 5e-06));
         writeControl runTime; writeInterval 1e-11;
+        timeStart 1e-11; // after fs window
     }
 
-    fieldMinMax_T
+    // light diagnostics each 10 ns
+    CourantNo        { type CourantNo; libs ("libutilityFunctionObjects.so"); writeControl runTime; writeInterval 1e-8; }
+    fieldMinMax_T    { type fieldMinMax; libs ("libfieldFunctionObjects.so"); writeControl runTime; writeInterval 1e-8; fields (T); }
+    fieldMinMax_alpha{ type fieldMinMax; libs ("libfieldFunctionObjects.so"); writeControl runTime; writeInterval 1e-8; fields (alpha.metal); }
+
+    // write key fields more often than main folders, but still manageable
+    fieldWrite
     {
-        type fieldMinMax; libs ("libfieldFunctionObjects.so");
-        writeControl runTime; writeInterval 1e-11; fields (T);
+        type writeObjects; libs ("libutilityFunctionObjects.so");
+        objects (Q_laser U T alpha.metal p_rgh recoilPressure);
+        writeControl runTime; writeInterval 1e-10;   // every 0.1 ns for physics fields
+    }
+    energyBudget_Q
+    {
+        type            volFieldValue;
+        libs            ("libfieldFunctionObjects.so");
+        regionType      all;
+        operation       sum;
+        fields          (Q_laser);
+        writeControl    timeStep;
+        writeInterval   1;
+        log             true;          // <-- v2406 likes explicit booleans
+        writeFields     false;         // don't dump the field, just the sum
     }
 
-    fieldMinMax_alpha
+    energyBudget_Q
     {
-        type fieldMinMax; libs ("libfieldFunctionObjects.so");
-        writeControl runTime; writeInterval 1e-11; fields (alpha.metal);
+        type            volFieldValue;
+        libs            ("libfieldFunctionObjects.so");
+        regionType      all;
+        operation       sum;
+        fields          (Q_laser);
+        writeControl    timeStep;
+        writeInterval   1;
+        log             true;          // <-- v2406 likes explicit booleans
+        writeFields     false;         // don't dump the field, just the sum
     }
+
 }
+

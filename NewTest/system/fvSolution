@@ -127,7 +127,6 @@ relaxationFactors
         T               0.5;            
         Te              0.5;            // Still conservative for electron temp
         Tl              0.5;            
-        
         ".*Final"       1.0;            
     }
 }
@@ -136,7 +135,7 @@ targetResP  0.1;   // pEqn.H reads from mesh.solutionDict()
 compInterFoamCoeffs
 {
     maxReasonableVelocity  1e5;     // UEqn.H
-    maxVelocity            5000;    // UEqn.H velocity limiter
+    maxVelocity            10000;    // UEqn.H velocity limiter
     defaultMetalDensity    4500;    // UEqn.H (fallback if rho1 invalid)
     defaultAirDensity      1.2;     // UEqn.H (fallback if rho2 invalid)
     // Keep α bounded but not over-restricted
@@ -145,7 +144,7 @@ compInterFoamCoeffs
     maxAlpha          1.0;
     pressureClamp   true;
     maxPressure   5e8;     // 100 MPa is plenty and cuts clamp spread
-    minPressure   1e3;     // keep a modest floor
+    minPressure   1e5;     // keep a modest floor
     // Momentum matrix safety (also read from controlDict as fallback)
     enableRAUClamp    true;
     minRAU            1e-14;
