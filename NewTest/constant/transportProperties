@@ -31,11 +31,11 @@ air
     rho             rho [ 1 -3 0 0 0 0 0 ] 1.2;
 }
 
-meltingTemperature      meltingTemperature [0 0 0 1 0 0 0] 1941.0;
-vaporTemperature        vaporTemperature [0 0 0 1 0 0 0] 3560.0;
-latentHeat              latentHeat [0 2 -2 0 0 0 0] 3.65e5;
+meltingTemperature       [0 0 0 1 0 0 0] 1941.0;
+vaporTemperature         [0 0 0 1 0 0 0] 3560.0;
+latentHeat               [0 2 -2 0 0 0 0] 3.65e5;
 
-sigma           sigma [ 1 0 -2 0 0 0 0 ] 1.64;
+//sigma           sigma [ 1 0 -2 0 0 0 0 ] 1.64;
 
 cAlpha          cAlpha [0 0 0 0 0 0 0] 1;
 icAlpha         icAlpha [0 0 0 0 0 0 0] 0;
@@ -63,6 +63,6 @@ massTransferCoeffs
     // Temperatures from Table 12 of Nguyen (2022)
     Tsolidus  1941;
     Tvapor    3560;
-    rateMax   0;          // solver computes only inside the window
+    rateMax   5e10;          // solver computes only inside the window
 }
 // ************************************************************************* //
