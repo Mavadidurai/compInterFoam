@@ -20,19 +20,20 @@ application     compInterFoam;
 startFrom       startTime;
 startTime       0;
 stopAt          endTime;
-endTime         5e-8;               // extend into tens of nanoseconds
+endTime         2e-8;
 
-deltaT          1e-15;
+deltaT          5e-16;
 adjustTimeStep  yes;
-maxCo           0.02;
-maxAlphaCo      0.1;
-maxDeltaT       2e-13;            // allow growth after pulse
+maxCo           0.07;
+maxAlphaCo      0.07;
+maxDeltaT       2e-12;            // allow growth after pulse
 // optional runtime output verbosity
 verbose         true;
-writeControl    runTime;
-writeInterval   1e-9;              // write every 1 ns of simulated time
-purgeWrite      100;               // retain a broader history
-writeFormat     binary;
+
+writeControl    runTime;           // consistent spacing despite variable Δt
+writeInterval   1e-11;             // write every 0.2 ns (keeps disk sane)
+purgeWrite      120;            // retain a broader history
+writeFormat     ascii;
 writePrecision  10;
 writeCompression on;
 timeFormat      general;
@@ -65,14 +66,15 @@ advancedInterfaceCapturing
     vaporTemperature     vaporTemperature [0 0 0 1 0 0 0] 3560;
 
     // strength & stability
-    pressureScale        1e5;      // nondim scale used in your model
-    recoilMax            1e7;      // Pa cap moderated for stability
-    clampRecoil          true;     // disable to remove cap
+    pressureScale        1.0;      // nondim scale used in your model
+    recoilMax            5e8;      // Pa cap moderated for stability
+    clampRecoil          false;     // disable to remove cap
     scaleRecoilMax       true;     // scale cap with phase change
     recoilUpdateInterval 1;        // evaluate every step
-    recoilTempOffset     0;      // K above melting point for activation
-    alphaMin             0.01;
-    alphaMax             0.99;
+    recoilTempOffset     100;      // K above melting point for activation
+    alphaMin             0.05;
+    alphaMax             0.98;
+    phaseChangeTempOffset  10;
 }
 
 // adaptive relaxation used in pEqn.H
@@ -87,7 +89,7 @@ maxT                           12000;
 
 densityClamp                   true;
 minDensity                     0.5;
-maxDensity                     15000;
+maxDensity                     10000;
 
 twoTemperatureProperties
 {
@@ -103,40 +105,47 @@ functions
     {
         type              writeObjects;
         libs              ("libutilityFunctionObjects.so");
-        objects           (Q_laser U p_rgh T alpha.metal recoilPressure);
-        writeOnExecution  true;
+        objects           (Q_laser U T alpha.metal p_rgh);
+        writeControl runTime;
+        writeInterval 2e-10;     // match writeInterval above
     }
 
+    probesTTM_fs
+    {
+        type            probes;
+        libs            ("libsampling.so");
+        fields          (Te Tl T p_rgh U alpha.metal);
+        probeLocations  ((2.5e-05 7.95e-06 5e-06) (2.5e-05 8.02e-06 5e-06) (2.5e-05 1.20e-05 5e-06));
+        writeControl    runTime;
+        writeInterval   5e-14;    // 50 fs snapshots
+        timeStart       0;
+        timeEnd         1e-11;    // stop at 10 ps
+    }
     probesTTM
     {
         type            probes;
         libs            ("libsampling.so");
         fields          (Te Tl T p_rgh U alpha.metal);
-        probeLocations  ((0 0 0) (0 0 2e-6) (0 0 10e-6));
-        writeControl    timeStep;
-        writeInterval   5;       // tighter probes for ultrafast features
+        probeLocations  ((2.5e-05 7.95e-06 5e-06) (2.5e-05 8.02e-06 5e-06) (2.5e-05 1.20e-05 5e-06));
+        writeControl    runTime;
+        writeInterval   1e-11;    // 10 ps
+        timeStart       1e-11;    // start after the fs window
     }
-
     CourantNo
     {
         type CourantNo; libs ("libutilityFunctionObjects.so");
-        writeControl timeStep; writeInterval 5;
+        writeControl runTime; writeInterval 1e-11;
     }
 
     fieldMinMax_T
     {
         type fieldMinMax; libs ("libfieldFunctionObjects.so");
-        writeControl timeStep; writeInterval 5; fields (T);
+        writeControl runTime; writeInterval 1e-11; fields (T);
     }
 
     fieldMinMax_alpha
     {
         type fieldMinMax; libs ("libfieldFunctionObjects.so");
-        writeControl timeStep; writeInterval 5; fields (alpha.metal);
+        writeControl runTime; writeInterval 1e-11; fields (alpha.metal);
     }
-
-    
 }
-
-
-

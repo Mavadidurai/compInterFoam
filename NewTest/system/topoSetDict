@@ -19,7 +19,7 @@ actions
 (
   // Focus/jet region (meters)
   { name focusBox; type cellSet; action new; source boxToCell;
-    sourceInfo { box (1.7e-5 7.95e-6 0) (3.3e-5 2.00e-5 1.0e-5); } }
+    sourceInfo { box (1.7e-5 7.95e-6 0) (3.3e-5 2.0072e-5 1.0e-5); } }
 
   // Substrate only below the Ti film: y ∈ [0, 8.0000 µm]
   { name substrateSet; type cellSet; action new; source boxToCell;
