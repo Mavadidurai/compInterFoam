@@ -14,19 +14,9 @@ FoamFile
     object      turbulenceProperties;
 }
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
-
-// ✅ FIXED TURBULENCE PROPERTIES FOR OPENFOAM v2406
-// ==================================================
 // LIFT operates at microscale with high viscosity - typically laminar
 
 simulationType  laminar;
-
-// ✅ FIXED: v2406 requires valid laminar model (not 'laminar')
-laminar
-{
-    model           Stokes;         // ← CORRECT MODEL for v2406 (simple viscous flow)
-    printCoeffs     true;
-}
 
 // Alternative: If high velocities develop during ejection
 RAS
@@ -53,11 +43,10 @@ RAS
         F3              false;
     }
 }
-
 // LES not needed for basic test case
 LES
 {
-    model           Smagorinsky;    // ✅ Standard Smagorinsky model
+    model           Smagorinsky;
     turbulence      off;
     printCoeffs     on;
     delta           cubeRootVol;
@@ -68,5 +57,4 @@ LES
         Pr              0.7;
     }
 }
-
 // ************************************************************************* //

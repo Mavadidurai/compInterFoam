@@ -15,10 +15,8 @@ FoamFile
 }
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
-// ✅ ENHANCED: Two-phase system with substrate effects via boundary conditions
 phases (metal air);
-
-// ✅ METAL PHASE: Titanium donor film
+sigma           sigma [ 1 0 -2 0 0 0 0 ] 1.64;         // N/m - Metal-air surface tension
 metal
 {
     transportModel  Newtonian;
@@ -26,7 +24,6 @@ metal
     rho             rho [ 1 -3 0 0 0 0 0 ] 4515;     // Titanium density
 }
 
-// ✅ AIR PHASE: Air with substrate region simulation
 air
 {
     transportModel  Newtonian;
@@ -34,137 +31,16 @@ air
     rho             rho [ 1 -3 0 0 0 0 0 ] 1.2;       // Air density
 }
 
-// ✅ ENHANCED: Interface properties with substrate effects
-sigma           sigma [ 1 0 -2 0 0 0 0 ] 1.64;         // N/m - Metal-air surface tension
+/*  
+   NOTE:
+   This top-level file is intentionally left minimal.
+   Phase definitions are in:
+     - thermophysicalProperties.metal
+     - thermophysicalProperties.air
 
-// ✅ ENHANCED: Phase change properties for substrate-backed LIFT
-meltingTemperature      1941.0;             // K - Titanium melting point
-vaporTemperature        3560.0;             // K - Titanium vaporization point
-latentHeat              3.65e5;             // J/kg - Latent heat of fusion
+   Do NOT duplicate sigma, latentHeat, etc. here.
+   Those live in constant/transportProperties.
+*/
 
-// ✅ NEW: Substrate thermal influence on phase change
-substrateThermalEffects
-{
-    // Enhanced heat conduction due to substrate backing
-    thermalConductivityEnhancement  1.5;    // Enhancement factor at interface
-    
-    // Heat sink effect from substrate
-    substrateHeatSink      2.1e6;           // J/m³/K - Substrate volumetric heat capacity
-    heatSinkEfficiency     0.8;             // Efficiency of heat transfer to substrate
-    
-    // Interface thermal resistance
-    interfaceThermalResistance  1e-8;       // m²K/W - Substrate/metal interface
-}
-
-// ✅ ENHANCED: Reference conditions with substrate considerations
-pRef            100000;                     // Pa - Reference pressure
-TRef            300;                        // K - Reference temperature
-pMin            pMin [ 1 -1 -2 0 0 0 0 ] 10000;  // Pa - Minimum pressure
-
-// ✅ NEW: Substrate-specific thermophysical properties
-substrateProperties
-{
-    // Glass substrate thermal properties
-    density                 2500;           // kg/m³ - Glass density
-    specificHeat           840;             // J/kg/K - Glass specific heat
-    thermalConductivity    1.3;            // W/m/K - Glass thermal conductivity
-    thermalDiffusivity     6.2e-7;         // m²/s - Glass thermal diffusivity
-    
-    // Optical properties (for laser interaction)
-    refractiveIndex        1.52;           // Glass refractive index at 800nm
-    absorptionCoefficient  1e-3;           // 1/m - Minimal absorption (transparent)
-    transmittance          0.95;           // Fraction transmitted
-    
-    // Mechanical properties
-    expansionCoefficient   9e-6;           // 1/K - Thermal expansion
-    bulkModulus           37e9;            // Pa - Bulk modulus
-    poissonRatio          0.23;            // Poisson's ratio
-}
-
-// ✅ NEW: Temperature-dependent property models
-temperatureDependentProperties
-{
-    // Metal properties variation with temperature
-    metalThermalConductivity
-    {
-        model               polynomial;
-        coeffs              (21.9 0.01 -1e-5);  // W/m/K - k = a + bT + cT²
-        Tmin                300;                 // K
-        Tmax                3000;                // K
-    }
-    
-    // Surface tension temperature dependence
-    surfaceTension
-    {
-        model               linear;
-        coeffs              (1.5 -2e-4);        // sigma = a + bT
-        Tmin                300;                 // K
-        Tmax                2500;                // K
-    }
-    
-    // Viscosity temperature dependence  
-    metalViscosity
-    {
-        model               Arrhenius;
-        mu0                 1e-3;               // Pa·s - Reference viscosity
-        E                   20000;              // J/mol - Activation energy
-        Tref                1941;               // K - Reference temperature
-    }
-}
-
-// ✅ NEW: LIFT-specific physics parameters
-liftPhysics
-{
-    // Nucleation and bubble formation
-    nucleationThreshold     20;             // K - Superheat for nucleation
-    bubbleGrowthRate       100;             // m/s - Bubble expansion rate
-    criticalBubbleSize     1e-7;            // m - Critical bubble size
-
-    // Ejection dynamics
-    recoilPressureScale    5e4;             // Pa - Characteristic recoil pressure
-    ejectionEfficiency     0.2;             // Fraction of thermal energy → kinetic energy
-
-    // Droplet formation
-    dropletBreakupLength   5e-6;            // m - Characteristic breakup length
-    weberNumber           8;                // Critical Weber number for breakup
-}
 // ************************************************************************* //
-//
-// ✅ MAJOR ENHANCEMENTS for SUBSTRATE LIFT:
-// ==========================================
-//
-// 1. SUBSTRATE THERMAL EFFECTS:
-//    - Heat sink influence on phase change
-//    - Enhanced thermal conductivity at interface
-//    - Interface thermal resistance modeling
-//    - Realistic heat transfer to substrate
-//
-// 2. SUBSTRATE MATERIAL PROPERTIES:
-//    - Complete glass substrate characterization
-//    - Optical properties for laser interaction
-//    - Mechanical properties for constraint effects
-//    - Thermal expansion and stress effects
-//
-// 3. TEMPERATURE-DEPENDENT PROPERTIES:
-//    - Metal thermal conductivity variation
-//    - Surface tension temperature effects
-//    - Viscosity temperature dependence
-//    - More realistic material behavior
-//
-// 4. LIFT-SPECIFIC PHYSICS:
-//    - Nucleation and bubble formation parameters
-//    - Ejection dynamics characterization
-//    - Droplet formation and breakup physics
-//    - Recoil pressure scaling
-//
-// 5. ENHANCED INTERFACE PHYSICS:
-//    - Substrate-metal interface effects
-//    - Optimized compression for stability
-//    - Temperature-dependent surface properties
-//
-// This comprehensive setup provides:
-// - Realistic substrate backing effects
-// - Enhanced thermal physics
-// - Proper laser-substrate-metal interaction
-// - Accurate LIFT process representation
-// - Improved numerical stability and convergence
+

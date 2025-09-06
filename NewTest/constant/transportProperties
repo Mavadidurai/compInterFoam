@@ -49,13 +49,16 @@ phaseChangeCoeffs
     windowWidth    50;
     onlyAboveMelt  true;
     onlyAboveVapor true;
-    activationTime (2.5e-13 7.5e-13); // optional pulse window
+    // Activation windows corresponding to each laser pulse
+    // ((start1 end1) (start2 end2) ...)
+    activationTime ((5e-14 2.14e-13));
 }
 massTransferCoeffs
 {
     model     timeAndTemperatureWindow;
-    tStart    2.5e-13;
-    tEnd      7.5e-13;
+    // Start and end times for mass transfer during each pulse
+    tStart    (5e-14);
+    tEnd      (2.14e-13);
     Tsolidus  1941;
     Tvapor    3560;
     rateMax   0;          // solver computes only inside the window
