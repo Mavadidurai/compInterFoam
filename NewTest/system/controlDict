@@ -20,7 +20,7 @@ application     compInterFoam;
 startFrom       startTime;
 startTime       0;
 stopAt          endTime;
-endTime         3e-10;
+endTime         5e-13;
 
 deltaT          5e-16;
 adjustTimeStep  yes;
@@ -30,7 +30,7 @@ maxDeltaT       2e-12;            // allow growth after pulse
 // optional runtime output verbosity
 verbose         true;
 
-writeControl    runTime;           // consistent spacing despite variable Δt
+writeControl    timeStep;           // consistent spacing despite variable Δt
 writeInterval   1e-11;             // write every 0.2 ns (keeps disk sane)
 purgeWrite      120;            // retain a broader history
 writeFormat     ascii;
