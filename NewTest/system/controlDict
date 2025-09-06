@@ -20,7 +20,7 @@ application     compInterFoam;
 startFrom       startTime;
 startTime       0;
 stopAt          endTime;
-endTime         2e-8;
+endTime         3e-10;
 
 deltaT          5e-16;
 adjustTimeStep  yes;
