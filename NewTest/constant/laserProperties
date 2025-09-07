@@ -51,7 +51,8 @@ pulseEnergy     8.0e-8;          // [J] total energy
 pulseWidth      2.14e-13;          // [s] 214 fs pulse width
 laserStartTime  0;        // [s] pulse begins
 laserEndTime    2.14e-13;        // [s] pulse ends (214 fs duration)
-
+pulseFrequency  1e6;         // [1/s] 1 MHz repetition rate
+pulseDutyCycle  0.5;         // [-] 50% on-time
 // --- Spatial Gaussian (match the box center and film depth) ---
 spotSize        6.8e-6;         // [m] beam diameter
 

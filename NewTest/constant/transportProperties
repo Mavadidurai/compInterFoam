@@ -56,13 +56,11 @@ phaseChangeCoeffs
 massTransferCoeffs
 {
     model     timeAndTemperatureWindow;
-    // Start and end times for mass transfer during each pulse
-    // Entire 214-fs laser pulse duration
-    tStart    (0);          // pulse onset
-    tEnd      (2.14e-13);   // 214 fs pulse width
-    // Temperatures from Table 12 of Nguyen (2022)
+    tStart    (0);
+    tEnd      (2.14e-13);    // 214 fs
     Tsolidus  1941;
     Tvapor    3560;
-    rateMax   5e10;          // solver computes only inside the window
+    rateMax   5e12;
 }
+
 // ************************************************************************* //
