@@ -1,16 +1,12 @@
 #ifndef advancedInterfaceCapturing_H
 #define advancedInterfaceCapturing_H
-
 #include "fvMesh.H"
 #include "volFields.H"
 #include "fvc.H"
 #include "surfaceFields.H"
 #include "twoPhaseMixtureThermo.H"
-
-
 namespace Foam
 {
-
 class advancedInterfaceCapturing
 {
 private:
@@ -20,7 +16,6 @@ private:
     const surfaceScalarField& phi_;  // Flux field
     const twoPhaseMixtureThermo& mixture_;
     const volScalarField& T_;        // Temperature field for phase change
-
     // Physical parameters - minimal set
     dimensionedScalar meltingTemp_;             // Melting temperature
     dimensionedScalar vaporTemp_;               // Vaporization temperature
@@ -33,7 +28,6 @@ private:
     Switch clampRecoil_;             // Enable/disable recoil pressure clamping
     Switch scaleRecoilMax_;          // Scale recoilMax with phase-change rate
     scalar relaxFactor_;             // Relaxation factor for alpha transport
-
     // Valid alpha range (controlDict → advancedInterfaceCapturing)
     scalar alphaMin_;               // Minimum alpha for recoil activation
     scalar alphaMax_;               // Maximum alpha for recoil activation
@@ -41,12 +35,9 @@ private:
     scalar C0_;
     scalar C1_;
     // Field for recoil pressure
-    volScalarField recoilPressure_;  // Recoil pressure from vaporization
-    
+    volScalarField recoilPressure_;  // Recoil pressure from vaporization 
     //- Track number of correct() calls
     label callCount_;
-
-
 public:
     // Constructor
     advancedInterfaceCapturing
@@ -57,28 +48,22 @@ public:
         const twoPhaseMixtureThermo& mixture,
         const volScalarField& T
     );
-
     //- Delete default copy constructor and assignment operator
     advancedInterfaceCapturing(const advancedInterfaceCapturing&) = delete;
     void operator=(const advancedInterfaceCapturing&) = delete;
-
     // Member functions
     void correct();  // Main solver routine
     void calculateRecoilPressure();  // Calculate recoil pressure
-
     // Access functions
     const volScalarField& recoilPressure() const { return recoilPressure_; }
     label recoilUpdateInterval() const { return recoilUpdateInterval_; }
     scalar relaxFactor() const { return relaxFactor_; }
     scalar C0() const { return C0_; }
     scalar C1() const { return C1_; }
-
     // Access functions for validation
     dimensionedScalar latentHeat() const { return latentHeat_; }
-
     dimensionedScalar meltingTemperature() const { return meltingTemp_; }
     dimensionedScalar vaporTemperature() const { return vaporTemp_; }
-
     // Write functions
     void write() const;
     void clearInternalFields()
@@ -88,7 +73,5 @@ public:
     callCount_ = 0;
 }
 };
-
 } // End namespace Foam
-
 #endif

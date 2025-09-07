@@ -1,10 +1,7 @@
 #ifndef dimensionSets_H
 #define dimensionSets_H
-
 #include "dimensionSet.H"
-
 #include <dimensionSets.H>
-
 namespace Foam
 {
     static const dimensionSet dimTempRate(0, 0, -1, 1, 0, 0, 0);
@@ -16,5 +13,4 @@ namespace Foam
     static const dimensionSet dimSpecificMomentum(0, 1, -2, 0, 0, 0, 0);
     static const dimensionSet dimInverseA(-1, 3, 1, 0, 0, 0, 0);
 }
-
 #endif

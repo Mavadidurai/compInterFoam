@@ -31,7 +31,8 @@ License
 #include "mixedEnergyFvPatchScalarField.H"
 #include "collatedFileOperation.H"
 #include "dimensionSets.H"
-
+#include "Switch.H"
+#include "Tuple2.H"
 // * * * * * * * * * * * * * * Static Data Members * * * * * * * * * * * * * //
 
 namespace Foam
@@ -63,7 +64,10 @@ Foam::twoPhaseMixtureThermo::twoPhaseMixtureThermo
         U.mesh().lookupObject<dictionary>("thermophysicalProperties").
         subDict("metal").lookupOrDefault<scalar>("Tsol", 1941.0)
     ),
-
+    T_vapor_(
+        U.mesh().lookupObject<dictionary>("thermophysicalProperties").
+        subDict("metal").lookupOrDefault<scalar>("Tvap", 3000.0)
+    ),
     Q_laser_
     (
         IOobject
@@ -150,8 +154,9 @@ void Foam::twoPhaseMixtureThermo::correct()
 
     phaseChangeSource_ = computePhaseChange()();
     phaseChangeSource_.correctBoundaryConditions();
-     // Compute mass-transfer rate [1/s]
-    dgdt_ = phaseChangeSource_*Cp()/latentHeat();
+
+    // Compute mass-transfer rate [1/s]
+    dgdt_ = computeMassTransfer()();
     dgdt_.correctBoundaryConditions();
 
 }
@@ -192,42 +197,190 @@ Foam::tmp<Foam::volScalarField> Foam::twoPhaseMixtureThermo::computePhaseChange(
                 IOobject::NO_WRITE
             ),
             T_.mesh(),
-            dimensionedScalar("source", dimTemperature/dimTime, 0.0)  // Will compute dimensions from calculation
+            dimensionedScalar("source", dimTemperature/dimTime, 0.0)
         )
     );
-    
+
     volScalarField& source = tSource.ref();
-    
-    // Get local thermodynamic properties with proper dimensions
+
+    // Access coefficients from transportProperties
+    const dictionary& transportDict =
+        T_.mesh().lookupObject<dictionary>("transportProperties");
+
+    if (!transportDict.found("phaseChangeCoeffs"))
+    {
+        return tSource;
+    }
+
+    const dictionary& pc = transportDict.subDict("phaseChangeCoeffs");
+
+    const scalar Tsolidus = pc.lookupOrDefault<scalar>("Tsolidus", T_melt_);
+    const scalar Tliquidus = pc.lookupOrDefault<scalar>("Tliquidus", T_melt_);
+    const scalar Tvapor = pc.lookupOrDefault<scalar>("Tvapor", Tliquidus);
+    const scalar windowWidth = pc.lookupOrDefault<scalar>("windowWidth", 0.0);
+    const Switch onlyAboveMelt(pc.lookupOrDefault<Switch>("onlyAboveMelt", false));
+    const Switch onlyAboveVapor(pc.lookupOrDefault<Switch>("onlyAboveVapor", false));
+
+    List<Tuple2<scalar, scalar>> actTimes;
+    if (pc.found("activationTime"))
+    {
+        pc.lookup("activationTime") >> actTimes;
+    }
+
+    bool active = true;
+    if (actTimes.size())
+    {
+        active = false;
+        const scalar timeVal = T_.time().value();
+        forAll(actTimes, i)
+        {
+            if
+            (
+                timeVal >= actTimes[i].first()
+             && timeVal <= actTimes[i].second()
+            )
+            {
+                active = true;
+                break;
+            }
+        }
+        if (!active)
+        {
+            return tSource;
+        }
+    }
+
+    // Local thermodynamic properties
     const volScalarField CpField = thermo1_->Cp();
     const dimensionedScalar dt = T_.time().deltaT();
     const dimensionedScalar L = latentHeat();
 
-    // Dimensioned pre-factor for unit checking
-    const dimensionedScalar LOverCpDtDimCheck =
-        L/(dimensionedScalar("Cp", CpField.dimensions(), 1.0)*dt);
-
     const scalar LVal = L.value();
     const scalar dtVal = dt.value();
-    (void)LOverCpDtDimCheck; // keep unit checking in debug builds
 
     forAll(T_, cellI)
     {
         const scalar CpCell = CpField[cellI];
         const scalar LOverCpDt = LVal/(CpCell*dtVal);
 
-        if (T_[cellI] > T_melt_ && alpha1()[cellI] > 0.99)
+        const scalar Tcell = T_[cellI];
+        scalar g = 0.0;
+
+        if (Tcell > Tsolidus)
         {
-            source[cellI] = -LOverCpDt;
+            g = 1.0;
+            if (windowWidth > SMALL)
+            {
+                g = min((Tcell - Tsolidus)/windowWidth, 1.0);
+            }
         }
-        else if (T_[cellI] < T_melt_ && alpha1()[cellI] < 0.01)
+        else if (Tcell < Tsolidus)
         {
-            source[cellI] = LOverCpDt;
+            g = -1.0;
+            if (windowWidth > SMALL)
+            {
+                g = max((Tcell - Tsolidus)/windowWidth, -1.0);
+            }
         }
+
+        if (onlyAboveMelt && Tcell < Tsolidus)
+        {
+            g = 0.0;
+        }
+        if (onlyAboveVapor && Tcell < Tvapor)
+        {
+            g = 0.0;
+        }
+
+        source[cellI] = -g*LOverCpDt;
     }
-    
+
     return tSource;
 }
+
+Foam::tmp<Foam::volScalarField>
+Foam::twoPhaseMixtureThermo::computeMassTransfer() const
+{
+    tmp<volScalarField> tRate
+    (
+        new volScalarField
+        (
+            IOobject
+            (
+                "dgdt",
+                T_.time().timeName(),
+                T_.mesh(),
+                IOobject::NO_READ,
+                IOobject::NO_WRITE
+            ),
+            T_.mesh(),
+            dimensionedScalar("dgdt", dimless/dimTime, 0.0)
+        )
+    );
+
+    volScalarField& rate = tRate.ref();
+
+    const dictionary& transportDict =
+        T_.mesh().lookupObject<dictionary>("transportProperties");
+
+    if (!transportDict.found("massTransferCoeffs"))
+    {
+        return tRate;
+    }
+
+    const dictionary& mt = transportDict.subDict("massTransferCoeffs");
+
+    const scalar Tsolidus = mt.lookupOrDefault<scalar>("Tsolidus", T_melt_);
+    const scalar Tvapor = mt.lookupOrDefault<scalar>("Tvapor", Tsolidus);
+    const scalar rateMax = mt.lookupOrDefault<scalar>("rateMax", 0.0);
+
+    List<scalar> tStart, tEnd;
+    if (mt.found("tStart"))
+    {
+        mt.lookup("tStart") >> tStart;
+    }
+    if (mt.found("tEnd"))
+    {
+        mt.lookup("tEnd") >> tEnd;
+    }
+
+    bool active = true;
+    if (tStart.size() && tEnd.size())
+    {
+        active = false;
+        const scalar timeVal = T_.time().value();
+        const label n = min(tStart.size(), tEnd.size());
+        for (label i = 0; i < n; ++i)
+        {
+            if (timeVal >= tStart[i] && timeVal <= tEnd[i])
+            {
+                active = true;
+                break;
+            }
+        }
+        if (!active)
+        {
+            return tRate;
+        }
+    }
+
+    const scalar dT = max(Tvapor - Tsolidus, SMALL);
+
+    forAll(T_, cellI)
+    {
+        const scalar Tcell = T_[cellI];
+        scalar frac = 0.0;
+        if (Tcell > Tsolidus)
+        {
+            frac = min((Tcell - Tsolidus)/dT, 1.0);
+        }
+
+        rate[cellI] = rateMax*max(frac, 0.0);
+    }
+
+    return tRate;
+}
+
 bool Foam::twoPhaseMixtureThermo::isochoric() const
 {
     return thermo1_->isochoric() && thermo2_->isochoric();

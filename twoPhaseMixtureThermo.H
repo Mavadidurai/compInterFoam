@@ -73,8 +73,11 @@ class twoPhaseMixtureThermo
         //- Latent heat of fusion (J/kg)
         scalar latentHeat_;
 
-         //- Melting temperature (K)
+        //- Solidus temperature (K)
         scalar T_melt_;
+
+        //- Vaporisation temperature (K)
+        scalar T_vapor_;
 
         //- Laser volumetric heat source (W/m^3)
         volScalarField Q_laser_;
@@ -133,7 +136,11 @@ public:
         {
             return T_melt_;
         }
-
+        //- Return vaporisation temperature
+        scalar T_vapor() const
+        {
+            return T_vapor_;
+        }
         //- Return const access to laser heating source
         const volScalarField& Q_laser() const
         {
@@ -175,6 +182,9 @@ public:
         
         //- Compute and return phase change source term
         virtual tmp<volScalarField> computePhaseChange() const;
+
+        //- Compute and return mass-transfer rate dg/dt
+        virtual tmp<volScalarField> computeMassTransfer() const;
  
         // Access to thermodynamic state variables
 
