@@ -163,6 +163,8 @@ public:
         {
             return dgdt_;
         }
+        //- Return surface tension coefficient
+        const dimensionedScalar& sigma() const;
         //- Correct the thermodynamics of each phase
         virtual void correctThermo();
         

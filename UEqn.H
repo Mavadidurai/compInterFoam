@@ -234,7 +234,8 @@ if (pimple.momentumPredictor())
         UEqn == fvc::reconstruct
         (
             (
-                mixture.surfaceTensionForce()
+                // Explicitly compute curvature force using sigma from transportProperties
+                fvc::interpolate(mixture.sigmaK())*fvc::snGrad(alpha1)
               - fvc::snGrad(p_rgh)
             ) * mesh.magSf()
         )

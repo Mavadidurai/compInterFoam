@@ -184,6 +184,10 @@ Foam::dimensionedScalar Foam::twoPhaseMixtureThermo::latentHeat() const
         latentHeat_
     );
 }
+const Foam::dimensionedScalar& Foam::twoPhaseMixtureThermo::sigma() const
+{
+    return interfaceProperties::sigma_;
+}
 Foam::tmp<Foam::volScalarField> Foam::twoPhaseMixtureThermo::computePhaseChange() const
 {
     tmp<volScalarField> tSource
@@ -231,11 +235,8 @@ Foam::tmp<Foam::volScalarField> Foam::twoPhaseMixtureThermo::computePhaseChange(
     if (!loggedPhaseChange)
     {
         Info<< "phaseChangeCoeffs:" << nl
-            << "    Tsolidus      " << Tsolidus << nl
-            << "    Tliquidus     " << Tliquidus << nl
             << "    Tvapor        " << Tvapor << nl
             << "    windowWidth   " << windowWidth << nl
-            << "    onlyAboveMelt " << onlyAboveMelt << nl
             << "    onlyAboveVapor " << onlyAboveVapor << nl;
         if (actTimes.size())
         {
@@ -291,20 +292,19 @@ Foam::tmp<Foam::volScalarField> Foam::twoPhaseMixtureThermo::computePhaseChange(
 
         const scalar Tcell = T_[cellI];
         const scalar alpha = alpha1()[cellI];
-
-        scalar mag = LOverCpDt;
+        scalar magCoeff = LOverCpDt;
         if (windowWidth > SMALL)
         {
-            mag *= min(mag(Tcell - Tvapor)/windowWidth, 1.0);
+            magCoeff *= min(Foam::mag(Tcell - Tvapor)/windowWidth, 1.0);
         }
 
         if (Tcell > Tvapor && alpha > 0.5)
         {
-            source[cellI] = mag;
+            source[cellI] = magCoeff;
         }
         else if (Tcell < Tvapor && alpha < 0.5)
         {
-            source[cellI] = -mag;
+            source[cellI] = -magCoeff;
         }
         else
         {
@@ -365,11 +365,10 @@ Foam::twoPhaseMixtureThermo::computeMassTransfer() const
     {
         mt.lookup("tEnd") >> tEnd;
     }
-static bool loggedMassTransfer = false;
+    static bool loggedMassTransfer = false;
     if (!loggedMassTransfer)
     {
         Info<< "massTransferCoeffs:" << nl
-            << "    Tsolidus  " << Tsolidus << nl
             << "    Tvapor    " << Tvapor << nl
             << "    rateMax   " << rateMax << nl;
         if (tStart.size() && tEnd.size())

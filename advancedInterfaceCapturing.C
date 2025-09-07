@@ -130,7 +130,7 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
     // OPTIMIZED: Calculate once, reuse multiple times
     const scalar currentTime = mesh_.time().value();
     const scalar maxTemp = max(T_).value();
-    const scalar minTempThreshold = vaporTemp_.value() - recoilTempOffset_;    
+    const scalar minTempThreshold = (vaporTemp_ - recoilTempOffset_).value();
     const bool verbose = mesh_.time().controlDict().lookupOrDefault<Switch>("verbose", false);
     if (verbose)
     {
@@ -171,11 +171,10 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
         {
             alphaDamp = 0.0;
         }
-        scalar phaseChangeVal = 0.0;
-        if (TField[cellI] >= vaporTemp_.value())
-        {
-            phaseChangeVal = mag(phaseChangeField[cellI]);
-        }
+        scalar phaseChangeVal =
+            TField[cellI] >= vaporTemp_.value()
+            ? mag(phaseChangeField[cellI])
+            : 0.0;
         const scalar pressureValue = pressureScale * phaseChangeVal;
         const scalar localRecoilMax =
             scaleRecoilMax ? recoilMax_ * phaseChangeVal : recoilMax_;
