@@ -49,18 +49,16 @@ phaseChangeCoeffs
     windowWidth    50;
     onlyAboveMelt  true;
     onlyAboveVapor true;
-    // ((start1 end1) (start2 end2) ...)
-    // 214-fs pulse window from Nguyen (2022) Activation windows corresponding to each laser pulse
-    activationTime ((0 2.14e-13));
+    // Activation window for laser pulse
+    activationTime (0 5e-12);
 }
 massTransferCoeffs
 {
     model     timeAndTemperatureWindow;
     tStart    (0);
-    tEnd      (2.14e-13);    // 214 fs
+    tEnd      (5e-12);
     Tsolidus  1941;
     Tvapor    3560;
-    rateMax   5e12;
+    rateMax   5e10;
 }
-
 // ************************************************************************* //
