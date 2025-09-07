@@ -33,6 +33,8 @@ License
 #include "dimensionSets.H"
 #include "Switch.H"
 #include "Tuple2.H"
+//#include "mag.H"
+
 // * * * * * * * * * * * * * * Static Data Members * * * * * * * * * * * * * //
 
 namespace Foam
@@ -209,16 +211,14 @@ Foam::tmp<Foam::volScalarField> Foam::twoPhaseMixtureThermo::computePhaseChange(
 
     if (!transportDict.found("phaseChangeCoeffs"))
     {
+        Info<< "phaseChangeCoeffs not found - skipping phase change" << nl;
         return tSource;
     }
 
     const dictionary& pc = transportDict.subDict("phaseChangeCoeffs");
 
-    const scalar Tsolidus = pc.lookupOrDefault<scalar>("Tsolidus", T_melt_);
-    const scalar Tliquidus = pc.lookupOrDefault<scalar>("Tliquidus", T_melt_);
-    const scalar Tvapor = pc.lookupOrDefault<scalar>("Tvapor", Tliquidus);
+   const scalar Tvapor = pc.lookupOrDefault<scalar>("Tvapor", T_vapor_);
     const scalar windowWidth = pc.lookupOrDefault<scalar>("windowWidth", 0.0);
-    const Switch onlyAboveMelt(pc.lookupOrDefault<Switch>("onlyAboveMelt", false));
     const Switch onlyAboveVapor(pc.lookupOrDefault<Switch>("onlyAboveVapor", false));
 
     List<Tuple2<scalar, scalar>> actTimes;
@@ -226,7 +226,32 @@ Foam::tmp<Foam::volScalarField> Foam::twoPhaseMixtureThermo::computePhaseChange(
     {
         pc.lookup("activationTime") >> actTimes;
     }
-
+    // Log the coefficients only once
+    static bool loggedPhaseChange = false;
+    if (!loggedPhaseChange)
+    {
+        Info<< "phaseChangeCoeffs:" << nl
+            << "    Tsolidus      " << Tsolidus << nl
+            << "    Tliquidus     " << Tliquidus << nl
+            << "    Tvapor        " << Tvapor << nl
+            << "    windowWidth   " << windowWidth << nl
+            << "    onlyAboveMelt " << onlyAboveMelt << nl
+            << "    onlyAboveVapor " << onlyAboveVapor << nl;
+        if (actTimes.size())
+        {
+            Info<< "    activationTime";
+            forAll(actTimes, i)
+            {
+                Info<< " (" << actTimes[i].first() << ' ' << actTimes[i].second() << ')';
+            }
+            Info<< nl;
+        }
+        else
+        {
+            Info<< "    activationTime none" << nl;
+        }
+        loggedPhaseChange = true;
+    }
     bool active = true;
     if (actTimes.size())
     {
@@ -246,6 +271,7 @@ Foam::tmp<Foam::volScalarField> Foam::twoPhaseMixtureThermo::computePhaseChange(
         }
         if (!active)
         {
+            Info<< "phaseChangeCoeffs inactive at time " << timeVal << nl;
             return tSource;
         }
     }
@@ -264,35 +290,31 @@ Foam::tmp<Foam::volScalarField> Foam::twoPhaseMixtureThermo::computePhaseChange(
         const scalar LOverCpDt = LVal/(CpCell*dtVal);
 
         const scalar Tcell = T_[cellI];
-        scalar g = 0.0;
+        const scalar alpha = alpha1()[cellI];
 
-        if (Tcell > Tsolidus)
+        scalar mag = LOverCpDt;
+        if (windowWidth > SMALL)
         {
-            g = 1.0;
-            if (windowWidth > SMALL)
-            {
-                g = min((Tcell - Tsolidus)/windowWidth, 1.0);
-            }
-        }
-        else if (Tcell < Tsolidus)
-        {
-            g = -1.0;
-            if (windowWidth > SMALL)
-            {
-                g = max((Tcell - Tsolidus)/windowWidth, -1.0);
-            }
+            mag *= min(mag(Tcell - Tvapor)/windowWidth, 1.0);
         }
 
-        if (onlyAboveMelt && Tcell < Tsolidus)
+        if (Tcell > Tvapor && alpha > 0.5)
         {
-            g = 0.0;
+            source[cellI] = mag;
         }
+        else if (Tcell < Tvapor && alpha < 0.5)
+        {
+            source[cellI] = -mag;
+        }
+        else
+        {
+            source[cellI] = 0.0;
+        }
+
         if (onlyAboveVapor && Tcell < Tvapor)
         {
-            g = 0.0;
+            source[cellI] = 0.0;
         }
-
-        source[cellI] = -g*LOverCpDt;
     }
 
     return tSource;
@@ -325,13 +347,13 @@ Foam::twoPhaseMixtureThermo::computeMassTransfer() const
 
     if (!transportDict.found("massTransferCoeffs"))
     {
+        Info<< "massTransferCoeffs not found - skipping mass transfer" << nl;
         return tRate;
     }
 
     const dictionary& mt = transportDict.subDict("massTransferCoeffs");
 
-    const scalar Tsolidus = mt.lookupOrDefault<scalar>("Tsolidus", T_melt_);
-    const scalar Tvapor = mt.lookupOrDefault<scalar>("Tvapor", Tsolidus);
+    const scalar Tvapor = mt.lookupOrDefault<scalar>("Tvapor", T_vapor_);
     const scalar rateMax = mt.lookupOrDefault<scalar>("rateMax", 0.0);
 
     List<scalar> tStart, tEnd;
@@ -343,7 +365,29 @@ Foam::twoPhaseMixtureThermo::computeMassTransfer() const
     {
         mt.lookup("tEnd") >> tEnd;
     }
-
+static bool loggedMassTransfer = false;
+    if (!loggedMassTransfer)
+    {
+        Info<< "massTransferCoeffs:" << nl
+            << "    Tsolidus  " << Tsolidus << nl
+            << "    Tvapor    " << Tvapor << nl
+            << "    rateMax   " << rateMax << nl;
+        if (tStart.size() && tEnd.size())
+        {
+            Info<< "    activationTime";
+            const label nWin = min(tStart.size(), tEnd.size());
+            for (label i = 0; i < nWin; ++i)
+            {
+                Info<< " (" << tStart[i] << ' ' << tEnd[i] << ')';
+            }
+            Info<< nl;
+        }
+        else
+        {
+            Info<< "    activationTime none" << nl;
+        }
+        loggedMassTransfer = true;
+    }
     bool active = true;
     if (tStart.size() && tEnd.size())
     {
@@ -360,28 +404,34 @@ Foam::twoPhaseMixtureThermo::computeMassTransfer() const
         }
         if (!active)
         {
+            Info<< "massTransferCoeffs inactive at time " << timeVal << nl;
             return tRate;
         }
     }
 
-    const scalar dT = max(Tvapor - Tsolidus, SMALL);
-
     forAll(T_, cellI)
     {
         const scalar Tcell = T_[cellI];
-        scalar frac = 0.0;
-        if (Tcell > Tsolidus)
-        {
-            frac = min((Tcell - Tsolidus)/dT, 1.0);
-        }
+        const scalar alpha = alpha1()[cellI];
 
-        rate[cellI] = rateMax*max(frac, 0.0);
+        if (Tcell > Tvapor && alpha > 0.5)
+        {
+            rate[cellI] = rateMax;
+        }
+        else if (Tcell < Tvapor && alpha < 0.5)
+        {
+            rate[cellI] = -rateMax;
+        }
+        else
+        {
+            rate[cellI] = 0.0;
+        }
     }
 
     return tRate;
 }
-
 bool Foam::twoPhaseMixtureThermo::isochoric() const
+
 {
     return thermo1_->isochoric() && thermo2_->isochoric();
 }
