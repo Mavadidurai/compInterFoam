@@ -229,7 +229,16 @@ rAU.correctBoundaryConditions();
 // Momentum predictor
 if (pimple.momentumPredictor())
 {
-    SolverPerformance<vector> solverPerf = solve(UEqn == -fvc::grad(p_rgh));
+    SolverPerformance<vector> solverPerf = solve
+    (
+        UEqn == fvc::reconstruct
+        (
+            (
+                mixture.surfaceTensionForce()
+              - fvc::snGrad(p_rgh)
+            ) * mesh.magSf()
+        )
+    );
     scalar residual = mag(solverPerf.initialResidual());
     relaxU = max(min(relaxU * targetResU/(residual + SMALL), 0.7), 0.1);
     
