@@ -4,10 +4,8 @@
 #include "wallFvPatch.H"
 #include "fvPatchField.H"
 #include "dimensionSets.H"
-
 namespace Foam
 {
-
 advancedInterfaceCapturing::advancedInterfaceCapturing
 (
     const fvMesh& mesh,
@@ -127,24 +125,19 @@ advancedInterfaceCapturing::advancedInterfaceCapturing
         Info<< "Advanced interface capturing initialized" << endl;
     }
 }
-
 void advancedInterfaceCapturing::calculateRecoilPressure()
 {
     // OPTIMIZED: Calculate once, reuse multiple times
     const scalar currentTime = mesh_.time().value();
     const scalar maxTemp = max(T_).value();
-    const scalar minTempThreshold = meltingTemp_.value() - recoilTempOffset_;
-    
+    const scalar minTempThreshold = vaporTemp_.value() - recoilTempOffset_;    
     const bool verbose = mesh_.time().controlDict().lookupOrDefault<Switch>("verbose", false);
-
     if (verbose)
     {
         Info<< "Calculating recoil pressure at t = " << currentTime
             << "s, max T = " << maxTemp
-            << "K, melting temp = " << meltingTemp_.value() << "K" << endl;
+            << "K, vapor temp = " << vaporTemp_.value() << "K" << endl;
     }
-
-    
     // OPTIMIZED: Early exit using cached values
     if (maxTemp < minTempThreshold)
     {
@@ -156,35 +149,33 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
         }
         return;
     }
-    
 // Initialize recoil pressure field
     recoilPressure_ = dimensionedScalar("zero", dimPressure, 0.0);
-
     // Constants for recoil pressure model sourced from dictionaries
     const scalar pressureScale = pressureScale_;
     const bool clampRecoil = clampRecoil_;
     const bool scaleRecoilMax = scaleRecoilMax_;
-
     // Access fields only once for efficiency
     const scalarField& TField = T_.primitiveField();
     const scalarField& alpha1Field = alpha1_.primitiveField();
     const volScalarField& phaseChange = mixture_.phaseChangeSource();
     const scalarField& phaseChangeField = phaseChange.primitiveField();
     scalarField& recoilField = recoilPressure_.primitiveFieldRef();
-
     // Compute recoil pressure based on evaporation rate
     forAll(TField, cellI)
     {
         if (TField[cellI] < minTempThreshold) continue;
-
         const scalar alpha = alpha1Field[cellI];
         scalar alphaDamp = 4.0 * alpha * (1.0 - alpha);
         if (alpha < alphaMin_ || alpha > alphaMax_)
         {
             alphaDamp = 0.0;
         }
-
-        const scalar phaseChangeVal = max(phaseChangeField[cellI], 0.0);
+        scalar phaseChangeVal = 0.0;
+        if (TField[cellI] >= vaporTemp_.value())
+        {
+            phaseChangeVal = mag(phaseChangeField[cellI]);
+        }
         const scalar pressureValue = pressureScale * phaseChangeVal;
         const scalar localRecoilMax =
             scaleRecoilMax ? recoilMax_ * phaseChangeVal : recoilMax_;
@@ -194,7 +185,6 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
     // Ensure boundary conditions are correct
     recoilPressure_.correctBoundaryConditions();
 }
-
 void Foam::advancedInterfaceCapturing::correct()
 {
     const bool verbose = mesh_.time().controlDict().lookupOrDefault<Switch>("verbose", false);
@@ -202,33 +192,26 @@ void Foam::advancedInterfaceCapturing::correct()
     {
         Info<< "Performing simplified interface capturing" << endl;
     }
-    
     // First update the recoil pressure field
     // Only do this every few steps to reduce MPI communication
     if (recoilUpdateInterval_ <= 1 || callCount_++ % recoilUpdateInterval_ == 0)
     {
         calculateRecoilPressure();
     }
-    
     // Create a simple robust transport equation for alpha1
     fvScalarMatrix alpha1Eqn
     (
         fvm::ddt(alpha1_)
       + fvm::div(phi_, alpha1_)
     );
-    
     // Apply relaxation for stability
     alpha1Eqn.relax(relaxFactor_);
-
-    
     // Solve with standard settings
     alpha1Eqn.solve();
-    
     // Simple boundedness check without per-cell limiting
     // This approach reduces MPI communication
     alpha1_ = max(min(alpha1_, scalar(1)), scalar(0));
     alpha1_.correctBoundaryConditions();
-
     if (verbose)
     {
         Info<< "Phase-1 volume fraction = "
@@ -239,10 +222,8 @@ void Foam::advancedInterfaceCapturing::correct()
             << endl;
     }
 }
-
 void advancedInterfaceCapturing::write() const
 {
     recoilPressure_.write();
 }
-
 } // End namespace Foam

@@ -12,7 +12,6 @@
     Handles substrate-backed geometry with realistic laser-material interaction.
 
 \*---------------------------------------------------------------------------*/
-
 #include "femtosecondLaserModel.H"
 #include "fvc.H"
 #include "fvm.H"
@@ -20,14 +19,11 @@
 #include "HashSet.H"
 #include <cmath>
 extern Foam::Switch verbose;
-
 namespace Foam
 {
 
 defineTypeNameAndDebug(femtosecondLaserModel, 0);
-
 // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
-
 femtosecondLaserModel::femtosecondLaserModel
 (
     const fvMesh& mesh,
@@ -105,7 +101,6 @@ femtosecondLaserModel::femtosecondLaserModel
             constant::mathematical::pi*sqr(spotSize_.value()/2.0)*
             pulseWidth_.value()
         );
-
     if (dict.found("peakIntensity"))
     {
         scalar diff = mag(peakIntensity_.value() - derivedPeak);
@@ -127,7 +122,6 @@ femtosecondLaserModel::femtosecondLaserModel
             derivedPeak
         );
     }
-
     // Validate parameters
     if (!valid())
     {
@@ -139,7 +133,6 @@ femtosecondLaserModel::femtosecondLaserModel
             << "  Spot size: " << spotSize_.value()
             << abort(FatalError);
     }
-
     if (verbose)
     {
         Info<< "Femtosecond laser model initialized:" << nl
@@ -153,7 +146,6 @@ femtosecondLaserModel::femtosecondLaserModel
             << "  Direction: " << direction_ << nl
             << "  Active time: " << laserStartTime_ << " to " << laserEndTime_ << " s" << endl;
     }
-        
     // Validate focus position for LIFT geometry
     if (focus_.y() < filmYMin_ || focus_.y() > filmYMax_)
     {
@@ -163,14 +155,12 @@ femtosecondLaserModel::femtosecondLaserModel
             << filmYMin_*1e6 << "-" << filmYMax_*1e6 << " μm)" << nl
             << "LIFT efficiency may be reduced" << endl;
     }
-    
     // Check timing
     scalar pulseDuration = laserEndTime_ - laserStartTime_;
     if (verbose)
     {
         Info<< "  Pulse duration: " << pulseDuration*1e12 << " ps" << endl;
     }
-
     // Warn about any unhandled dictionary entries
     wordHashSet handled
     (
@@ -201,7 +191,6 @@ femtosecondLaserModel::femtosecondLaserModel
             "offFilmMax"
         }
     );
-
     forAllConstIter(dictionary, dict_, iter)
     {
         const word& key = iter().keyword();
@@ -212,9 +201,7 @@ femtosecondLaserModel::femtosecondLaserModel
         }
     }
 }
-
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
-
 void femtosecondLaserModel::update()
 {
         // Handle laser scanning by updating the focal point based on
@@ -222,19 +209,15 @@ void femtosecondLaserModel::update()
     // stored separately so that the motion is always measured from
     // the original location.
     const Foam::scalar currentTime = mesh_.time().value();
-
-    
     if (mag(scanVelocity_) > VSMALL)
     {
 	focus_ = initialFocus_ + scanVelocity_ * mesh_.time().value();
     }
-
     // Determine if the laser pulse is active at the supplied time.  For a
     // continuous laser this always evaluates to true inside the time window
     // [laserStartTime_, laserEndTime_].  For pulsed operation the duty cycle
     // and repetition frequency are honoured.
     bool pulseActive = true;
-
     if (!continuousLaser_)
     {
         pulseActive = (currentTime >= laserStartTime_ && currentTime <= laserEndTime_);
@@ -247,7 +230,6 @@ void femtosecondLaserModel::update()
             pulseActive = (timeInPeriod <= pulseDutyCycle_*period);
         }
     }
-
     if (!pulseActive)
     {
         // Ensure the source field exists and set it to zero so downstream
@@ -275,7 +257,6 @@ void femtosecondLaserModel::update()
         {
             tSource_.ref() = dimensionedScalar("zero", dimPower/dimVolume, 0.0);
         }
-
         sourceValid_ = true;
         return;
     }
@@ -287,11 +268,9 @@ void femtosecondLaserModel::correct(const scalar currentTime)
     sourceValid_ = false;
     calculateSource();
 }
-
 bool femtosecondLaserModel::validateParameters() const
 {
     bool valid = true;
-
     // Check dimensions
     if (peakIntensity_.dimensions() != dimPower/dimArea ||
         pulseWidth_.dimensions() != dimTime ||
@@ -302,7 +281,6 @@ bool femtosecondLaserModel::validateParameters() const
     {
         valid = false;
     }
-
     // Check values
     if (peakIntensity_.value() <= 0 ||
         pulseWidth_.value() <= 0 ||
@@ -316,7 +294,6 @@ bool femtosecondLaserModel::validateParameters() const
     const scalar filmThickness = filmYMax_ - filmYMin_;
     const scalar expectedThickness = 7.14e-8; // [m]
     const scalar tolerance = 0.1*expectedThickness; // 10% tolerance
-
     if (filmThickness <= 0)
     {
         FatalErrorInFunction
@@ -325,7 +302,6 @@ bool femtosecondLaserModel::validateParameters() const
             << "Check filmYMin and filmYMax in laserProperties" << nl
             << abort(FatalError);
     }
-
     if (mag(filmThickness - expectedThickness) > tolerance)
     {
         FatalErrorInFunction
@@ -337,11 +313,9 @@ bool femtosecondLaserModel::validateParameters() const
     }
     return valid;
 }
-
 bool femtosecondLaserModel::checkPhysicalBounds() const
 {
     bool valid = true;
-
     // Check femtosecond regime (10fs - 10ps acceptable for debug)
     if
     (
@@ -354,7 +328,6 @@ bool femtosecondLaserModel::checkPhysicalBounds() const
             << pulseWidth_.value() << " s" << endl;
              valid = false;
     }
-
     // Check wavelength (visible to near-IR)
     if (wavelength_.value() < 1e-7 || wavelength_.value() > 2e-6)
     {
@@ -363,7 +336,6 @@ bool femtosecondLaserModel::checkPhysicalBounds() const
             << wavelength_.value() << " m" << endl;
             valid = false;
     }
-
     // Check intensity (reasonable for LIFT)
     if (peakIntensity_.value() > 6e16)
     {
@@ -372,10 +344,8 @@ bool femtosecondLaserModel::checkPhysicalBounds() const
             << peakIntensity_.value() << " W/m²" << endl;
              valid = false;
     }
-
     return valid;
 }
-
 scalar femtosecondLaserModel::calculateGaussianIntensity
 (
 const scalar R
@@ -394,7 +364,6 @@ const scalar R
         return R <= (spotSize_.value() / 2.0) ? 1.0 : 0.0;
     }
 }
-
 bool femtosecondLaserModel::isInBeam(const point& p) const
 {
     // Calculate distance from focus
@@ -402,31 +371,24 @@ bool femtosecondLaserModel::isInBeam(const point& p) const
     scalar z = (r & direction_);
     r -= z*direction_;
     scalar R = mag(r);
-    
     // Check if within beam radius (with some tolerance)
     scalar beamRadius = spotSize_.value() / 2.0;
     scalar maxRadius = beamRadius * 3.0;  // 3-sigma cutoff for Gaussian
-    
     // Check z-direction limits (allow some propagation)
     scalar maxZ = max(spotSize_.value(), 2e-6);  // At least 2 μm
-    
     return (R <= maxRadius) && (z >= -maxZ) && (z <= maxZ);
 }
-
 bool femtosecondLaserModel::checkEnergyConservation() const
 {
     if (!tSource_.valid() || continuousLaser_)
     {
         return true;
     }
-
     const scalar t = mesh_.time().value();
     (void)t;
     const dimensionedScalar dt = mesh_.time().deltaT();
-    
        // Simple energy check for pulsed laser
     dimensionedScalar totalEnergy = fvc::domainIntegrate(tSource_()*dt);
-
     // Allow up to 10x energy implied by peak intensity per timestep (very conservative)
     dimensionedScalar expectedEnergy
     (
@@ -436,19 +398,15 @@ bool femtosecondLaserModel::checkEnergyConservation() const
        *constant::mathematical::pi*sqr(spotSize_.value()/2.0)
        *pulseWidth_.value()
     );
-
-    scalar maxAllowedEnergy = 10.0 * expectedEnergy.value();
-    
+    scalar maxAllowedEnergy = 10.0 * expectedEnergy.value(); 
     return totalEnergy.value() <= maxAllowedEnergy;
 }
-
 void femtosecondLaserModel::calculateSource() const
 {
     if (sourceValid_)
     {
         return;
     }
-
     // Create source field if needed
     if (!tSource_.valid())
     {
@@ -469,22 +427,18 @@ void femtosecondLaserModel::calculateSource() const
             )
         );
     }
-
     volScalarField& source = tSource_.ref();
     source = dimensionedScalar("zero", source.dimensions(), 0.0);
-    
     // Get current time
     const scalar t = mesh_.time().value();
     const dimensionedScalar dt = mesh_.time().deltaT();
     const label timeIndex = mesh_.time().timeIndex();
-    
     // Reset cumulative energy if simulation restarted
     if (timeIndex < lastTimeIndex_)
     {
         cumulativeEnergy_ = 0.0;
     }
     lastTimeIndex_ = timeIndex;
-    
     // Check if laser is active
     bool laserActive = false;
     
@@ -497,7 +451,6 @@ void femtosecondLaserModel::calculateSource() const
         // For pulsed laser, check if within pulse duration
         laserActive = (t >= laserStartTime_ && t <= laserEndTime_);
     }
-    
     // Report laser status
     if (timeIndex % 50 == 0 && verbose)  // Every 50 timesteps
     {
@@ -506,13 +459,11 @@ void femtosecondLaserModel::calculateSource() const
             << (laserActive ? "ACTIVE" : "inactive")
             << " (window: " << laserStartTime_*1e12 << "-" << laserEndTime_*1e12 << "ps)" << endl;
     }
-
     if (!laserActive)
     {
         sourceValid_ = true;
         return;
     }
-
     // Calculate temporal profile
     scalar temporalTerm = 1.0;
     if (!continuousLaser_)
@@ -525,37 +476,28 @@ void femtosecondLaserModel::calculateSource() const
         
         temporalTerm = exp(-0.5 * sqr(timeFromCenter/sigma));
     }
-
     // Apply laser heating
     label cellsInBeam = 0;
     label cellsInFilm = 0;
     scalar maxSourceValue = 0.0;
     scalar totalSourceIntegral = 0.0;
     scalar totalBeamVolume = 0.0;
-
-    
     forAll(mesh_.C(), cellI)
     {
         const point& cellCenter = mesh_.C()[cellI];
-        
         // Check if in metal film region
         bool inFilm = (cellCenter.y() >= filmYMin_ && cellCenter.y() <= filmYMax_);
         if (inFilm) cellsInFilm++;
-        
         if (isInBeam(cellCenter))
         {
             cellsInBeam++;
             totalBeamVolume += mesh_.V()[cellI];
-
-            
             vector r = cellCenter - focus_;
             scalar z = (r & direction_);
             r -= z*direction_;
             scalar R = mag(r);
-            
             scalar spatialTerm = calculateGaussianIntensity(R);
             scalar absorptionTerm = exp(-absorptionCoeff_.value() * max(z, 0.0));
-            
             scalar transmissionFactor = 1.0 - reflectivity_;
             if (transmission_ >= 0)
             {
@@ -582,15 +524,12 @@ void femtosecondLaserModel::calculateSource() const
                     transmissionFactor = 0.0; // total internal reflection
                 }
             }
-
             scalar intensity = peakIntensity_.value() *
                               temporalTerm *
                               spatialTerm *
                               absorptionTerm *
                               transmissionFactor;
-
             scalar volumetricIntensity = intensity * absorptionCoeff_.value();
-
             if (std::isfinite(volumetricIntensity) && volumetricIntensity > 0)
             {
                 if (inFilm)
@@ -604,22 +543,18 @@ void femtosecondLaserModel::calculateSource() const
                         volumetricIntensity * offFilmScale_,
                         offFilmMax_
                     );  // Reduced outside film
-                }
-                                
+                }                  
                 maxSourceValue = max(maxSourceValue, source[cellI]);
                 totalSourceIntegral += source[cellI] * mesh_.V()[cellI];
             }
         }
-
     }
-
     // Reduce across processors
     reduce(cellsInBeam, sumOp<label>());
     reduce(cellsInFilm, sumOp<label>());
     reduce(maxSourceValue, maxOp<scalar>());
     reduce(totalSourceIntegral, sumOp<scalar>());
     reduce(totalBeamVolume, sumOp<scalar>());
-
     scalar avgIntensityInBeam = 0.0;
     if (totalBeamVolume > 0)
     {
@@ -628,7 +563,6 @@ void femtosecondLaserModel::calculateSource() const
     dimensionedScalar totalEnergyDeposited =
         fvc::domainIntegrate(source * dt);
     cumulativeEnergy_ += totalEnergyDeposited.value();
-
     if (!checkEnergyConservation())
     {
         WarningInFunction
@@ -636,7 +570,6 @@ void femtosecondLaserModel::calculateSource() const
             << timeIndex << ": energy = "
             << totalEnergyDeposited.value() << " J" << endl;
     }
-
     if (verbose)
     {
         Info<< "LASER DIAGNOSTICS:" << nl
@@ -646,9 +579,7 @@ void femtosecondLaserModel::calculateSource() const
             << "  Spot radius: " << spotSize_.value()/2.0*1e6 << " μm" << nl
             << "  Beam area: " << 3.14159*sqr(spotSize_.value()/2.0)*1e12 << " μm²" << endl;
     }
-
     sourceValid_ = true;
-
     // Report laser activity
     if (laserActive && (timeIndex % 10 == 0) && verbose)
     {
@@ -662,7 +593,6 @@ void femtosecondLaserModel::calculateSource() const
             << "  Time step: " << dt.value() << " s" << nl
             << "  Energy this step: " << totalEnergyDeposited.value() << " J" << nl
             << "  Cumulative energy: " << cumulativeEnergy_ << " J" << endl;
-
         // Diagnostics
         if (cellsInBeam == 0)
         {
@@ -671,7 +601,6 @@ void femtosecondLaserModel::calculateSource() const
                 << "Focus: " << focus_ << nl
                 << "Domain bounds: " << mesh_.bounds() << endl;
         }
-
         if (cellsInFilm == 0 && cellsInBeam > 0)
         {
             WarningInFunction
@@ -680,18 +609,15 @@ void femtosecondLaserModel::calculateSource() const
         }
     }
 }
-
 tmp<volScalarField> femtosecondLaserModel::source() const
 {
     calculateSource();
     return tSource_;
 }
-
 bool femtosecondLaserModel::valid() const
 {
     return validateParameters() && checkPhysicalBounds();
 }
-
 void femtosecondLaserModel::write() const
 {
     if (verbose)
@@ -711,7 +637,6 @@ void femtosecondLaserModel::write() const
             << "  Direction: " << direction_ << nl
             << "  Active time: " << laserStartTime_ << " to " << laserEndTime_ << " s" << endl;
     }
-
     if (tSource_.valid())
     {
         const dimensionedScalar maxIntensity = max(tSource_());
@@ -731,5 +656,4 @@ void femtosecondLaserModel::write() const
     }
 }
 } // End namespace Foam
-
 // ************************************************************************* //
