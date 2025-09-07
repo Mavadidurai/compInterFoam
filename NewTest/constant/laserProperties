@@ -48,11 +48,11 @@ offFilmMax      1e14;      // Max volumetric intensity outside film [W/m^3]
 // --- Energy & timing ---
 // Boosted energy/intensity to reach melt/ablation threshold
 pulseEnergy     8.0e-8;          // [J] total energy
-pulseWidth      2.14e-13;          // [s] 214 fs pulse width
+pulseWidth      2.14e-13;        // [s] 214 fs pulse width
 laserStartTime  0;        // [s] pulse begins
-laserEndTime    2.14e-13;        // [s] pulse ends (214 fs duration)
-pulseFrequency  1e6;         // [1/s] 1 MHz repetition rate
-pulseDutyCycle  0.5;         // [-] 50% on-time
+laserEndTime    1e-11;    // [s] extend to cover multiple pulses
+pulseFrequency  1e12;     // [1/s] 1 ps period between pulses
+pulseDutyCycle  0.214;    // [-] 21% on-time matching 214 fs pulse
 // --- Spatial Gaussian (match the box center and film depth) ---
 spotSize        6.8e-6;         // [m] beam diameter
 
