@@ -35,7 +35,7 @@ meltingTemperature       [0 0 0 1 0 0 0] 1941.0;
 vaporTemperature         [0 0 0 1 0 0 0] 3560.0;
 latentHeat               [0 2 -2 0 0 0 0] 3.65e5;
 
-//sigma           sigma [ 1 0 -2 0 0 0 0 ] 1.64;
+sigma           sigma [ 1 0 -2 0 0 0 0 ] 1.64;
 
 cAlpha          cAlpha [0 0 0 0 0 0 0] 1;
 icAlpha         icAlpha [0 0 0 0 0 0 0] 0;
