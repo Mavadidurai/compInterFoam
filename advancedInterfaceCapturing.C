@@ -56,7 +56,10 @@ advancedInterfaceCapturing::advancedInterfaceCapturing
     pressureScale_(20000.0),
     recoilMax_(5e6),
     recoilUpdateInterval_(1),
-    recoilTempOffset_(100.0),
+    recoilTempOffset_
+    (
+        dimensionedScalar("recoilTempOffset", dimTemperature, 100.0)
+    ),
     clampRecoil_(true),
     scaleRecoilMax_(false),
     relaxFactor_(0.5),
@@ -94,7 +97,7 @@ advancedInterfaceCapturing::advancedInterfaceCapturing
         "recoilUpdateInterval",
         recoilUpdateInterval_
     );
-    recoilTempOffset_ = aicDict.lookupOrDefault<scalar>
+    recoilTempOffset_ = aicDict.lookupOrDefault<dimensionedScalar>
     (
         "recoilTempOffset",
         recoilTempOffset_
@@ -130,7 +133,7 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
     // OPTIMIZED: Calculate once, reuse multiple times
     const scalar currentTime = mesh_.time().value();
     const scalar maxTemp = max(T_).value();
-    const scalar minTempThreshold = (vaporTemp_ - recoilTempOffset_).value();
+    const dimensionedScalar minTempThreshold = vaporTemp_ - recoilTempOffset_;
     const bool verbose = mesh_.time().controlDict().lookupOrDefault<Switch>("verbose", false);
     if (verbose)
     {
@@ -139,7 +142,7 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
             << "K, vapor temp = " << vaporTemp_.value() << "K" << endl;
     }
     // OPTIMIZED: Early exit using cached values
-    if (maxTemp < minTempThreshold)
+    if (maxTemp < minTempThreshold.value())
     {
         // OPTIMIZED: Use cached zero value instead of creating new one
         recoilPressure_ = dimensionedScalar("zero", dimPressure, 0.0);
@@ -164,7 +167,7 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
     // Compute recoil pressure based on evaporation rate
     forAll(TField, cellI)
     {
-        if (TField[cellI] < minTempThreshold) continue;
+        if (TField[cellI] < minTempThreshold.value()) continue;
         const scalar alpha = alpha1Field[cellI];
         scalar alphaDamp = 4.0 * alpha * (1.0 - alpha);
         if (alpha < alphaMin_ || alpha > alphaMax_)
