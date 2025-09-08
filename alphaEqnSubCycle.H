@@ -4,7 +4,10 @@
     // Get time step info
     //const scalar deltaT = runTime.deltaT().value();
     
-    Info<< "Solving alpha equation with bounds enforcement" << endl;
+    if (verbose)
+    {
+        Info<< "Solving alpha equation with bounds enforcement" << endl;
+    }
 
     // Runtime clamp controls
     const dictionary& solverControls =
@@ -169,9 +172,12 @@
     reduce(maxClampCells, sumOp<label>());
     if (enableAlphaClamp && (minClampCells > 0 || maxClampCells > 0))
     {
-        Info<< "Alpha clamping stats: " << minClampCells
-            << " cells to minAlpha (" << minAlpha << "), "
-            << maxClampCells << " cells to maxAlpha (" << maxAlpha << ")" << endl;
+        if (verbose)
+        {
+            Info<< "Alpha clamping stats: " << minClampCells
+                << " cells to minAlpha (" << minAlpha << "), "
+                << maxClampCells << " cells to maxAlpha (" << maxAlpha << ")" << endl;
+        }
     }
 
     rho = alpha1*rho1 + alpha2*rho2;
@@ -190,12 +196,12 @@
             alphaPhi10[faceI] = 0.0;
         }
     }
-
-    Info<< "Phase-1 volume fraction = " << alpha1.weightedAverage(mesh.V()).value()
-        << "  Min(alpha1) = " << min(alpha1).value()
-        << "  Max(alpha1) = " << max(alpha1).value() << endl;
-
-
+    if (verbose)
+    {
+        Info<< "Phase-1 volume fraction = " << alpha1.weightedAverage(mesh.V()).value()
+            << "  Min(alpha1) = " << min(alpha1).value()
+            << "  Max(alpha1) = " << max(alpha1).value() << endl;
+    }
     if (min(alpha1).value() < 0.0 || max(alpha1).value() > 1.0)
     {
         WarningInFunction
