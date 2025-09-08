@@ -1,0 +1,5 @@
+{
+  "name": "compInterFoam Dev Container",
+  "image": "opencfd/openfoam-dev:2406",
+  "postCreateCommand": "bash -lc 'source /usr/lib/openfoam/openfoam2406/etc/bashrc'"
+}
