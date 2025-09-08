@@ -98,12 +98,12 @@ jobs:
           "${{ steps.findbin.outputs.bin }}" -help | head -n 50 | tee solver-help.txt
 
       - name: Optional: run minimal case if present
-        if: ${{ hashFiles('cases/minimal/system/controlDict') != '' }}
+        if: ${{ hashFiles('NewTest/system/controlDict') != '' }}
         shell: bash -l {0}
         run: |
           source /usr/lib/openfoam/openfoam2406/etc/bashrc
           BIN="${{ steps.findbin.outputs.bin }}"
-          cd cases/minimal
+          cd NewTest
           blockMesh || true
           "$BIN" -case . -help > ../minimal-run.txt || true
 
@@ -116,9 +116,9 @@ jobs:
             ${{ steps.findbin.outputs.bin }}
             build.log
             solver-help.txt
-            cases/minimal/constant  
-            cases/minimal/system    
-            cases/minimal/0*        
+            NewTest/constant
+            NewTest/system
+            NewTest/0* 
           if-no-files-found: warn
 
   cppcheck:
