@@ -133,6 +133,7 @@ jobs:
       - name: Run cppcheck (non-fatal; ignore missing OpenFOAM includes)
         continue-on-error: true
         run: |
+            shopt -s globstar
           if ls **/*.{C,cc,cpp,cxx,h,H,HH,hxx} >/dev/null 2>&1; then
             cppcheck \
               --enable=warning,performance,portability,style \
