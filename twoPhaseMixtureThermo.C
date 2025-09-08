@@ -27,6 +27,7 @@ License
 \*---------------------------------------------------------------------------*/
 
 #include "twoPhaseMixtureThermo.H"
+#include "interfaceProperties.H"
 #include "gradientEnergyFvPatchScalarField.H"
 #include "mixedEnergyFvPatchScalarField.H"
 #include "collatedFileOperation.H"
@@ -184,9 +185,10 @@ Foam::dimensionedScalar Foam::twoPhaseMixtureThermo::latentHeat() const
         latentHeat_
     );
 }
-Foam::tmp<Foam::volScalarField> Foam::twoPhaseMixtureThermo::sigma() const
+Foam::tmp<Foam::volScalarField>
+Foam::twoPhaseMixtureThermo::sigma() const
 {
-    return sigmaPtr_->sigma();
+    return this->Foam::interfaceProperties::sigmaK();
 }
 Foam::tmp<Foam::volScalarField> Foam::twoPhaseMixtureThermo::computePhaseChange() const
 {
