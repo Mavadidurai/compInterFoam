@@ -102,7 +102,8 @@ if (verbose)
 twoPhaseMixtureThermo mixture(U, phi);
 // Set verbosity flag from controlDict now that runTime is available
 verbose = runTime.controlDict().lookupOrDefault<Foam::Switch>("verbose", false);
-Info<< "Surface tension coefficient sigma: " << mixture.sigma() << endl;
+Info<< "Surface tension coefficient sigma: "
+    << gAverage(mixture.sigma()).value() << endl;
 
 // ✅ INTUITIVE: Access alpha fields using clear naming
 // The mixture.alpha1() refers to the first phase (metal)

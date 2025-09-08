@@ -184,9 +184,9 @@ Foam::dimensionedScalar Foam::twoPhaseMixtureThermo::latentHeat() const
         latentHeat_
     );
 }
-const Foam::dimensionedScalar& Foam::twoPhaseMixtureThermo::sigma() const
+Foam::tmp<Foam::volScalarField> Foam::twoPhaseMixtureThermo::sigma() const
 {
-    return interfaceProperties::sigma();
+    return sigmaPtr_->sigma();
 }
 Foam::tmp<Foam::volScalarField> Foam::twoPhaseMixtureThermo::computePhaseChange() const
 {
