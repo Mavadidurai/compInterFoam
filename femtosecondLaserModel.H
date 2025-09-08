@@ -1,18 +1,14 @@
 /*---------------------------------------------------------------------------*\
   =========                 |
-  \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
+  \\      /  F ield         | OpenFOAM
    \\    /   O peration     |
     \\  /    A nd           | www.openfoam.com
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
-    Copyright (C) 2024 Custom LIFT Solver
-    
-    Description
-    Header file for femtosecond laser model used in LIFT simulation.
-    Provides laser-material interaction with substrate-backed geometry.
+    Copyright (C) 2024
 
+    Header: femtosecond laser model for LIFT
 \*---------------------------------------------------------------------------*/
-
 #ifndef femtosecondLaserModel_H
 #define femtosecondLaserModel_H
 
@@ -23,219 +19,101 @@
 #include "mathematicalConstants.H"
 #include "tmp.H"
 
-// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
-
 namespace Foam
 {
-
-/*---------------------------------------------------------------------------*\
-                    Class femtosecondLaserModel Declaration
-\*---------------------------------------------------------------------------*/
 
 class femtosecondLaserModel
 {
 private:
+    // Mesh & config
+    const fvMesh&       mesh_;
+    const dictionary&   dict_;
 
-    // Private Data
+    // Laser parameters
+    dimensionedScalar   peakIntensity_;     // [W/m^2]
+    dimensionedScalar   pulseWidth_;        // [s]
+    dimensionedScalar   wavelength_;        // [m]
+    dimensionedScalar   absorptionCoeff_;   // [1/m]
+    dimensionedScalar   spotSize_;          // [m] (diameter)
+    dimensionedScalar   pulseEnergy_;       // [J]
 
-        //- Reference to mesh
-        const fvMesh& mesh_;
-        
-        //- Reference to dictionary
-        const dictionary& dict_;
+    // Geometry / timing
+    vector              direction_;         // unit vector
+    point               focus_;
+    point               initialFocus_;
+    vector              scanVelocity_;      // [m/s]
+    scalar              pulseFrequency_;    // [1/s]
+    scalar              pulseDutyCycle_;    // [-]
+    scalar              reflectivity_;      // [-]
+    scalar              transmission_;      // [-] (>=0 overrides reflectivity)
+    scalar              incidenceAngle_;    // [rad]
+    bool                gaussianProfile_;
+    label               maxReflections_;
+    bool                continuousLaser_;
 
-        // Laser parameters
-        dimensionedScalar peakIntensity_;    // Peak intensity [W/m²], <= 1e16
-        dimensionedScalar pulseWidth_;       // Pulse duration [s], 1e-16–1e-11
-        dimensionedScalar wavelength_;       // Laser wavelength [m], 1e-7–2e-6
-        dimensionedScalar absorptionCoeff_;  // Absorption coefficient [1/m]
-        dimensionedScalar spotSize_;         // Laser spot size [m]
-        dimensionedScalar pulseEnergy_;      // Pulse energy [J]
-        
-        // Geometrical parameters
-        vector direction_;              // Laser propagation direction
-        point focus_;                   // Focal point coordinates
-        point initialFocus_;            // Stored initial focus for scanning
-        vector scanVelocity_;           // Beam scanning velocity [m/s]
-        scalar pulseFrequency_;         // Pulse repetition frequency [Hz]
-        scalar pulseDutyCycle_;         // Fraction of period laser is on
-        
-        // Optional parameters
-        scalar reflectivity_;           // Surface reflectivity [-]
-        scalar transmission_;           // Optional transmission factor [-]
-        scalar incidenceAngle_;         // Incidence angle for Fresnel calc [rad]
-        bool gaussianProfile_;          // Use Gaussian spatial profile
-        label maxReflections_;          // Maximum number of reflections
-        
-        // Temporal parameters
-        bool continuousLaser_;          // Continuous vs pulsed mode
-        scalar laserStartTime_;         // Laser start time [s]
-        scalar laserEndTime_;           // Laser end time [s]
-        //- Donor film bounds in y-direction [m]
-        scalar filmYMin_;              // Lower y bound of metal film
-        scalar filmYMax_;              // Upper y bound of metal film
-        //- Scaling factor and maximum intensity when outside donor film
-        scalar offFilmScale_;          // Intensity scaling outside film [-]
-        scalar offFilmMax_;            // Max volumetric intensity outside film [W/m^3]
+    scalar              laserStartTime_;    // [s]
+    scalar              laserEndTime_;      // [s]
 
-        // Cached fields
-        mutable tmp<volScalarField> tSource_;  // Laser source field
-        mutable bool sourceValid_;             // Source validity flag
-        
-        //- Running total of energy deposited [J]
-        mutable scalar cumulativeEnergy_;
+    // Donor film bounds (y)
+    scalar              filmYMin_;
+    scalar              filmYMax_;
 
-        //- Last processed time index for restart detection
-        mutable label lastTimeIndex_;
+    // Off-film scaling
+    scalar              offFilmScale_;
+    scalar              offFilmMax_;
 
-     // Private Member Functions
+    // Cached source
+    mutable tmp<volScalarField> tSource_;
+    mutable bool         sourceValid_;
+    mutable scalar       cumulativeEnergy_;
+    mutable label        lastTimeIndex_;
 
-        //- Calculate laser source term
-        void calculateSource() const;
+    // --- helpers ---
+    void   calculateSource() const;
+    bool   validateParameters() const;
+    bool   checkPhysicalBounds() const;
+    scalar calculateGaussianIntensity(const scalar R) const;
+    bool   isInBeam(const point& p) const;
+    bool   checkEnergyConservation() const;
 
-        //- Validate laser parameters
-        bool validateParameters() const;
-
-        //- Check physical bounds of parameters
-        //  (pulse width 10 fs–10 ps, wavelength 100 nm–2 µm,
-        //   peak intensity <= 1e16 W/m²)
-        bool checkPhysicalBounds() const;
-
-        //- Calculate Gaussian intensity profile based on radial distance only
-        //  (axial attenuation handled via separate absorption term)
-        scalar calculateGaussianIntensity
-        (
-            const scalar R       // Radial distance from beam center
-        ) const;
-
-        //- Check if point is within laser beam
-        bool isInBeam(const point& p) const;
-        
-        //- Check energy conservation
-        bool checkEnergyConservation() const;
-
-        //- Disallow default bitwise copy construct
-        femtosecondLaserModel(const femtosecondLaserModel&) = delete;
-
-        //- Disallow default bitwise assignment
-        void operator=(const femtosecondLaserModel&) = delete;
+    // disallow copy
+    femtosecondLaserModel(const femtosecondLaserModel&) = delete;
+    void operator=(const femtosecondLaserModel&) = delete;
 
 public:
-
-    //- Runtime type information
     TypeName("femtosecondLaserModel");
 
-    // Constructors
-
-        //- Construct from mesh and dictionary
-        femtosecondLaserModel
-        (
-            const fvMesh& mesh,
-            const dictionary& dict
-        );
-
-    //- Destructor
+    // ctor/dtor
+    femtosecondLaserModel(const fvMesh& mesh, const dictionary& dict);
     virtual ~femtosecondLaserModel() = default;
 
-    // Member Functions
+    // evolution
+    void update();                   // scan + invalidate cache
+    virtual void correct()           // force recompute source
+    {
+        sourceValid_ = false;
+        calculateSource();
+    }
+    virtual void correct(const scalar) { correct(); }
 
-        // Evolution
+    // access
+    tmp<volScalarField> source() const;
 
-            //- Update the laser model (invalidate cached data)
-            void update();
+    const dimensionedScalar& peakIntensity() const { return peakIntensity_; }
+    const dimensionedScalar& pulseWidth()    const { return pulseWidth_; }
+    const dimensionedScalar& wavelength()    const { return wavelength_; }
+    const dimensionedScalar& spotSize()      const { return spotSize_; }
+    const dimensionedScalar& pulseEnergy()   const { return pulseEnergy_; }
+    const point&              focus()        const { return focus_; }
+    const vector&             direction()    const { return direction_; }
+    scalar laserStartTime() const { return laserStartTime_; }
+    scalar laserEndTime()   const { return laserEndTime_; }
+    bool   isContinuous()   const { return continuousLaser_; }
 
-            //- Correct the laser model (calculate source)
-            virtual void correct()
-            {
-                sourceValid_ = false;
-                calculateSource();
-            }
-            //- Correct the laser model for a given current time, allowing
-            //  time-dependent beam motion or intensity modulation
-            virtual void correct(const scalar currentTime);
-
-        // Access
-
-            //- Return the laser source term [W/m³]
-            tmp<volScalarField> source() const;
-
-            //- Return peak intensity
-            const dimensionedScalar& peakIntensity() const
-            {
-                return peakIntensity_;
-            }
-
-            //- Return pulse width
-            const dimensionedScalar& pulseWidth() const
-            {
-                return pulseWidth_;
-            }
-
-            //- Return wavelength
-            const dimensionedScalar& wavelength() const
-            {
-                return wavelength_;
-            }
-
-            //- Return spot size
-            const dimensionedScalar& spotSize() const
-            {
-                return spotSize_;
-            }
-
-            //- Return pulse energy
-            const dimensionedScalar& pulseEnergy() const
-            {
-                return pulseEnergy_;
-            }
-
-            //- Return focal point
-            const point& focus() const
-            {
-                return focus_;
-            }
-
-            //- Return laser direction
-            const vector& direction() const
-            {
-                return direction_;
-            }
-
-            //- Return start time
-            scalar laserStartTime() const
-            {
-                return laserStartTime_;
-            }
-
-            //- Return end time
-            scalar laserEndTime() const
-            {
-                return laserEndTime_;
-            }
-
-            //- Check if laser is continuous
-            bool isContinuous() const
-            {
-                return continuousLaser_;
-            }
-
-        // Validation
-
-            //- Check if model parameters are valid
-            bool valid() const;
-
-        // I-O
-
-            //- Write laser model information
-            void write() const;
+    bool valid() const;
+    void write() const;
 };
 
-// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
-
 } // End namespace Foam
-
-// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
-
 #endif
 
-// ************************************************************************* //
