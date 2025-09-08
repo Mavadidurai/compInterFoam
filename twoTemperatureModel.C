@@ -98,9 +98,7 @@ twoTemperatureModel::twoTemperatureModel
     ),
     energyInitialized_(false)
 {
-        const bool verbose =
-        mesh_.time().controlDict().lookupOrDefault<Switch>("verbose", false);
-            if (dict.found("Ce"))
+if (dict.found("Ce"))
     {
         if (dict.isDict("Ce"))
         {

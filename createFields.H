@@ -99,6 +99,19 @@ if (verbose)
 {
     Info<< "Constructing twoPhaseMixtureThermo\n" << endl;
 }
+// Read transport properties
+IOdictionary transportProperties
+(
+    IOobject
+    (
+        "transportProperties",
+        runTime.constant(),
+        mesh,
+        IOobject::MUST_READ,
+        IOobject::NO_WRITE,
+        true   // ensure registration
+    )
+);
 twoPhaseMixtureThermo mixture(U, phi);
 // Set verbosity flag from controlDict now that runTime is available
 verbose = runTime.controlDict().lookupOrDefault<Foam::Switch>("verbose", false);
@@ -293,19 +306,6 @@ volScalarField K("K", 0.5*magSqr(U));
 IOMRFZoneList MRF(mesh);
 
 fv::options& fvOptions(fv::options::New(mesh));
-
-// Read transport properties
-IOdictionary transportProperties
-(
-    IOobject
-    (
-        "transportProperties",
-        runTime.constant(),
-        mesh,
-        IOobject::MUST_READ,
-        IOobject::NO_WRITE
-    )
-);
 
 bool useAdvancedCapturing =
     runTime.controlDict().lookupOrDefault<bool>("useAdvancedInterfaceCapturing", true);
