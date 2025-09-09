@@ -25,8 +25,8 @@ solvers
         maxIter         100;             
         
         nAlphaCorr      2;              
-        nAlphaSubCycles 8;              
-        cAlpha          1.5;            // Conservative interface compression
+        nAlphaSubCycles 2;              
+        cAlpha          1;            // Conservative interface compression
         icAlpha         0;              
         scAlpha         0;
         MULESCorr       true;
@@ -39,69 +39,35 @@ solvers
     p_rgh
     {
         solver          GAMG;
-        smoother        GaussSeidel;
+        smoother        DICGaussSeidel;
         tolerance       1e-8;           // Good enough for millisecond scale
-        relTol          0.05;           
+        relTol          0.0;           
         maxIter         100;   
         nPreSweeps      0;
         nPostSweeps     2;         
         cacheAgglomeration true;
-        nCellsInCoarsestLevel 20;
+        nCellsInCoarsestLevel 10;
         agglomerator    faceAreaPair;
         mergeLevels     2;
     }
     
-    p_rghFinal { $p_rgh; relTol 0; }
+    p_rghFinal { $p_rgh; relTol 0.01; }
     
-    U
-    {
-        solver          smoothSolver;
-        smoother        symGaussSeidel;
-        tolerance       1e-8;           
-        relTol          0.05;            
-        maxIter         50;             
-    }
-    
-    UFinal { $U; relTol 0; }
-    
-    T
-    {
-        solver          smoothSolver;
-        smoother        symGaussSeidel;
-        tolerance       1e-6;           
-        relTol          0.1;            
-        maxIter         50;     
-        minIter         1;
-        
-    }
-    
-    Te
-    {
-        solver          smoothSolver;
-        smoother        symGaussSeidel;
-        tolerance       1e-5;           // Very relaxed
-        relTol          0.1;            
-        maxIter         50;        
-        minIter         1;             
-    }
-    
-    Tl
-    {
-        solver          smoothSolver;
-        smoother        symGaussSeidel;
-        tolerance       1e-6;           
-        relTol          0.1;            
-        maxIter         50;   
-        minIter         1;                  
-    }
+  "(U|T|Te|Tl).*"
+  {
+    solver  PBiCGStab;
+    preconditioner DILU;
+    tolerance 1e-9;
+    relTol   0.01;
+  }
 }
 
 PIMPLE
 {
     momentumPredictor           true;   
     nOuterCorrectors            2;      // Reduced - don't need so many
-    nCorrectors                 3;      
-    nNonOrthogonalCorrectors    3;      
+    nCorrectors                 2;      
+    nNonOrthogonalCorrectors    1;      
     
     outerCorrectorResidualControl
     {
