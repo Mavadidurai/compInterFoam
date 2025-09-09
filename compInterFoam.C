@@ -210,14 +210,27 @@ int main(int argc, char *argv[])
 
             turbulence.correctPhasePhi();
 
-            dimensionedScalar maxLaserSrc = max(laserSrc());
-            const scalar laserSrcThreshold = 1e-6;
-            if (maxLaserSrc.value() < laserSrcThreshold)
-            {
-                WarningInFunction
-                    << "Maximum laser source (" << maxLaserSrc.value()
-                    << ") below threshold " << laserSrcThreshold << endl;
-            }
+// Only complain while the laser window is active
+const scalar tnow = runTime.value();
+if (tnow >= laser.laserStartTime() && tnow <= laser.laserEndTime())
+{
+    const dimensionedScalar maxQL = max(laserSrc());   // Q_laser field
+    const scalar eps = 1e-6;
+
+    if (maxQL.value() < eps)
+    {
+        WarningInFunction
+            << "Maximum Q_laser (" << maxQL.value()
+            << ") below threshold " << eps << endl;
+    }
+
+    if (verbose)
+    {
+        Info<< "max(Q_laser) = " << maxQL.value()
+            << ", max(Tl_) = " << max(ttm.Tl()).value() << nl;
+    }
+}
+
 
             ttm.solve(laserSrc(), mixture.phaseChangeSource());
             // If alpha subcycling did not execute, update recoil pressure

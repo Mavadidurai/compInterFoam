@@ -38,27 +38,28 @@ advancedInterfaceCapturing::advancedInterfaceCapturing
             dimensionedScalar("vaporTemperature", dimTemperature, 3560.0)
         )
     ),
-    latentHeat_
+latentHeat_
+(
+    mesh.lookupObject<dictionary>("transportProperties")
+    .lookupOrDefault<dimensionedScalar>
     (
-        mesh.lookupObject<dictionary>("transportProperties")
-        .lookupOrDefault<dimensionedScalar>
+        "latentHeat",
+        dimensionedScalar
         (
             "latentHeat",
-            dimensionedScalar
-            (
-                "latentHeat",
-                Foam::dimLatentHeat,
-                mesh.lookupObject<dictionary>("thermophysicalProperties")
+            dimEnergy/dimMass,   // J/kg (specific energy)
+            mesh.lookupObject<dictionary>("thermophysicalProperties")
                 .subDict("metal").lookupOrDefault<scalar>("hf", 435e3)
-            )
         )
-    ),
+    )
+),
+
     pressureScale_(20000.0),
     recoilMax_(5e6),
     recoilUpdateInterval_(1),
     recoilTempOffset_
     (
-        dimensionedScalar("recoilTempOffset", dimTemperature, 100.0)
+        dimensionedScalar("recoilTempOffset", dimTemperature, 0.0)
     ),
     clampRecoil_(true),
     scaleRecoilMax_(false),

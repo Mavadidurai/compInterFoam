@@ -274,7 +274,7 @@ void femtosecondLaserModel::calculateSource() const
             (
                 IOobject
                 (
-                    "laserSource",
+                    "Q_laser",
                     mesh_.time().timeName(),
                     mesh_,
                     IOobject::NO_READ,
@@ -295,60 +295,59 @@ void femtosecondLaserModel::calculateSource() const
     if (timeIndex < lastTimeIndex_) cumulativeEnergy_ = 0.0; // restart
     lastTimeIndex_ = timeIndex;
 
-    // --- Global active window ---
-    bool laserActive = (t >= laserStartTime_ && t <= laserEndTime_);
+// Active only within the global window
+bool laserActive = (t >= laserStartTime_ && t <= laserEndTime_);
 
-    // --- Pulsed repetition + duty cycle ---
-    if (!continuousLaser_ && laserActive && pulseFrequency_ > SMALL)
-    {
-        const scalar period = 1.0/pulseFrequency_;
-        const scalar localTime = t - laserStartTime_;
-        const scalar timeInPeriod = std::fmod(localTime, period);
-        laserActive = (timeInPeriod <= pulseDutyCycle_*period);
-    }
+scalar temporalTerm = 0.0;
 
-    if (timeIndex % 50 == 0 && verbose)
-    {
-        Info<< "LASER @ step=" << timeIndex
-            << ": t=" << t*1e12 << " ps, "
-            << (laserActive ? "ACTIVE" : "inactive")
-            << " (window: " << laserStartTime_*1e12 << "-"
-            << laserEndTime_*1e12 << " ps)" << endl;
-    }
+if (!laserActive)
+{
+    sourceValid_ = true; // keep zero field
+    return;
+}
 
-    if (!laserActive)
+if (continuousLaser_)
+{
+    // CW in the active window
+    temporalTerm = 1.0;
+}
+else if (pulseFrequency_ > SMALL)
+{
+    // Repeated fs pulses with a Gaussian inside each ON-window
+    const scalar period   = 1.0/pulseFrequency_;
+    const scalar onTime   = max(SMALL, pulseDutyCycle_*period);
+
+    const scalar local    = t - laserStartTime_;
+    const scalar tip      = std::fmod(local, period);         // time-in-period
+
+    // Early exit when the pulse is OFF this period
+    if (tip > onTime)
     {
-        sourceValid_ = true; // keep zero
+        sourceValid_ = true;
         return;
     }
 
-    // --- Temporal Gaussian envelope (per pulse if periodic) ---
-    scalar temporalTerm = 1.0;
-    if (!continuousLaser_)
-    {
-        const scalar sigma =
-            pulseWidth_.value()/(2.0*sqrt(2.0*log(2.0))); // FWHM->sigma
+    // FWHM → σ for the pulse Gaussian
+    const scalar sigma    = pulseWidth_.value()/(2.0*sqrt(2.0*log(2.0)));
+    const scalar center   = 0.5*onTime;
 
-        if (pulseFrequency_ > SMALL)
-        {
-            const scalar period = 1.0/pulseFrequency_;
-            const scalar localTime = t - laserStartTime_;
-            const scalar timeInPeriod = std::fmod(localTime, period);
+    temporalTerm = exp(-0.5*sqr((tip - center)/sigma));
+}
+else
+{
+    // Single Gaussian across the entire active window
+    const scalar sigma  = pulseWidth_.value()/(2.0*sqrt(2.0*log(2.0)));
+    const scalar center = 0.5*(laserStartTime_ + laserEndTime_);
+    temporalTerm        = exp(-0.5*sqr((t - center)/sigma));
+}
 
-            // Center Gaussian in the middle of the ON window
-            const scalar windowCenter = 0.5*pulseDutyCycle_*period;
-            const scalar timeFromCenter = timeInPeriod - windowCenter;
+// Negligible envelope → skip work this step
+if (temporalTerm <= VSMALL)
+{
+    sourceValid_ = true;
+    return;
+}
 
-            temporalTerm = exp(-0.5*sqr(timeFromCenter/sigma));
-        }
-        else
-        {
-            // Single Gaussian centered in overall window
-            const scalar pulseCenter = 0.5*(laserStartTime_ + laserEndTime_);
-            const scalar timeFromCenter = t - pulseCenter;
-            temporalTerm = exp(-0.5*sqr(timeFromCenter/sigma));
-        }
-    }
 
     // --- Apply laser heating over cells ---
     label cellsInBeam = 0, cellsInFilm = 0;
