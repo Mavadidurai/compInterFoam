@@ -21,7 +21,7 @@ const scalar defaultMetalDensity = solverControls.lookupOrDefault<scalar>(
 const scalar defaultAirDensity = solverControls.lookupOrDefault<scalar>(
     "defaultAirDensity", 1.2);
     const scalar maxVelocity = solverControls.lookupOrDefault<scalar>(
-    "maxVelocity", 100.0);
+    "maxVelocity", 1.0e4);
 // Dynamic momentum relaxation control
 static scalar relaxU = 0.3;
 const scalar targetResU = solverControls.lookupOrDefault<scalar>(
@@ -231,18 +231,21 @@ if (pimple.momentumPredictor())
 {
     SolverPerformance<vector> solverPerf = solve
     (
-        UEqn == fvc::reconstruct
-        (
+        UEqn ==
+            // capillary and pressure gradient part reconstructed to cell-centre
+            fvc::reconstruct
             (
-                // Explicitly compute curvature force using sigma from transportProperties
-                fvc::interpolate(mixture.sigmaK())*fvc::snGrad(alpha1)
-              - fvc::snGrad(p_rgh)
-            ) * mesh.magSf()
-        )
+                (
+                    fvc::interpolate(mixture.sigmaK())*fvc::snGrad(alpha1)
+                  - fvc::snGrad(p_rgh)
+                ) * mesh.magSf()
+            )
+          // body force: gravity
+          + rho*g
     );
     scalar residual = mag(solverPerf.initialResidual());
     relaxU = max(min(relaxU * targetResU/(residual + SMALL), 0.7), 0.1);
-    
+
     // Post-solve validation
     scalar maxVelAfterSolve = 0.0;
     label invalidCells = 0;

@@ -279,8 +279,9 @@ Foam::tmp<Foam::volScalarField> Foam::twoPhaseMixtureThermo::computePhaseChange(
         }
     }
 
-    // Local thermodynamic properties
-    const volScalarField CpField = thermo1_->Cp();
+    // Local mixture heat capacity [J/(kg K)]
+    const volScalarField CpField =
+        alpha1()*thermo1_->Cp() + alpha2()*thermo2_->Cp();
     const dimensionedScalar dt = T_.time().deltaT();
     const dimensionedScalar L = latentHeat();
 
@@ -289,8 +290,8 @@ Foam::tmp<Foam::volScalarField> Foam::twoPhaseMixtureThermo::computePhaseChange(
 
     forAll(T_, cellI)
     {
-        const scalar CpCell = CpField[cellI];
-        const scalar LOverCpDt = LVal/(CpCell*dtVal);
+        // L/(Cp*dt) has units [K/s]
+        const scalar LOverCpDt = LVal/(CpField[cellI]*dtVal);
 
         const scalar Tcell = T_[cellI];
         const scalar alpha = alpha1()[cellI];

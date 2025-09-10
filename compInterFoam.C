@@ -85,11 +85,10 @@ int main(int argc, char *argv[])
     #include "addCheckCaseOptions.H"
     #include "setRootCaseLists.H"
     #include "createTime.H"
-   #include "createMesh.H"
-
+    #include "createMesh.H"
     #include "createTimeControls.H"
-    
     #include "createFields.H"
+    
     // Track recoil pressure update intervals when alpha subcycle is skipped
     label recoilCallCount = 0;
 
@@ -230,8 +229,6 @@ if (tnow >= laser.laserStartTime() && tnow <= laser.laserEndTime())
             << ", max(Tl_) = " << max(ttm.Tl()).value() << nl;
     }
 }
-
-
             ttm.solve(laserSrc(), mixture.phaseChangeSource());
             // If alpha subcycling did not execute, update recoil pressure
             if
@@ -305,8 +302,8 @@ if (tnow >= laser.laserStartTime() && tnow <= laser.laserEndTime())
         if (relChange > energyTolerance)
         {
             WarningInFunction
-                << "Relative energy change " << relChange
-                << " exceeds energyTolerance (" << energyTolerance << ")" << nl
+                << "    Relative energy change " << relChange
+                << "    exceeds energyTolerance (" << energyTolerance << ")" << nl
                 << "    Ek = " << Ek.value() << " J" << nl
                 << "    Ee = " << Ee.value() << " J" << nl
                 << "    Elattice = " << Elattice.value() << " J" << nl

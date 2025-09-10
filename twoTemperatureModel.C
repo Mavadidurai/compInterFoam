@@ -289,7 +289,11 @@ bool twoTemperatureModel::checkEnergyConservation
     );
 
 
-    return energyError < dict_.get<scalar>("energyTolerance");
+const scalar energyTol =
+    dict_.lookupOrDefault<scalar>("energyTol",
+        dict_.lookupOrDefault<scalar>("energyTolerance", 0.01));
+return energyError < energyTol;
+
 }
 
 void twoTemperatureModel::updateEnergyTracking() const
@@ -706,7 +710,32 @@ tmp<volScalarField> Foam::twoTemperatureModel::kl() const
     forAll(mesh_.C(), cellI)
     {
         scalar Tl = Tl_[cellI];
-        kl[cellI] = Cl_.value() * sqrt(Tl) / (3.0 * G_.value());
+
+    // Use the same constant diffusivity to construct a lattice conductivity:
+    //   k_l = C_l * D_e   (dimensions: [J/m^3/K]*[m^2/s] = [W/m/K])
+    return tmp<volScalarField>
+    (
+        new volScalarField
+        (
+            IOobject
+            (
+                "kl",
+                mesh_.time().timeName(),
+                mesh_,
+                IOobject::NO_READ,
+                IOobject::NO_WRITE
+            ),
+            mesh_,
+            dimensionedScalar
+            (
+                "kl",
+                dimPower/dimLength/dimTemperature,
+                Cl_.value()*De_.value()
+            )
+        )
+    );
+
+
         
         // Apply temperature dependent correction
         if (Tl > 1000.0)

@@ -1,5 +1,5 @@
 extern Foam::Switch verbose;
-
+verbose = runTime.controlDict().lookupOrDefault<Foam::Switch>("verbose", false);
 bool LTS = fv::localEulerDdt::enabled(mesh);
 tmp<volScalarField> trDeltaT;
 if (LTS)
@@ -114,7 +114,7 @@ IOdictionary transportProperties
 );
 twoPhaseMixtureThermo mixture(U, phi);
 // Set verbosity flag from controlDict now that runTime is available
-verbose = runTime.controlDict().lookupOrDefault<Foam::Switch>("verbose", false);
+
 {
     Foam::tmp<Foam::volScalarField> tsig = mixture.sigma();   // tmp<volScalarField>
     const Foam::volScalarField& sig = tsig();                 // bind to avoid double eval
@@ -269,21 +269,6 @@ surfaceScalarField alphaPhi10
     phi*fvc::interpolate(alpha1)
 );
 
-tmp<surfaceScalarField> talphaPhi1Corr0;
-
-// Alpha flux field
-surfaceScalarField alphaPhi1
-(
-    IOobject
-    (
-        "alphaPhi1",
-        runTime.timeName(),
-        mesh,
-        IOobject::READ_IF_PRESENT,
-        IOobject::AUTO_WRITE
-    ),
-    phi*fvc::interpolate(alpha1)
-);
 
 // Interface normal calculations
 volVectorField n(fvc::grad(alpha1)/(mag(fvc::grad(alpha1)) + dimensionedScalar("small", dimless/dimLength, SMALL)));
