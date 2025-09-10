@@ -27,8 +27,8 @@ boundaryField
   zMin     { type symmetryPlane; }
   zMax     { type symmetryPlane; }
 
-  yMin     { type fixedValue; value uniform (0 0 0); }   // donor glass wall
-  yMax     { type  zeroGradient; }   // receiver wall
+    yMin     { type fixedValue; value uniform (0 0 0); }   // receiver wall
+    yMax     { type fixedValue; value uniform (0 0 0); }   // donor glass wall
 }
 
 

@@ -39,19 +39,19 @@ boundaryField
     {
         type        symmetryPlane;
     }
-    yMin
-    {
-        type    constantAlphaContactAngle;
-        theta0  2;           // degrees
-        limit   gradient;
-        value   uniform 1;   // metal wetting at the substrate side
-    }
-    yMax
-    {
-        type        inletOutlet;
-        inletValue  uniform 0;
-        value       uniform 0;
-    }
+      yMin
+      {
+          type        inletOutlet;
+          inletValue  uniform 0;
+          value       uniform 0;
+      }
+      yMax
+      {
+          type    constantAlphaContactAngle;
+          theta0  2;           // degrees
+          limit   gradient;
+          value   uniform 1;   // metal wetting at the substrate side
+      }
 }
 
 // ************************************************************************* //

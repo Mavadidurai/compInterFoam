@@ -27,14 +27,13 @@ boundaryField
     xMax { type symmetryPlane; }
     zMin { type symmetryPlane; }
     zMax { type symmetryPlane; }
+    yMin
+      {
+          type        inletOutlet;
+          inletValue  uniform 1;
+          value       uniform 1;
+      }
 
-    yMin { type zeroGradient; }
-
-    yMax
-    {
-        type        inletOutlet;
-        inletValue  uniform 1;
-        value       uniform 1;
-    }
+    yMax { type zeroGradient; }
 }
 // ************************************************************************* //
