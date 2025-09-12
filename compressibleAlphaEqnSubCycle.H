@@ -11,11 +11,14 @@ if (pInterfaceCapturing.valid())
     // Update the complementary phase fraction
     alpha2 = scalar(1) - alpha1;
     alpha2.correctBoundaryConditions();
-    // Recompute density and fluxes based on bounded alpha values
-    alphaPhi10 = fvc::interpolate(alpha1)*phi;
+    // Solve mass-transfer equation consistent with elsewhere
+    #include "alphaEqn.H"
+
+    // Recompute density, fluxes and provide diagnostics
     rho = alpha1*rho1 + alpha2*rho2;
     rhoPhi = alphaPhi10*fvc::interpolate(rho1) + (phi - alphaPhi10)*fvc::interpolate(rho2);
-          if (verbose)
+
+    if (verbose)
     {
         // Calculate continuity error for diagnostics
         tmp<volScalarField> tContErr = fvc::ddt(rho) + fvc::div(rhoPhi);

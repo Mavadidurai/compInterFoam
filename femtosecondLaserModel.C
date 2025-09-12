@@ -168,9 +168,9 @@ bool femtosecondLaserModel::validateParameters() const
         dict_.getOrDefault<scalar>("filmThicknessTolerance", 0.1*expected);
     if (filmThickness <= 0)
     {
-        FatalErrorInFunction
+        WarningInFunction
             << "Non-positive film thickness: " << filmThickness
-            << " (check filmYMin, filmYMax)" << abort(FatalError);
+            << " (check filmYMin, filmYMax)" << endl;
     }
     if (mag(filmThickness - expected) > tol)
     {
