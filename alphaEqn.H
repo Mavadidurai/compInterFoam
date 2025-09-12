@@ -65,7 +65,10 @@ extern Foam::Switch verbose;
     (
         alphaControls.lookupOrDefault<scalar>("thinFilmCoeff", 0.0)
     );
-
+    const scalar alphaSourceFloor
+    (
+        alphaControls.lookupOrDefault<scalar>("alphaSourceFloor", 1e-3)
+    );
     // Standard face-flux compression coefficient
     surfaceScalarField phic(mixture.cAlpha()*mag(phi/mesh.magSf()));
 
@@ -166,13 +169,13 @@ extern Foam::Switch verbose;
             if (dgdt[celli] > 0.0)
             {
                 // Evaporation: remove mass from liquid
-                SpInternal[celli] -= dgdt[celli]/max(alpha1[celli], 1e-4);
+                SpInternal[celli] -= dgdt[celli]/max(alpha1[celli], alphaSourceFloor);
             }
             else if (dgdt[celli] < 0.0)
             {
                 // Condensation: add mass to liquid
-                SpInternal[celli] += dgdt[celli]/max(1.0 - alpha1[celli], 1e-4);
-                SuInternal[celli] -= dgdt[celli]/max(1.0 - alpha1[celli], 1e-4);
+                SpInternal[celli] += dgdt[celli]/max(1.0 - alpha1[celli], alphaSourceFloor);
+                SuInternal[celli] -= dgdt[celli]/max(1.0 - alpha1[celli], alphaSourceFloor);
             }
         }
         volScalarField spField

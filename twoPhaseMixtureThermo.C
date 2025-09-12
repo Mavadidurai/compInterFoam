@@ -31,6 +31,7 @@ License
 #include "gradientEnergyFvPatchScalarField.H"
 #include "mixedEnergyFvPatchScalarField.H"
 #include "collatedFileOperation.H"
+#include <dimensionSets.H>
 #include "dimensionSets.H"
 #include "Switch.H"
 #include "Tuple2.H"
@@ -223,11 +224,11 @@ Foam::tmp<Foam::volScalarField> Foam::twoPhaseMixtureThermo::computePhaseChange(
 
     const dictionary& pc = transportDict.subDict("phaseChangeCoeffs");
 
-   const scalar Tthreshold = pc.lookupOrDefault<scalar>("Tthreshold", T_melt_);
+    const scalar Tvapor = pc.lookupOrDefault<scalar>("Tvapor", T_vapor_);
     const scalar windowWidth = pc.lookupOrDefault<scalar>("windowWidth", 0.0);
-    const Switch onlyAboveThreshold
+    const Switch onlyAboveVapor
     (
-        pc.lookupOrDefault<Switch>("onlyAboveThreshold", false)
+        pc.lookupOrDefault<Switch>("onlyAboveVapor", false)
     );
 
     List<Tuple2<scalar, scalar>> actTimes;
@@ -240,9 +241,9 @@ Foam::tmp<Foam::volScalarField> Foam::twoPhaseMixtureThermo::computePhaseChange(
     if (!loggedPhaseChange)
     {
         Info<< "phaseChangeCoeffs:" << nl
-            << "    Tthreshold    " << Tthreshold << nl
+            << "    Tvapor        " << Tvapor << nl
             << "    windowWidth   " << windowWidth << nl
-            << "    onlyAboveThreshold " << onlyAboveThreshold << nl;
+            << "    onlyAboveVapor " << onlyAboveVapor << nl;
         if (actTimes.size())
         {
             Info<< "    activationTime";
@@ -299,20 +300,20 @@ forAll(T_, cellI)
     // magnitude in K/s (guard Cp to avoid division spikes)
     scalar magCoeff = LVal/(max(CpCell, VSMALL)*dtVal);
 
-    // optional smoothing around threshold
+    // optional smoothing around vaporisation window
     if (windowWidth > SMALL)
     {
-        magCoeff *= min(Foam::mag(Tcell - Tthreshold)/windowWidth, 1.0);
+        magCoeff *= min(Foam::mag(Tcell - Tvapor)/windowWidth, 1.0);
     }
 
-    // Sign convention for fusion:
-    //  - melting (metal-dominated, above T_melt): lattice loses energy -> sink
-    //  - solidifying (non-metal-dominated, below T_melt): lattice gains energy -> source
-    if (Tcell > Tthreshold && a1 > 0.5)
+    // Sign convention for phase change:
+    //  - above Tvapor: lattice loses energy -> sink
+    //  - below Tvapor: lattice gains energy -> source
+    if (Tcell > Tvapor && a1 > 0.5)
     {
         source[cellI] = -magCoeff;
     }
-    else if (Tcell < Tthreshold && a1 < 0.5)
+    else if (Tcell < Tvapor && a1 < 0.5)
     {
         source[cellI] = +magCoeff;
     }
@@ -321,8 +322,8 @@ forAll(T_, cellI)
         source[cellI] = 0.0;
     }
 
-    // preserve your boolean gate; read it as "onlyAboveThreshold"
-    if (onlyAboveThreshold && Tcell < Tthreshold)
+    // preserve your boolean gate; read it as "onlyAboveVapor"
+    if (onlyAboveVapor && Tcell < Tvapor)
     {
         source[cellI] = 0.0;
     }

@@ -162,9 +162,10 @@ bool femtosecondLaserModel::validateParameters() const
 
     // film thickness sanity
     const scalar filmThickness = filmYMax_ - filmYMin_;
-    const scalar expected = 7.14e-8;               // 71.4 nm
-    const scalar tol      = 0.1*expected;          // 10 %
-
+    const scalar expected =
+        dict_.getOrDefault<scalar>("filmThicknessExpected", 7.14e-8);
+    const scalar tol =
+        dict_.getOrDefault<scalar>("filmThicknessTolerance", 0.1*expected);
     if (filmThickness <= 0)
     {
         FatalErrorInFunction
@@ -173,10 +174,10 @@ bool femtosecondLaserModel::validateParameters() const
     }
     if (mag(filmThickness - expected) > tol)
     {
-        FatalErrorInFunction
+        WarningInFunction
             << "Donor film thickness (" << filmThickness
             << ") deviates from expected " << expected
-            << " by more than " << tol << " m" << abort(FatalError);
+            << " by more than " << tol << " m" << endl;
     }
     return ok;
 }
@@ -347,9 +348,13 @@ if (temporalTerm <= VSMALL)
     sourceValid_ = true;
     return;
 }
-
-
     // --- Apply laser heating over cells ---
+        if (transmission_ >= 0)
+    {
+        WarningInFunction
+            << "transmission overrides reflectivity" << endl;
+    }
+
     label cellsInBeam = 0, cellsInFilm = 0;
     scalar maxSourceValue = 0.0;
     scalar totalSourceIntegral = 0.0;

@@ -207,7 +207,7 @@ int main(int argc, char *argv[])
             // Solve alpha transport using the unified compressible path
             #include "compressibleAlphaEqnSubCycle.H"
 
-            turbulence.correctPhasePhi();
+            transportModel.correctPhasePhi();
 
 // Only complain while the laser window is active
 const scalar tnow = runTime.value();
@@ -263,7 +263,7 @@ if (verbose)
             
             if (pimple.turbCorr())
             {
-                turbulence.correct();
+                transportModel.correct();
             }
         }
 

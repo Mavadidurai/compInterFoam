@@ -114,7 +114,7 @@ mixture.correct();
 // Create momentum equation
 fvVectorMatrix UEqn(fvm::ddt(rho, U) + fvm::div(rhoPhi, U));
 
-UEqn += turbulence.divDevRhoReff(U);
+UEqn += transportModel.divDevRhoReff(U);
 
 // Add recoil pressure gradient whenever the model is available
 if (pInterfaceCapturing.valid())
@@ -326,9 +326,9 @@ if (verbose)
         << "  Global: " << globalContErr << endl;
 }
 
-// Boundary conditions and turbulence
+// Boundary conditions and transport model
 U.correctBoundaryConditions();
-turbulence.correct();
+transportModel.correct();
 
 if (verbose)
 {

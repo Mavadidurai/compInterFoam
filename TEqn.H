@@ -27,7 +27,7 @@ extern Foam::Switch verbose;
     // Apply physical bounds to prevent numerical issues
     const dictionary& ctrl = runTime.controlDict();
     const scalar minPhysicalTemp = ctrl.lookupOrDefault<scalar>("minT", 250.0);
-    const scalar maxPhysicalTemp = ctrl.lookupOrDefault<scalar>("maxT", 5000.0);
+    const scalar maxPhysicalTemp = ctrl.lookupOrDefault<scalar>("maxT", 15000.0);
     const Switch enableTClamp = ctrl.lookupOrDefault<Switch>("enableTClamp", true);
     label minTCells = 0;
     label maxTCells = 0;

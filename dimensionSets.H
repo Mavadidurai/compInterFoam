@@ -1,7 +1,6 @@
 #ifndef dimensionSets_H
 #define dimensionSets_H
 #include "dimensionSet.H"
-#include <dimensionSets.H>
 namespace Foam
 {
     static const dimensionSet dimTempRate(0, 0, -1, 1, 0, 0, 0);

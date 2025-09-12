@@ -268,15 +268,13 @@ surfaceScalarField alphaPhi10
     alphaPhi10Header,
     phi*fvc::interpolate(alpha1)
 );
-
-
 // Interface normal calculations
 volVectorField n(fvc::grad(alpha1)/(mag(fvc::grad(alpha1)) + dimensionedScalar("small", dimless/dimLength, SMALL)));
 surfaceVectorField nf(fvc::interpolate(n));
 surfaceScalarField nHatf(nf & mesh.Sf());
 
-// Create turbulence model
-compressibleInterPhaseTransportModel turbulence
+// Create transportModel model
+compressibleInterPhaseTransportModel transportModel
 (
     rho,
     U,

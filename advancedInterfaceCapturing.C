@@ -3,7 +3,8 @@
 #include "fvm.H"
 #include "wallFvPatch.H"
 #include "fvPatchField.H"
-#include "dimensionSets.H"
+#include <dimensionSets.H>
+
 namespace Foam
 {
 advancedInterfaceCapturing::advancedInterfaceCapturing
