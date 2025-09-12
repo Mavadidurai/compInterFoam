@@ -453,8 +453,11 @@ Foam::twoPhaseMixtureThermo::computeMassTransfer() const
     }
 
     // Retrieve density fields for phase 1 (and phase 2 for condensation)
-    const volScalarField& rho1Field = thermo1_->rho();
-    const volScalarField& rho2Field = thermo2_->rho();
+    // Store temporaries to avoid references to destroyed objects
+    const tmp<volScalarField> rho1Tmp = thermo1_->rho();
+    const volScalarField& rho1Field = rho1Tmp();
+    const tmp<volScalarField> rho2Tmp = thermo2_->rho();
+    const volScalarField& rho2Field = rho2Tmp();
 
     forAll(rate, cellI)
     {
@@ -467,7 +470,6 @@ Foam::twoPhaseMixtureThermo::computeMassTransfer() const
         scalar localRate =
             -(ClVal*phaseChangeSource_[cellI])
             /(LVal*max(rhoLocal, SMALL));
-
 
         if (rateMax > 0)
         {

@@ -235,7 +235,7 @@ if (tnow >= laser.laserStartTime() && tnow <= laser.laserEndTime())
             << ", max(Tl_) = " << max(ttm.Tl()).value() << nl;
     }
 }
-            ttm.solve(laserSrc(), phaseChangeSource());
+            ttm.solve(laserSrc(), phaseChangeSource);
             #include "TEqn.H"
             // If alpha subcycling did not execute, update recoil pressure
             if
