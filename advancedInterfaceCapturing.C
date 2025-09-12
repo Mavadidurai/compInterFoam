@@ -23,37 +23,34 @@ advancedInterfaceCapturing::advancedInterfaceCapturing
     T_(T),
     meltingTemp_
     (
-        mesh.lookupObject<dictionary>("transportProperties")
-        .lookupOrDefault<dimensionedScalar>
+        dimensionedScalar
         (
             "meltingTemperature",
-            dimensionedScalar("meltingTemperature", dimTemperature, 1941.0)
+            dimTemperature,
+            mesh.lookupObject<dictionary>("thermophysicalProperties")
+                .subDict("metal").lookupOrDefault<scalar>("Tsol", 1941.0)
         )
     ),
     vaporTemp_
     (
-        mesh.lookupObject<dictionary>("transportProperties")
-        .lookupOrDefault<dimensionedScalar>
+        dimensionedScalar
         (
             "vaporTemperature",
-            dimensionedScalar("vaporTemperature", dimTemperature, 3560.0)
+            dimTemperature,
+            mesh.lookupObject<dictionary>("thermophysicalProperties")
+                .subDict("metal").lookupOrDefault<scalar>("Tvap", 3000.0)
         )
     ),
-latentHeat_
-(
-    mesh.lookupObject<dictionary>("transportProperties")
-    .lookupOrDefault<dimensionedScalar>
+    latentHeat_
     (
-        "latentHeat",
         dimensionedScalar
         (
             "latentHeat",
-            dimEnergy/dimMass,   // J/kg (specific energy)
+            dimEnergy/dimMass,
             mesh.lookupObject<dictionary>("thermophysicalProperties")
                 .subDict("metal").lookupOrDefault<scalar>("hf", 435e3)
         )
-    )
-),
+    ),
 
     pressureScale_(20000.0),
     recoilMax_(5e6),
@@ -61,6 +58,15 @@ latentHeat_
     recoilTempOffset_
     (
         dimensionedScalar("recoilTempOffset", dimTemperature, 0.0)
+    ),
+    phaseChangeTempOffset_
+    (
+        mesh.lookupObject<dictionary>("transportProperties")
+        .lookupOrDefault<dimensionedScalar>
+        (
+            "phaseChangeTempOffset",
+            dimensionedScalar("phaseChangeTempOffset", dimTemperature, 0.0)
+        )
     ),
     clampRecoil_(true),
     scaleRecoilMax_(false),
@@ -87,6 +93,21 @@ latentHeat_
 {
         const dictionary& aicDict =
         mesh.time().controlDict().subOrEmptyDict("advancedInterfaceCapturing");
+            meltingTemp_ = aicDict.lookupOrDefault<dimensionedScalar>
+    (
+        "meltingTemperature",
+        meltingTemp_
+    );
+    vaporTemp_ = aicDict.lookupOrDefault<dimensionedScalar>
+    (
+        "vaporTemperature",
+        vaporTemp_
+    );
+    phaseChangeTempOffset_ = aicDict.lookupOrDefault<dimensionedScalar>
+    (
+        "phaseChangeTempOffset",
+        phaseChangeTempOffset_
+    );
 
     pressureScale_ = aicDict.lookupOrDefault<scalar>
     (
@@ -177,7 +198,7 @@ const scalarField& massRateField = massRate.primitiveField();
             alphaDamp = 0.0;
         }
 scalar phaseChangeVal =
-    TField[cellI] >= vaporTemp_.value()
+    TField[cellI] >= (vaporTemp_.value() + phaseChangeTempOffset_.value())
     ? mag(massRateField[cellI])   // vapor rate drives recoil
     : 0.0;
         const scalar pressureValue = pressureScale * phaseChangeVal;

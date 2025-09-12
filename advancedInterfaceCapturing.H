@@ -16,15 +16,16 @@ private:
     const surfaceScalarField& phi_;  // Flux field
     const twoPhaseMixtureThermo& mixture_;
     const volScalarField& T_;        // Temperature field for phase change
-    // Physical parameters - minimal set
-    dimensionedScalar meltingTemp_;             // Melting temperature
-    dimensionedScalar vaporTemp_;               // Vaporization temperature
-    dimensionedScalar latentHeat_;   // Latent heat of fusion
+    // Physical parameters sourced from thermophysicalProperties
+    dimensionedScalar meltingTemp_;             // Melting temperature (Tsol)
+    dimensionedScalar vaporTemp_;               // Vaporization temperature (Tvap)
+    dimensionedScalar latentHeat_;              // Latent heat of fusion (hf)
         // User-configurable recoil pressure parameters
     scalar pressureScale_;           // Scaling factor for evaporation rate
     scalar recoilMax_;               // Base recoil pressure cap
     label  recoilUpdateInterval_;    // Steps between recoil pressure updates
     dimensionedScalar recoilTempOffset_;        // Temperature offset for recoil activation
+    dimensionedScalar phaseChangeTempOffset_;   // Offset for phase-change threshold
     Switch clampRecoil_;             // Enable/disable recoil pressure clamping
     Switch scaleRecoilMax_;          // Scale recoilMax with phase-change rate
     scalar relaxFactor_;             // Relaxation factor for alpha transport

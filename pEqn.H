@@ -12,8 +12,9 @@ extern Foam::Switch verbose;
     // Create robust interpolation of rAU
     surfaceScalarField rAUf("rAUf", fvc::interpolate(rAU));
     
-// Apply bounds to rAUf to prevent division by zero or infinities
-    // Clamp values can be specified in compInterFoamCoeffs or controlDict
+    // Apply bounds to rAUf to prevent division by zero or infinities.
+    // Clamp values are primarily specified in fvSolution::compInterFoamCoeffs;
+    // controlDict entries act only as a fallback.
     const dictionary& solverControls = mesh.solutionDict().subOrEmptyDict
     ("compInterFoamCoeffs");
     const dictionary& controlDict = mesh.time().controlDict();
@@ -181,23 +182,25 @@ extern Foam::Switch verbose;
         Warning << "Invalid values detected in p_rgh after solve - fixed" << endl;
     }
     
-    // Add bounds to pressure to prevent divergence
-    const bool pressureClamp = runTime.controlDict().lookupOrDefault<bool>
+    // Add bounds to pressure to prevent divergence. These values are read
+    // from fvSolution::compInterFoamCoeffs, falling back to controlDict when
+    // absent for backward compatibility.
+    const Switch pressureClamp = solverControls.lookupOrDefault<Switch>
     (
         "pressureClamp",
-        true
+        controlDict.lookupOrDefault<Switch>("pressureClamp", true)
     );
 
-    const scalar maxPressure = runTime.controlDict().lookupOrDefault<scalar>
+    const scalar maxPressure = solverControls.lookupOrDefault<scalar>
     (
         "maxPressure",
-        1e9
+        controlDict.lookupOrDefault<scalar>("maxPressure", 1e9)
     );
 
-    const scalar minPressure = runTime.controlDict().lookupOrDefault<scalar>
+    const scalar minPressure = solverControls.lookupOrDefault<scalar>
     (
         "minPressure",
-        1e2
+        controlDict.lookupOrDefault<scalar>("minPressure", 1e2)
     );
 
    // Apply pressure limits only when enabled and count clamped cells
@@ -268,8 +271,8 @@ extern Foam::Switch verbose;
     // Update density
     rho = alpha1*rho1 + alpha2*rho2;
 
-        // The limits can be specified in the compInterFoamCoeffs sub-dictionary
-    // within fvSolution or directly in the controlDict for quick tuning
+    // Density limits are normally set in fvSolution::compInterFoamCoeffs;
+    // controlDict provides legacy defaults when those entries are absent.
     const bool densityClamp = solverControls.lookupOrDefault<Switch>
     (
         "densityClamp",

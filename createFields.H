@@ -333,20 +333,35 @@ twoTemperatureModel ttm
 );
 
 
-label nAlphaSubCycles(1);
-label nAlphaCorr(2);
-bool MULESCorr(false);
-bool alphaApplyPrevCorr(false);
-scalar icAlpha(0.0);
-scalar scAlpha(0.0);
+// Retrieve alpha solver controls from fvSolution
+const dictionary& alphaSolverControls = mesh.solverDict("alpha.metal");
 
-// Suppress unused variable warnings
-(void)nAlphaSubCycles;
-(void)nAlphaCorr;
-(void)MULESCorr;
-(void)alphaApplyPrevCorr;
-(void)icAlpha;
-(void)scAlpha;
+label nAlphaSubCycles
+(
+    alphaSolverControls.lookupOrDefault<label>("nAlphaSubCycles", 1)
+);
+label nAlphaCorr
+(
+    alphaSolverControls.lookupOrDefault<label>("nAlphaCorr", 2)
+);
+bool MULESCorr
+(
+    alphaSolverControls.lookupOrDefault<Foam::Switch>("MULESCorr", false)
+);
+bool alphaApplyPrevCorr
+(
+    alphaSolverControls.lookupOrDefault<Foam::Switch>("alphaApplyPrevCorr", false)
+);
+scalar icAlpha
+(
+    alphaSolverControls.lookupOrDefault<scalar>("icAlpha", 0.0)
+);
+scalar scAlpha
+(
+    alphaSolverControls.lookupOrDefault<scalar>("scAlpha", 0.0)
+);
+
+// Suppress unused variable warnings for fvOptions
 (void)fvOptions;
 
 // Always create the interface-capturing model so a recoil-pressure field exists

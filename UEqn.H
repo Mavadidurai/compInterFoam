@@ -126,7 +126,7 @@ UEqn.relax(relaxU);
 // Obtain diagonal coefficients and compute reciprocal with optional clamping
 tmp<volScalarField> tA = UEqn.A();
 
-
+// Use controlDict only as a fallback when FV solution settings are absent
 const dictionary& ctrl = runTime.controlDict();
 
 const Switch enableRAUClamp = solverControls.lookupOrDefault<Switch>
