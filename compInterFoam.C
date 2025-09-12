@@ -203,7 +203,13 @@ int main(int argc, char *argv[])
         // --- Pressure-velocity PIMPLE corrector loop
         while (pimple.loop())
         {
-             bool alphaSubCycleExecuted = false;
+            bool alphaSubCycleExecuted = false;
+
+            // Update mixture properties and phase-change sources
+            mixture.correct();
+            const volScalarField& phaseChangeSource = mixture.phaseChangeSource();
+            const volScalarField& dgdt = mixture.dgdt();
+
             // Solve alpha transport using the unified compressible path
             #include "compressibleAlphaEqnSubCycle.H"
 
@@ -229,7 +235,7 @@ if (tnow >= laser.laserStartTime() && tnow <= laser.laserEndTime())
             << ", max(Tl_) = " << max(ttm.Tl()).value() << nl;
     }
 }
-            ttm.solve(laserSrc(), mixture.phaseChangeSource());
+            ttm.solve(laserSrc(), phaseChangeSource());
             #include "TEqn.H"
             // If alpha subcycling did not execute, update recoil pressure
             if
@@ -289,7 +295,7 @@ if (verbose)
         const dimensionedScalar L = mixture.latentHeat();
         dimensionedScalar El = fvc::domainIntegrate
         (
-            rho*L*alpha1
+            rho1*L*alpha1
         );
 
         dimensionedScalar Etot = Ek + Ee + Elattice + El;

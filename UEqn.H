@@ -108,8 +108,6 @@ if (verbose && corruptedRhoCells > 0)
 {
     Info<< "  Fixed " << corruptedRhoCells << " corrupted density values" << endl;
 }
-// Update thermophysical properties and phase-change source
-mixture.correct();
 
 // Create momentum equation
 fvVectorMatrix UEqn(fvm::ddt(rho, U) + fvm::div(rhoPhi, U));

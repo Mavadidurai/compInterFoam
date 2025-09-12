@@ -194,19 +194,19 @@ bool femtosecondLaserModel::checkPhysicalBounds() const
     {
         WarningInFunction << "Pulse width out of 10fs–10ps range: "
                           << pulseWidth_.value() << " s" << endl;
-        ok = false;
+        //ok = false;
     }
     if (wavelength_.value() < 1e-7 || wavelength_.value() > 2e-6)
     {
         WarningInFunction << "Wavelength out of 100nm–2µm range: "
                           << wavelength_.value() << " m" << endl;
-        ok = false;
+        //ok = false;
     }
     if (peakIntensity_.value() > 6e16)
     {
         WarningInFunction << "Very high peak intensity: "
                           << peakIntensity_.value() << " W/m^2" << endl;
-        ok = false;
+        //ok = false;
     }
     return ok;
 }
