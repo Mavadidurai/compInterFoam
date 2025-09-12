@@ -43,21 +43,18 @@ scAlpha         scAlpha [0 0 0 0 0 0 0] 0;
 phaseChangeCoeffs
 {
     model          temperatureWindow;
-    Tsolidus       1941;
-    Tliquidus      1941;
     Tvapor         3560;
-    windowWidth    50;
+    windowWidth    300;
     onlyAboveMelt  true;
     onlyAboveVapor true;
     // Activation window for laser pulse
-    activationTime (0 5e-12);
+    activationTime ((0 2e-9));
 }
 massTransferCoeffs
 {
     model     timeAndTemperatureWindow;
     tStart    (0);
-    tEnd      (5e-12);
-    Tsolidus  1941;
+    tEnd      (2e-9);
     Tvapor    3560;
     rateMax   5e10;
 }
