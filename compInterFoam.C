@@ -230,6 +230,7 @@ if (tnow >= laser.laserStartTime() && tnow <= laser.laserEndTime())
     }
 }
             ttm.solve(laserSrc(), mixture.phaseChangeSource());
+            #include "TEqn.H"
             // If alpha subcycling did not execute, update recoil pressure
             if
             (
@@ -247,9 +248,12 @@ if (tnow >= laser.laserStartTime() && tnow <= laser.laserEndTime())
             {
                 pInterfaceCapturing->correct();
             }
+if (verbose)
+    Info<< "max recoilPressure = "
+        << max(pInterfaceCapturing->recoilPressure()).value() << " Pa" << endl;
 
             #include "UEqn.H"
-            #include "TEqn.H"
+            
             
             // --- Pressure corrector loop
             while (pimple.correct())

@@ -279,46 +279,54 @@ Foam::tmp<Foam::volScalarField> Foam::twoPhaseMixtureThermo::computePhaseChange(
         }
     }
 
-    // Local mixture heat capacity [J/(kg K)]
-    const volScalarField CpField =
-        alpha1()*thermo1_->Cp() + alpha2()*thermo2_->Cp();
-    const dimensionedScalar dt = T_.time().deltaT();
-    const dimensionedScalar L = latentHeat();
+  // Use mixture Cp (smoother near interface) and fusion latent heat
+const volScalarField CpField = this->Cp();
+const dimensionedScalar dt = T_.time().deltaT();
+const dimensionedScalar L = latentHeat();
 
-    const scalar LVal = L.value();
-    const scalar dtVal = dt.value();
+// Use melting temperature as threshold for fusion latent heat
+const scalar Tthreshold = T_melt_;
 
-    forAll(T_, cellI)
+const scalar LVal = L.value();
+const scalar dtVal = dt.value();
+
+forAll(T_, cellI)
+{
+    const scalar CpCell = CpField[cellI];
+    const scalar Tcell = T_[cellI];
+    const scalar a1    = alpha1()[cellI];
+
+    // magnitude in K/s (guard Cp to avoid division spikes)
+    scalar magCoeff = LVal/(max(CpCell, VSMALL)*dtVal);
+
+    // optional smoothing around threshold
+    if (windowWidth > SMALL)
     {
-        // L/(Cp*dt) has units [K/s]
-        const scalar LOverCpDt = LVal/(CpField[cellI]*dtVal);
-
-        const scalar Tcell = T_[cellI];
-        const scalar alpha = alpha1()[cellI];
-        scalar magCoeff = LOverCpDt;
-        if (windowWidth > SMALL)
-        {
-            magCoeff *= min(Foam::mag(Tcell - Tvapor)/windowWidth, 1.0);
-        }
-
-        if (Tcell > Tvapor && alpha > 0.5)
-        {
-            source[cellI] = magCoeff;
-        }
-        else if (Tcell < Tvapor && alpha < 0.5)
-        {
-            source[cellI] = -magCoeff;
-        }
-        else
-        {
-            source[cellI] = 0.0;
-        }
-
-        if (onlyAboveVapor && Tcell < Tvapor)
-        {
-            source[cellI] = 0.0;
-        }
+        magCoeff *= min(Foam::mag(Tcell - Tthreshold)/windowWidth, 1.0);
     }
+
+    // Sign convention for fusion:
+    //  - melting (metal-dominated, above T_melt): lattice loses energy -> sink
+    //  - solidifying (non-metal-dominated, below T_melt): lattice gains energy -> source
+    if (Tcell > Tthreshold && a1 > 0.5)
+    {
+        source[cellI] = -magCoeff;
+    }
+    else if (Tcell < Tthreshold && a1 < 0.5)
+    {
+        source[cellI] = +magCoeff;
+    }
+    else
+    {
+        source[cellI] = 0.0;
+    }
+
+    // preserve your boolean gate; read it as "onlyAboveThreshold"
+    if (onlyAboveVapor && Tcell < Tthreshold)
+    {
+        source[cellI] = 0.0;
+    }
+}
 
     return tSource;
 }

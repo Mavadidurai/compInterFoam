@@ -162,8 +162,8 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
     // Access fields only once for efficiency
     const scalarField& TField = T_.primitiveField();
     const scalarField& alpha1Field = alpha1_.primitiveField();
-    const volScalarField& phaseChange = mixture_.phaseChangeSource();
-    const scalarField& phaseChangeField = phaseChange.primitiveField();
+const volScalarField& massRate = mixture_.dgdt();        // [1/s]
+const scalarField& massRateField = massRate.primitiveField();
     scalarField& recoilField = recoilPressure_.primitiveFieldRef();
     // Compute recoil pressure based on evaporation rate
     forAll(TField, cellI)
@@ -175,10 +175,10 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
         {
             alphaDamp = 0.0;
         }
-        scalar phaseChangeVal =
-            TField[cellI] >= vaporTemp_.value()
-            ? mag(phaseChangeField[cellI])
-            : 0.0;
+scalar phaseChangeVal =
+    TField[cellI] >= vaporTemp_.value()
+    ? mag(massRateField[cellI])   // vapor rate drives recoil
+    : 0.0;
         const scalar pressureValue = pressureScale * phaseChangeVal;
         const scalar localRecoilMax =
             scaleRecoilMax ? recoilMax_ * phaseChangeVal : recoilMax_;

@@ -1,5 +1,3 @@
-\*---------------------------------------------------------------------------*/
-
 #ifndef twoPhaseMixtureThermo_H
 #define twoPhaseMixtureThermo_H
 
