@@ -110,17 +110,24 @@ compInterFoamCoeffs
     enableAlphaClamp  true;
     minAlpha          0.0;
     maxAlpha          1.0;
-    pressureClamp   true;
-    maxPressure   5e8;     // 100 MPa is plenty and cuts clamp spread
-    minPressure   1e5;     // keep a modest floor
-    // Momentum matrix safety (also read from controlDict as fallback)
-    enableRAUClamp    true;
-    minRAU            1e-14;
-    maxRAU            1e6;
+    // Pressure bounds (fall back to controlDict if absent)
+    pressureClamp      true;
+    maxPressure        5e8;   // 100 MPa is plenty and cuts clamp spread
+    minPressure        1e5;   // keep a modest floor
+
+    // Density bounds (fall back to controlDict if absent)
+    densityClamp       true;
+    maxDensity         10000;
+    minDensity         0.5;
+
+    // Momentum matrix safety (fall back to controlDict if absent)
+    enableRAUClamp     true;
+    minRAU             1e-14;
+    maxRAU             1e6;
     minRAUf            1e-14;
     maxRAUf            1e6;
 
     // Optional residual targeting used in your code
-    targetResU        0.05;
+    targetResU         0.05;
 }
 

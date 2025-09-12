@@ -45,10 +45,6 @@ runTimeModifiable yes;
 useAdvancedInterfaceCapturing  true;
 advancedInterfaceCapturing
 {
-    // thresholds (must match your transportProperties metal)
-    meltingTemperature    [0 0 0 1 0 0 0] 1941;
-    vaporTemperature      [0 0 0 1 0 0 0] 3560;
-
     // strength & stability
     pressureScale        1e7;      // nondim scale used in your model
     recoilMax            2e8;      // Pa cap moderated for stability
@@ -59,42 +55,20 @@ advancedInterfaceCapturing
     relaxFactor   0.1;   // sharper α
     alphaMin      0.001;
     alphaMax      0.999;
-    phaseChangeTempOffset  10;
 }
-compInterFoamCoeffs
-{
-    // UEqn.H safety and diagnostics
-    maxReasonableVelocity  100;     // m/s
-    maxVelocity            1e4;     // m/s (hard limiter)
-    defaultMetalDensity    4515;    // kg/m3
-    defaultAirDensity      1.2;     // kg/m3
-
-    // rAU clamping (used in UEqn.H)
-    enableRAUClamp true;
-    minRAU 1e-10;
-    maxRAU 1e6;
-    
-    // momentum target residual for adaptive relaxation
-    targetResU 0.1;
-  }
 
 // adaptive relaxation used in pEqn.H
 relaxP            0.2;
-targetResP        0.05;
-
 // (keep your existing maxCo/maxAlphaCo)
 
 enableTClamp                   false;
 minT                           250;    // K: lower physical bound
 maxT                           12000;  // K: exceeds vaporization temperature
+// Density clamp fallback values; fvSolution::compInterFoamCoeffs overrides
 
 densityClamp                   true;
 minDensity                     0.5;
 maxDensity                     10000;
-
-pressureClamp                   true;
-minPressure                     1e5;
-maxPressure                     5e8;
 
 twoTemperatureProperties
 {

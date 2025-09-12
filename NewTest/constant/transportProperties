@@ -31,10 +31,6 @@ air
     rho             rho [ 1 -3 0 0 0 0 0 ] 1.2;
 }
 
-meltingTemperature       [0 0 0 1 0 0 0] 1941.0;
-vaporTemperature         [0 0 0 1 0 0 0] 3560.0;
-latentHeat               [0 2 -2 0 0 0 0] 3.65e5;
-
 sigma           sigma [ 1 0 -2 0 0 0 0 ] 1.64;
 
 cAlpha          cAlpha [0 0 0 0 0 0 0] 1;
@@ -51,10 +47,13 @@ phaseChangeCoeffs
 }
 massTransferCoeffs
 {
-    model     timeAndTemperatureWindow;
+    // Mass transfer derived from phase-change energy:
+    // dgdt = -(Cl*phaseChangeSource)/latentHeat
+    // Optional activation window
     tStart    (0);
     tEnd      (2e-9);
-    Tthreshold 1941;
+
+    // Optional upper bound on |dgdt| [1/s]
     rateMax   5e10;
 }
 // ************************************************************************* //
