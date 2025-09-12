@@ -14,13 +14,19 @@ FoamFile
     object      topoSetDict;
 }
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
-
 actions
 (
   // Focus/jet region (meters)
   { name focusBox; type cellSet; action new; source boxToCell;
-    sourceInfo { box (1.7e-5 7.95e-6 0) (3.3e-5 2.0072e-5 1.0e-5); } }
-
+        sourceInfo
+    {
+      // x: [1.708333e-5, 3.291667e-5]  (82..158)*Δx
+      // y: [8.0000e-6,  2.00714e-5]    (block boundaries; within domain)
+      // z: [0,         1.0e-5]         (unchanged)
+      box (1.708333e-05 8.0000e-06 0)
+          (3.291667e-05 2.00714e-05 1.0e-05);
+    }
+}
   // Substrate only below the Ti film: y ∈ [0, 8.0000 µm]
   { name substrateSet; type cellSet; action new; source boxToCell;
     sourceInfo { box (0 0 0) (5.0e-5 8.0000e-6 1.0e-5); } }

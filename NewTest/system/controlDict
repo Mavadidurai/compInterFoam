@@ -22,11 +22,11 @@ startTime       0;
 stopAt          endTime;
 endTime         1e-7;
 
-deltaT          5e-13;
+deltaT          5e-16;
 adjustTimeStep  yes;
 maxCo           0.03;
 maxAlphaCo      0.03;
-maxDeltaT       2e-12;           // allow growth after pulse
+maxDeltaT       5e-13;           // allow growth after pulse
 // optional runtime output verbosity
 verbose         true;
 
@@ -50,16 +50,33 @@ advancedInterfaceCapturing
     vaporTemperature      [0 0 0 1 0 0 0] 3560;
 
     // strength & stability
-    pressureScale        1.0;      // nondim scale used in your model
+    pressureScale        1e7;      // nondim scale used in your model
     recoilMax            2e8;      // Pa cap moderated for stability
     clampRecoil          true;     // disable to remove cap
     scaleRecoilMax       false;     // scale cap with phase change
-    recoilUpdateInterval 5;        // evaluate every step
+    recoilUpdateInterval 1;        // evaluate every step
     recoilTempOffset      [0 0 0 1 0 0 0] 50;      // K above melting point for activation
-    alphaMin             0.1;
-    alphaMax             0.9;
+    relaxFactor   0.1;   // sharper α
+    alphaMin      0.05;
+    alphaMax      0.9;
     phaseChangeTempOffset  10;
 }
+compInterFoamCoeffs
+{
+    // UEqn.H safety and diagnostics
+    maxReasonableVelocity  100;     // m/s
+    maxVelocity            1e4;     // m/s (hard limiter)
+    defaultMetalDensity    4515;    // kg/m3
+    defaultAirDensity      1.2;     // kg/m3
+
+    // rAU clamping (used in UEqn.H)
+    enableRAUClamp true;
+    minRAU 1e-10;
+    maxRAU 1e6;
+    
+    // momentum target residual for adaptive relaxation
+    targetResU 0.1;
+  }
 
 // adaptive relaxation used in pEqn.H
 relaxP            0.2;
@@ -94,7 +111,7 @@ functions
 fieldWrite
 {
     type writeObjects; libs ("libutilityFunctionObjects.so");
-    objects (Q_laser Te Tl recoilPressure alpha.metal);
+    objects (Q_laser T Te Tl recoilPressure alpha.metal);
     writeControl runTime; writeInterval 1e-14;
 }
 
@@ -306,19 +323,38 @@ interfaceIso
         interface
         {
             type        isoSurface;
-            isoField    alpha1;      // <- use alpha1 here (no dot)
+            isoField    alpha.metal;
             isoValue    0.5;
             interpolate true;
             regularise  true;
         }
     );
 }
+  U_max_all
+  {
+    type fieldMinMax; libs ("libfieldFunctionObjects.so");
+    fields (U); writeControl timeStep; writeInterval 1;
+  }
 
+  U_on_interface
+  {
+    type surfaces; libs ("libsampling.so");
+    surfaceFormat raw; interpolationScheme cellPointFace;
+    fields (U); writeControl timeStep; writeInterval 1;
+    surfaces
+    (
+      alphaIso
+      {
+        type isoSurface; isoField alpha.metal; isoValue 0.5;
+        interpolate true; regularise true;
+      }
+    );
+  }
 impactForces
 {
     type         forces;
     libs         ("libforces.so");
-    patches      (yMax);  // <-- change to your patch name
+    patches      (yMin);  // <-- change to your patch name
     rho          rho;             // compressible case
     CofR         (0 0 0);
     writeControl runTime;

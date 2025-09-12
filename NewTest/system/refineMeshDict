@@ -39,7 +39,7 @@ refinementRegions
   focusBox
   {
     mode    inside;
-    levels  ((1e15 2));              // one split in each listed direction
+    levels  ((1e15 1));              // one split in each listed direction
   }
 }
 

@@ -51,7 +51,7 @@ solvers
         mergeLevels     2;
     }
     
-    p_rghFinal { $p_rgh; relTol 0.01; }
+    p_rghFinal { $p_rgh; relTol 0; }
     
   "(U|T|Te|Tl).*"
   {

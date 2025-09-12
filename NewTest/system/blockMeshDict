@@ -34,7 +34,7 @@ blocks
 (
     //                bottom (z=0)    top (z=10)         Nx   Ny  Nz
     hex ( 0  1  5  4   3  2  6  7)   (240  80  20)  simpleGrading (1 1 1)  // Glass
-    hex ( 4  5  9  8   7  6 10 11)   (240   8  20)  simpleGrading (1 1 1)  // Ti film (8 cells across 71.4 nm)
+    hex ( 4  5  9  8   7  6 10 11)   (240 20 20)    simpleGrading (1 2.0 1)  // Ti film (8 cells across 71.4 nm)
     hex ( 8  9 13 12  11 10 14 15)   (240 120  20)  simpleGrading (1 1 1)  // Air gap (12 µm)
 );
 edges ();
@@ -47,8 +47,8 @@ boundary
   zMin { type symmetryPlane; faces ((0 1 5 4)(4 5 9 8)(8 9 13 12)); }
   zMax { type symmetryPlane; faces ((3 2 6 7)(7 6 10 11)(11 10 14 15)); }
 
-  yMin { type wall;  faces ((0 1 2 3)); }         // donor glass bottom wall
-  yMax { type patch;  faces ((12 13 14 15)); }     // receiver wall (top of air gap)
+  yMin { type patch;  faces ((12 13 14 15)); }     // receiver wall (top of air gap)
+  yMax { type wall;  faces ((0 1 2 3)); }         // donor glass bottom wall
 );
 
 mergePatchPairs();
