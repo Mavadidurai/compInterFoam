@@ -218,6 +218,9 @@ extern Foam::Switch verbose;
         );
 
         Su = fvc::interpolate(divUField*min(alpha1, scalar(1)));
+        
+        Sp += fvc::interpolate(SpInternal);
+        Su += fvc::interpolate(SuInternal);
 
         // Basic alpha equation without complex MULES correction
         fvScalarMatrix alpha1Eqn
@@ -233,6 +236,8 @@ extern Foam::Switch verbose;
                 phiCN,
                 upwind<scalar>(mesh, phiCN)
             ).fvmDiv(phiCN, alpha1)
+        - fvm::div(phir, alpha1)
+        + fvm::Sp(SpInternal, alpha1) - SuInternal
         );
 
         alpha1Eqn.solve();
@@ -245,7 +250,7 @@ extern Foam::Switch verbose;
         (
             geometricOneField(),
             alpha1,
-            phiCN,
+            phiCN + phir,
             alphaPhi10,
             Sp,
             Su,

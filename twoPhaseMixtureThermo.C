@@ -223,9 +223,12 @@ Foam::tmp<Foam::volScalarField> Foam::twoPhaseMixtureThermo::computePhaseChange(
 
     const dictionary& pc = transportDict.subDict("phaseChangeCoeffs");
 
-   const scalar Tvapor = pc.lookupOrDefault<scalar>("Tvapor", T_vapor_);
+   const scalar Tthreshold = pc.lookupOrDefault<scalar>("Tthreshold", T_melt_);
     const scalar windowWidth = pc.lookupOrDefault<scalar>("windowWidth", 0.0);
-    const Switch onlyAboveVapor(pc.lookupOrDefault<Switch>("onlyAboveVapor", false));
+    const Switch onlyAboveThreshold
+    (
+        pc.lookupOrDefault<Switch>("onlyAboveThreshold", false)
+    );
 
     List<Tuple2<scalar, scalar>> actTimes;
     if (pc.found("activationTime"))
@@ -237,9 +240,9 @@ Foam::tmp<Foam::volScalarField> Foam::twoPhaseMixtureThermo::computePhaseChange(
     if (!loggedPhaseChange)
     {
         Info<< "phaseChangeCoeffs:" << nl
-            << "    Tvapor        " << Tvapor << nl
+            << "    Tthreshold    " << Tthreshold << nl
             << "    windowWidth   " << windowWidth << nl
-            << "    onlyAboveVapor " << onlyAboveVapor << nl;
+            << "    onlyAboveThreshold " << onlyAboveThreshold << nl;
         if (actTimes.size())
         {
             Info<< "    activationTime";
@@ -279,16 +282,13 @@ Foam::tmp<Foam::volScalarField> Foam::twoPhaseMixtureThermo::computePhaseChange(
         }
     }
 
-  // Use mixture Cp (smoother near interface) and fusion latent heat
-const volScalarField CpField = this->Cp();
-const dimensionedScalar dt = T_.time().deltaT();
-const dimensionedScalar L = latentHeat();
+    // Use mixture Cp (smoother near interface) and fusion latent heat
+    const volScalarField CpField = this->Cp();
+    const dimensionedScalar dt = T_.time().deltaT();
+    const dimensionedScalar L = latentHeat();
 
-// Use melting temperature as threshold for fusion latent heat
-const scalar Tthreshold = T_melt_;
-
-const scalar LVal = L.value();
-const scalar dtVal = dt.value();
+    const scalar LVal = L.value();
+    const scalar dtVal = dt.value();
 
 forAll(T_, cellI)
 {
@@ -322,7 +322,7 @@ forAll(T_, cellI)
     }
 
     // preserve your boolean gate; read it as "onlyAboveThreshold"
-    if (onlyAboveVapor && Tcell < Tthreshold)
+    if (onlyAboveThreshold && Tcell < Tthreshold)
     {
         source[cellI] = 0.0;
     }
@@ -364,7 +364,7 @@ Foam::twoPhaseMixtureThermo::computeMassTransfer() const
 
     const dictionary& mt = transportDict.subDict("massTransferCoeffs");
 
-    const scalar Tvapor = mt.lookupOrDefault<scalar>("Tvapor", T_vapor_);
+    const scalar Tthreshold = mt.lookupOrDefault<scalar>("Tthreshold", T_melt_);
     const scalar rateMax = mt.lookupOrDefault<scalar>("rateMax", 0.0);
 
     List<scalar> tStart, tEnd;
@@ -380,7 +380,7 @@ Foam::twoPhaseMixtureThermo::computeMassTransfer() const
     if (!loggedMassTransfer)
     {
         Info<< "massTransferCoeffs:" << nl
-            << "    Tvapor    " << Tvapor << nl
+            << "    Tthreshold    " << Tthreshold << nl
             << "    rateMax   " << rateMax << nl;
         if (tStart.size() && tEnd.size())
         {
@@ -424,11 +424,11 @@ Foam::twoPhaseMixtureThermo::computeMassTransfer() const
         const scalar Tcell = T_[cellI];
         const scalar alpha = alpha1()[cellI];
 
-        if (Tcell > Tvapor && alpha > 0.5)
+        if (Tcell > Tthreshold && alpha > 0.5)
         {
             rate[cellI] = rateMax;
         }
-        else if (Tcell < Tvapor && alpha < 0.5)
+        else if (Tcell < Tthreshold && alpha < 0.5)
         {
             rate[cellI] = -rateMax;
         }

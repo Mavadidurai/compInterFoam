@@ -201,19 +201,7 @@ void Foam::advancedInterfaceCapturing::correct()
     {
         calculateRecoilPressure();
     }
-    // Create a simple robust transport equation for alpha1
-    fvScalarMatrix alpha1Eqn
-    (
-        fvm::ddt(alpha1_)
-      + fvm::div(phi_, alpha1_)
-    );
-    // Apply relaxation for stability
-    alpha1Eqn.relax(relaxFactor_);
-    // Solve with standard settings
-    alpha1Eqn.solve();
-    // Simple boundedness check without per-cell limiting
-    // This approach reduces MPI communication
-    alpha1_ = max(min(alpha1_, scalar(1)), scalar(0));
+
     alpha1_.correctBoundaryConditions();
     if (verbose)
     {
