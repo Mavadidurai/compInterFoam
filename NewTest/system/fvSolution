@@ -33,7 +33,9 @@ solvers
         nLimiterIter    3;
         alphaApplyPrevCorr false;
         sharpeningScheme standard;
-        thinFilmCoeff   0.0;    
+        thinFilmCoeff   0.0;
+        alphaSourceFloor 1e-3; // Minimum alpha value for source terms
+
     }
     
     p_rgh

@@ -43,9 +43,9 @@ scAlpha         scAlpha [0 0 0 0 0 0 0] 0;
 phaseChangeCoeffs
 {
     model          temperatureWindow;
-    Tthreshold     1941;
-    windowWidth    300;
-    onlyAboveThreshold  true;
+    Tvapor         3560;      // or your value
+    windowWidth    300;       // smoothing band [K]
+    onlyAboveVapor true;     // allow both melt/condense logic
     // Activation window for laser pulse
     activationTime ((0 2e-9));
 }

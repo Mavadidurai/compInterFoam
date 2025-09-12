@@ -55,10 +55,10 @@ advancedInterfaceCapturing
     clampRecoil          true;     // disable to remove cap
     scaleRecoilMax       false;     // scale cap with phase change
     recoilUpdateInterval 1;        // evaluate every step
-    recoilTempOffset      [0 0 0 1 0 0 0] 50;      // K above melting point for activation
+    recoilTempOffset      [0 0 0 1 0 0 0] 500;     // K below vapor temperature for activation
     relaxFactor   0.1;   // sharper α
-    alphaMin      0.05;
-    alphaMax      0.9;
+    alphaMin      0.001;
+    alphaMax      0.999;
     phaseChangeTempOffset  10;
 }
 compInterFoamCoeffs
@@ -84,9 +84,9 @@ targetResP        0.05;
 
 // (keep your existing maxCo/maxAlphaCo)
 
-enableTClamp                   true;
-minT                           250;
-maxT                           12000;
+enableTClamp                   false;
+minT                           250;    // K: lower physical bound
+maxT                           12000;  // K: exceeds vaporization temperature
 
 densityClamp                   true;
 minDensity                     0.5;
