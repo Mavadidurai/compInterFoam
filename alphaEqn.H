@@ -175,7 +175,31 @@ extern Foam::Switch verbose;
                 SuInternal[celli] -= dgdt[celli]/max(1.0 - alpha1[celli], 1e-4);
             }
         }
+        volScalarField spField
+        (
+            IOobject(
+                "spField",
+                runTime.timeName(),
+                mesh,
+                IOobject::NO_READ,
+                IOobject::NO_WRITE
+            ),
+            SpInternal,
+            alpha1.boundaryField()
+        );
 
+        volScalarField suField
+        (
+            IOobject(
+                "suField",
+                runTime.timeName(),
+                mesh,
+                IOobject::NO_READ,
+                IOobject::NO_WRITE
+            ),
+            SuInternal,
+            alpha1.boundaryField()
+        );
         // Create proper volScalarField for divU
         volScalarField divUField
         (
@@ -219,8 +243,8 @@ extern Foam::Switch verbose;
 
         Su = fvc::interpolate(divUField*min(alpha1, scalar(1)));
         
-        Sp += fvc::interpolate(SpInternal);
-        Su += fvc::interpolate(SuInternal);
+        Sp += fvc::interpolate(spField);
+        Su += fvc::interpolate(suField);
 
         // Basic alpha equation without complex MULES correction
         fvScalarMatrix alpha1Eqn
@@ -237,7 +261,7 @@ extern Foam::Switch verbose;
                 upwind<scalar>(mesh, phiCN)
             ).fvmDiv(phiCN, alpha1)
         - fvm::div(phir, alpha1)
-        + fvm::Sp(SpInternal, alpha1) - SuInternal
+        + fvm::Sp(SpInternal, alpha1) + SuInternal
         );
 
         alpha1Eqn.solve();
