@@ -283,19 +283,27 @@ Foam::tmp<Foam::volScalarField> Foam::twoPhaseMixtureThermo::computePhaseChange(
         }
     }
 
-    // Use mixture Cp (smoother near interface) and fusion latent heat
-    const volScalarField CpField = this->Cp();
+    // Use phase-specific Cp (metal for alpha1 > 0.5, gas otherwise)
+    const tmp<volScalarField> tCp1 = thermo1_->Cp();
+    const tmp<volScalarField> tCp2 = thermo2_->Cp();
+    const volScalarField& Cp1Field = tCp1();
+    const volScalarField& Cp2Field = tCp2();
     const dimensionedScalar dt = T_.time().deltaT();
     const dimensionedScalar L = latentHeat();
 
     const scalar LVal = L.value();
     const scalar dtVal = dt.value();
 
+    // Linear blend width around the interface to avoid Cp discontinuities
+    const scalar blendWidth = 0.1;
+
 forAll(T_, cellI)
 {
-    const scalar CpCell = CpField[cellI];
-    const scalar Tcell = T_[cellI];
     const scalar a1    = alpha1()[cellI];
+    scalar w = (a1 - 0.5)/blendWidth + 0.5;
+    w = min(max(w, 0.0), 1.0);
+    const scalar CpCell = w*Cp1Field[cellI] + (1.0 - w)*Cp2Field[cellI];
+    const scalar Tcell = T_[cellI];
 
     // magnitude in K/s (guard Cp to avoid division spikes)
     scalar magCoeff = LVal/(max(CpCell, VSMALL)*dtVal);
@@ -307,15 +315,17 @@ forAll(T_, cellI)
     }
 
     // Sign convention for phase change:
-    //  - above Tvapor: lattice loses energy -> sink
-    //  - below Tvapor: lattice gains energy -> source
-    if (Tcell > Tvapor && a1 > 0.5)
+    //  - above Tvapor: lattice loses energy -> sink (evaporation)
+    //  - below Tvapor: lattice gains energy -> source (condensation)
+    if (Tcell > Tvapor)
     {
-        source[cellI] = -magCoeff;
+        // scale evaporation by available liquid fraction
+        source[cellI] = -magCoeff*a1;
     }
-    else if (Tcell < Tvapor && a1 < 0.5)
+    else if (Tcell < Tvapor)
     {
-        source[cellI] = +magCoeff;
+        // scale condensation by available vapour fraction
+        source[cellI] = +magCoeff*(1.0 - a1);
     }
     else
     {
@@ -365,8 +375,24 @@ Foam::twoPhaseMixtureThermo::computeMassTransfer() const
 
     const dictionary& mt = transportDict.subDict("massTransferCoeffs");
 
-    const scalar Tthreshold = mt.lookupOrDefault<scalar>("Tthreshold", T_melt_);
-    const scalar rateMax = mt.lookupOrDefault<scalar>("rateMax", 0.0);
+    const scalar rateMax = mt.lookupOrDefault<scalar>("rateMax", -1.0);
+
+    // lattice heat capacity [J/m^3/K] from two-temperature properties
+    const dictionary& twoTempDict =
+        T_.mesh().time().controlDict().subDict("twoTemperatureProperties");
+
+    const dimensionedScalar Cl
+    (
+        twoTempDict.lookupOrDefault<dimensionedScalar>
+        (
+            "Cl",
+            dimensionedScalar("Cl", dimEnergy/dimVolume/dimTemperature, 0.0)
+        )
+    );
+
+    const dimensionedScalar L = latentHeat();
+    const scalar ClVal = Cl.value();
+    const scalar LVal = L.value();
 
     List<scalar> tStart, tEnd;
     if (mt.found("tStart"))
@@ -380,9 +406,15 @@ Foam::twoPhaseMixtureThermo::computeMassTransfer() const
     static bool loggedMassTransfer = false;
     if (!loggedMassTransfer)
     {
-        Info<< "massTransferCoeffs:" << nl
-            << "    Tthreshold    " << Tthreshold << nl
-            << "    rateMax   " << rateMax << nl;
+        Info<< "massTransferCoeffs:" << nl;
+        if (rateMax > 0)
+        {
+            Info<< "    rateMax   " << rateMax << nl;
+        }
+        else
+        {
+            Info<< "    rateMax   none" << nl;
+        }
         if (tStart.size() && tEnd.size())
         {
             Info<< "    activationTime";
@@ -420,23 +452,16 @@ Foam::twoPhaseMixtureThermo::computeMassTransfer() const
         }
     }
 
-    forAll(T_, cellI)
+    forAll(rate, cellI)
     {
-        const scalar Tcell = T_[cellI];
-        const scalar alpha = alpha1()[cellI];
+        scalar localRate = -(ClVal*phaseChangeSource_[cellI])/LVal;
 
-        if (Tcell > Tthreshold && alpha > 0.5)
+        if (rateMax > 0)
         {
-            rate[cellI] = rateMax;
+            localRate = max(min(localRate, rateMax), -rateMax);
         }
-        else if (Tcell < Tthreshold && alpha < 0.5)
-        {
-            rate[cellI] = -rateMax;
-        }
-        else
-        {
-            rate[cellI] = 0.0;
-        }
+
+        rate[cellI] = localRate;
     }
 
     return tRate;
