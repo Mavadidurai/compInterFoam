@@ -40,6 +40,10 @@ class twoPhaseMixtureThermo
 
         //- Vaporisation temperature (K)
         scalar T_vapor_;
+        
+        //- Minimum permissible time-step for phase change (s)
+        mutable scalar dtFloor_;
+
 
         //- Laser volumetric heat source (W/m^3)
         volScalarField Q_laser_;

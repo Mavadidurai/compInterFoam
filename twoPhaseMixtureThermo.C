@@ -62,6 +62,7 @@ Foam::twoPhaseMixtureThermo::twoPhaseMixtureThermo
     latentHeat_(0.0),
     T_melt_(0.0),
     T_vapor_(0.0),
+    dtFloor_(1e-12),
     Q_laser_
     (
         IOobject
@@ -274,7 +275,7 @@ Foam::tmp<Foam::volScalarField> Foam::twoPhaseMixtureThermo::computePhaseChange(
 
     const scalar Tvapor = pc.lookupOrDefault<scalar>("Tvapor", T_vapor_);
     const scalar windowWidth = pc.lookupOrDefault<scalar>("windowWidth", 0.0);
-    const scalar dtFloor = pc.lookupOrDefault<scalar>("dtFloor", 0.0);
+    dtFloor_ = pc.lookupOrDefault<scalar>("dtFloor", dtFloor_);
     const Switch onlyAboveVapor
     (
         pc.lookupOrDefault<Switch>("onlyAboveVapor", false)
@@ -292,7 +293,7 @@ Foam::tmp<Foam::volScalarField> Foam::twoPhaseMixtureThermo::computePhaseChange(
         Info<< "phaseChangeCoeffs:" << nl
             << "    Tvapor        " << Tvapor << nl
             << "    windowWidth   " << windowWidth << nl
-            << "    dtFloor       " << dtFloor << nl
+            << "    dtFloor       " << dtFloor_ << nl
             << "    onlyAboveVapor " << onlyAboveVapor << nl;
         if (actTimes.size())
         {
@@ -357,7 +358,7 @@ forAll(T_, cellI)
 
     // magnitude in K/s (guard Cp and dt to avoid division spikes)
     scalar magCoeff =
-        LVal/(max(CpCell, VSMALL))*(1.0/max(dtVal, dtFloor));
+        LVal/(max(CpCell, VSMALL))*(1.0/max(dtVal, dtFloor_));
 
     // optional smoothing around vaporisation window
     if (windowWidth > SMALL)
@@ -503,24 +504,16 @@ Foam::twoPhaseMixtureThermo::computeMassTransfer() const
         }
     }
 
-    // Retrieve density fields for phase 1 (and phase 2 for condensation)
-    // Store temporaries to avoid references to destroyed objects
+    // Retrieve phase-1 density field and store temporary to avoid referencing
+    // destroyed objects
     const tmp<volScalarField> rho1Tmp = thermo1_->rho();
     const volScalarField& rho1Field = rho1Tmp();
-    const tmp<volScalarField> rho2Tmp = thermo2_->rho();
-    const volScalarField& rho2Field = rho2Tmp();
 
     forAll(rate, cellI)
     {
-        // Use phase-1 density by default; switch to phase-2 for condensation
-        const scalar rhoLocal =
-            (phaseChangeSource_[cellI] >= 0)
-            ? rho1Field[cellI]
-            : rho2Field[cellI];
-
         scalar localRate =
             -(ClVal*phaseChangeSource_[cellI])
-            /(LVal*max(rhoLocal, SMALL));
+            /(LVal*max(rho1Field[cellI], SMALL));
 
         if (rateMax > 0)
         {
