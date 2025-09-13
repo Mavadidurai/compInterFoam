@@ -172,23 +172,40 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
     // Access fields only once for efficiency
     const scalarField& TField = T_.primitiveField();
     const scalarField& alpha1Field = alpha1_.primitiveField();
-const volScalarField& massRate = mixture_.dgdt();        // [1/s]
-const scalarField& massRateField = massRate.primitiveField();
+    const volScalarField& massRate = mixture_.dgdt();        // [1/s]
+    const scalarField& massRateField = massRate.primitiveField();
     scalarField& recoilField = recoilPressure_.primitiveFieldRef();
+
+    // Utility: smooth step for alpha ramping
+    auto smoothStep = [](const scalar x, const scalar x1, const scalar x2)
+    {
+        if (x <= x1) return scalar(0);
+        if (x >= x2) return scalar(1);
+        const scalar y = (x - x1)/(x2 - x1);
+        return y*y*(3.0 - 2.0*y);
+    };
+
     // Compute recoil pressure based on evaporation rate
     forAll(TField, cellI)
     {
         if (TField[cellI] < minTempThreshold.value()) continue;
+
         const scalar alpha = alpha1Field[cellI];
-        scalar alphaDamp = 4.0 * alpha * (1.0 - alpha);
-        if (alpha < alphaMin_ || alpha > alphaMax_)
+        scalar ramp = 1.0;
+        if (alpha < alphaMin_)
         {
-            alphaDamp = 0.0;
+            ramp = smoothStep(alpha, 0.0, alphaMin_);
         }
-scalar phaseChangeVal =
-    TField[cellI] >= (vaporTemp_.value() + phaseChangeTempOffset_.value())
-    ? mag(massRateField[cellI])   // vapor rate drives recoil
-    : 0.0;
+        else if (alpha > alphaMax_)
+        {
+            ramp = 1.0 - smoothStep(alpha, alphaMax_, 1.0);
+        }
+        const scalar alphaDamp = 4.0 * alpha * (1.0 - alpha) * ramp;
+
+        scalar phaseChangeVal =
+            TField[cellI] >= (vaporTemp_.value() + phaseChangeTempOffset_.value())
+            ? mag(massRateField[cellI])   // vapor rate drives recoil
+            : 0.0;
         const scalar pressureValue = pressureScale * phaseChangeVal;
         const scalar localRecoilMax =
             scaleRecoilMax ? recoilMax_ * phaseChangeVal : recoilMax_;

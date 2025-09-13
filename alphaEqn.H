@@ -67,7 +67,7 @@ extern Foam::Switch verbose;
     );
     const scalar alphaSourceFloor
     (
-        alphaControls.lookupOrDefault<scalar>("alphaSourceFloor", 1e-3)
+        alphaControls.lookupOrDefault<scalar>("alphaSourceFloor", 1e-3) // recommended ~1e-3
     );
     // Standard face-flux compression coefficient
     surfaceScalarField phic(mixture.cAlpha()*mag(phi/mesh.magSf()));
@@ -163,20 +163,36 @@ extern Foam::Switch verbose;
             dimensionedScalar(dgdt.dimensions(), Zero)
         );
 
-        // Basic source term calculation
+               // Basic source term calculation
+        bool hitAlphaFloor = false;
         forAll(dgdt, celli)
         {
             if (dgdt[celli] > 0.0)
             {
+                if (alpha1[celli] < alphaSourceFloor)
+                {
+                    hitAlphaFloor = true;
+                }
                 // Evaporation: remove mass from liquid
                 SpInternal[celli] -= dgdt[celli]/max(alpha1[celli], alphaSourceFloor);
             }
             else if (dgdt[celli] < 0.0)
             {
+                scalar denom = max(1.0 - alpha1[celli], alphaSourceFloor);
+                if ((1.0 - alpha1[celli]) < alphaSourceFloor)
+                {
+                    hitAlphaFloor = true;
+                }
                 // Condensation: add mass to liquid
-                SpInternal[celli] += dgdt[celli]/max(1.0 - alpha1[celli], alphaSourceFloor);
-                SuInternal[celli] -= dgdt[celli]/max(1.0 - alpha1[celli], alphaSourceFloor);
+                SpInternal[celli] += dgdt[celli]/denom;
+                SuInternal[celli] -= dgdt[celli]/denom;
             }
+        }
+        if (hitAlphaFloor)
+        {
+            WarningInFunction
+                << "alphaSourceFloor triggered in source term division;"
+                << " solution may be stiff" << endl;
         }
         volScalarField spField
         (

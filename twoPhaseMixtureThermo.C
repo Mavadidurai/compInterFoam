@@ -263,7 +263,10 @@ Foam::tmp<Foam::volScalarField> Foam::twoPhaseMixtureThermo::computePhaseChange(
 
     if (!transportDict.found("phaseChangeCoeffs"))
     {
-        Info<< "phaseChangeCoeffs not found - skipping phase change" << nl;
+        FatalErrorInFunction
+            << "phaseChangeCoeffs not found in transportProperties" << nl
+            << "Supply a phaseChangeCoeffs sub-dictionary or disable phase change." << nl
+            << exit(FatalError);
         return tSource;
     }
 
@@ -271,6 +274,7 @@ Foam::tmp<Foam::volScalarField> Foam::twoPhaseMixtureThermo::computePhaseChange(
 
     const scalar Tvapor = pc.lookupOrDefault<scalar>("Tvapor", T_vapor_);
     const scalar windowWidth = pc.lookupOrDefault<scalar>("windowWidth", 0.0);
+    const scalar dtFloor = pc.lookupOrDefault<scalar>("dtFloor", 0.0);
     const Switch onlyAboveVapor
     (
         pc.lookupOrDefault<Switch>("onlyAboveVapor", false)
@@ -288,6 +292,7 @@ Foam::tmp<Foam::volScalarField> Foam::twoPhaseMixtureThermo::computePhaseChange(
         Info<< "phaseChangeCoeffs:" << nl
             << "    Tvapor        " << Tvapor << nl
             << "    windowWidth   " << windowWidth << nl
+            << "    dtFloor       " << dtFloor << nl
             << "    onlyAboveVapor " << onlyAboveVapor << nl;
         if (actTimes.size())
         {
@@ -350,8 +355,9 @@ forAll(T_, cellI)
     const scalar CpCell = w*Cp1Field[cellI] + (1.0 - w)*Cp2Field[cellI];
     const scalar Tcell = T_[cellI];
 
-    // magnitude in K/s (guard Cp to avoid division spikes)
-    scalar magCoeff = LVal/(max(CpCell, VSMALL)*dtVal);
+    // magnitude in K/s (guard Cp and dt to avoid division spikes)
+    scalar magCoeff =
+        LVal/(max(CpCell, VSMALL))*(1.0/max(dtVal, dtFloor));
 
     // optional smoothing around vaporisation window
     if (windowWidth > SMALL)
