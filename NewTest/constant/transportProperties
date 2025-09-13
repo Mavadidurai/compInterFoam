@@ -43,6 +43,7 @@ scAlpha         scAlpha [0 0 0 0 0 0 0] 0;
         Tvapor         3560;      // or your value
         windowWidth    300;       // smoothing band [K]
         dtFloor        1e-12;     // floor for time-step regularisation
+        minCoefficient 5e8;      // optional cap on |phaseChangeSource| [K/s]
         onlyAboveVapor true;     // allow both melt/condense logic
         // Activation window for laser pulse
         activationTime ((0 2e-9));
