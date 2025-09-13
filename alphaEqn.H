@@ -70,10 +70,6 @@ extern Foam::Switch verbose;
     (
         alphaControls.lookupOrDefault<scalar>("alphaSourceFloor", 1e-3) // recommended ~1e-3
     );
-        const scalar diagStab
-    (
-        alphaControls.lookupOrDefault<scalar>("diagStab", SMALL)
-    );
     const scalar sourceMaxMag
     (
         alphaControls.lookupOrDefault<scalar>("sourceMaxMag", GREAT)
@@ -350,28 +346,20 @@ extern Foam::Switch verbose;
         - fvm::div(phir, alpha1)
         + fvm::Sp(SpInternal, alpha1) + SuInternal
         );
-        // Ensure a strictly positive diagonal with proper dimensions
-        alpha1Eqn += fvm::Sp(
-            dimensionedScalar("stabCoeff", alpha1.dimensions()/dimTime, diagStab),
+               alpha1Eqn += fvm::Sp
+        (
+            dimensionedScalar("diagStab", alpha1.dimensions()/dimTime, VSMALL),
             alpha1
         );
-        
-        if (Foam::gMin(alpha1Eqn.diag()) <= 0)
-        {
-            Warning
-                << "alpha1Eqn: detected non-positive diagonal entry."
-                << " Adjusting to SMALL." << nl;
-            scalarField& diag = alpha1Eqn.diag();
-            forAll(diag, i)
-            {
-                if (diag[i] <= 0)
-                {
-                    diag[i] = SMALL;
-                }
-            }
-        }
 
         alpha1Eqn.solve();
+
+        // Bound and update fields
+        alpha1 = min(max(alpha1, scalar(0)), scalar(1));
+        alpha2 = 1.0 - alpha1;
+        rho = alpha1*rho1 + alpha2*rho2;
+        alpha1.correctBoundaryConditions();
+        alpha2.correctBoundaryConditions();
 
         // Get flux safely without tmp issues
         alphaPhi10 = alpha1Eqn.flux();
