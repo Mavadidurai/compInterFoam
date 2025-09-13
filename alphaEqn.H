@@ -249,7 +249,7 @@ extern Foam::Switch verbose;
         Sp += fvc::interpolate(spField);
         Su += fvc::interpolate(suField);
 
-        // Basic alpha equation without complex MULES correction
+        // Basic alpha equation
         fvScalarMatrix alpha1Eqn
         (
             (
@@ -272,19 +272,47 @@ extern Foam::Switch verbose;
         // Get flux safely without tmp issues
         alphaPhi10 = alpha1Eqn.flux();
 
-        // Basic MULES explicit solve without correction
-        MULES::explicitSolve
-        (
-            geometricOneField(),
-            alpha1,
-            phiCN + phir,
-            alphaPhi10,
-            Sp,
-            Su,
-            oneField(),
-            zeroField()
-        );
+        if (MULESCorr)
+        {
+            // Optionally revert to previous iteration values
+            if (alphaApplyPrevCorr)
+            {
+                alpha1 = alpha10;
+            }
 
+            tmp<surfaceScalarField> talphaPhiCorr(alphaPhi10);
+            surfaceScalarField& alphaPhiCorr = talphaPhiCorr.ref();
+
+            MULES::correct
+            (
+                geometricOneField(),
+                alpha1,
+                phiCN + phir,
+                alphaPhiCorr,
+                Sp,
+                Su,
+                oneField(),
+                zeroField(),
+                alphaApplyPrevCorr
+            );
+
+            alphaPhi10 = alphaPhiCorr;
+        }
+        else
+        {
+            // Basic MULES explicit solve without correction
+            MULES::explicitSolve
+            (
+                geometricOneField(),
+                alpha1,
+                phiCN + phir,
+                alphaPhi10,
+                Sp,
+                Su,
+                oneField(),
+                zeroField()
+            );
+        }
         alpha2 = 1.0 - alpha1;
 
         if (verbose)

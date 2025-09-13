@@ -125,7 +125,7 @@ extern Foam::Switch verbose;
 
     fvScalarMatrix pEqn(fvm::laplacian(rAUf, p_rgh) == fvc::div(phiHbyA));
     
-    // Set reference and apply adaptive under-relaxation
+    // Set reference and apply adaptive under-relaxation (relaxP is set in fvSolution)
    if (p_rgh.needReference())
     {
         pEqn.setReference(pRefCell, pRefValue);
@@ -271,8 +271,8 @@ extern Foam::Switch verbose;
     // Update density
     rho = alpha1*rho1 + alpha2*rho2;
 
-    // Density limits are normally set in fvSolution::compInterFoamCoeffs;
-    // controlDict provides legacy defaults when those entries are absent.
+    // Density limits should be configured in fvSolution::compInterFoamCoeffs.
+    // controlDict values are deprecated and retained only for backward compatibility.
     const bool densityClamp = solverControls.lookupOrDefault<Switch>
     (
         "densityClamp",

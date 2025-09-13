@@ -48,6 +48,13 @@ class twoPhaseMixtureThermo
         volScalarField phaseChangeSource_;
         //- Mass-transfer rate due to phase change [1/s]
         volScalarField dgdt_;
+        //- Kinematic viscosity of each phase from transportProperties
+        dimensionedScalar nu1_;
+        dimensionedScalar nu2_;
+
+        //- Density of each phase from transportProperties
+        dimensionedScalar rho1_;
+        dimensionedScalar rho2_;
 
 public:
 
@@ -103,6 +110,13 @@ public:
         {
             return T_vapor_;
         }
+        //- Access kinematic viscosities read from transportProperties
+        const dimensionedScalar& nu1() const { return nu1_; }
+        const dimensionedScalar& nu2() const { return nu2_; }
+
+        //- Access densities read from transportProperties
+        const dimensionedScalar& rho1() const { return rho1_; }
+        const dimensionedScalar& rho2() const { return rho2_; }
         //- Return const access to laser heating source
         const volScalarField& Q_laser() const
         {

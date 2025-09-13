@@ -110,7 +110,11 @@ Foam::twoPhaseMixtureThermo::twoPhaseMixtureThermo
         ),
         U.mesh(),
         dimensionedScalar("dgdt", dimless/dimTime, 0.0)
-    )
+    ),
+    nu1_("nu1", dimViscosity, 0.0),
+    nu2_("nu2", dimViscosity, 0.0),
+    rho1_("rho1", dimDensity, 0.0),
+    rho2_("rho2", dimDensity, 0.0)
 {
     {
         volScalarField T1(IOobject::groupName("T", phase1Name()), T_);
@@ -125,6 +129,40 @@ Foam::twoPhaseMixtureThermo::twoPhaseMixtureThermo
     // Note: we're writing files to be read in immediately afterwards.
     //       Avoid any thread-writing problems.
     fileHandler().flush();
+        const dictionary& transportDict =
+        U.mesh().lookupObject<dictionary>("transportProperties");
+
+    const dictionary& phase1Dict = transportDict.subDict(phase1Name());
+    const dictionary& phase2Dict = transportDict.subDict(phase2Name());
+
+    nu1_ = phase1Dict.lookupOrDefault<dimensionedScalar>
+    (
+        "nu",
+        dimensionedScalar("nu", dimViscosity, 0)
+    );
+    nu2_ = phase2Dict.lookupOrDefault<dimensionedScalar>
+    (
+        "nu",
+        dimensionedScalar("nu", dimViscosity, 0)
+    );
+
+    rho1_ = phase1Dict.lookupOrDefault<dimensionedScalar>
+    (
+        "rho",
+        dimensionedScalar("rho", dimDensity, 0)
+    );
+    rho2_ = phase2Dict.lookupOrDefault<dimensionedScalar>
+    (
+        "rho",
+        dimensionedScalar("rho", dimDensity, 0)
+    );
+
+    Info<< "Transport properties:" << nl
+        << "    " << phase1Name() << ": nu=" << nu1_.value()
+        << ", rho=" << rho1_.value() << nl
+        << "    " << phase2Name() << ": nu=" << nu2_.value()
+        << ", rho=" << rho2_.value() << endl;
+
 
     thermo1_ = rhoThermo::New(U.mesh(), phase1Name());
     thermo2_ = rhoThermo::New(U.mesh(), phase2Name());
