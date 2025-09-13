@@ -57,18 +57,14 @@ advancedInterfaceCapturing
     alphaMax      0.999;
 }
 
-// adaptive relaxation used in pEqn.H
-relaxP            0.2;
-// (keep your existing maxCo/maxAlphaCo)
+// Pressure relaxation and density clamp settings are configured in
+// fvSolution (see relaxP/targetResP and compInterFoamCoeffs)
 
 enableTClamp                   false;
 minT                           250;    // K: lower physical bound
 maxT                           12000;  // K: exceeds vaporization temperature
-// Density clamp fallback values; fvSolution::compInterFoamCoeffs overrides
 
-densityClamp                   true;
-minDensity                     0.5;
-maxDensity                     10000;
+// Density clamp controls are defined in fvSolution::compInterFoamCoeffs
 
 twoTemperatureProperties
 {

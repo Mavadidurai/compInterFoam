@@ -98,8 +98,9 @@ relaxationFactors
         ".*Final"       1.0;            
     }
 }
-relaxP      0.3;   // pEqn.H reads from mesh.solutionDict()
-targetResP  0.1;   // pEqn.H reads from mesh.solutionDict()
+// Adaptive pressure relaxation controls read by pEqn.H
+relaxP      0.3;   // under-relaxation factor (edit here)
+targetResP  0.1;   // residual target for updating relaxP
 compInterFoamCoeffs
 {
     maxReasonableVelocity  1e5;     // UEqn.H
@@ -115,7 +116,8 @@ compInterFoamCoeffs
     maxPressure        5e8;   // 100 MPa is plenty and cuts clamp spread
     minPressure        1e5;   // keep a modest floor
 
-    // Density bounds (fall back to controlDict if absent)
+    // Density bounds (controlDict entries are deprecated)
+
     densityClamp       true;
     maxDensity         10000;
     minDensity         0.5;
