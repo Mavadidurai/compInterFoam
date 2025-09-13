@@ -18,14 +18,13 @@ solvers
 {
     "alpha.*"
     {
-        solver          smoothSolver;
-        smoother        symGaussSeidel;
-        tolerance       1e-8;           // Relaxed tolerance
-        relTol          0.0;            
-        maxIter         100;             
+        solver          PBiCGStab;
+        preconditioner        DILU;
+        tolerance       1e-10;           // Relaxed tolerance
+        relTol          0;            
         
         nAlphaCorr      2;              
-        nAlphaSubCycles 2;              
+        nAlphaSubCycles 4;              
         cAlpha          1;            // Conservative interface compression
         icAlpha         0;              
         scAlpha         0;
@@ -67,14 +66,15 @@ solvers
 PIMPLE
 {
     momentumPredictor           true;   
-    nOuterCorrectors            2;      // Reduced - don't need so many
+    nOuterCorrectors            4;      // Reduced - don't need so many
     nCorrectors                 2;      
     nNonOrthogonalCorrectors    1;      
     
-    outerCorrectorResidualControl
+    residualControl
     {
-        p_rgh   { tolerance 1e-5; relTol 0; }
-        U       { tolerance 1e-5; relTol 0; }
+        "alpha.*" { tolerance 1e-8;  relTol 0; }
+        p_rgh     { tolerance 1e-6;  relTol 0; }
+        U         { tolerance 1e-7;  relTol 0; }
     }
     
     p_rghRefCell                0;
@@ -85,16 +85,17 @@ relaxationFactors
 {
     fields
     {
-        p_rgh           0.2;            
+        p_rgh           0.1;            
         "alpha.*"       0.5;            
     }
     equations
     {
-        U               0.5;            // More aggressive - stable at this scale
+        U               0.3;            // More aggressive - stable at this scale
         UFinal          1.0;            
         T               0.5;            
         Te              0.5;            // Still conservative for electron temp
-        Tl              0.5;            
+        Tl              0.5;  
+        "alpha.*"       0.8;           
         ".*Final"       1.0;            
     }
 }
@@ -104,7 +105,7 @@ targetResP  0.1;   // residual target for updating relaxP
 compInterFoamCoeffs
 {
     maxReasonableVelocity  1e5;     // UEqn.H
-    maxVelocity            10000;    // UEqn.H velocity limiter
+    maxVelocity            5000;    // UEqn.H velocity limiter
     defaultMetalDensity    4500;    // UEqn.H (fallback if rho1 invalid)
     defaultAirDensity      1.2;     // UEqn.H (fallback if rho2 invalid)
     // Keep α bounded but not over-restricted
@@ -113,7 +114,7 @@ compInterFoamCoeffs
     maxAlpha          1.0;
     // Pressure bounds (fall back to controlDict if absent)
     pressureClamp      true;
-    maxPressure        5e8;   // 100 MPa is plenty and cuts clamp spread
+    maxPressure        1e8;   // 100 MPa is plenty and cuts clamp spread
     minPressure        1e5;   // keep a modest floor
 
     // Density bounds (controlDict entries are deprecated)
