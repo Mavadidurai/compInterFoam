@@ -36,15 +36,17 @@ air
 cAlpha          cAlpha [0 0 0 0 0 0 0] 1;
 icAlpha         icAlpha [0 0 0 0 0 0 0] 0;
 scAlpha         scAlpha [0 0 0 0 0 0 0] 0;
-phaseChangeCoeffs
-{
-    model          temperatureWindow;
-    Tvapor         3560;      // or your value
-    windowWidth    300;       // smoothing band [K]
-    onlyAboveVapor true;     // allow both melt/condense logic
-    // Activation window for laser pulse
-    activationTime ((0 2e-9));
-}
+// Example latent-heat source term specification
+    phaseChangeCoeffs
+    {
+        model          temperatureWindow;
+        Tvapor         3560;      // or your value
+        windowWidth    300;       // smoothing band [K]
+        dtFloor        1e-12;     // floor for time-step regularisation
+        onlyAboveVapor true;     // allow both melt/condense logic
+        // Activation window for laser pulse
+        activationTime ((0 2e-9));
+    }
 massTransferCoeffs
 {
     // Mass transfer derived from phase-change energy:
