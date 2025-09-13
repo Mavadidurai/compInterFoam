@@ -31,7 +31,6 @@ License
 #include "gradientEnergyFvPatchScalarField.H"
 #include "mixedEnergyFvPatchScalarField.H"
 #include "collatedFileOperation.H"
-#include <dimensionSets.H>
 #include "dimensionSets.H"
 #include "IOdictionary.H"
 #include "Switch.H"

@@ -699,7 +699,12 @@ tmp<volScalarField> Foam::twoTemperatureModel::kl() const
                 IOobject::NO_WRITE
             ),
             mesh_,
-            dimensionedScalar("kl", dimPower/dimLength/dimTemperature, 0.0)
+            dimensionedScalar
+            (
+                "kl",
+                dimPower/dimLength/dimTemperature,
+                Cl_.value()*De_.value()
+            )
         )
     );
 
@@ -710,33 +715,7 @@ tmp<volScalarField> Foam::twoTemperatureModel::kl() const
     forAll(mesh_.C(), cellI)
     {
         scalar Tl = Tl_[cellI];
-
-    // Use the same constant diffusivity to construct a lattice conductivity:
-    //   k_l = C_l * D_e   (dimensions: [J/m^3/K]*[m^2/s] = [W/m/K])
-    return tmp<volScalarField>
-    (
-        new volScalarField
-        (
-            IOobject
-            (
-                "kl",
-                mesh_.time().timeName(),
-                mesh_,
-                IOobject::NO_READ,
-                IOobject::NO_WRITE
-            ),
-            mesh_,
-            dimensionedScalar
-            (
-                "kl",
-                dimPower/dimLength/dimTemperature,
-                Cl_.value()*De_.value()
-            )
-        )
-    );
-
-
-        
+   
         // Apply temperature dependent correction
         if (Tl > 1000.0)
         {
