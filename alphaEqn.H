@@ -280,8 +280,7 @@ extern Foam::Switch verbose;
                 alpha1 = alpha10;
             }
 
-            tmp<surfaceScalarField> talphaPhiCorr(alphaPhi10);
-            surfaceScalarField& alphaPhiCorr = talphaPhiCorr.ref();
+            surfaceScalarField alphaPhiCorr(alphaPhi10);
 
             MULES::correct
             (
