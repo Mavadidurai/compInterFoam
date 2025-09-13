@@ -42,6 +42,7 @@ divSchemes
 default                          Gauss linear;
 
     // Interface transport (used by your alphaEqn)
+    div(phi,U)                       Gauss upwind;
     div(phi,alpha)                   Gauss vanLeer;
     div(phir,alpha)                  Gauss interfaceCompression;
 
@@ -52,7 +53,7 @@ default                          Gauss linear;
 
     // Momentum
     div(rhoPhi,U)                    Gauss linearUpwindV grad(U);
-    div(phi,U)                       Gauss linearUpwindV grad(U);
+
     div(phi,p_rgh)                   Gauss linear;
 
     // Temperatures: keep peaks (don’t upwind Te/Tl)

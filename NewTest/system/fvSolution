@@ -99,7 +99,7 @@ relaxationFactors
     }
 }
 // Adaptive pressure relaxation controls read by pEqn.H
-relaxP      0.3;   // under-relaxation factor (edit here)
+relaxP      0.05;   // under-relaxation factor (edit here)
 targetResP  0.1;   // residual target for updating relaxP
 compInterFoamCoeffs
 {
@@ -124,7 +124,7 @@ compInterFoamCoeffs
 
     // Momentum matrix safety (fall back to controlDict if absent)
     enableRAUClamp     true;
-    minRAU             1e-14;
+    minRAU             1e-10;
     maxRAU             1e6;
     minRAUf            1e-14;
     maxRAUf            1e6;
