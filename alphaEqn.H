@@ -1,6 +1,7 @@
 /*---------------------------------------------------------------------------*\
 alphaEqn.H based on official OpenFOAM v2406 pattern
 \*---------------------------------------------------------------------------*/
+#include <cmath>
 extern Foam::Switch verbose;
 {
     word scheme("div(phi,alpha)");
@@ -68,6 +69,14 @@ extern Foam::Switch verbose;
     const scalar alphaSourceFloor
     (
         alphaControls.lookupOrDefault<scalar>("alphaSourceFloor", 1e-3) // recommended ~1e-3
+    );
+        const scalar diagStab
+    (
+        alphaControls.lookupOrDefault<scalar>("diagStab", SMALL)
+    );
+    const scalar sourceMaxMag
+    (
+        alphaControls.lookupOrDefault<scalar>("sourceMaxMag", GREAT)
     );
     // Standard face-flux compression coefficient
     surfaceScalarField phic(mixture.cAlpha()*mag(phi/mesh.magSf()));
@@ -163,36 +172,95 @@ extern Foam::Switch verbose;
             dimensionedScalar(dgdt.dimensions(), Zero)
         );
 
-               // Basic source term calculation
+               // Basic source term calculation with clamping
+        label sourceClampCells = 0;
         bool hitAlphaFloor = false;
         forAll(dgdt, celli)
         {
-            if (dgdt[celli] > 0.0)
+            scalar dgt = dgdt[celli];
+            if (dgt > 0.0)
             {
                 if (alpha1[celli] < alphaSourceFloor)
                 {
                     hitAlphaFloor = true;
                 }
+                scalar denom = max(alpha1[celli], alphaSourceFloor);
+                bool cellClamped = false;
+                if (mag(dgt) > sourceMaxMag)
+                {
+                    dgt = sign(dgt)*sourceMaxMag;
+                    cellClamped = true;
+                }
+                if (denom > sourceMaxMag)
+                {
+                    denom = sourceMaxMag;
+                    cellClamped = true;
+                }
+                if (cellClamped)
+                {
+                    sourceClampCells++;
+                }
                 // Evaporation: remove mass from liquid
-                SpInternal[celli] -= dgdt[celli]/max(alpha1[celli], alphaSourceFloor);
+                SpInternal[celli] -= dgt/denom;
             }
-            else if (dgdt[celli] < 0.0)
+            else if (dgt < 0.0)
             {
                 scalar denom = max(1.0 - alpha1[celli], alphaSourceFloor);
                 if ((1.0 - alpha1[celli]) < alphaSourceFloor)
                 {
                     hitAlphaFloor = true;
                 }
+                bool cellClamped = false;
+                if (mag(dgt) > sourceMaxMag)
+                {
+                    dgt = sign(dgt)*sourceMaxMag;
+                    cellClamped = true;
+                }
+                if (denom > sourceMaxMag)
+                {
+                    denom = sourceMaxMag;
+                    cellClamped = true;
+                }
+                if (cellClamped)
+                {
+                    sourceClampCells++;
+                }
                 // Condensation: add mass to liquid
-                SpInternal[celli] += dgdt[celli]/denom;
-                SuInternal[celli] -= dgdt[celli]/denom;
+                SpInternal[celli] += dgt/denom;
+                SuInternal[celli] -= dgt/denom;
             }
+        }
+        reduce(sourceClampCells, sumOp<label>());
+        if (sourceClampCells > 0)
+        {
+            WarningInFunction
+                << "Clamped " << sourceClampCells
+                << " source term values to max magnitude "
+                << sourceMaxMag << endl;
         }
         if (hitAlphaFloor)
         {
             WarningInFunction
                 << "alphaSourceFloor triggered in source term division;"
                 << " solution may be stiff" << endl;
+        }
+
+        label nonFiniteSources = 0;
+        forAll(SpInternal, celli)
+        {
+            if (!std::isfinite(SpInternal[celli]) || !std::isfinite(SuInternal[celli]))
+            {
+                SpInternal[celli] = 0.0;
+                SuInternal[celli] = 0.0;
+                nonFiniteSources++;
+            }
+        }
+        reduce(nonFiniteSources, sumOp<label>());
+        if (nonFiniteSources > 0)
+        {
+            WarningInFunction
+                << nonFiniteSources
+                << " non-finite source term values set to zero" << endl;
         }
         volScalarField spField
         (
@@ -284,9 +352,24 @@ extern Foam::Switch verbose;
         );
         // Ensure a strictly positive diagonal with proper dimensions
         alpha1Eqn += fvm::Sp(
-            dimensionedScalar("stabCoeff", alpha1.dimensions()/dimTime, VSMALL),
+            dimensionedScalar("stabCoeff", alpha1.dimensions()/dimTime, diagStab),
             alpha1
         );
+        
+        if (min(alpha1Eqn.diagonal()) <= 0)
+        {
+            Warning
+                << "alpha1Eqn: detected non-positive diagonal entry."
+                << " Adjusting to SMALL." << nl;
+            scalarField& diag = alpha1Eqn.diagonal();
+            forAll(diag, i)
+            {
+                if (diag[i] <= 0)
+                {
+                    diag[i] = SMALL;
+                }
+            }
+        }
 
         alpha1Eqn.solve();
 

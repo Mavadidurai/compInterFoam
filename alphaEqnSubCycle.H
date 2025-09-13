@@ -57,6 +57,20 @@
 
 
             alpha1Eqn.relax(0.7);
+            if (min(alpha1Eqn.diagonal()) <= 0)
+            {
+                Warning
+                    << "alpha1Eqn (subCycle): non-positive diagonal detected."
+                    << " Adjusting to SMALL." << nl;
+                scalarField& diag = alpha1Eqn.diagonal();
+                forAll(diag, i)
+                {
+                    if (diag[i] <= 0)
+                    {
+                        diag[i] = SMALL;
+                    }
+                }
+            }
             alpha1Eqn.solve();
 
 
@@ -103,6 +117,20 @@
 
 
         alpha1Eqn.relax(0.1);
+                if (min(alpha1Eqn.diagonal()) <= 0)
+        {
+            Warning
+                << "alpha1Eqn: non-positive diagonal detected." 
+                << " Adjusting to SMALL." << nl;
+            scalarField& diag = alpha1Eqn.diagonal();
+            forAll(diag, i)
+            {
+                if (diag[i] <= 0)
+                {
+                    diag[i] = SMALL;
+                }
+            }
+        }
         alpha1Eqn.solve();
 
 
