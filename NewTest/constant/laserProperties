@@ -70,7 +70,7 @@ absorptionCoeff     5e7;      // [1/m] ~20–50 nm optical depth
 reflectivity        0.55;
 gaussianProfile     true;
 maxReflections      1;
-transmission    0.445; 	 // through-glass fraction reaching film
+transmission       -1; 	 // through-glass fraction reaching film
 
 // Optional intensity entry (consistent with pulseEnergy & pulseWidth)
 //peakIntensity       1e15;      // [W/m^2] from pulseEnergy
