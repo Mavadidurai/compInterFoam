@@ -35,7 +35,7 @@ Description
     controls are provided.
 
 \*---------------------------------------------------------------------------*/
-
+#include "wordRe.H"
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
 #ifndef CREATE_TIME
@@ -78,7 +78,7 @@ if (argList::postProcess(argc, argv))
 
     #include "setRootCase.H"
 
-    if (args.optionFound("list"))
+    if (args.found("list"))
     {
         functionObjectList::list();
         return 0;
@@ -119,7 +119,7 @@ if (argList::postProcess(argc, argv))
             // if not constructed from runTime
             dictionary functionsControlDict("controlDict");
 
-            HashSet<word> selectedFields;
+            HashSet<wordRe> selectedFields;
 
             // Construct functionObjectList
             autoPtr<functionObjectList> functionsPtr

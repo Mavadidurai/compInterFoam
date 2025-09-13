@@ -27,8 +27,7 @@ advancedInterfaceCapturing::advancedInterfaceCapturing
         (
             "meltingTemperature",
             dimTemperature,
-            mesh.lookupObject<dictionary>("thermophysicalProperties")
-                .subDict("metal").lookupOrDefault<scalar>("Tsol", 1941.0)
+            mixture.T_melt()
         )
     ),
     vaporTemp_
@@ -37,21 +36,10 @@ advancedInterfaceCapturing::advancedInterfaceCapturing
         (
             "vaporTemperature",
             dimTemperature,
-            mesh.lookupObject<dictionary>("thermophysicalProperties")
-                .subDict("metal").lookupOrDefault<scalar>("Tvap", 3000.0)
+            mixture.T_vapor()
         )
     ),
-    latentHeat_
-    (
-        dimensionedScalar
-        (
-            "latentHeat",
-            dimEnergy/dimMass,
-            mesh.lookupObject<dictionary>("thermophysicalProperties")
-                .subDict("metal").lookupOrDefault<scalar>("hf", 435e3)
-        )
-    ),
-
+    latentHeat_(mixture.latentHeat()),
     pressureScale_(20000.0),
     recoilMax_(5e6),
     recoilUpdateInterval_(1),

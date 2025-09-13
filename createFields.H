@@ -360,7 +360,14 @@ scalar scAlpha
 (
     alphaSolverControls.lookupOrDefault<scalar>("scAlpha", 0.0)
 );
-
+// Silence potential unused-variable warnings when the alpha equation
+// is not executed (eg, post-processing builds)
+(void)nAlphaSubCycles;
+(void)nAlphaCorr;
+(void)MULESCorr;
+(void)alphaApplyPrevCorr;
+(void)icAlpha;
+(void)scAlpha;
 // Suppress unused variable warnings for fvOptions
 (void)fvOptions;
 

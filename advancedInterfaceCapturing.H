@@ -16,7 +16,7 @@ private:
     const surfaceScalarField& phi_;  // Flux field
     const twoPhaseMixtureThermo& mixture_;
     const volScalarField& T_;        // Temperature field for phase change
-    // Physical parameters sourced from thermophysicalProperties
+    // Phase-change parameters provided by twoPhaseMixtureThermo
     dimensionedScalar meltingTemp_;             // Melting temperature (Tsol)
     dimensionedScalar vaporTemp_;               // Vaporization temperature (Tvap)
     dimensionedScalar latentHeat_;              // Latent heat of fusion (hf)

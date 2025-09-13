@@ -33,9 +33,9 @@ License
 #include "collatedFileOperation.H"
 #include <dimensionSets.H>
 #include "dimensionSets.H"
+#include "IOdictionary.H"
 #include "Switch.H"
 #include "Tuple2.H"
-//#include "mag.H"
 
 // * * * * * * * * * * * * * * Static Data Members * * * * * * * * * * * * * //
 
@@ -58,20 +58,10 @@ Foam::twoPhaseMixtureThermo::twoPhaseMixtureThermo
     interfaceProperties(alpha1(), U, *this),
     thermo1_(nullptr),
     thermo2_(nullptr),
-    // Get properties from transport properties and thermalProperties
-    latentHeat_(
-        U.mesh().lookupObject<dictionary>("thermophysicalProperties").
-        subDict("metal").lookupOrDefault<scalar>("hf", 435e3)
-    ),
-
-    T_melt_(
-        U.mesh().lookupObject<dictionary>("thermophysicalProperties").
-        subDict("metal").lookupOrDefault<scalar>("Tsol", 1941.0)
-    ),
-    T_vapor_(
-        U.mesh().lookupObject<dictionary>("thermophysicalProperties").
-        subDict("metal").lookupOrDefault<scalar>("Tvap", 3000.0)
-    ),
+   // Initialise phase-change properties; values populated from metal dictionary
+    latentHeat_(0.0),
+    T_melt_(0.0),
+    T_vapor_(0.0),
     Q_laser_
     (
         IOobject
@@ -116,6 +106,23 @@ Foam::twoPhaseMixtureThermo::twoPhaseMixtureThermo
     rho1_("rho1", dimDensity, 0.0),
     rho2_("rho2", dimDensity, 0.0)
 {
+        // Read metal phase thermophysical properties from dedicated dictionary
+    IOdictionary metalDict
+    (
+        IOobject
+        (
+            "thermophysicalProperties.metal",
+            U.mesh().time().constant(),
+            U.mesh(),
+            IOobject::MUST_READ,
+            IOobject::NO_WRITE
+        )
+    );
+
+    latentHeat_ = metalDict.lookupOrDefault<scalar>("hf", 435e3);
+    T_melt_ = metalDict.lookupOrDefault<scalar>("Tsol", 1941.0);
+    T_vapor_ = metalDict.lookupOrDefault<scalar>("Tvap", 3000.0);
+
     {
         volScalarField T1(IOobject::groupName("T", phase1Name()), T_);
         T1.write();

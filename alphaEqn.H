@@ -292,8 +292,7 @@ extern Foam::Switch verbose;
                 Sp,
                 Su,
                 oneField(),
-                zeroField(),
-                alphaApplyPrevCorr
+                zeroField()
             );
 
             alphaPhi10 = alphaPhiCorr;
