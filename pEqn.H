@@ -11,10 +11,10 @@ extern Foam::Switch verbose;
     
     // Create robust interpolation of rAU
     surfaceScalarField rAUf("rAUf", fvc::interpolate(rAU));
-    
-    // Apply bounds to rAUf to prevent division by zero or infinities.
-    // Clamp values are primarily specified in fvSolution::compInterFoamCoeffs;
-    // controlDict entries act only as a fallback.
+// Apply a minimal bound to rAUf to prevent division by zero or
+    // infinities.  The threshold is primarily specified in
+    // fvSolution::compInterFoamCoeffs; controlDict entries act only as a
+    // fallback.
     const dictionary& solverControls = mesh.solutionDict().subOrEmptyDict
     ("compInterFoamCoeffs");
     const dictionary& controlDict = mesh.time().controlDict();
@@ -22,11 +22,6 @@ extern Foam::Switch verbose;
     (
         "minRAUf",
         controlDict.lookupOrDefault<scalar>("minRAUf", 1e-10)
-    );
-    scalar maxRAUf = solverControls.lookupOrDefault<scalar>
-    (
-        "maxRAUf",
-        controlDict.lookupOrDefault<scalar>("maxRAUf", 1e6)
     );
     const Switch enableRAUfClamp = solverControls.lookupOrDefault<Switch>
     (
@@ -39,30 +34,20 @@ extern Foam::Switch verbose;
         minRAUf = 1e-10;
     }
 
-    if (!std::isfinite(maxRAUf))
-    {
-        maxRAUf = 1e6;
-    }
-
     label minRAUfCount = 0;
-    label maxRAUfCount = 0;
 
     // Internal field
     scalarField& rAUfIn = rAUf.primitiveFieldRef();
     forAll(rAUfIn, faceI)
     {
-        if (!std::isfinite(rAUfIn[faceI]) || (enableRAUfClamp && rAUfIn[faceI] < minRAUf))
+        if
+        (
+            !std::isfinite(rAUfIn[faceI])
+         || (enableRAUfClamp && Foam::mag(rAUfIn[faceI]) < minRAUf)
+        )
         {
-            if (enableRAUfClamp)
-            {
-                rAUfIn[faceI] = minRAUf;
-                minRAUfCount++;
-            }
-        }
-        else if (enableRAUfClamp && rAUfIn[faceI] > maxRAUf)
-        {
-            rAUfIn[faceI] = maxRAUf;
-            maxRAUfCount++;
+            rAUfIn[faceI] = std::copysign(minRAUf, rAUfIn[faceI]);
+            minRAUfCount++;
         }
     }
 
@@ -72,41 +57,33 @@ extern Foam::Switch verbose;
         fvsPatchScalarField& pRauf = rAUf.boundaryFieldRef()[patchI];
         forAll(pRauf, faceI)
         {
-            if (!std::isfinite(pRauf[faceI]) || (enableRAUfClamp && pRauf[faceI] < minRAUf))
+            if
+            (
+                !std::isfinite(pRauf[faceI])
+             || (enableRAUfClamp && Foam::mag(pRauf[faceI]) < minRAUf)
+            )
             {
-                if (enableRAUfClamp)
-                {
-                    pRauf[faceI] = minRAUf;
-                    minRAUfCount++;
-                }
-            }
-            else if (enableRAUfClamp && pRauf[faceI] > maxRAUf)
-            {
-                pRauf[faceI] = maxRAUf;
-                maxRAUfCount++;
+                pRauf[faceI] = std::copysign(minRAUf, pRauf[faceI]);
+                minRAUfCount++;
             }
         }
     }
 
     reduce(minRAUfCount, sumOp<label>());
-    reduce(maxRAUfCount, sumOp<label>());
-    if (enableRAUfClamp && (minRAUfCount > 0 || maxRAUfCount > 0))
+    if (enableRAUfClamp && minRAUfCount > 0)
     {
         if (verbose)
         {
             Info<< "rAUf clamping stats: " << minRAUfCount
-                << " faces to minRAUf (" << minRAUf << "), "
-                << maxRAUfCount << " faces to maxRAUf (" << maxRAUf << ")" << endl;
+                << " faces to minRAUf (" << minRAUf << ")" << endl;
         }
     }
-    else if (!enableRAUfClamp &&
-        (min(rAUf).value() < minRAUf || max(rAUf).value() > maxRAUf))
+    else if (!enableRAUfClamp && min(rAUf).value() < minRAUf)
     {
         if (verbose)
         {
-            Info<< "rAUf outside expected range [" << minRAUf << ", "
-                << maxRAUf << "]: min=" << min(rAUf).value()
-                << " max=" << max(rAUf).value() << endl;
+            Info<< "rAUf below expected range [" << minRAUf << "]: min="
+                << min(rAUf).value() << endl;
         }
     }
 

@@ -20,8 +20,10 @@ const scalar defaultMetalDensity = solverControls.lookupOrDefault<scalar>(
     "defaultMetalDensity", 4500.0);
 const scalar defaultAirDensity = solverControls.lookupOrDefault<scalar>(
     "defaultAirDensity", 1.2);
-    const scalar maxVelocity = solverControls.lookupOrDefault<scalar>(
+const scalar maxVelocity = solverControls.lookupOrDefault<scalar>(
     "maxVelocity", 1.0e4);
+const Switch limitVelocity = solverControls.lookupOrDefault<Switch>(
+    "limitVelocity", true);
 // Dynamic momentum relaxation control
 static scalar relaxU = 0.3;
 const scalar targetResU = solverControls.lookupOrDefault<scalar>(
@@ -261,7 +263,7 @@ if (pimple.momentumPredictor())
         {
             scalar velMag = mag(U[cellI]);
             // Bound extreme velocities
-            if (velMag > maxVelocity)
+            if (limitVelocity && velMag > maxVelocity)
             {
                 U[cellI] *= (maxVelocity/velMag);
                 limitedCells++;
