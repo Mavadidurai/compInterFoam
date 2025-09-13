@@ -356,12 +356,12 @@ extern Foam::Switch verbose;
             alpha1
         );
         
-        if (min(alpha1Eqn.diagonal()) <= 0)
+        if (Foam::gMin(alpha1Eqn.diag()) <= 0)
         {
             Warning
                 << "alpha1Eqn: detected non-positive diagonal entry."
                 << " Adjusting to SMALL." << nl;
-            scalarField& diag = alpha1Eqn.diagonal();
+            scalarField& diag = alpha1Eqn.diag();
             forAll(diag, i)
             {
                 if (diag[i] <= 0)
