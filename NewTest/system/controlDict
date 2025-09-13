@@ -53,8 +53,9 @@ advancedInterfaceCapturing
     recoilUpdateInterval 1;        // evaluate every step
     recoilTempOffset      [0 0 0 1 0 0 0] 500;     // K below vapor temperature for activation
     relaxFactor   0.1;   // sharper α
-    alphaMin      0.001;
-    alphaMax      0.999;
+    // Smooth ramp bounds; widen as needed
+    alphaMin      0.01;
+    alphaMax      0.99;
 }
 
 // Pressure relaxation and density clamp settings are configured in
@@ -62,7 +63,7 @@ advancedInterfaceCapturing
 
 enableTClamp                   false;
 minT                           250;    // K: lower physical bound
-maxT                           12000;  // K: exceeds vaporization temperature
+maxT                           20000;  // K: exceeds vaporization temperature
 
 // Density clamp controls are defined in fvSolution::compInterFoamCoeffs
 
