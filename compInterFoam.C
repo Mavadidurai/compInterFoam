@@ -87,7 +87,10 @@ int main(int argc, char *argv[])
     #include "createTime.H"
     #include "createMesh.H"
     #include "createTimeControls.H"
+    #ifndef CREATE_FIELDS_DONE
     #include "createFields.H"
+    #define CREATE_FIELDS_DONE
+    #endif
     
     // Track recoil pressure update intervals when alpha subcycle is skipped
     label recoilCallCount = 0;
