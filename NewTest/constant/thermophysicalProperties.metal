@@ -15,13 +15,14 @@ FoamFile
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
 // METAL PHASE PROPERTIES for LIFT Test Case
+// Density is now temperature dependent via a polynomial relation
 thermoType
 {
     type            heRhoThermo;
     mixture         pureMixture;
     transport       const;
     thermo          hConst;
-    equationOfState rhoConst;       // Constant density for basic test
+    equationOfState rPolynomial;    // Polynomial density representation
     specie          specie;
     energy          sensibleEnthalpy;
 }
@@ -47,10 +48,13 @@ mixture
         Pr              0.03;           // Prandtl number (liquid metals)
     }
     
-    equationOfState
-    {
-        rho             4515;           // kg/m³ - Titanium density
-    }
+equationOfState
+{
+    // constant density: rho ≈ 4515 kg/m3  → C0 = 1/rho, others 0
+    C (2.214839424e-4 0 0 0 0);
+}
+
+
 }
 
 // LIFT-specific properties

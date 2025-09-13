@@ -113,13 +113,13 @@ compInterFoamCoeffs
     minAlpha          0.0;
     maxAlpha          1.0;
     // Pressure bounds (fall back to controlDict if absent)
-    pressureClamp      true;
+    pressureClamp      false;
     maxPressure        1e8;   // 100 MPa is plenty and cuts clamp spread
     minPressure        1e5;   // keep a modest floor
 
     // Density bounds (controlDict entries are deprecated)
 
-    densityClamp       true;
+    densityClamp       false;
     maxDensity         10000;
     minDensity         0.5;
 

@@ -14,19 +14,19 @@ FoamFile
 }
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
-// ✅ FIXED: Stable air properties for LIFT simulation
-// Use rhoConst instead of perfectGas to avoid density instability
+// Thermophysical model for compressible air treated as a perfect gas
 
 thermoType
 {
-    type            heRhoThermo;
+    type            heRhoThermo;     // was hePsiThermo  ← FIX
     mixture         pureMixture;
-    transport       const;           // Simple constant transport
-    thermo          hConst;          // Constant thermodynamics
-    equationOfState rhoConst;        // ✅ FIXED: Constant density instead of perfect gas
+    transport       const;
+    thermo          hConst;
+    equationOfState perfectGas;
     specie          specie;
     energy          sensibleEnthalpy;
 }
+
 
 mixture
 {
@@ -48,10 +48,10 @@ mixture
         mu          1.8e-5;             // Pa·s - Air dynamic viscosity
         Pr          0.7;                // Prandtl number for air
     }
-    
+
     equationOfState
     {
-        rho         1.2;                // kg/m³ - ✅ FIXED: Constant air density
+        R           287;                // J/kg·K - Specific gas constant for air
     }
 }
 

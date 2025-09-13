@@ -51,7 +51,7 @@ advancedInterfaceCapturing
     clampRecoil          true;     // disable to remove cap
     scaleRecoilMax       false;     // scale cap with phase change
     recoilUpdateInterval 1;        // evaluate every step
-    recoilTempOffset      [0 0 0 1 0 0 0] 500;     // K below vapor temperature for activation
+    recoilTempOffset      [0 0 0 1 0 0 0] 3000;     // K below vapor temperature for activation
     relaxFactor   0.1;   // sharper α
     // Smooth ramp bounds; widen as needed
     alphaMin      0.01;
