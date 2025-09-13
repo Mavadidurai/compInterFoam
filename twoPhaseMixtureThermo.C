@@ -276,6 +276,10 @@ Foam::tmp<Foam::volScalarField> Foam::twoPhaseMixtureThermo::computePhaseChange(
     const scalar Tvapor = pc.lookupOrDefault<scalar>("Tvapor", T_vapor_);
     const scalar windowWidth = pc.lookupOrDefault<scalar>("windowWidth", 0.0);
     dtFloor_ = pc.lookupOrDefault<scalar>("dtFloor", dtFloor_);
+    const scalar minCoefficient
+    (
+        pc.lookupOrDefault<scalar>("minCoefficient", GREAT)
+    );
     const Switch onlyAboveVapor
     (
         pc.lookupOrDefault<Switch>("onlyAboveVapor", false)
@@ -294,6 +298,7 @@ Foam::tmp<Foam::volScalarField> Foam::twoPhaseMixtureThermo::computePhaseChange(
             << "    Tvapor        " << Tvapor << nl
             << "    windowWidth   " << windowWidth << nl
             << "    dtFloor       " << dtFloor_ << nl
+            << "    minCoefficient " << minCoefficient << nl
             << "    onlyAboveVapor " << onlyAboveVapor << nl;
         if (actTimes.size())
         {
@@ -397,7 +402,7 @@ forAll(T_, cellI)
 Foam::tmp<Foam::volScalarField>
 Foam::twoPhaseMixtureThermo::computeMassTransfer() const
 {
-    tmp<volScalarField> tRate
+    tmp<volScalarField> tDgdt
     (
         new volScalarField
         (
@@ -414,7 +419,7 @@ Foam::twoPhaseMixtureThermo::computeMassTransfer() const
         )
     );
 
-    volScalarField& rate = tRate.ref();
+    volScalarField& dgdt = tDgdt.ref();
 
     const dictionary& transportDict =
         T_.mesh().lookupObject<dictionary>("transportProperties");
@@ -422,7 +427,7 @@ Foam::twoPhaseMixtureThermo::computeMassTransfer() const
     if (!transportDict.found("massTransferCoeffs"))
     {
         Info<< "massTransferCoeffs not found - skipping mass transfer" << nl;
-        return tRate;
+        return tDgdt;
     }
 
     const dictionary& mt = transportDict.subDict("massTransferCoeffs");
@@ -500,7 +505,7 @@ Foam::twoPhaseMixtureThermo::computeMassTransfer() const
         if (!active)
         {
             Info<< "massTransferCoeffs inactive at time " << timeVal << nl;
-            return tRate;
+            return tDgdt;
         }
     }
 
@@ -509,7 +514,7 @@ Foam::twoPhaseMixtureThermo::computeMassTransfer() const
     const tmp<volScalarField> rho1Tmp = thermo1_->rho();
     const volScalarField& rho1Field = rho1Tmp();
 
-    forAll(rate, cellI)
+    forAll(dgdt, cellI)
     {
         scalar localRate =
             -(ClVal*phaseChangeSource_[cellI])
@@ -520,10 +525,10 @@ Foam::twoPhaseMixtureThermo::computeMassTransfer() const
             localRate = max(min(localRate, rateMax), -rateMax);
         }
 
-        rate[cellI] = localRate;
+        dgdt[cellI] = localRate;
     }
 
-    return tRate;
+    return tDgdt;
 }
 bool Foam::twoPhaseMixtureThermo::isochoric() const
 

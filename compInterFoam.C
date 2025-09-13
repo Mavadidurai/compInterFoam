@@ -208,7 +208,8 @@ int main(int argc, char *argv[])
         {
             bool alphaSubCycleExecuted = false;
 
-            // Update mixture properties and phase-change sources
+            // Update mixture properties and phase-change sources for the
+            // alpha equation
             mixture.correct();
             const volScalarField& phaseChangeSource = mixture.phaseChangeSource();
             const volScalarField& dgdt = mixture.dgdt();
@@ -218,26 +219,30 @@ int main(int argc, char *argv[])
 
             transportModel.correctPhasePhi();
 
-// Only complain while the laser window is active
-const scalar tnow = runTime.value();
-if (tnow >= laser.laserStartTime() && tnow <= laser.laserEndTime())
-{
-    const dimensionedScalar maxQL = max(laserSrc());   // Q_laser field
-    const scalar eps = 1e-6;
+            // Recompute mixture properties so the two-temperature model and
+            // subsequent routines use the updated phase change information
+            mixture.correct();
 
-    if (maxQL.value() < eps)
-    {
-        WarningInFunction
-            << "Maximum Q_laser (" << maxQL.value()
-            << ") below threshold " << eps << endl;
-    }
+            // Only complain while the laser window is active
+            const scalar tnow = runTime.value();
+            if (tnow >= laser.laserStartTime() && tnow <= laser.laserEndTime())
+            {
+                const dimensionedScalar maxQL = max(laserSrc());   // Q_laser field
+                const scalar eps = 1e-6;
 
-    if (verbose)
-    {
-        Info<< "max(Q_laser) = " << maxQL.value()
-            << ", max(Tl_) = " << max(ttm.Tl()).value() << nl;
-    }
-}
+                if (maxQL.value() < eps)
+                {
+                    WarningInFunction
+                        << "Maximum Q_laser (" << maxQL.value()
+                        << ") below threshold " << eps << endl;
+                }
+
+                if (verbose)
+                {
+                    Info<< "max(Q_laser) = " << maxQL.value()
+                        << ", max(Tl_) = " << max(ttm.Tl()).value() << nl;
+                }
+            }
             ttm.solve(laserSrc(), phaseChangeSource);
             #include "TEqn.H"
             // If alpha subcycling did not execute, update recoil pressure
