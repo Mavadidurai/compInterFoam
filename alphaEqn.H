@@ -282,11 +282,8 @@ extern Foam::Switch verbose;
         - fvm::div(phir, alpha1)
         + fvm::Sp(SpInternal, alpha1) + SuInternal
         );
-        alpha1Eqn.diagonal() = max
-        (
-            alpha1Eqn.diagonal(),
-            dimensionedScalar(alpha1Eqn.diagonal().dimensions(), VSMALL)
-        );
+        // Ensure a strictly positive diagonal to avoid singular matrices
+        alpha1Eqn += fvm::Sp(VSMALL, alpha1);
 
         alpha1Eqn.solve();
 
