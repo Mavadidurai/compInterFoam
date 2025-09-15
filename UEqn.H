@@ -127,7 +127,11 @@ UEqn.relax(relaxU);
 
 // Obtain diagonal coefficients and compute reciprocal with optional clamping
 tmp<volScalarField> tA = UEqn.A();
-
+if (!tA.valid())
+{
+    FatalErrorIn("UEqn.H") << "Invalid tA field" << abort(FatalError);
+}
+const volScalarField& A = tA();
 // Use controlDict only as a fallback when FV solution settings are absent
 const dictionary& ctrl = runTime.controlDict();
 
@@ -145,7 +149,7 @@ const scalar maxRau =
 
 // NOTE: gMax(rho) returns a dimensionedScalar; use .value()
 // --- dynamic lower bound sized to current Δt and density ---
-const scalar rhoMax    = gMax(rho.internalField());  // <— no .value()
+const scalar rhoMax    = gMax(rho.internalField()).value();
 const scalar minRauDyn = 0.05*runTime.deltaTValue()/max(rhoMax, SMALL);
 const scalar minRauEff = min(minRau, minRauDyn);
 
@@ -164,7 +168,7 @@ label maxRauCells = 0;
 
 forAll(rAU, cellI)
 {
-    scalar Acoeff = tA()[cellI];
+    scalar Acoeff = A[cellI];
 
 if (!std::isfinite(Acoeff) || mag(Acoeff) <= SMALL)
 {
@@ -293,9 +297,16 @@ phi    = fvc::flux(U);
 rhoPhi = fvc::interpolate(rho)*phi;
 
 // Validate fluxes
-scalar maxPhi = max(mag(phi)).value();
-scalar maxRhoPhi = max(mag(rhoPhi)).value();
-
+scalar maxPhi = 0.0;
+scalar maxRhoPhi = 0.0;
+if (phi.size() > 0)
+{
+    maxPhi = max(mag(phi)).value();
+}
+if (rhoPhi.size() > 0)
+{
+    maxRhoPhi = max(mag(rhoPhi)).value();
+}
 if (!std::isfinite(maxPhi) || !std::isfinite(maxRhoPhi))
 {
     WarningInFunction

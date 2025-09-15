@@ -16,7 +16,11 @@ if (pInterfaceCapturing.valid())
 
     // Recompute density, fluxes and provide diagnostics
     rho = alpha1*rho1 + alpha2*rho2;
-    rhoPhi = alphaPhi10*fvc::interpolate(rho1) + (phi - alphaPhi10)*fvc::interpolate(rho2);
+    // Store intermediate fields to avoid redundant temporaries
+    tmp<surfaceScalarField> trho1 = fvc::interpolate(rho1);
+    tmp<surfaceScalarField> trho2 = fvc::interpolate(rho2);
+    surfaceScalarField phiDiff = phi - alphaPhi10;
+    rhoPhi = alphaPhi10*trho1() + phiDiff*trho2();
 
     if (verbose)
     {

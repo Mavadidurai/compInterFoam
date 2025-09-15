@@ -324,7 +324,10 @@ extern Foam::Switch verbose;
             dimensionedScalar("zero", dimless/dimTime, 0.0)
         );
 
-        Su = fvc::interpolate(divUField*min(alpha1, scalar(1)));
+        Su = fvc::interpolate
+        (
+            divUField*min(alpha1, dimensionedScalar("one", dimless, 1.0))
+        );
         
         Sp += fvc::interpolate(spField);
         Su += fvc::interpolate(suField);
@@ -415,7 +418,9 @@ extern Foam::Switch verbose;
         }
     }
 
-    rhoPhi = alphaPhi10*(fvc::interpolate(rho1) - fvc::interpolate(rho2)) + phiCN*fvc::interpolate(rho2);
+    tmp<surfaceScalarField> trho1 = fvc::interpolate(rho1);
+    tmp<surfaceScalarField> trho2 = fvc::interpolate(rho2);
+    rhoPhi = alphaPhi10*(trho1() - trho2()) + phiCN*trho2();
 
     if (ocCoeff > 0 && phi.timeIndex() > 0)
     {
