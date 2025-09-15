@@ -117,7 +117,7 @@ fvVectorMatrix UEqn(fvm::ddt(rho, U) + fvm::div(rhoPhi, U));
 UEqn += transportModel.divDevRhoReff(U);
 
 // Add recoil pressure gradient whenever the model is available
-if (pInterfaceCapturing.valid())
+if (useAdvancedCapturing && pInterfaceCapturing.valid())
 {
     UEqn -= fvc::grad(pInterfaceCapturing->recoilPressure());
 }
@@ -131,38 +131,32 @@ tmp<volScalarField> tA = UEqn.A();
 // Use controlDict only as a fallback when FV solution settings are absent
 const dictionary& ctrl = runTime.controlDict();
 
-const Switch enableRAUClamp = solverControls.lookupOrDefault<Switch>
-(
-    "enableRAUClamp",
-    ctrl.lookupOrDefault<Switch>("enableRAUClamp", true)
-);
+const Switch enableRAUClamp =
+    solverControls.lookupOrDefault<Switch>("enableRAUClamp",
+        ctrl.lookupOrDefault<Switch>("enableRAUClamp", true));
 
-const scalar minRau = solverControls.lookupOrDefault<scalar>
-(
-    "minRAU",
-    ctrl.lookupOrDefault<scalar>("minRAU", 1e-10)
-);
+const scalar minRau =
+    solverControls.lookupOrDefault<scalar>("minRAU",
+        ctrl.lookupOrDefault<scalar>("minRAU", 1e-10));
 
-const scalar maxRau = solverControls.lookupOrDefault<scalar>
-(
-    "maxRAU",
-    ctrl.lookupOrDefault<scalar>("maxRAU", 1e6)
-);
+const scalar maxRau =
+    solverControls.lookupOrDefault<scalar>("maxRAU",
+        ctrl.lookupOrDefault<scalar>("maxRAU", 1e6));
+
+// NOTE: gMax(rho) returns a dimensionedScalar; use .value()
+// --- dynamic lower bound sized to current Δt and density ---
+const scalar rhoMax    = gMax(rho.internalField());  // <— no .value()
+const scalar minRauDyn = 0.05*runTime.deltaTValue()/max(rhoMax, SMALL);
+const scalar minRauEff = min(minRau, minRauDyn);
+
 
 // Create rAU field
 volScalarField rAU
 (
-    IOobject
-    (
-        "rAU",
-        runTime.timeName(),
-        mesh,
-        IOobject::NO_READ,
-        IOobject::NO_WRITE
-    ),
+    IOobject("rAU", runTime.timeName(), mesh, IOobject::NO_READ, IOobject::NO_WRITE),
     mesh,
     dimensionedScalar("rAU", dimTime/dimDensity, 0),
-    extrapolatedCalculatedFvPatchScalarField::typeName
+    extrapolatedCalculatedFvPatchScalarField::typeName   // keep this
 );
 
 label minRauCells = 0;
@@ -172,36 +166,37 @@ forAll(rAU, cellI)
 {
     scalar Acoeff = tA()[cellI];
 
-    if (!std::isfinite(Acoeff) || mag(Acoeff) <= SMALL)
+if (!std::isfinite(Acoeff) || mag(Acoeff) <= SMALL)
+{
+    rAU[cellI] = minRauEff;
+    if (enableRAUClamp) minRauCells++;
+}
+else
+{
+    scalar value = 1.0/Acoeff;
+    if (enableRAUClamp)
     {
-        rAU[cellI] = minRau;
-        if (enableRAUClamp) minRauCells++;
-    }
-    else
-    {
-        scalar value = 1.0 / Acoeff;
-        if (enableRAUClamp)
+        if (!std::isfinite(value) || value < minRauEff)
         {
-            if (!std::isfinite(value) || value < minRau)
-            {
-                rAU[cellI] = minRau;
-                minRauCells++;
-            }
-            else if (value > maxRau)
-            {
-                rAU[cellI] = maxRau;
-                maxRauCells++;
-            }
-            else
-            {
-                rAU[cellI] = value;
-            }
+            rAU[cellI] = minRauEff;
+            minRauCells++;
+        }
+        else if (value > maxRau)
+        {
+            rAU[cellI] = maxRau;
+            maxRauCells++;
         }
         else
         {
             rAU[cellI] = value;
         }
     }
+    else
+    {
+        rAU[cellI] = value;
+    }
+}
+
 }
 
 reduce(minRauCells, sumOp<label>());
@@ -294,7 +289,7 @@ if (pimple.momentumPredictor())
 }
 
 // Update fluxes
-phi = fvc::interpolate(U) & mesh.Sf();
+phi    = fvc::flux(U);
 rhoPhi = fvc::interpolate(rho)*phi;
 
 // Validate fluxes
@@ -310,12 +305,13 @@ if (!std::isfinite(maxPhi) || !std::isfinite(maxRhoPhi))
 }
 
 // Continuity error calculation
-volScalarField contErr(fvc::div(phi));
-scalar sumLocalContErr = runTime.deltaT().value() *
-    mag(contErr)().weightedAverage(mesh.V()).value();
-scalar globalContErr = runTime.deltaT().value() *
-    contErr.weightedAverage(mesh.V()).value();
-    
+volScalarField contErr(fvc::div(rhoPhi));
+scalar sumLocalContErr = runTime.deltaT().value()
+* mag(contErr)().weightedAverage(mesh.V()).value();
+
+scalar globalContErr = runTime.deltaT().value()
+* contErr.weightedAverage(mesh.V()).value();
+
 if (!std::isfinite(sumLocalContErr)) sumLocalContErr = 0.0;
 if (!std::isfinite(globalContErr)) globalContErr = 0.0;
 

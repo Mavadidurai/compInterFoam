@@ -162,8 +162,6 @@
         }
     }
 
-    // Enforce physical bounds on alpha1 after corrections
-    alpha1 = Foam::min(Foam::max(alpha1, scalar(0.0)), scalar(1.0));
     alpha2 = 1.0 - alpha1;
 
 

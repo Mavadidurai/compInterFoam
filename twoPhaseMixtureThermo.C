@@ -363,7 +363,10 @@ forAll(T_, cellI)
     // magnitude in K/s (guard Cp and dt to avoid division spikes)
     scalar magCoeff =
         LVal/(max(CpCell, VSMALL))*(1.0/max(dtVal, dtFloor_));
-
+if (minCoefficient < GREAT)
+{
+    magCoeff = min(magCoeff, minCoefficient);
+}	
     // optional smoothing around vaporisation window
     if (windowWidth > SMALL)
     {

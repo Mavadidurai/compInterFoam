@@ -215,13 +215,10 @@ int main(int argc, char *argv[])
             const volScalarField& dgdt = mixture.dgdt();
 
             // Solve alpha transport using the unified compressible path
-            #include "compressibleAlphaEqnSubCycle.H"
+#include "compressibleAlphaEqnSubCycle.H"
 
-            transportModel.correctPhasePhi();
-
-            // Recompute mixture properties so the two-temperature model and
-            // subsequent routines use the updated phase change information
-            mixture.correct();
+transportModel.correctPhasePhi();
+mixture.correct();
 
             // Only complain while the laser window is active
             const scalar tnow = runTime.value();
@@ -243,30 +240,32 @@ int main(int argc, char *argv[])
                         << ", max(Tl_) = " << max(ttm.Tl()).value() << nl;
                 }
             }
-            ttm.solve(laserSrc(), phaseChangeSource);
-            #include "TEqn.H"
-            // If alpha subcycling did not execute, update recoil pressure
-            if
-            (
-                !alphaSubCycleExecuted
-             && pInterfaceCapturing.valid()
-            )
-            {
-                const label interval = pInterfaceCapturing->recoilUpdateInterval();
-                if (interval <= 1 || recoilCallCount++ % interval == 0)
-                {
-                    pInterfaceCapturing->calculateRecoilPressure();
-                }
-            }
-           if (useAdvancedCapturing && pInterfaceCapturing.valid())
-            {
-                pInterfaceCapturing->correct();
-            }
+ttm.solve(laserSrc(), phaseChangeSource);
+#include "TEqn.H"
+
+// Recoil update: only if alpha subcycle didn’t run
+if (!alphaSubCycleExecuted && pInterfaceCapturing.valid())
+{
+    const label interval = pInterfaceCapturing->recoilUpdateInterval();
+    if (interval <= 1 || recoilCallCount++ % interval == 0)
+    {
+        pInterfaceCapturing->calculateRecoilPressure();
+    }
+}
+
+// Apply interface-capturing corrections after recoil update
+if (useAdvancedCapturing && pInterfaceCapturing.valid())
+{
+    pInterfaceCapturing->correct();
+}
+
 if (verbose)
+{
     Info<< "max recoilPressure = "
         << max(pInterfaceCapturing->recoilPressure()).value() << " Pa" << endl;
+}
 
-            #include "UEqn.H"
+#include "UEqn.H"
             
             
             // --- Pressure corrector loop
