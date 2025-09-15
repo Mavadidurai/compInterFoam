@@ -496,13 +496,16 @@ void twoTemperatureModel::solve
         dimensionedScalar electronEnergy = fvc::domainIntegrate(CeDiag*Te_);
         dimensionedScalar latticeEnergy  = fvc::domainIntegrate(Cl_*Tl_);
 
-        Info<< "Energy diagnostics:" << nl
-            << "  Cumulative laser energy: "
-            << cumulativeLaserEnergy.value() << " J" << nl
-            << "  Electron energy: " << electronEnergy.value() << " J" << nl
-            << "  Lattice energy: " << latticeEnergy.value() << " J" << nl
-            << "  Total energy: "
-            << (electronEnergy + latticeEnergy).value() << " J" << endl;
+        if (verbose)
+        {
+            Info<< "Energy diagnostics:" << nl
+                << "  Cumulative laser energy: "
+                << cumulativeLaserEnergy.value() << " J" << nl
+                << "  Electron energy: " << electronEnergy.value() << " J" << nl
+                << "  Lattice energy: " << latticeEnergy.value() << " J" << nl
+                << "  Total energy: "
+                << (electronEnergy + latticeEnergy).value() << " J" << endl;
+        }
     }
 
     // Report solution statistics with more detail
@@ -542,7 +545,8 @@ tmp<volScalarField> twoTemperatureModel::electronThermalConductivity() const
     volScalarField& ke = tke.ref();
     // Calculate conductivity using cell-wise electron heat capacity
     // ke = CeField * De_, allowing spatially varying Ce
-    const volScalarField CeField = electronHeatCapacity();
+    tmp<volScalarField> tCe = electronHeatCapacity();
+    const volScalarField& CeField = tCe();
     forAll(ke, cellI)
     {
         ke[cellI] = (CeField[cellI] * De_).value();

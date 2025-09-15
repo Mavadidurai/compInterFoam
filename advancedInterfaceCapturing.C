@@ -180,6 +180,7 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
     {
         // OPTIMIZED: Use cached zero value instead of creating new one
         recoilPressure_ = dimensionedScalar("zero", dimPressure, 0.0);
+        recoilPressure_.correctBoundaryConditions();
         if (verbose)
         {
             Info<< "Temperature too low for recoil pressure" << endl;
