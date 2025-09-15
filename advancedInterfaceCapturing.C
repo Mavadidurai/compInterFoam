@@ -49,12 +49,7 @@ advancedInterfaceCapturing::advancedInterfaceCapturing
     ),
     phaseChangeTempOffset_
     (
-        mesh.lookupObject<dictionary>("transportProperties")
-        .lookupOrDefault<dimensionedScalar>
-        (
-            "phaseChangeTempOffset",
-            dimensionedScalar("phaseChangeTempOffset", dimTemperature, 0.0)
-        )
+        dimensionedScalar("phaseChangeTempOffset", dimTemperature, 0.0)
     ),
     clampRecoil_(true),
     scaleRecoilMax_(false),
@@ -113,6 +108,22 @@ advancedInterfaceCapturing::advancedInterfaceCapturing
         "recoilTempOffset",
         recoilTempOffset_
     );
+        if (recoilTempOffset_.value() < 0)
+    {
+        FatalErrorInFunction
+            << "recoilTempOffset (" << recoilTempOffset_.value()
+            << ") must be non-negative"
+            << abort(FatalError);
+    }
+
+    if (recoilTempOffset_.value() >= vaporTemp_.value())
+    {
+        FatalErrorInFunction
+            << "recoilTempOffset (" << recoilTempOffset_.value()
+            << ") must be less than vaporTemperature ("
+            << vaporTemp_.value() << ")"
+            << abort(FatalError);
+    }
     clampRecoil_ = aicDict.lookupOrDefault<Switch>
     (
         "clampRecoil",
@@ -153,7 +164,8 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
 
     // OPTIMIZED: Calculate once, reuse multiple times
     const scalar currentTime = mesh_.time().value();
-    const scalar maxTemp = gMax(T_);  // Use safer gMax instead of max
+    // Filter the maximum temperature to metal cells using the alpha threshold
+    const scalar maxTemp = gMax(T_*pos0(alpha1_ - alphaMin_));
     const dimensionedScalar minTempThreshold = vaporTemp_ - recoilTempOffset_;
     const bool verbose = mesh_.time().controlDict().lookupOrDefault<Switch>("verbose", false);
     if (verbose)
