@@ -65,7 +65,15 @@ femtosecondLaserModel::femtosecondLaserModel
 {
     // normalize direction
     direction_ /= mag(direction_) + SMALL;
+    if (pulseDutyCycle_ < 0.0 || pulseDutyCycle_ > 1.0)
+    {
+        const scalar originalDuty = pulseDutyCycle_;
+        pulseDutyCycle_ = min(max(pulseDutyCycle_, 0.0), 1.0);
 
+        WarningInFunction
+            << "pulseDutyCycle " << originalDuty
+            << " outside [0, 1]; clamping to " << pulseDutyCycle_ << endl;
+    }
     // derive peak intensity if not provided
     const scalar derivedPeak =
         pulseEnergy_.value()
@@ -99,7 +107,8 @@ femtosecondLaserModel::femtosecondLaserModel
             << "  Peak intensity: " << peakIntensity_.value() << nl
             << "  Pulse width: "    << pulseWidth_.value() << nl
             << "  Wavelength: "     << wavelength_.value() << nl
-            << "  Spot size: "      << spotSize_.value()
+            << "  Spot size: "      << spotSize_.value() << nl
+            << "  Pulse duty cycle: " << pulseDutyCycle_ << nl
             << abort(FatalError);
     }
 
@@ -159,6 +168,28 @@ bool femtosecondLaserModel::validateParameters() const
     ok = ok && (wavelength_.value()    > 0);
     ok = ok && (spotSize_.value()      > 0);
     ok = ok && (pulseEnergy_.value()   > 0);
+    if (laserStartTime_ < 0)
+    {
+        FatalErrorInFunction
+            << "laserStartTime (" << laserStartTime_
+            << ") must be non-negative" << nl
+            << abort(FatalError);
+    }
+
+    if (laserEndTime_ <= laserStartTime_)
+    {
+        FatalErrorInFunction
+            << "laserEndTime (" << laserEndTime_
+            << ") must be greater than laserStartTime ("
+            << laserStartTime_ << ")" << nl
+            << abort(FatalError);
+    }
+        if (pulseDutyCycle_ < 0.0 || pulseDutyCycle_ > 1.0)
+    {
+        WarningInFunction
+            << "pulseDutyCycle outside [0, 1]: " << pulseDutyCycle_ << endl;
+        ok = false;
+    }
 
     // film thickness sanity
     const scalar filmThickness = filmYMax_ - filmYMin_;
