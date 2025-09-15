@@ -39,7 +39,7 @@ writeInterval   5e-12;          // 1 ps for debugging
 purgeWrite      50;             // Keep fewer files initially
 writeFormat     ascii;
 writePrecision  10;
-writeCompression on;           // Disable for debugging
+writeCompression off;           
 timeFormat      general;
 timePrecision   12;
 fileHandler     uncollated;     // Simpler for debugging
@@ -56,6 +56,7 @@ advancedInterfaceCapturing
     scaleRecoilMax       true;          // Enable scaling
     recoilUpdateInterval 5;             // Less frequent updates
     recoilTempOffset     [0 0 0 1 0 0 0] 1000;  // Higher threshold
+    phaseChangeTempOffset [0 0 0 1 0 0 0] 100;  // Delay recoil until T > Tv + 100 K
     relaxFactor          0.05;          // More relaxation
     alphaMin             0.05;          // Wider bounds
     alphaMax             0.95;

@@ -30,7 +30,8 @@ air
     nu              nu [ 0 2 -1 0 0 0 0 ] 1.48e-5;
     rho             rho [ 1 -3 0 0 0 0 0 ] 1.2;
 }
-sigma           sigma [1 0 -2 0 0 0 0] 0.06; 
+// Surface tension of molten titanium in contact with air (~1.64 N/m)
+sigma           sigma [1 0 -2 0 0 0 0] 1.64;
 
 cAlpha          cAlpha [0 0 0 0 0 0 0] 1;
 icAlpha         icAlpha [0 0 0 0 0 0 0] 0;
@@ -45,7 +46,7 @@ scAlpha         scAlpha [0 0 0 0 0 0 0] 0;
         minCoefficient 1e7;      // optional cap on |phaseChangeSource| [K/s]
         onlyAboveVapor false;     // allow both melt/condense logic
         // Activation window for laser pulse
-        activationTime ((0 1e-11));
+        activationTime ((0 3e-10));
     }
 massTransferCoeffs
 {
@@ -53,7 +54,7 @@ massTransferCoeffs
     // dgdt = -(Cl*phaseChangeSource)/latentHeat
     // Optional activation window
     tStart    (0);
-    tEnd      (1e-11);
+    tEnd      (3e-10);
 
     // Optional upper bound on |dgdt| [1/s]
     rateMax   1e8;

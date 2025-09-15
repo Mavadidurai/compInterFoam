@@ -34,3 +34,8 @@ rm -f log.*
 [ -d 0 ] || cp -r 0.orig 0
 
 #------------------------------------------------------------------------------
+if [ "$startTime" != "0" ]; then
+    echo "Reminder: the case startTime is $startTime."
+    echo "After meshing, run 'setFields -time $startTime' to populate the start-time fields."
+    echo "Alternatively, change startTime to 0 in system/controlDict and rerun Allclean."
+fi

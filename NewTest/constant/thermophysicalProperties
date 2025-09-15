@@ -17,6 +17,7 @@ FoamFile
 
 phases (metal air);
 
-sigma           sigma [ 1 0 -2 0 0 0 0 ] 1.64;
+// sigma is specified in transportProperties to avoid duplicate definitions.
+// sigma           sigma [ 1 0 -2 0 0 0 0 ] 1.64;
 
 // ************************************************************************* //
