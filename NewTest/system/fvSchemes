@@ -17,10 +17,10 @@ FoamFile
 
 ddtSchemes
 {
-    default          Euler;              // First-order for stability
-    ddt(alpha)       Euler;              // Compatible with your alphaEqn.H
-    ddt(rho,U)       Euler;              // Momentum equation
-    ddt(rho)         Euler;              // Continuity equation
+    default          localEuler;              // First-order for stability
+    ddt(alpha)       localEuler;              // Compatible with your alphaEqn.H
+    ddt(rho,U)       localEuler;              // Momentum equation
+    ddt(rho)         localEuler;              // Continuity equation
 }
 
 gradSchemes
@@ -42,10 +42,10 @@ divSchemes
     default                          Gauss linear;
 
     // Interface transport - make more stable
-    div(phi,alpha)                   Gauss vanLeer;        // CHANGE: was vanLeer
-    div(phir,alpha)                  Gauss interfaceCompression;           // CHANGE: was interfaceCompression
+    div(phi,alpha)                   Gauss vanLeer01;        // CHANGE: was vanLeer
+    div(phir,alpha)                  Gauss linear;           // CHANGE: was interfaceCompression
     div(phi,alpha.metal)             Gauss vanLeer01;        // CHANGE: was vanLeer
-    div(phir,alpha.metal)            Gauss interfaceCompression;           // CHANGE: was interfaceCompression
+    div(phir,alpha.metal)            Gauss linear;           // CHANGE: was interfaceCompression
     div(phi,alpha.air)               Gauss vanLeer01;        // CHANGE: was vanLeer
 
     // Keep other schemes as they are - they look good
@@ -65,7 +65,6 @@ laplacianSchemes
 
     laplacian((1|A(U)),p_rgh)        Gauss linear corrected;
     laplacian(rAU,p_rgh)             Gauss linear corrected;
-    laplacian(rAUf,p_rgh) 	     Gauss linear corrected;
     laplacian((1|A(U)),p)            Gauss linear corrected;
 
     laplacian(nuEff,U)               Gauss linear corrected;

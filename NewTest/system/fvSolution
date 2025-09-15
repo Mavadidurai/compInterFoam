@@ -24,13 +24,13 @@ solvers
         relTol          0;            
         maxIter         50;                  // ADD: limit iterations
         
-        nAlphaCorr      2;                   // REDUCE: was 2
-        nAlphaSubCycles 3;                   // REDUCE: was 4
-        cAlpha          1;                 // REDUCE: was 1 (less aggressive)
+        nAlphaCorr      1;                   // REDUCE: was 2
+        nAlphaSubCycles 2;                   // REDUCE: was 4
+        cAlpha          0.5;                 // REDUCE: was 1 (less aggressive)
         icAlpha         0;              
         scAlpha         0;
         MULESCorr       true;
-        nLimiterIter    3;                   // REDUCE: was 3
+        nLimiterIter    2;                   // REDUCE: was 3
         alphaApplyPrevCorr false;
         sharpeningScheme standard;
         thinFilmCoeff   0.0;
@@ -70,8 +70,6 @@ PIMPLE
     nOuterCorrectors            2;           // REDUCE: was 4
     nCorrectors                 1;           // REDUCE: was 2
     nNonOrthogonalCorrectors    0;           // REDUCE: was 1
-    maxCo                       0.02;
-    maxAlphaCo                  0.02;
     
     residualControl
     {
@@ -117,17 +115,17 @@ compInterFoamCoeffs
     maxAlpha          0.999;                // CHANGE: was 1.0
     // Pressure bounds (fall back to controlDict if absent)
     pressureClamp      true;                // CHANGE: was false
-    maxPressure        5e8;                 // REDUCE: was 1e8
-    minPressure        1000;      // keep a modest floor
+    maxPressure        1e6;                 // REDUCE: was 1e8
+    minPressure        -1e6;      // keep a modest floor
 
     // Density bounds (controlDict entries are deprecated)
 
-    densityClamp       true;
+    densityClamp       false;
     maxDensity         10000;
     minDensity         0.5;
 
     // Momentum matrix safety (fall back to controlDict if absent)
-    enableRAUClamp     true;
+    enableRAUClamp     false;
     minRAU             1e-10;
     maxRAU             1e6;
     minRAUf            1e-14;
