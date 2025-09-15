@@ -184,11 +184,12 @@ bool femtosecondLaserModel::validateParameters() const
             << laserStartTime_ << ")" << nl
             << abort(FatalError);
     }
-        if (pulseDutyCycle_ < 0.0 || pulseDutyCycle_ > 1.0)
+    if (pulseDutyCycle_ < 0.0 || pulseDutyCycle_ > 1.0)
     {
-        WarningInFunction
-            << "pulseDutyCycle outside [0, 1]: " << pulseDutyCycle_ << endl;
-        ok = false;
+        FatalErrorInFunction
+            << "pulseDutyCycle (" << pulseDutyCycle_
+            << ") must be within [0, 1]" << nl
+            << abort(FatalError);
     }
 
     // film thickness sanity
