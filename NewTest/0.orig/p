@@ -22,12 +22,12 @@ internalField   uniform 1e5;     // ambient reference
 
 boundaryField
 {
-  xMin     { type symmetryPlane; }
-  xMax     { type symmetryPlane; }
-  zMin     { type symmetryPlane; }
-  zMax     { type symmetryPlane; }
-  yMin     { type calculated; value uniform 1e5; }
-  yMax     { type calculated; value uniform 1e5; }
+  left          { type symmetryPlane; }
+  right         { type symmetryPlane; }
+  front         { type symmetryPlane; }
+  back          { type symmetryPlane; }
+  substrate     { type calculated; value uniform 1e5; }
+  donor         { type calculated; value uniform 1e5; }
 }
 
 // ************************************************************************* //

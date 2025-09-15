@@ -22,13 +22,13 @@ internalField   uniform 300;     // thesis-style ambient start
 
 boundaryField
 {
-  xMin     { type symmetryPlane; }
-  xMax     { type symmetryPlane; }
-  zMin     { type symmetryPlane; }
-  zMax     { type symmetryPlane; }
+  left     { type symmetryPlane; }
+  right     { type symmetryPlane; }
+  front     { type symmetryPlane; }
+  back     { type symmetryPlane; }
 
-  yMin     { type  zeroGradient; }   // receiver wall at ambient
-  yMax     { type  zeroGradient; }   // donor wall at ambient
+  substrate     { type  zeroGradient; }   // substrate wall at ambient
+  donor     { type  zeroGradient; }   // donor wall at ambient
 }
 
 

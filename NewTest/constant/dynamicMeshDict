@@ -27,7 +27,7 @@ dynamicRefineFvMeshCoeffs
     nBufferLayers    2;
     maxRefinement    4;
     maxCells         4000000;
-    correctFluxes    (phi (alpha.metal));  // keep this!
+    correctFluxes    (phi alphaPhi10 rhoPhi);
 }
 
 // ************************************************************************* //

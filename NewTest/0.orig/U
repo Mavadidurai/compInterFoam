@@ -22,13 +22,13 @@ internalField   uniform (0 0 0);
 
 boundaryField
 {
-  xMin     { type symmetryPlane; }
-  xMax     { type symmetryPlane; }
-  zMin     { type symmetryPlane; }
-  zMax     { type symmetryPlane; }
+  left     { type symmetryPlane; }
+  right     { type symmetryPlane; }
+  front     { type symmetryPlane; }
+  back     { type symmetryPlane; }
 
-    yMin     { type fixedValue; value uniform (0 0 0); }   // receiver wall
-    yMax     { type fixedValue; value uniform (0 0 0); }   // donor glass wall
+    substrate     { type fixedValue; value uniform (0 0 0); }   // substrate wall
+    donor     { type fixedValue; value uniform (0 0 0); }   // donor glass wall
 }
 
 

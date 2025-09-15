@@ -17,10 +17,10 @@ FoamFile
 
 ddtSchemes
 {
-    default          localEuler;              // First-order for stability
-    ddt(alpha)       localEuler;              // Compatible with your alphaEqn.H
-    ddt(rho,U)       localEuler;              // Momentum equation
-    ddt(rho)         localEuler;              // Continuity equation
+    default          Euler;              // First-order for stability
+    ddt(alpha)       Euler;              // Compatible with your alphaEqn.H
+    ddt(rho,U)       Euler;              // Momentum equation
+    ddt(rho)         Euler;              // Continuity equation
 }
 
 gradSchemes
@@ -39,46 +39,24 @@ gradSchemes
 
 divSchemes
 {
-default                          Gauss linear;
+    default                          Gauss linear;
 
-    // Interface transport (used by your alphaEqn)
-    div(phi,U)                       Gauss upwind;
-    div(phi,alpha)                   Gauss vanLeer;
-    div(phir,alpha)                  Gauss interfaceCompression;
+    // Interface transport - make more stable
+    div(phi,alpha)                   Gauss vanLeer;        // CHANGE: was vanLeer
+    div(phir,alpha)                  Gauss interfaceCompression;           // CHANGE: was interfaceCompression
+    div(phi,alpha.metal)             Gauss vanLeer01;        // CHANGE: was vanLeer
+    div(phir,alpha.metal)            Gauss interfaceCompression;           // CHANGE: was interfaceCompression
+    div(phi,alpha.air)               Gauss vanLeer01;        // CHANGE: was vanLeer
 
-    // Per-phase aliases (kept consistent)
-    div(phi,alpha.metal)             Gauss vanLeer;
-    div(phir,alpha.metal)            Gauss interfaceCompression;
-    div(phi,alpha.air)               Gauss vanLeer;
-
-    // Momentum
+    // Keep other schemes as they are - they look good
     div(rhoPhi,U)                    Gauss linearUpwindV grad(U);
-
-    div(phi,p_rgh)                   Gauss linear;
-
-    // Temperatures: keep peaks (don’t upwind Te/Tl)
     div(phi,T)                       Gauss limitedLinear 1.0;
     div(phi,Te)                      Gauss limitedLinear 1.0;
     div(phi,Tl)                      Gauss limitedLinear 1.0;
-
-    // Energy odds & ends
-    div(phi,K)                       Gauss linear;
-    div(phi,h)                       Gauss limitedLinear 1.0;
-    div(phi,e)                       Gauss limitedLinear 1.0;
-
-    // Viscous stress
+    
+    // Add these for safety
+    div(phi,p_rgh)                   Gauss upwind;           // CHANGE: was linear
     div(((rho*nuEff)*dev2(T(grad(U))))) Gauss linear;
-    div((nuEff*dev2(T(grad(U)))))       Gauss linear;
-
-    // Turbulence (only if you enable it)
-    div(phi,k)                       Gauss limitedLinear 1.0;
-    div(phi,epsilon)                 Gauss limitedLinear 1.0;
-    div(phi,omega)                   Gauss limitedLinear 1.0;
-
-    // Two-temperature diffusion hooks used by your code
-    div((alphaEff*grad(T)))          Gauss linear;
-    div((ke*grad(Te)))               Gauss linear;
-    div((kl*grad(Tl)))               Gauss linear;
 }
 
 laplacianSchemes
@@ -87,6 +65,7 @@ laplacianSchemes
 
     laplacian((1|A(U)),p_rgh)        Gauss linear corrected;
     laplacian(rAU,p_rgh)             Gauss linear corrected;
+    laplacian(rAUf,p_rgh) 	     Gauss linear corrected;
     laplacian((1|A(U)),p)            Gauss linear corrected;
 
     laplacian(nuEff,U)               Gauss linear corrected;

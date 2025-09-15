@@ -23,14 +23,13 @@ internalField   uniform 1e12;
 
 boundaryField
 {
-  xMin     { type symmetryPlane; }
-  xMax     { type symmetryPlane; }
-  zMin     { type symmetryPlane; }
-  zMax     { type symmetryPlane; }
+  left     { type symmetryPlane; }
+  right     { type symmetryPlane; }
+  front     { type symmetryPlane; }
+  back     { type symmetryPlane; }
 
-  yMin     { type zeroGradient; }
-  yMax     { type zeroGradient; }
+  substrate     { type zeroGradient; }
+  donor     { type zeroGradient; }
 }
 
 // ************************************************************************* //
-

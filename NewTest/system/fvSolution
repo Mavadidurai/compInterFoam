@@ -18,24 +18,25 @@ solvers
 {
     "alpha.*"
     {
-        solver          PBiCGStab;
-        preconditioner        DILU;
-        tolerance       1e-10;           // Relaxed tolerance
+        solver          smoothSolver;        // CHANGE: was PBiCGStab
+        smoother        symGaussSeidel;      // CHANGE: was DILU preconditioner
+        tolerance       1e-8;                // CHANGE: was 1e-10 (too tight)
         relTol          0;            
+        maxIter         50;                  // ADD: limit iterations
         
-        nAlphaCorr      2;              
-        nAlphaSubCycles 4;              
-        cAlpha          1;            // Conservative interface compression
+        nAlphaCorr      2;                   // REDUCE: was 2
+        nAlphaSubCycles 3;                   // REDUCE: was 4
+        cAlpha          1;                 // REDUCE: was 1 (less aggressive)
         icAlpha         0;              
         scAlpha         0;
         MULESCorr       true;
-        nLimiterIter    3;
+        nLimiterIter    3;                   // REDUCE: was 3
         alphaApplyPrevCorr false;
         sharpeningScheme standard;
         thinFilmCoeff   0.0;
-        alphaSourceFloor 1e-3; // Minimum alpha value for source terms
-
+        alphaSourceFloor 1e-3;
     }
+
     
     p_rgh
     {
@@ -65,16 +66,18 @@ solvers
 
 PIMPLE
 {
-    momentumPredictor           true;   
-    nOuterCorrectors            4;      // Reduced - don't need so many
-    nCorrectors                 2;      
-    nNonOrthogonalCorrectors    1;      
+    momentumPredictor           false;       // CHANGE: was true (disable for stability)
+    nOuterCorrectors            2;           // REDUCE: was 4
+    nCorrectors                 1;           // REDUCE: was 2
+    nNonOrthogonalCorrectors    0;           // REDUCE: was 1
+    maxCo                       0.02;
+    maxAlphaCo                  0.02;
     
     residualControl
     {
-        "alpha.*" { tolerance 1e-8;  relTol 0; }
-        p_rgh     { tolerance 1e-6;  relTol 0; }
-        U         { tolerance 1e-7;  relTol 0; }
+        "alpha.*" { tolerance 1e-6;  relTol 0; }  // RELAX: was 1e-8
+        p_rgh     { tolerance 1e-5;  relTol 0; }  // RELAX: was 1e-6
+        U         { tolerance 1e-6;  relTol 0; }  // RELAX: was 1e-7
     }
     
     p_rghRefCell                0;
@@ -85,18 +88,18 @@ relaxationFactors
 {
     fields
     {
-        p_rgh           0.1;            
-        "alpha.*"       0.5;            
+        p_rgh           0.05;                // REDUCE: was 0.1
+        "alpha.*"       0.3;                 // REDUCE: was 0.5
     }
     equations
     {
-        U               0.3;            // More aggressive - stable at this scale
-        UFinal          1.0;            
-        T               0.5;            
-        Te              0.5;            // Still conservative for electron temp
-        Tl              0.5;  
-        "alpha.*"       0.8;           
-        ".*Final"       1.0;            
+        U               0.2;                 // REDUCE: was 0.3
+        UFinal          0.7;                 // REDUCE: was 1.0
+        T               0.3;                 // REDUCE: was 0.5
+        Te              0.3;                 // REDUCE: was 0.5
+        Tl              0.3;                 // REDUCE: was 0.5
+        "alpha.*"       0.5;                 // REDUCE: was 0.8
+        ".*Final"       0.8;                 // REDUCE: was 1.0
     }
 }
 // Adaptive pressure relaxation controls read by pEqn.H
@@ -110,16 +113,16 @@ compInterFoamCoeffs
     defaultAirDensity      1.2;     // UEqn.H (fallback if rho2 invalid)
     // Keep α bounded but not over-restricted
     enableAlphaClamp  true;
-    minAlpha          0.0;
-    maxAlpha          1.0;
+    minAlpha          0.001;                // CHANGE: was 0.0
+    maxAlpha          0.999;                // CHANGE: was 1.0
     // Pressure bounds (fall back to controlDict if absent)
-    pressureClamp      false;
-    maxPressure        1e8;   // 100 MPa is plenty and cuts clamp spread
-    minPressure        1e5;   // keep a modest floor
+    pressureClamp      true;                // CHANGE: was false
+    maxPressure        5e8;                 // REDUCE: was 1e8
+    minPressure        1000;      // keep a modest floor
 
     // Density bounds (controlDict entries are deprecated)
 
-    densityClamp       false;
+    densityClamp       true;
     maxDensity         10000;
     minDensity         0.5;
 

@@ -30,8 +30,7 @@ air
     nu              nu [ 0 2 -1 0 0 0 0 ] 1.48e-5;
     rho             rho [ 1 -3 0 0 0 0 0 ] 1.2;
 }
-
-//sigma           sigma [ 1 0 -2 0 0 0 0 ] 1.64;
+sigma           sigma [1 0 -2 0 0 0 0] 0.06; 
 
 cAlpha          cAlpha [0 0 0 0 0 0 0] 1;
 icAlpha         icAlpha [0 0 0 0 0 0 0] 0;
@@ -44,9 +43,9 @@ scAlpha         scAlpha [0 0 0 0 0 0 0] 0;
         windowWidth    300;       // smoothing band [K]
         dtFloor        1e-12;     // floor for time-step regularisation
         minCoefficient 1e7;      // optional cap on |phaseChangeSource| [K/s]
-        onlyAboveVapor true;     // allow both melt/condense logic
+        onlyAboveVapor false;     // allow both melt/condense logic
         // Activation window for laser pulse
-        activationTime ((0 2e-9));
+        activationTime ((0 1e-11));
     }
 massTransferCoeffs
 {
@@ -54,7 +53,7 @@ massTransferCoeffs
     // dgdt = -(Cl*phaseChangeSource)/latentHeat
     // Optional activation window
     tStart    (0);
-    tEnd      (2e-9);
+    tEnd      (1e-11);
 
     // Optional upper bound on |dgdt| [1/s]
     rateMax   1e8;

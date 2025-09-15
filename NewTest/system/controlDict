@@ -17,22 +17,25 @@ FoamFile
 
 application     compInterFoam;
 
-startFrom       latestTime;
-startTime       0;
+// --- Start directly in the ejection phase (skip fs/ps windows)
+startFrom       startTime;
+startTime       2e-10;          // 200 ps
 stopAt          endTime;
-endTime         1e-7;
+endTime         1e-8;           // 10 ns (adjust as needed)
 
-deltaT          2e-16;
+// --- Time stepping for ns dynamics
+deltaT          5e-13;          // 0.5 ps initial step
+maxDeltaT       5e-11;          // 50 ps cap
 adjustTimeStep  yes;
-maxCo           0.02;
-maxAlphaCo      0.02;
-maxDeltaT       5e-13;           // allow growth after pulse
-// optional runtime output verbosity
+maxCo           0.15;           // relaxed vs fs phase
+maxAlphaCo      0.10;
+
 verbose         true;
 
-writeControl    runTime;           // consistent spacing despite variable Δt
-writeInterval   1e-9;             // write every 0.2 ns (keeps disk sane)
-purgeWrite      200;            // retain a broader history
+// --- Writing
+writeControl    runTime;
+writeInterval   5e-12;          // 5 ps
+purgeWrite      200;
 writeFormat     ascii;
 writePrecision  10;
 writeCompression on;
@@ -41,296 +44,155 @@ timePrecision   12;
 fileHandler     collated;
 
 runTimeModifiable yes;
-// solver switches (kept as in your file)
-useAdvancedInterfaceCapturing  true;
+
+// --- Interface/recoil settings (same physics, evaluated every step)
+useAdvancedInterfaceCapturing  false;
 advancedInterfaceCapturing
 {
-    // strength & stability
-    pressureScale        1e7;      // nondim scale used in your model
-    recoilMax            2e8;      // Pa cap moderated for stability
-    clampRecoil          true;     // disable to remove cap
-    scaleRecoilMax       false;     // scale cap with phase change
-    recoilUpdateInterval 1;        // evaluate every step
-    recoilTempOffset      [0 0 0 1 0 0 0] 3000;     // K below vapor temperature for activation
-    relaxFactor   0.1;   // sharper α
-    // Smooth ramp bounds; widen as needed
-    alphaMin      0.01;
-    alphaMax      0.99;
+    pressureScale        1e7;
+    recoilMax            2e8;       // cap; raise later if needed
+    clampRecoil          true;
+    scaleRecoilMax       false;
+    recoilUpdateInterval 1;
+    recoilTempOffset     [0 0 0 1 0 0 0] 600;    // activate at Tvap (set >0 to pre-activate)
+    relaxFactor          0.1;
+    alphaMin             0.01;
+    alphaMax             0.99;
 }
 
-// Pressure relaxation and density clamp settings are configured in
-// fvSolution (see relaxP/targetResP and compInterFoamCoeffs)
+// --- Temperature clamps (TTM still active)
+enableTClamp    false;
+minT            250;
+maxT            20000;
 
-enableTClamp                   false;
-minT                           250;    // K: lower physical bound
-maxT                           20000;  // K: exceeds vaporization temperature
-
-// Density clamp controls are defined in fvSolution::compInterFoamCoeffs
-
+// --- Two-temperature model bounds/diagnostics
 twoTemperatureProperties
 {
     Ce   [1 -1 -2 -1 0 0 0] 2.5e6;
     Cl   [1 -1 -2 -1 0 0 0] 2.536e6;
-    G     [1 -1 -3 -1 0 0 0] 3.0e16;
-    energyTol 0.005; // relative energy change tolerance
+    G    [1 -1 -3 -1 0 0 0] 3.0e16;
+    energyTol 0.005;
     minTe 300;
-    maxTe 12000;
+    maxTe 20000;
 }
 
+// ----------------- Diagnostics for ejection phase only ----------------- //
 functions
 {
-fieldWrite
-{
-    type writeObjects; libs ("libutilityFunctionObjects.so");
-    objects (Q_laser T Te Tl recoilPressure alpha.metal);
-    writeControl runTime; writeInterval 1e-14;
-}
+  // Write a few key fields at moderate cadence
+  fieldWrite
+  {
+      type writeObjects; libs ("libutilityFunctionObjects.so");
+      objects (T Te Tl p_rgh U alpha.metal recoilPressure);
+      writeControl runTime; writeInterval 5e-12;   // 5 ps
+  }
 
- // ---------- WINDOW A: fs ON window (0–0.4 ps) ----------
-    probes_fs
-    {
-        type            probes;
-        libs            ("libsampling.so");
-        fields          (Te Tl T p_rgh U alpha.metal recoilPressure);
-        probeLocations  (
-            (2.5e-05 7.95e-06 5e-06)   // glass, 50 nm below film
-            (2.5e-05 8.02e-06 5e-06)   // inside Ti film
-            (2.5e-05 1.20e-05 5e-06)   // air, ~3.93 µm above film
-        );
-        writeControl    runTime;
-        writeInterval   5e-15;        // 5 fs
-        timeStart       0;
-        timeEnd         4e-13;        // 0.4 ps
-    }
+  // Probes/surfaces in ns window only
+  probes_ns
+  {
+      type            probes;
+      libs            ("libsampling.so");
+      fields          (T p_rgh U alpha.metal recoilPressure Te Tl);
+      probeLocations  (
+          (2.5e-05 8.02e-06 5e-06)   // in the film
+          (2.5e-05 1.20e-05 5e-06)   // ~3.93 µm above film
+      );
+      writeControl    runTime;
+      writeInterval   5e-12;         // 5 ps
+      timeStart       2e-10;
+      timeEnd         1e-8;
+  }
 
-    minmax_fs
-    {
-        type            fieldMinMax;
-        libs            ("libfieldFunctionObjects.so");
-        fields          (Te Tl T recoilPressure alpha.metal);
-        writeControl    runTime;
-        writeInterval   5e-15;
-        timeStart       0;
-        timeEnd         4e-13;
-    }
+  minmax_ns
+  {
+      type            fieldMinMax;
+      libs            ("libfieldFunctionObjects.so");
+      fields          (T recoilPressure alpha.metal);
+      writeControl    runTime;
+      writeInterval   5e-12;
+      timeStart       2e-10;
+      timeEnd         1e-8;
+  }
 
-    energyBudget_Q_fs
-    {
-        type            volFieldValue;
-        libs            ("libfieldFunctionObjects.so");
-        regionType      all;
-        operation       sum;
-        fields          (Q_laser);
-        writeControl    timeStep;     // every step in fs window
-        writeInterval   1;
-        timeStart       0;
-        timeEnd         4e-13;
-        log             true;
-        writeFields     false;
-    }
+  filmTop_ns
+  {
+      type            surfaces;
+      libs            ("libsampling.so");
+      interpolationScheme cellPointFace;
+      surfaceFormat   raw;
+      fields          (alpha.metal T p_rgh U recoilPressure Te Tl);
+      writeControl    runTime;
+      writeInterval   5e-12;
+      timeStart       2e-10;
+      timeEnd         1e-8;
+      surfaces
+      (
+          filmTop
+          {
+              type        plane;
+              planeType   pointAndNormal;
+              pointAndNormalDict
+              {
+                  point   (0 8.0714e-06 0);
+                  normal  (0 1 0);
+              }
+          }
+      );
+  }
 
-    filmTop_fs
-    {
-        type            surfaces;
-        libs            ("libsampling.so");
-        interpolationScheme cellPointFace;
-        surfaceFormat   raw;
-        fields          (alpha.metal T Te Tl p_rgh U recoilPressure);
-        writeControl    runTime;
-        writeInterval   1e-14;        // 10 fs
-        timeStart       0;
-        timeEnd         4e-13;
-        surfaces
-        (
-            filmTop
-            {
-                type        plane;
-                planeType   pointAndNormal;
-                pointAndNormalDict
-                {
-                    point   (0 8.0714e-06 0);   // top of Ti film
-                    normal  (0 1 0);
-                }
-            }
-        );
-    }
+  interfaceIso
+  {
+      type            surfaces;
+      libs            ("libsampling.so");
+      writeControl    runTime;
+      writeInterval   5e-12;
+      interpolationScheme cellPointFace;
+      surfaceFormat   raw;
+      fields          (alpha.metal T Te Tl p_rgh U recoilPressure);
 
-    // ---------- WINDOW B: early ps response (0.4–200 ps) ----------
-    probes_ps
-    {
-        type            probes;
-        libs            ("libsampling.so");
-        fields          (Te Tl T p_rgh U alpha.metal recoilPressure);
-        probeLocations  (
-            (2.5e-05 7.95e-06 5e-06)
-            (2.5e-05 8.02e-06 5e-06)
-            (2.5e-05 1.20e-05 5e-06)
-        );
-        writeControl    runTime;
-        writeInterval   1e-13;        // 0.1 ps
-        timeStart       4e-13;
-        timeEnd         2e-10;        // 200 ps
-    }
+      surfaces
+      (
+          interface
+          {
+              type        isoSurface;
+              isoField    alpha.metal;
+              isoValue    0.5;
+              interpolate true;
+              regularise  true;
+          }
+      );
+  }
 
-    minmax_ps
-    {
-        type            fieldMinMax;
-        libs            ("libfieldFunctionObjects.so");
-        fields          (Te Tl T recoilPressure alpha.metal);
-        writeControl    runTime;
-        writeInterval   1e-13;
-        timeStart       4e-13;
-        timeEnd         2e-10;
-    }
-
-    energyBudget_Q_ps
-    {
-        type            volFieldValue;
-        libs            ("libfieldFunctionObjects.so");
-        regionType      all;
-        operation       sum;
-        fields          (Q_laser);
-        writeControl    runTime;
-        writeInterval   1e-13;
-        timeStart       4e-13;
-        timeEnd         2e-10;
-        log             true;
-        writeFields     false;
-    }
-
-    filmTop_ps
-    {
-        type            surfaces;
-        libs            ("libsampling.so");
-        interpolationScheme cellPointFace;
-        surfaceFormat   raw;
-        fields          (alpha.metal T Te Tl p_rgh U recoilPressure);
-        writeControl    runTime;
-        writeInterval   1e-13;        // 0.1 ps
-        timeStart       4e-13;
-        timeEnd         2e-10;
-        surfaces
-        (
-            filmTop
-            {
-                type        plane;
-                planeType   pointAndNormal;
-                pointAndNormalDict
-                {
-                    point   (0 8.0714e-06 0);
-                    normal  (0 1 0);
-                }
-            }
-        );
-    }
-
-    // ---------- WINDOW C: ns jet/ejection (200 ps–10 ns) ----------
-    probes_ns
-    {
-        type            probes;
-        libs            ("libsampling.so");
-        fields          (T p_rgh U alpha.metal recoilPressure);
-        probeLocations  (
-            (2.5e-05 8.02e-06 5e-06)   // film
-            (2.5e-05 1.20e-05 5e-06)   // ~3.93 µm above film
-        );
-        writeControl    runTime;
-        writeInterval   5e-12;        // 5 ps
-        timeStart       2e-10;        // 200 ps
-        timeEnd         1e-8;         // 10 ns
-    }
-
-    minmax_ns
-    {
-        type            fieldMinMax;
-        libs            ("libfieldFunctionObjects.so");
-        fields          (T recoilPressure alpha.metal);
-        writeControl    runTime;
-        writeInterval   5e-12;
-        timeStart       2e-10;
-        timeEnd         1e-8;
-    }
-
-    filmTop_ns
-    {
-        type            surfaces;
-        libs            ("libsampling.so");
-        interpolationScheme cellPointFace;
-        surfaceFormat   raw;
-        fields          (alpha.metal T p_rgh U recoilPressure);
-        writeControl    runTime;
-        writeInterval   5e-12;
-        timeStart       2e-10;
-        timeEnd         1e-8;
-        surfaces
-        (
-            filmTop
-            {
-                type        plane;
-                planeType   pointAndNormal;
-                pointAndNormalDict
-                {
-                    point   (0 8.0714e-06 0);
-                    normal  (0 1 0);
-                }
-            }
-        );
-    }
-interfaceIso
-{
-    type            surfaces;
-    libs            ("libsampling.so");
-    writeControl    runTime;
-    writeInterval   5e-12;
-
-    interpolationScheme cellPointFace;
-    surfaceFormat   raw;
-
-    // these fields are sampled on the generated surface
-    fields          (alpha.metal T Te Tl p_rgh U recoilPressure);
-
-    surfaces
-    (
-        interface
-        {
-            type        isoSurface;
-            isoField    alpha.metal;
-            isoValue    0.5;
-            interpolate true;
-            regularise  true;
-        }
-    );
-}
   U_max_all
   {
-    type fieldMinMax; libs ("libfieldFunctionObjects.so");
-    fields (U); writeControl timeStep; writeInterval 1;
+      type fieldMinMax; libs ("libfieldFunctionObjects.so");
+      fields (U); writeControl timeStep; writeInterval 1;
   }
 
   U_on_interface
   {
-    type surfaces; libs ("libsampling.so");
-    surfaceFormat raw; interpolationScheme cellPointFace;
-    fields (U); writeControl timeStep; writeInterval 1;
-    surfaces
-    (
-      alphaIso
-      {
-        type isoSurface; isoField alpha.metal; isoValue 0.5;
-        interpolate true; regularise true;
-      }
-    );
+      type surfaces; libs ("libsampling.so");
+      surfaceFormat raw; interpolationScheme cellPointFace;
+      fields (U); writeControl timeStep; writeInterval 1;
+      surfaces
+      (
+        alphaIso
+        {
+          type isoSurface; isoField alpha.metal; isoValue 0.5;
+          interpolate true; regularise true;
+        }
+      );
   }
-impactForces
-{
-    type         forces;
-    libs         ("libforces.so");
-    patches      (yMin);  // <-- change to your patch name
-    rho          rho;             // compressible case
-    CofR         (0 0 0);
-    writeControl runTime;
-    writeInterval 5e-12;          // 5 ps
-}
 
+  impactForces
+  {
+      type         forces;
+      libs         ("libforces.so");
+      patches      (substrate);
+      rho          rho;
+      CofR         (0 0 0);
+      writeControl runTime;
+      writeInterval 5e-12;
+  }
 }
 

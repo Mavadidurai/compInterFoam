@@ -23,29 +23,12 @@ internalField   uniform 0;
 
 boundaryField
 {
-    zMax
-    {
-        type        symmetryPlane;
-    }
-    zMin
-    {
-        type        symmetryPlane;
-    }
-    xMin
-    {
-        type        symmetryPlane;
-    }
-    xMax
-    {
-        type        symmetryPlane;
-    }
-      yMin
-      {
-          type        inletOutlet;
-          inletValue  uniform 0;
-          value       uniform 0;
-      }
-      yMax
+      back 		{ 	 type        symmetryPlane;	}
+      front   		{        type        symmetryPlane;     }
+      left  		{        type        symmetryPlane;     }
+      right    		{        type        symmetryPlane;     }
+      substrate         {	 type        zeroGradient;      }
+      donor
       {
           type    constantAlphaContactAngle;
           theta0  2;           // degrees

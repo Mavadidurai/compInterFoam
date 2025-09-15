@@ -22,13 +22,13 @@ internalField   uniform 0;
 
 boundaryField
 {
-  xMin     { type symmetryPlane; }
-  xMax     { type symmetryPlane; }
-  zMin     { type symmetryPlane; }
-  zMax     { type symmetryPlane; }
+  left     { type symmetryPlane; }
+  right     { type symmetryPlane; }
+  front     { type symmetryPlane; }
+  back     { type symmetryPlane; }
 
-  yMin     { type fixedFluxPressure; value uniform 0; }
-  yMax     { type fixedFluxPressure; value uniform 0; }
+  substrate     { type fixedFluxPressure; value uniform 0; }
+  donor     { type fixedFluxPressure; value uniform 0; }
 }
 
 // ************************************************************************* //

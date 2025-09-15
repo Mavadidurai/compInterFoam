@@ -16,7 +16,7 @@ FoamFile
 scale 1e-6; // coordinates in micrometers
 
 // Domain: x:[0,50] µm, z:[0,10] µm, y vertical (up)
-// y-planes (12 µm gap): 0.0000, 8.0000, 8.0714, 20.0714
+// y-planes (two 12 µm gaps): 0.0000, 8.0000, 8.0714, 20.0714, 32.0714
 vertices
 (
     // y0 = 0.0000 (donor glass bottom)
@@ -25,8 +25,10 @@ vertices
     (0   8.0000  0)  (50  8.0000  0)  (50  8.0000 10)  (0   8.0000 10)
     // y2 = 8.0714 (top of Ti) 71.4 nm
     (0   8.0714  0)  (50  8.0714  0)  (50  8.0714 10)  (0   8.0714 10)
-    // y3 = 20.0714 (Ti top + 12 µm air gap)  ← top is the receiver wall
+    // y3 = 20.0714 (top of first air gap)
     (0  20.0714  0)  (50 20.0714  0)  (50 20.0714 10)  (0  20.0714 10)
+    // y4 = 32.0714 (top of second air gap)
+    (0  32.0714  0)  (50 32.0714  0)  (50 32.0714 10)  (0  32.0714 10)
 );
 
 
@@ -34,21 +36,22 @@ blocks
 (
     //                bottom (z=0)    top (z=10)         Nx   Ny  Nz
     hex ( 0  1  5  4   3  2  6  7)   (240  80  20)  simpleGrading (1 1 1)  // Glass
-    hex ( 4  5  9  8   7  6 10 11)   (240 20 20)    simpleGrading (1 2.0 1)  // Ti film (8 cells across 71.4 nm)
-    hex ( 8  9 13 12  11 10 14 15)   (240 120  20)  simpleGrading (1 1 1)  // Air gap (12 µm)
+    hex ( 4  5  9  8   7  6 10 11)   (240 20 20)    simpleGrading (1 2.0 1)  // Ti film (20 cells across 71.4 nm)
+    hex ( 8  9 13 12  11 10 14 15)   (240 120  20)  simpleGrading (1 1 1)  // Air gap 1 (12 µm)
+    hex (12 13 17 16  15 14 18 19)   (240 120  20)  simpleGrading (1 1 1)  // Air gap 2 (12 µm)
 );
 edges ();
 
 boundary
 (
-  xMin { type symmetryPlane; faces ((0 3 7 4)(4 7 11 8)(8 11 15 12)); }
-  xMax { type symmetryPlane; faces ((1 5 6 2)(5 9 10 6)(9 13 14 10)); }
+  left 		{ type symmetryPlane; faces ((0 3 7 4)(4 7 11 8)(8 11 15 12)(12 15 19 16)); }
+  right 	{ type symmetryPlane; faces ((1 5 6 2)(5 9 10 6)(9 13 14 10)(13 17 18 14)); }
 
-  zMin { type symmetryPlane; faces ((0 1 5 4)(4 5 9 8)(8 9 13 12)); }
-  zMax { type symmetryPlane; faces ((3 2 6 7)(7 6 10 11)(11 10 14 15)); }
+  front 	{ type symmetryPlane; faces ((0 1 5 4)(4 5 9 8)(8 9 13 12)(12 13 17 16)); }
+  back 		{ type symmetryPlane; faces ((3 2 6 7)(7 6 10 11)(11 10 14 15)(15 14 18 19)); }
 
-  yMin { type patch;  faces ((12 13 14 15)); }     // receiver wall (top of air gap)
-  yMax { type wall;  faces ((0 1 2 3)); }         // donor glass bottom wall
+  substrate 	{ type wall;  faces ((16 17 18 19)); }     // receiver wall (top of second air gap)
+  donor 	{ type wall;  faces ((0 1 2 3)); }         // donor glass bottom wall
 );
 
 mergePatchPairs();

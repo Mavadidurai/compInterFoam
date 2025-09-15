@@ -73,6 +73,6 @@ maxReflections      1;
 
 // Optional intensity entry (consistent with pulseEnergy & pulseWidth)
 //peakIntensity       1e15;      // [W/m^2] from pulseEnergy
-continuousLaser     false;
+continuousLaser     true;
 
 // ************************************************************************* //
