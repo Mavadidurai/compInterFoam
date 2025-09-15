@@ -20,6 +20,9 @@ defaultFieldValues
 (
   volScalarFieldValue alpha.metal 0
   volScalarFieldValue alpha.air   1
+  volScalarFieldValue Tl          300
+  volScalarFieldValue Te          300
+  volScalarFieldValue T           300
 );
 
 regions
@@ -45,10 +48,10 @@ regions
 
         fieldValues
         (
-           volScalarFieldValue Tl 2200
-            volScalarFieldValue Te 2200
+           volScalarFieldValue Tl 2560
+            volScalarFieldValue Te 2560
             // optional but tidy: initialise scalar T too, even though TTM will overwrite it
-            volScalarFieldValue T  2200
+            volScalarFieldValue T  2560
         );
     }
 );
