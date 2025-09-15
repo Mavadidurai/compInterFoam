@@ -214,7 +214,13 @@
 
 
     alphaPhi10 = fvc::interpolate(alpha1) * phi;
-    rhoPhi = alphaPhi10*fvc::interpolate(rho1) + (phi - alphaPhi10)*fvc::interpolate(rho2);
+    tmp<surfaceScalarField> trho1Tmp = fvc::interpolate(rho1);
+    tmp<surfaceScalarField> trho2Tmp = fvc::interpolate(rho2);
+    const surfaceScalarField rho1f(trho1Tmp());
+    const surfaceScalarField rho2f(trho2Tmp());
+    surfaceScalarField phiDiff = phi - alphaPhi10;
+    rhoPhi = alphaPhi10*rho1f + phiDiff*rho2f;
+
 
     forAll(alphaPhi10, faceI)
     {

@@ -355,11 +355,71 @@ extern Foam::Switch verbose;
             alpha1
         );
 
-        alpha1Eqn.solve();
+        // Add small stabilization term to diagonal
+        alpha1Eqn += fvm::Sp(dimensionedScalar("stab", dimless/dimTime, 1e-9), alpha1);
+        
+        // Solve with residual checking
+        SolverPerformance<scalar> solverPerf = alpha1Eqn.solve(alpha1.name());
+        
+        if (solverPerf.initialResidual() > 1e-4 && !solverPerf.converged())
+        {
+            WarningInFunction
+                << "Alpha equation may not have converged"
+                << "  Initial residual: " << solverPerf.initialResidual()
+                << "  Final residual: " << solverPerf.finalResidual()
+                << "  Iterations: " << solverPerf.nIterations()
+                << endl;
+        }
+        
+        // Check for non-finite values before bounding
+        {
+            const scalarField& alpha1Field = alpha1.internalField();
+            bool hasNonFinite = false;
+            forAll(alpha1Field, i)
+            {
+                if (!std::isfinite(alpha1Field[i]))
+                {
+                    hasNonFinite = true;
+                    break;
+                }
+            }
+            if (hasNonFinite)
+            {
+                FatalErrorInFunction
+                    << "Non-finite values detected in alpha1 field after solve"
+                    << exit(FatalError);
+            }
+        }
 
-        // Bound and update fields
+        // Bound and update fields with validation
         alpha1 = min(max(alpha1, scalar(0)), scalar(1));
         alpha2 = 1.0 - alpha1;
+        
+        // Validate density fields
+        if (rho1.size() != mesh.nCells() || rho2.size() != mesh.nCells())
+        {
+            FatalErrorInFunction
+                << "Density field size mismatch: rho1:" << rho1.size()
+                << " rho2:" << rho2.size()
+                << " mesh:" << mesh.nCells()
+                << exit(FatalError);
+        }
+
+        // Check for non-finite density values
+        const scalarField& rho1Internal = rho1.internalField();
+        const scalarField& rho2Internal = rho2.internalField();
+        forAll(rho1Internal, cellI)
+        {
+            if (!std::isfinite(rho1Internal[cellI]) || !std::isfinite(rho2Internal[cellI]))
+            {
+                FatalErrorInFunction
+                    << "Non-finite density values detected at cell " << cellI
+                    << " rho1:" << rho1Internal[cellI]
+                    << " rho2:" << rho2Internal[cellI]
+                    << exit(FatalError);
+            }
+        }
+        
         rho = alpha1*rho1 + alpha2*rho2;
         alpha1.correctBoundaryConditions();
         alpha2.correctBoundaryConditions();
@@ -428,3 +488,4 @@ extern Foam::Switch verbose;
         alphaPhi10 = (phi - (1.0 - cnCoeff)*phi.oldTime())/cnCoeff;
     }
 }
+

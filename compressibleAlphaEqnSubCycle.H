@@ -3,8 +3,48 @@ if (pInterfaceCapturing.valid())
 {
     // Flag that the alpha subcycle has been executed
     alphaSubCycleExecuted = true;
+    
+    // Validate fields before operations
+    if (alpha1.size() != mesh.nCells() || alpha2.size() != mesh.nCells())
+    {
+        FatalErrorInFunction
+            << "Alpha field size mismatch: alpha1:" << alpha1.size()
+            << " alpha2:" << alpha2.size()
+            << " mesh:" << mesh.nCells()
+            << abort(FatalError);
+    }
+
+    // Check for non-finite values
+    const scalarField& alpha1Internal = alpha1.internalField();
+    const scalarField& alpha2Internal = alpha2.internalField();
+    forAll(alpha1Internal, cellI)
+    {
+        if (!std::isfinite(alpha1Internal[cellI]) || !std::isfinite(alpha2Internal[cellI]))
+        {
+            FatalErrorInFunction
+                << "Non-finite alpha values detected at cell " << cellI
+                << " alpha1:" << alpha1Internal[cellI]
+                << " alpha2:" << alpha2Internal[cellI]
+                << abort(FatalError);
+        }
+    }
+    
     // perform advanced interface capturing only if the object exists
     pInterfaceCapturing->correct();
+    
+    // Check for NaN/Inf values in alpha1
+    const scalarField& alphaField = alpha1.internalField();
+    forAll(alphaField, i)
+    {
+        if (!std::isfinite(alphaField[i]))
+        {
+            FatalErrorInFunction
+                << "Non-finite value detected in alpha1 at cell " << i
+                << ". Value: " << alphaField[i]
+                << abort(FatalError);
+        }
+    }
+    
     // Ensure alpha1 field is bounded between 0 and 1
     alpha1 = max(min(alpha1, scalar(1)), scalar(0));
     alpha1.correctBoundaryConditions();
@@ -120,3 +160,4 @@ else
             << "  Global: " << globalContErr << endl;
     }
 }
+

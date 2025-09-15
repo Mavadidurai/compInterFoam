@@ -149,7 +149,7 @@ const scalar maxRau =
 
 // NOTE: gMax(rho) returns a dimensionedScalar; use .value()
 // --- dynamic lower bound sized to current Δt and density ---
-const scalar rhoMax    = gMax(rho.internalField()).value();
+const scalar rhoMax = gMax(rho.internalField());
 const scalar minRauDyn = 0.05*runTime.deltaTValue()/max(rhoMax, SMALL);
 const scalar minRauEff = min(minRau, minRauDyn);
 

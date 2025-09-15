@@ -141,9 +141,19 @@ advancedInterfaceCapturing::advancedInterfaceCapturing
 }
 void advancedInterfaceCapturing::calculateRecoilPressure()
 {
+    // Check field validity using size and dimensions
+    if (T_.size() != mesh_.nCells() || alpha1_.size() != mesh_.nCells())
+    {
+        FatalErrorIn("advancedInterfaceCapturing::calculateRecoilPressure()")
+            << "Field size mismatch detected: T:" << T_.size() 
+            << " alpha1:" << alpha1_.size()
+            << " mesh:" << mesh_.nCells()
+            << abort(FatalError);
+    }
+
     // OPTIMIZED: Calculate once, reuse multiple times
     const scalar currentTime = mesh_.time().value();
-    const scalar maxTemp = max(T_).value();
+    const scalar maxTemp = gMax(T_);  // Use safer gMax instead of max
     const dimensionedScalar minTempThreshold = vaporTemp_ - recoilTempOffset_;
     const bool verbose = mesh_.time().controlDict().lookupOrDefault<Switch>("verbose", false);
     if (verbose)
@@ -169,10 +179,44 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
     const scalar pressureScale = pressureScale_;
     const bool clampRecoil = clampRecoil_;
     const bool scaleRecoilMax = scaleRecoilMax_;
-    // Access fields only once for efficiency
+    // Access fields only once for efficiency and validate sizes
+    if (T_.size() != alpha1_.size() || T_.size() != mesh_.nCells())
+    {
+        FatalError << "Field size mismatch in calculateRecoilPressure()" << abort(FatalError);
+    }
+    
     const scalarField& TField = T_.primitiveField();
     const scalarField& alpha1Field = alpha1_.primitiveField();
+    
+    // Check for non-finite values in fields
+    forAll(TField, cellI)
+    {
+        if (!std::isfinite(TField[cellI]))
+        {
+            FatalErrorIn("advancedInterfaceCapturing::calculateRecoilPressure()")
+                << "Non-finite temperature value detected at cell " << cellI
+                << ". Value: " << TField[cellI]
+                << abort(FatalError);
+        }
+        if (!std::isfinite(alpha1Field[cellI]))
+        {
+            FatalErrorIn("advancedInterfaceCapturing::calculateRecoilPressure()")
+                << "Non-finite alpha1 value detected at cell " << cellI
+                << ". Value: " << alpha1Field[cellI]
+                << abort(FatalError);
+        }
+    }
+
     const volScalarField& massRate = mixture_.dgdt();        // [1/s]
+    
+    if (massRate.size() != mesh_.nCells())
+    {
+        FatalErrorIn("advancedInterfaceCapturing::calculateRecoilPressure()")
+            << "Invalid mass transfer rate field size: " << massRate.size()
+            << " expected: " << mesh_.nCells()
+            << abort(FatalError);
+    }
+    
     const scalarField& massRateField = massRate.primitiveField();
     scalarField& recoilField = recoilPressure_.primitiveFieldRef();
 
@@ -188,6 +232,11 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
     // Compute recoil pressure based on evaporation rate
     forAll(TField, cellI)
     {
+        if (cellI >= TField.size() || cellI >= alpha1Field.size() || cellI >= massRateField.size())
+        {
+            FatalError << "Cell index out of bounds in calculateRecoilPressure()" << abort(FatalError);
+        }
+        
         if (TField[cellI] < minTempThreshold.value()) continue;
 
         const scalar alpha = alpha1Field[cellI];
@@ -245,3 +294,4 @@ void advancedInterfaceCapturing::write() const
     recoilPressure_.write();
 }
 } // End namespace Foam
+
