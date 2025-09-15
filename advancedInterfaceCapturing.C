@@ -165,7 +165,8 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
     // OPTIMIZED: Calculate once, reuse multiple times
     const scalar currentTime = mesh_.time().value();
     // Filter the maximum temperature to metal cells using the alpha threshold
-    const scalar maxTemp = gMax(T_*pos0(alpha1_ - alphaMin_));
+    tmp<volScalarField> maskedT = T_*pos0(alpha1_ - alphaMin_);
+    const scalar maxTemp = gMax(maskedT());
     const dimensionedScalar minTempThreshold = vaporTemp_ - recoilTempOffset_;
     const bool verbose = mesh_.time().controlDict().lookupOrDefault<Switch>("verbose", false);
     if (verbose)
