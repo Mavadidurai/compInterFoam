@@ -36,7 +36,7 @@ blocks
 (
     //                bottom (z=0)    top (z=10)         Nx   Ny  Nz
     hex ( 0  1  5  4   3  2  6  7)   (240  80  20)  simpleGrading (1 1 1)  // Glass
-    hex ( 4  5  9  8   7  6 10 11)   (240 20 20)    simpleGrading (1 2.0 1)  // Ti film (20 cells across 71.4 nm)
+    hex ( 4  5  9  8   7  6 10 11)   (240 2 20)    simpleGrading (1 2.0 1)  // Ti film (20 cells across 71.4 nm)
     hex ( 8  9 13 12  11 10 14 15)   (240 120  20)  simpleGrading (1 1 1)  // Air gap 1 (12 µm)
     hex (12 13 17 16  15 14 18 19)   (240 120  20)  simpleGrading (1 1 1)  // Air gap 2 (12 µm)
 );
