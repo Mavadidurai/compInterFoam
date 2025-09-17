@@ -225,7 +225,63 @@ void Foam::twoPhaseMixtureThermo::correct()
     // Compute mass-transfer rate [1/s]
     dgdt_ = computeMassTransfer()();
     dgdt_.correctBoundaryConditions();
+   if (debug)
+    {
+        const fvMesh& mesh = T_.mesh();
+        const label nCells = mesh.nCells();
+        const label nSamples = Foam::min(label(5), nCells);
 
+        if (nSamples > 0)
+        {
+            labelList sampleCells(nSamples);
+
+            for (label i = 0; i < nSamples; ++i)
+            {
+                sampleCells[i] = i;
+            }
+
+            scalarField pSamples(nSamples, 0.0);
+            scalarField tSamples(nSamples, 0.0);
+
+            const scalarField& pInternal = p_.internalField();
+            const scalarField& tInternal = T_.internalField();
+
+            forAll(sampleCells, i)
+            {
+                const label celli = sampleCells[i];
+                pSamples[i] = pInternal[celli];
+                tSamples[i] = tInternal[celli];
+            }
+
+            tmp<scalarField> hSamplesTmp = he(pSamples, tSamples, sampleCells);
+            const scalarField& hSamples = hSamplesTmp();
+
+            tmp<scalarField> recoveredTmp = THE(hSamples, pSamples, tSamples, sampleCells);
+            const scalarField& recovered = recoveredTmp();
+
+            scalar maxError = 0.0;
+
+            forAll(recovered, i)
+            {
+                maxError = Foam::max
+                (
+                    maxError,
+                    Foam::mag(recovered[i] - tSamples[i])
+                );
+            }
+
+            const scalar tolerance = 1e-6;
+
+            if (maxError > tolerance)
+            {
+                FatalErrorInFunction
+                    << "Regression check failed: THE(he(...)) deviates from"
+                    << " the supplied temperature by " << maxError << " K"
+                    << nl << "    tolerance = " << tolerance << " K" << nl
+                    << exit(FatalError);
+            }
+        }
+    }
 }
 void Foam::twoPhaseMixtureThermo::setQLaser(const volScalarField& src)
 {
@@ -613,13 +669,54 @@ bool Foam::twoPhaseMixtureThermo::isochoric() const
 {
     return thermo1_->isochoric() && thermo2_->isochoric();
 }
+namespace
+{
+    inline Foam::scalar massWeighted
+    (
+        const Foam::scalar alpha1,
+        const Foam::scalar rho1,
+        const Foam::scalar value1,
+        const Foam::scalar alpha2,
+        const Foam::scalar rho2,
+        const Foam::scalar value2
+    )
+    {
+        const Foam::scalar rhoMix =
+            Foam::max(alpha1*rho1 + alpha2*rho2, Foam::SMALL);
+
+        return
+            (alpha1*rho1*value1 + alpha2*rho2*value2)
+           /rhoMix;
+    }
+}
 Foam::tmp<Foam::volScalarField> Foam::twoPhaseMixtureThermo::he
 (
     const volScalarField& p,
     const volScalarField& T
 ) const
 {
-    return alpha1()*thermo1_->he(p, T) + alpha2()*thermo2_->he(p, T);
+    const volScalarField& alpha1Field = alpha1();
+    const volScalarField& alpha2Field = alpha2();
+
+    tmp<volScalarField> the1 = thermo1_->he(p, T);
+    tmp<volScalarField> the2 = thermo2_->he(p, T);
+    tmp<volScalarField> trho1 = thermo1_->rho();
+    tmp<volScalarField> trho2 = thermo2_->rho();
+
+    tmp<volScalarField> numerator =
+        alpha1Field*trho1()*the1()
+      + alpha2Field*trho2()*the2();
+
+    tmp<volScalarField> denominator =
+        alpha1Field*trho1()
+      + alpha2Field*trho2();
+
+    return numerator
+       /
+        (
+            denominator
+          + dimensionedScalar("rhoMin", dimDensity, Foam::SMALL)
+        );
 }
 Foam::tmp<Foam::scalarField> Foam::twoPhaseMixtureThermo::he
 (
@@ -628,9 +725,39 @@ Foam::tmp<Foam::scalarField> Foam::twoPhaseMixtureThermo::he
     const labelList& cells
 ) const
 {
-    return
-        scalarField(alpha1(), cells)*thermo1_->he(p, T, cells)
-      + scalarField(alpha2(), cells)*thermo2_->he(p, T, cells);
+    const label nCells = cells.size();
+
+    scalarField alpha1Field(nCells, 0.0);
+    scalarField alpha2Field(nCells, 0.0);
+
+    forAll(cells, i)
+    {
+        const label celli = cells[i];
+        alpha1Field[i] = alpha1()[celli];
+        alpha2Field[i] = alpha2()[celli];
+    }
+
+    tmp<scalarField> the1 = thermo1_->he(p, T, cells);
+    tmp<scalarField> the2 = thermo2_->he(p, T, cells);
+    tmp<scalarField> trho1 = thermo1_->rhoEoS(p, T, cells);
+    tmp<scalarField> trho2 = thermo2_->rhoEoS(p, T, cells);
+
+    scalarField result(nCells, 0.0);
+
+    forAll(result, i)
+    {
+        result[i] = massWeighted
+        (
+            alpha1Field[i],
+            trho1()[i],
+            the1()[i],
+            alpha2Field[i],
+            trho2()[i],
+            the2()[i]
+        );
+    }
+
+    return tmp<scalarField>(new scalarField(std::move(result)));
 }
 Foam::tmp<Foam::scalarField> Foam::twoPhaseMixtureThermo::he
 (
@@ -639,9 +766,30 @@ Foam::tmp<Foam::scalarField> Foam::twoPhaseMixtureThermo::he
     const label patchi
 ) const
 {
-    return
-        alpha1().boundaryField()[patchi]*thermo1_->he(p, T, patchi)
-      + alpha2().boundaryField()[patchi]*thermo2_->he(p, T, patchi);
+    const fvPatchScalarField& alpha1Patch = alpha1().boundaryField()[patchi];
+    const fvPatchScalarField& alpha2Patch = alpha2().boundaryField()[patchi];
+
+    tmp<scalarField> the1 = thermo1_->he(p, T, patchi);
+    tmp<scalarField> the2 = thermo2_->he(p, T, patchi);
+    tmp<scalarField> trho1 = thermo1_->rho(patchi);
+    tmp<scalarField> trho2 = thermo2_->rho(patchi);
+
+    scalarField result(the1().size(), 0.0);
+
+    forAll(result, facei)
+    {
+        result[facei] = massWeighted
+        (
+            alpha1Patch[facei],
+            trho1()[facei],
+            the1()[facei],
+            alpha2Patch[facei],
+            trho2()[facei],
+            the2()[facei]
+        );
+    }
+
+    return tmp<scalarField>(new scalarField(std::move(result)));
 }
 
 
@@ -649,6 +797,84 @@ Foam::tmp<Foam::volScalarField> Foam::twoPhaseMixtureThermo::hc() const
 {
     return alpha1()*thermo1_->hc() + alpha2()*thermo2_->hc();
 }
+namespace
+{
+    template<class RhoEval1, class RhoEval2, class HeEval1, class HeEval2, class CpEval1, class CpEval2>
+    Foam::scalarField invertMassWeightedEnthalpy
+    (
+        const Foam::scalarField& h,
+        const Foam::scalarField& p,
+        const Foam::scalarField& T0,
+        const Foam::scalarField& alpha1,
+        const Foam::scalarField& alpha2,
+        const RhoEval1& rhoEval1,
+        const RhoEval2& rhoEval2,
+        const HeEval1& heEval1,
+        const HeEval2& heEval2,
+        const CpEval1& cpEval1,
+        const CpEval2& cpEval2
+    )
+    {
+        Foam::scalarField T(T0);
+
+        const Foam::label maxIter = 50;
+        const Foam::scalar tol = 1e-6;
+
+        bool converged = false;
+
+        for (Foam::label iter = 0; iter < maxIter; ++iter)
+        {
+            Foam::tmp<Foam::scalarField> trho1 = rhoEval1(p, T);
+            Foam::tmp<Foam::scalarField> trho2 = rhoEval2(p, T);
+            Foam::tmp<Foam::scalarField> the1 = heEval1(p, T);
+            Foam::tmp<Foam::scalarField> the2 = heEval2(p, T);
+            Foam::tmp<Foam::scalarField> tcp1 = cpEval1(p, T);
+            Foam::tmp<Foam::scalarField> tcp2 = cpEval2(p, T);
+
+            Foam::scalar maxDeltaT = 0.0;
+
+            forAll(T, i)
+            {
+                const Foam::scalar rho1 = trho1()[i];
+                const Foam::scalar rho2 = trho2()[i];
+                const Foam::scalar he1 = the1()[i];
+                const Foam::scalar he2 = the2()[i];
+                const Foam::scalar cp1 = tcp1()[i];
+                const Foam::scalar cp2 = tcp2()[i];
+                const Foam::scalar a1 = alpha1[i];
+                const Foam::scalar a2 = alpha2[i];
+
+                const Foam::scalar rhoMix = Foam::max(a1*rho1 + a2*rho2, Foam::SMALL);
+                const Foam::scalar mixtureHe =
+                    (a1*rho1*he1 + a2*rho2*he2)/rhoMix;
+                const Foam::scalar mixtureCp =
+                    (a1*rho1*cp1 + a2*rho2*cp2)/rhoMix;
+
+                const Foam::scalar deltaT =
+                    (mixtureHe - h[i])
+                   /Foam::max(mixtureCp, Foam::SMALL);
+
+                T[i] -= deltaT;
+                maxDeltaT = Foam::max(maxDeltaT, Foam::mag(deltaT));
+            }
+
+            if (maxDeltaT < tol)
+            {
+                converged = true;
+                break;
+            }
+        }
+
+        if (!converged)
+        {
+            WarningInFunction
+                << "THE() iteration reached the maximum number of iterations"
+                << " without achieving the requested tolerance." << Foam::endl;
+        }
+
+        return T;
+    }
+}
 Foam::tmp<Foam::scalarField> Foam::twoPhaseMixtureThermo::THE
 (
     const scalarField& h,
@@ -657,9 +883,64 @@ Foam::tmp<Foam::scalarField> Foam::twoPhaseMixtureThermo::THE
     const labelList& cells
 ) const
 {
-    WarningInFunction
-        << "THE() is unsupported; returning starting temperature" << endl;
-    return T0;
+    const label nCells = cells.size();
+
+    scalarField alpha1Field(nCells, 0.0);
+    scalarField alpha2Field(nCells, 0.0);
+
+    forAll(cells, i)
+    {
+        const label celli = cells[i];
+        alpha1Field[i] = alpha1()[celli];
+        alpha2Field[i] = alpha2()[celli];
+    }
+
+    auto rhoEval1 = [&](const scalarField& pVals, const scalarField& TVals)
+    {
+        return thermo1_->rhoEoS(pVals, TVals, cells);
+    };
+
+    auto rhoEval2 = [&](const scalarField& pVals, const scalarField& TVals)
+    {
+        return thermo2_->rhoEoS(pVals, TVals, cells);
+    };
+
+    auto heEval1 = [&](const scalarField& pVals, const scalarField& TVals)
+    {
+        return thermo1_->he(pVals, TVals, cells);
+    };
+
+    auto heEval2 = [&](const scalarField& pVals, const scalarField& TVals)
+    {
+        return thermo2_->he(pVals, TVals, cells);
+    };
+
+    auto cpEval1 = [&](const scalarField& pVals, const scalarField& TVals)
+    {
+        return thermo1_->Cp(pVals, TVals, cells);
+    };
+
+    auto cpEval2 = [&](const scalarField& pVals, const scalarField& TVals)
+    {
+        return thermo2_->Cp(pVals, TVals, cells);
+    };
+
+    scalarField result = invertMassWeightedEnthalpy
+    (
+        h,
+        p,
+        T0,
+        alpha1Field,
+        alpha2Field,
+        rhoEval1,
+        rhoEval2,
+        heEval1,
+        heEval2,
+        cpEval1,
+        cpEval2
+    );
+
+    return tmp<scalarField>(new scalarField(std::move(result)));
 }
 Foam::tmp<Foam::scalarField> Foam::twoPhaseMixtureThermo::THE
 (
@@ -669,9 +950,64 @@ Foam::tmp<Foam::scalarField> Foam::twoPhaseMixtureThermo::THE
     const label patchi
 ) const
 {
-    WarningInFunction
-        << "THE() is unsupported; returning starting temperature" << endl;
-    return T0;
+    const fvPatchScalarField& alpha1Patch = alpha1().boundaryField()[patchi];
+    const fvPatchScalarField& alpha2Patch = alpha2().boundaryField()[patchi];
+
+    scalarField alpha1Field(alpha1Patch.size(), 0.0);
+    scalarField alpha2Field(alpha2Patch.size(), 0.0);
+
+    forAll(alpha1Field, facei)
+    {
+        alpha1Field[facei] = alpha1Patch[facei];
+        alpha2Field[facei] = alpha2Patch[facei];
+    }
+
+    auto rhoEval1 = [&](const scalarField&, const scalarField&)
+    {
+        return thermo1_->rho(patchi);
+    };
+
+    auto rhoEval2 = [&](const scalarField&, const scalarField&)
+    {
+        return thermo2_->rho(patchi);
+    };
+
+    auto heEval1 = [&](const scalarField& pVals, const scalarField& TVals)
+    {
+        return thermo1_->he(pVals, TVals, patchi);
+    };
+
+    auto heEval2 = [&](const scalarField& pVals, const scalarField& TVals)
+    {
+        return thermo2_->he(pVals, TVals, patchi);
+    };
+
+    auto cpEval1 = [&](const scalarField& pVals, const scalarField& TVals)
+    {
+        return thermo1_->Cp(pVals, TVals, patchi);
+    };
+
+    auto cpEval2 = [&](const scalarField& pVals, const scalarField& TVals)
+    {
+        return thermo2_->Cp(pVals, TVals, patchi);
+    };
+
+    scalarField result = invertMassWeightedEnthalpy
+    (
+        h,
+        p,
+        T0,
+        alpha1Field,
+        alpha2Field,
+        rhoEval1,
+        rhoEval2,
+        heEval1,
+        heEval2,
+        cpEval1,
+        cpEval2
+    );
+
+    return tmp<scalarField>(new scalarField(std::move(result)));
 }
 Foam::tmp<Foam::volScalarField> Foam::twoPhaseMixtureThermo::Cp() const
 {

@@ -50,7 +50,6 @@ femtosecondLaserModel::femtosecondLaserModel
     transmission_(dict.getOrDefault<scalar>("transmission", -1.0)),
     incidenceAngle_(dict.getOrDefault<scalar>("incidenceAngle", 0.0)),
     gaussianProfile_(dict.getOrDefault<bool>("gaussianProfile", true)),
-    maxReflections_(dict.getOrDefault<label>("maxReflections", 2)),
     continuousLaser_(dict.getOrDefault<bool>("continuousLaser", false)),
     laserStartTime_(dict.getOrDefault<scalar>("laserStartTime", 0.0)),
     laserEndTime_(dict.getOrDefault<scalar>("laserEndTime", 2e-12)),

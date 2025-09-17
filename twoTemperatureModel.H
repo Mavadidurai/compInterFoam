@@ -78,6 +78,12 @@ private:
         bool validateParameters() const;
         //- Validate temperature field values
         bool validateFields() const;
+        //- Abort if Te/Tl develop invalid values during the solve
+        void guardTemperatureFields
+        (
+            const char* context,
+            label sweep
+        ) const;        
         //- Check energy conservation with expected energy change
         bool checkEnergyConservation
         (

@@ -77,6 +77,9 @@ advancedInterfaceCapturing::advancedInterfaceCapturing
     const dictionary& aicDict =
         mesh.time().controlDict().subOrEmptyDict("advancedInterfaceCapturing");
 
+        const bool verbose =
+        mesh.time().controlDict().lookupOrDefault<Switch>("verbose", false);
+
     meltingTemp_ = aicDict.lookupOrDefault<dimensionedScalar>
     (
         "meltingTemperature",
@@ -87,6 +90,23 @@ advancedInterfaceCapturing::advancedInterfaceCapturing
         "vaporTemperature",
         vaporTemp_
     );
+
+    if (verbose)
+    {
+        Info<< "advancedInterfaceCapturing temperature bounds: melting = "
+            << meltingTemp_.value() << " K, vapor = " << vaporTemp_.value()
+            << " K" << endl;
+    }
+
+    if (meltingTemp_.value() >= vaporTemp_.value())
+    {
+        FatalErrorInFunction
+            << "meltingTemperature (" << meltingTemp_.value()
+            << " K) must be less than vaporTemperature ("
+            << vaporTemp_.value() << " K). Values read from the"
+            << " 'advancedInterfaceCapturing' dictionary."
+            << abort(FatalError);
+    }
     phaseChangeTempOffset_ = aicDict.lookupOrDefault<dimensionedScalar>
     (
         "phaseChangeTempOffset",
@@ -141,7 +161,6 @@ advancedInterfaceCapturing::advancedInterfaceCapturing
     C0_ = aicDict.lookupOrDefault<scalar>("C0", C0_);
     C1_ = aicDict.lookupOrDefault<scalar>("C1", C1_);
     // Simple initialization, no calculations in constructor to avoid MPI issues
-    const bool verbose = mesh.time().controlDict().lookupOrDefault<Switch>("verbose", false);
     if (verbose)
     {
         Info<< "Advanced interface capturing initialized" << endl;

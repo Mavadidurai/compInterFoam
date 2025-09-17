@@ -48,7 +48,6 @@ private:
     scalar              transmission_;      // [-] (>=0 overrides reflectivity)
     scalar              incidenceAngle_;    // [rad]
     bool                gaussianProfile_;
-    label               maxReflections_;
     bool                continuousLaser_;
 
     scalar              laserStartTime_;    // [s]

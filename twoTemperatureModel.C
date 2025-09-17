@@ -21,6 +21,7 @@
 #include "twoTemperatureModel.H"
 #include "fvc.H"
 #include "fvm.H"
+#include "OStringStream.H"
 #include <cmath>
 extern Foam::Switch verbose;
 namespace Foam
@@ -265,19 +266,123 @@ bool twoTemperatureModel::validateParameters() const
 
 bool twoTemperatureModel::validateFields() const
 {
-    bool valid = true;
-
-    forAll(Te_, cellI)
+    auto fieldValid = [](const volScalarField& fld)
     {
-        if (Te_[cellI] < 0 || !std::isfinite(Te_[cellI]) ||
-            Tl_[cellI] < 0 || !std::isfinite(Tl_[cellI]))
+        const scalarField& internal = fld.internalField();
+
+        forAll(internal, cellI)
         {
-            valid = false;
-            break;
+            const scalar value = internal[cellI];
+
+            if (value <= 0 || !std::isfinite(value))
+            {
+                return false;
+            }
         }
+
+        const volScalarField::Boundary& bf = fld.boundaryField();
+
+        forAll(bf, patchI)
+        {
+            const fvPatchScalarField& pf = bf[patchI];
+
+            forAll(pf, faceI)
+            {
+                const scalar value = pf[faceI];
+
+                if (value <= 0 || !std::isfinite(value))
+                {
+                    return false;
+                }
+            }
+        }
+
+        return true;
+    };
+
+    return fieldValid(Te_) && fieldValid(Tl_);
+}
+
+void twoTemperatureModel::guardTemperatureFields
+(
+    const char* context,
+    label sweep
+) const
+{
+    if (validateFields())
+    {
+        return;
     }
 
-    return valid;
+    const auto reportFailure =
+        [&](const word& fieldName,
+            const scalar value,
+            const char* locationType,
+            label locationIndex,
+            const word& patchName)
+        {
+            OStringStream msg;
+            msg  << "Invalid " << fieldName
+                 << " value " << value
+                 << " detected on " << locationType
+                 << " " << locationIndex;
+
+            if (!patchName.empty())
+            {
+                msg << " (patch " << patchName << ')';
+            }
+
+            msg << " during " << context
+                << " sweep " << sweep
+                << " at time " << mesh_.time().timeName();
+
+            FatalErrorInFunction
+                << msg.str()
+                << abort(FatalError);
+        };
+
+    const auto checkField =
+        [&](const volScalarField& fld, const word& fieldName)
+        {
+            const scalarField& internal = fld.internalField();
+
+            forAll(internal, cellI)
+            {
+                const scalar value = internal[cellI];
+
+                if (value <= 0 || !std::isfinite(value))
+                {
+                    reportFailure(fieldName, value, "cell", cellI, word());
+                }
+            }
+
+            const volScalarField::Boundary& bf = fld.boundaryField();
+
+            forAll(bf, patchI)
+            {
+                const fvPatchScalarField& pf = bf[patchI];
+
+                forAll(pf, faceI)
+                {
+                    const scalar value = pf[faceI];
+
+                    if (value <= 0 || !std::isfinite(value))
+                    {
+                        reportFailure
+                        (
+                            fieldName,
+                            value,
+                            "face",
+                            faceI,
+                            pf.patch().name()
+                        );
+                    }
+                }
+            }
+        };
+
+    checkField(Te_, "Te");
+    checkField(Tl_, "Tl");
 }
 
 bool twoTemperatureModel::checkEnergyConservation
@@ -444,6 +549,7 @@ void twoTemperatureModel::solve
         // Perform lattice temperature solve; any additional iterations are
         // handled by the solver controls (maxIter, tolerance, etc.)
         TlEqn.solve(mesh_.solver("Tl"));
+        guardTemperatureFields("TlEqn.solve", sweep);
 
         tmp<volScalarField> tCe = electronHeatCapacity();
         const volScalarField& Ce = tCe();
@@ -463,6 +569,7 @@ void twoTemperatureModel::solve
         constrainGasCells(TeEqn);
 
         TeEqn.solve(mesh_.solver("Te"));
+        guardTemperatureFields("TeEqn.solve", sweep);
 
         if (sweep + 1 < nInnerSweeps)
         {

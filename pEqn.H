@@ -28,6 +28,18 @@ extern Foam::Switch verbose;
         "enableRAUfClamp",
         controlDict.lookupOrDefault<Switch>("enableRAUfClamp", true)
     );
+    // Pressure rollback threshold primarily configured in
+    // fvSolution::compInterFoamCoeffs (controlDict acts as a legacy fallback).
+    scalar maxInitialResidual = solverControls.lookupOrDefault<scalar>
+    (
+        "maxInitialResidual",
+        controlDict.lookupOrDefault<scalar>("maxInitialResidual", 1e3)
+    );
+
+    if (!std::isfinite(maxInitialResidual) || maxInitialResidual <= 0)
+    {
+        maxInitialResidual = 1e3;
+    }
 
     if (!std::isfinite(minRAUf))
     {
@@ -134,7 +146,7 @@ extern Foam::Switch verbose;
     }
 
     // Revert to previous solution if residual too large
-    if (residual >= 1e3)
+    if (residual >= maxInitialResidual)
     {
         Warning << "Pressure solve appears unstable - reverting to previous solution" << endl;
         p_rgh = p_rgh_old;

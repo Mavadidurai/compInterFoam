@@ -231,15 +231,17 @@ if (pimple.momentumPredictor())
     SolverPerformance<vector> solverPerf = solve
     (
         UEqn ==
-            // capillary and pressure gradient part reconstructed to cell-centre
+            // capillary term reconstructed from face forces (N/m^3)
             fvc::reconstruct
             (
                 (
-                    fvc::interpolate(mixture.sigmaK())*fvc::snGrad(alpha1)
-                  - fvc::snGrad(p_rgh)
+                    fvc::interpolate(mixture.sigmaK())
+                  * fvc::snGrad(alpha1)
                 ) * mesh.magSf()
             )
-          // body force: gravity
+          // hydrostatic pressure gradient applied directly (Pa/m)
+          - fvc::grad(p_rgh)
+          // body force: gravity (N/m^3)
           + rho*g
     );
     scalar residual = mag(solverPerf.initialResidual());
