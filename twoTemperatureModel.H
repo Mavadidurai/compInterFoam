@@ -48,6 +48,10 @@ private:
         const fvMesh& mesh_;
         //- Reference to dictionary
         const dictionary& dict_;
+        //- Metal phase indicator (e.g. alpha1)
+        const volScalarField& metalFraction_;
+        //- Ambient fallback temperature for non-metal cells
+        dimensionedScalar ambientTemperature_;
         //- Temperature Fields
         volScalarField Te_;        //- Electron temperature [K]
         volScalarField Tl_;        //- Lattice temperature [K]
@@ -81,7 +85,8 @@ public:
         twoTemperatureModel
         (
             const fvMesh& mesh,
-            const dictionary& dict
+            const dictionary& dict,
+            const volScalarField& metalFraction
         );
         //- Destructor
         virtual ~twoTemperatureModel();
