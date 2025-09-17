@@ -37,9 +37,8 @@ private:
     scalar C0_;
     scalar C1_;
     // Field for recoil pressure
-    volScalarField recoilPressure_;  // Recoil pressure from vaporization 
-    //- Track number of correct() calls
-    label callCount_;
+    volScalarField recoilPressure_;  // Recoil pressure from vaporization
+
 public:
     // Constructor
     advancedInterfaceCapturing
@@ -58,8 +57,6 @@ public:
     void calculateRecoilPressure();  // Calculate recoil pressure
     // Access functions
     const volScalarField& recoilPressure() const { return recoilPressure_; }
-    label recoilUpdateInterval() const { return throttleRecoilUpdates_ ? recoilUpdateInterval_ : 1; }
-    Switch throttleRecoilUpdates() const { return throttleRecoilUpdates_; }
     scalar relaxFactor() const { return relaxFactor_; }
     scalar C0() const { return C0_; }
     scalar C1() const { return C1_; }
@@ -73,7 +70,6 @@ public:
 {
     // Reset internal fields to prevent memory issues
     recoilPressure_ = dimensionedScalar("zero", dimPressure, 0.0);
-    callCount_ = 0;
 }
 };
 } // End namespace Foam

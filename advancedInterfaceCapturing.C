@@ -72,12 +72,12 @@ advancedInterfaceCapturing::advancedInterfaceCapturing
         ),
         mesh,
         dimensionedScalar("zero", dimPressure, 0.0)
-    ),
-    callCount_(0)
+    )
 {
-        const dictionary& aicDict =
+    const dictionary& aicDict =
         mesh.time().controlDict().subOrEmptyDict("advancedInterfaceCapturing");
-            meltingTemp_ = aicDict.lookupOrDefault<dimensionedScalar>
+
+    meltingTemp_ = aicDict.lookupOrDefault<dimensionedScalar>
     (
         "meltingTemperature",
         meltingTemp_
@@ -99,42 +99,13 @@ advancedInterfaceCapturing::advancedInterfaceCapturing
         pressureScale_
     );
     recoilMax_ = aicDict.lookupOrDefault<scalar>("recoilMax", recoilMax_);
-    if (aicDict.found("throttleRecoilUpdates"))
-    {
-        throttleRecoilUpdates_ = aicDict.lookup<Switch>("throttleRecoilUpdates");
-    }
 
-    if (throttleRecoilUpdates_)
-    {
-        recoilUpdateInterval_ = aicDict.lookupOrDefault<label>
-        (
-            "recoilUpdateInterval",
-            recoilUpdateInterval_
-        );
-
-        if (recoilUpdateInterval_ < 1)
-        {
-            WarningInFunction
-                << "recoilUpdateInterval must be >= 1 when throttling is enabled."
-                << " Resetting to 1" << endl;
-            recoilUpdateInterval_ = 1;
-        }
-    }
-    else if (aicDict.found("recoilUpdateInterval"))
-    {
-        WarningInFunction
-            << "Ignoring recoilUpdateInterval because throttleRecoilUpdates is"
-            << " disabled (default)." << nl
-            << "Set throttleRecoilUpdates true to reinstate throttled updates."
-            << endl;
-        recoilUpdateInterval_ = 1;
-    }
     recoilTempOffset_ = aicDict.lookupOrDefault<dimensionedScalar>
     (
         "recoilTempOffset",
         recoilTempOffset_
     );
-        if (recoilTempOffset_.value() < 0)
+    if (recoilTempOffset_.value() < 0)
     {
         FatalErrorInFunction
             << "recoilTempOffset (" << recoilTempOffset_.value()
@@ -311,26 +282,8 @@ void Foam::advancedInterfaceCapturing::correct()
     {
         Info<< "Performing simplified interface capturing" << endl;
     }
-    // First update the recoil pressure field. By default we recalculate every
-    // invocation so that recoil pressure can follow fast transients.
-    if (!throttleRecoilUpdates_)
-    {
-        callCount_ = 0;
-        calculateRecoilPressure();
-    }
-    else
-    {
-        const label interval = recoilUpdateInterval_ > 1 ? recoilUpdateInterval_ : 1;
-        if (interval == 1)
-        {
-            callCount_ = 0;
-            calculateRecoilPressure();
-        }
-        else if (callCount_++ % interval == 0)
-        {
-            calculateRecoilPressure();
-        }
-    }
+    // Update the recoil pressure field every invocation so it follows fast transients.
+    calculateRecoilPressure();
 
     alpha1_.correctBoundaryConditions();
     if (verbose)

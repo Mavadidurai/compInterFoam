@@ -65,6 +65,51 @@ extern Foam::Switch verbose;
     TEqn.relax();
 
     fvOptions.constrain(TEqn);
+        const dictionary& ctrl = runTime.controlDict();
+    const scalar alphaMetalThreshold =
+        ctrl.lookupOrDefault<scalar>("alphaMetalThreshold", 0.7);
+    const volScalarField& TlField = ttm.Tl();
+
+    boolList metalCells(mesh.nCells(), false);
+    forAll(T, cellI)
+    {
+        if (alpha1[cellI] >= alphaMetalThreshold)
+        {
+            metalCells[cellI] = true;
+        }
+    }
+
+    scalarField& TEqnDiag = TEqn.diag();
+    scalarField& TEqnSource = TEqn.source();
+    scalarField& TEqnUpper = TEqn.upper();
+    scalarField& TEqnLower = TEqn.lower();
+    const labelUList& owners = mesh.owner();
+    const labelUList& neighbours = mesh.neighbour();
+
+    forAll(owners, faceI)
+    {
+        const label own = owners[faceI];
+        const label nei = neighbours[faceI];
+
+        if (metalCells[own])
+        {
+            TEqnUpper[faceI] = 0;
+        }
+
+        if (metalCells[nei])
+        {
+            TEqnLower[faceI] = 0;
+        }
+    }
+
+    forAll(T, cellI)
+    {
+        if (metalCells[cellI])
+        {
+            TEqnDiag[cellI] = 1;
+            TEqnSource[cellI] = TlField[cellI];
+        }
+    }
 
     TEqn.solve();
 
@@ -73,23 +118,9 @@ extern Foam::Switch verbose;
     tContErr.clear();
     tContErrK.clear();
 
-    // Store the solved temperature field for gas-dominated regions
-    const scalarField solvedTInternal(T.internalField());
-
-    // Since ttm.solve(laserSource, mixture.phaseChangeSource()) is called
-    // before this in compInterFoam.C, the two-temperature model has already
-    // solved for Te and Tl.
-    // Selectively synchronize the mixture temperature with the lattice
-    // temperature within metal-rich cells while retaining the gas solution.
-    const dictionary& ctrl = runTime.controlDict();
-    const scalar alphaMetalThreshold =
-        ctrl.lookupOrDefault<scalar>("alphaMetalThreshold", 0.7);
-
-    const volScalarField& TlField = ttm.Tl();
-
     label metalSyncedCells = 0;
     label gasCells = 0;
-    scalar metalMaxAdjustment = 0.0;
+    scalar metalMaxDeviation = 0.0;
     scalar gasTempSum = 0.0;
     scalar gasMinTemp = GREAT;
     scalar gasMaxTemp = -GREAT;
@@ -97,30 +128,27 @@ extern Foam::Switch verbose;
 
     forAll(T, cellI)
     {
-        const scalar alphaVal = alpha1[cellI];
+        const scalar Tval = T[cellI];
         const scalar TlVal = TlField[cellI];
-        const scalar solvedT = solvedTInternal[cellI];
 
-        if (alphaVal >= alphaMetalThreshold)
+        if (metalCells[cellI])
         {
-            T[cellI] = TlVal;
-            metalMaxAdjustment = Foam::max
+            metalMaxDeviation = Foam::max
             (
-                metalMaxAdjustment,
-                Foam::mag(solvedT - TlVal)
+                metalMaxDeviation,
+                Foam::mag(Tval - TlVal)
             );
             ++metalSyncedCells;
         }
         else
         {
-            T[cellI] = solvedT;
-            gasMinTemp = Foam::min(gasMinTemp, solvedT);
-            gasMaxTemp = Foam::max(gasMaxTemp, solvedT);
-            gasTempSum += solvedT;
+            gasMinTemp = Foam::min(gasMinTemp, Tval);
+            gasMaxTemp = Foam::max(gasMaxTemp, Tval);
+            gasTempSum += Tval;
             maxGasTlDiff = Foam::max
             (
                 maxGasTlDiff,
-                Foam::mag(solvedT - TlVal)
+                Foam::mag(Tval - TlVal)
             );
             ++gasCells;
         }
@@ -128,7 +156,7 @@ extern Foam::Switch verbose;
 
     reduce(metalSyncedCells, sumOp<label>());
     reduce(gasCells, sumOp<label>());
-    reduce(metalMaxAdjustment, maxOp<scalar>());
+    reduce(metalMaxDeviation, maxOp<scalar>());
     reduce(gasMinTemp, minOp<scalar>());
     reduce(gasMaxTemp, maxOp<scalar>());
     reduce(gasTempSum, sumOp<scalar>());
@@ -144,9 +172,9 @@ extern Foam::Switch verbose;
     {
         Info<< "Selective temperature synchronisation:" << nl
             << "  alpha1 threshold: " << alphaMetalThreshold << nl
-            << "  Cells synced to Tl: " << metalSyncedCells << nl
-            << "  Max |Tl - solved T| correction: "
-            << metalMaxAdjustment << " K" << endl;
+            << "  Cells constrained to Tl: " << metalSyncedCells << nl
+            << "  Max |Tl - solved T| residual: "
+            << metalMaxDeviation << " K" << endl;
 
         if (gasCells > 0)
         {

@@ -92,9 +92,6 @@ int main(int argc, char *argv[])
     #define CREATE_FIELDS_DONE
     #endif
     
-    // Track recoil pressure update intervals when alpha subcycle is skipped
-    label recoilCallCount = 0;
-
     // Reference to psi fields (needed for compressibility)
     #ifndef NDEBUG
     const volScalarField& psi1 = mixture.thermo1().psi();
@@ -251,24 +248,7 @@ mixture.correct();
 // Recoil update: only if alpha subcycle didn’t run
 if (!alphaSubCycleExecuted && pInterfaceCapturing.valid())
 {
-    if (!pInterfaceCapturing->throttleRecoilUpdates())
-    {
-        recoilCallCount = 0;
-        pInterfaceCapturing->calculateRecoilPressure();
-    }
-    else
-    {
-        const label interval = pInterfaceCapturing->recoilUpdateInterval();
-        if (interval <= 1)
-        {
-            recoilCallCount = 0;
-            pInterfaceCapturing->calculateRecoilPressure();
-        }
-        else if (recoilCallCount++ % interval == 0)
-        {
-            pInterfaceCapturing->calculateRecoilPressure();
-        }
-    }
+    pInterfaceCapturing->calculateRecoilPressure();
 }
 
 // Apply interface-capturing corrections after recoil update
