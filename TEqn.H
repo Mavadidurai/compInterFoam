@@ -20,7 +20,7 @@ extern Foam::Switch verbose;
       + (
             fvc::div(fvc::absolute(phi, U), p)()()
           + (fvc::ddt(rho, K) + fvc::div(rhoPhi, K))()()
-          - contErr*K
+          - (contErr*K).dimensionedInternalField()
         )
        *
         (
