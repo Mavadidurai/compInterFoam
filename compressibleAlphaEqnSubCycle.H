@@ -31,6 +31,7 @@ if (pInterfaceCapturing.valid())
     
     // perform advanced interface capturing only if the object exists
     pInterfaceCapturing->correct();
+    interfaceCorrectionAppliedInSubCycle = true;
     
     // Check for NaN/Inf values in alpha1
     const scalarField& alphaField = alpha1.internalField();

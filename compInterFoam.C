@@ -207,6 +207,7 @@ int main(int argc, char *argv[])
         while (pimple.loop())
         {
             bool alphaSubCycleExecuted = false;
+           bool interfaceCorrectionAppliedInSubCycle = false;
 
             // Update mixture properties and phase-change sources for the
             // alpha equation
@@ -254,7 +255,12 @@ if (!alphaSubCycleExecuted && pInterfaceCapturing.valid())
 }
 
 // Apply interface-capturing corrections after recoil update
-if (useAdvancedCapturing && pInterfaceCapturing.valid())
+if
+(
+    useAdvancedCapturing
+ && pInterfaceCapturing.valid()
+ && !interfaceCorrectionAppliedInSubCycle
+)
 {
     pInterfaceCapturing->correct();
 }

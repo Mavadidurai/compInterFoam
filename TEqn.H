@@ -7,25 +7,142 @@ extern Foam::Switch verbose;
     {
         Info<< "Solving temperature equation" << endl;
     }
-   // Since ttm.solve(laserSource, mixture.phaseChangeSource()) is called
+    // Solve the compressible temperature equation to evolve the gas phase
+    tmp<volScalarField> tContErr = fvc::div(rhoPhi);
+    const volScalarField& contErr = tContErr();
+
+    fvScalarMatrix TEqn
+    (
+        fvm::ddt(rho, T)
+      + fvm::div(rhoPhi, T)
+      - fvm::Sp(contErr, T)
+      - fvm::laplacian(transportModel.alphaEff(), T)
+      + (
+            fvc::div(fvc::absolute(phi, U), p)()()
+          + (fvc::ddt(rho, K) + fvc::div(rhoPhi, K))()()
+          - contErr*K
+        )
+       *
+        (
+            alpha1/mixture.thermo1().Cv()()
+          + alpha2/mixture.thermo2().Cv()()
+        )
+     ==
+        fvOptions(rho, T)
+    );
+
+    TEqn.relax();
+
+    fvOptions.constrain(TEqn);
+
+    TEqn.solve();
+
+    fvOptions.correct(T);
+
+    tContErr.clear();
+
+    // Store the solved temperature field for gas-dominated regions
+    const scalarField solvedTInternal(T.internalField());
+
+    // Since ttm.solve(laserSource, mixture.phaseChangeSource()) is called
     // before this in compInterFoam.C, the two-temperature model has already
     // solved for Te and Tl.
-    // We now synchronize the mixture temperature with the lattice temperature
-    // and ensure thermodynamic consistency.
-    // Synchronize mixture temperature with lattice temperature from TTM
-    T = ttm.Tl();
-    // Validate temperature field for physical bounds
+    // Selectively synchronize the mixture temperature with the lattice
+    // temperature within metal-rich cells while retaining the gas solution.
+    const dictionary& ctrl = runTime.controlDict();
+    const scalar alphaMetalThreshold =
+        ctrl.lookupOrDefault<scalar>("alphaMetalThreshold", 0.7);
+
+    const volScalarField& TlField = ttm.Tl();
+
+    label metalSyncedCells = 0;
+    label gasCells = 0;
+    scalar metalMaxAdjustment = 0.0;
+    scalar gasTempSum = 0.0;
+    scalar gasMinTemp = GREAT;
+    scalar gasMaxTemp = -GREAT;
+    scalar maxGasTlDiff = 0.0;
+
+    forAll(T, cellI)
+    {
+        const scalar alphaVal = alpha1[cellI];
+        const scalar TlVal = TlField[cellI];
+        const scalar solvedT = solvedTInternal[cellI];
+
+        if (alphaVal >= alphaMetalThreshold)
+        {
+            T[cellI] = TlVal;
+            metalMaxAdjustment = Foam::max
+            (
+                metalMaxAdjustment,
+                Foam::mag(solvedT - TlVal)
+            );
+            ++metalSyncedCells;
+        }
+        else
+        {
+            T[cellI] = solvedT;
+            gasMinTemp = Foam::min(gasMinTemp, solvedT);
+            gasMaxTemp = Foam::max(gasMaxTemp, solvedT);
+            gasTempSum += solvedT;
+            maxGasTlDiff = Foam::max
+            (
+                maxGasTlDiff,
+                Foam::mag(solvedT - TlVal)
+            );
+            ++gasCells;
+        }
+    }
+
+    reduce(metalSyncedCells, sumOp<label>());
+    reduce(gasCells, sumOp<label>());
+    reduce(metalMaxAdjustment, maxOp<scalar>());
+    reduce(gasMinTemp, minOp<scalar>());
+    reduce(gasMaxTemp, maxOp<scalar>());
+    reduce(gasTempSum, sumOp<scalar>());
+    reduce(maxGasTlDiff, maxOp<scalar>());
+
+    scalar meanGasTemp = 0.0;
+    if (gasCells > 0)
+    {
+        meanGasTemp = gasTempSum/Foam::max(static_cast<scalar>(gasCells), VSMALL);
+    }
+
+    if (verbose)
+    {
+        Info<< "Selective temperature synchronisation:" << nl
+            << "  alpha1 threshold: " << alphaMetalThreshold << nl
+            << "  Cells synced to Tl: " << metalSyncedCells << nl
+            << "  Max |Tl - solved T| correction: "
+            << metalMaxAdjustment << " K" << endl;
+
+        if (gasCells > 0)
+        {
+            Info<< "  Gas-dominated cells: " << gasCells << nl
+                << "    Gas T range: " << gasMinTemp << " - "
+                << gasMaxTemp << " K" << nl
+                << "    Gas T mean: " << meanGasTemp << " K" << nl
+                << "    Max |Tgas - Tl|: " << maxGasTlDiff << " K" << endl;
+        }
+        else
+        {
+            Info<< "  Gas-dominated cells: none detected" << endl;
+        }
+    }
+
+    // Evaluate global temperature statistics after selective synchronisation
     scalar minT = min(T).value();
     scalar maxT = max(T).value();
     scalar meanT = gAverage(T);
+
     if (verbose)
     {
-        Info<< "Temperature field after TTM synchronization:" << nl
+        Info<< "Temperature field after selective synchronisation:" << nl
             << "  T range: " << minT << " - " << maxT << " K" << nl
             << "  Mean T: " << meanT << " K" << endl;
     }
+
     // Apply physical bounds to prevent numerical issues
-    const dictionary& ctrl = runTime.controlDict();
     const scalar minPhysicalTemp = ctrl.lookupOrDefault<scalar>("minT", 250.0);
     const scalar maxPhysicalTemp = ctrl.lookupOrDefault<scalar>("maxT", 15000.0);
     const Switch enableTClamp = ctrl.lookupOrDefault<Switch>("enableTClamp", true);
@@ -67,10 +184,15 @@ extern Foam::Switch verbose;
                 << maxPhysicalTemp << " K" << endl;
         }
     }
+    // Update statistics after any clamping
+    minT = min(T).value();
+    maxT = max(T).value();
+    meanT = gAverage(T);
     // Ensure boundary conditions are properly applied
     T.correctBoundaryConditions();
     // Update mixture thermodynamic properties based on new temperature
     mixture.correctThermo();
+    mixture.correct();
     // Validate thermodynamic consistency
     const volScalarField& rho1 = mixture.thermo1().rho();
     const volScalarField& rho2 = mixture.thermo2().rho();

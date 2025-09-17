@@ -329,7 +329,8 @@ twoTemperatureDict.set("energyTolerance", energyTolerance);
 twoTemperatureModel ttm
 (
     mesh,
-    twoTemperatureDict
+    twoTemperatureDict,
+    alpha1
 );
 
 

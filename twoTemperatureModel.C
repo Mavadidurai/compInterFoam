@@ -358,7 +358,8 @@ void twoTemperatureModel::solve
     // Calculate temperature-dependent properties
     volScalarField ke = electronThermalConductivity();
     volScalarField G = electronPhononCoupling();
-
+    tmp<volScalarField> tkl = kl();
+    const volScalarField& klField = tkl();
     // Apply strong under-relaxation for stability
     scalar relaxFactor = 0.3;
 
