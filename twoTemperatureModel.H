@@ -26,6 +26,12 @@ SourceFiles
                           used by checkEnergyConservation
         minTe             Minimum temperature bound for Te and Tl [K]
         maxTe             Maximum temperature bound for Te and Tl [K]
+        klHighTThreshold  Lattice temperature [K] above which the high-
+                          temperature conductivity correction activates
+                          (optional, default 1000)
+        klExponent        Exponent applied to (klHighTThreshold/Tl) when
+                          reducing kl at high temperature (optional,
+                          default 0.5, set to 0 to disable)
 \*---------------------------------------------------------------------------*/
 #ifndef twoTemperatureModel_H
 #define twoTemperatureModel_H
@@ -98,7 +104,8 @@ public:
         void solve
         (
             const volScalarField& laserSource,
-            const volScalarField& phaseChangeSource
+            const volScalarField& phaseChangeSource,
+            const volScalarField& phaseChangeRelaxCoeff
         );
         //- Calculate electron thermal conductivity
         tmp<volScalarField> electronThermalConductivity() const;

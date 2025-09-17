@@ -340,9 +340,23 @@ void twoTemperatureModel::solve
     const scalar metalCutoff =
         dict_.lookupOrDefault<scalar>("metalFractionCutoff", 1e-6);
 
-    volScalarField Ce = electronHeatCapacity();
+    const label nInnerSweeps =
+        dict_.lookupOrDefault<label>("nInnerCouplingSweeps", 1);
+    const scalar innerCouplingReductionTol =
+        dict_.lookupOrDefault<scalar>
+        (
+            "innerCouplingReductionTol",
+            dict_.lookupOrDefault<scalar>
+            (
+                "innerCouplingReductionTolerance",
+                -GREAT
+            )
+        );
+
+    tmp<volScalarField> tCeInitial = electronHeatCapacity();
+    const volScalarField& CeInitial = tCeInitial();
     dimensionedScalar electronEnergyBefore =
-        fvc::domainIntegrate(metal*Ce*Te_);
+        fvc::domainIntegrate(metal*CeInitial*Te_);
     dimensionedScalar latticeEnergyBefore =
         fvc::domainIntegrate(metal*Cl_*Tl_);
     dimensionedScalar laserEnergy =
@@ -355,11 +369,6 @@ void twoTemperatureModel::solve
             << ", max(Tl_) = " << max(Tl_).value() << endl;
     }
 
-    // Calculate temperature-dependent properties
-    volScalarField ke = electronThermalConductivity();
-    volScalarField G = electronPhononCoupling();
-    tmp<volScalarField> tkl = kl();
-    const volScalarField& klField = tkl();
     // Apply strong under-relaxation for stability
     scalar relaxFactor = 0.3;
 
@@ -367,24 +376,6 @@ void twoTemperatureModel::solve
     // Create a more stable matrix system for the lattice temperature
     const volScalarField& TlOld = Tl_.oldTime();
 
-    fvScalarMatrix TlEqn
-    (
-        fvm::ddt(metal*Cl_, Tl_)
-      - fvm::laplacian(metal*klField, Tl_)
-      + fvm::Sp(metal*G, Tl_)
-      + fvm::Sp(metal*Cl_*phaseChangeRelaxCoeff, Tl_)
-     ==
-        metal*
-        (
-            G*Te_
-          + Cl_*(phaseChangeSource + phaseChangeRelaxCoeff*TlOld)
-        )
-
-    );
-
-    // Under-relax the lattice equation for stability
-    TlEqn.relax(relaxFactor);
-    
         auto constrainGasCells =
         [&](fvScalarMatrix& eqn)
         {
@@ -421,45 +412,85 @@ void twoTemperatureModel::solve
             }
         };
 
-    constrainGasCells(TlEqn);
-    // Use more robust solver settings for lattice temperature
-    dictionary latticeDict;
-    latticeDict.add("solver", "PBiCGStab");
-    latticeDict.add("preconditioner", "DIC");
-    latticeDict.add("tolerance", 1e-8);
-    latticeDict.add("relTol", 0.01);
-    latticeDict.add("maxIter", 500);
+    // Perform lattice temperature solve using fvSolution controls
+    TlEqn.solve(mesh_.solver("Tl"));
     
-    // Perform lattice temperature solve; any additional iterations are
-    // handled by the solver controls (maxIter, tolerance, etc.)
-    TlEqn.solve(latticeDict);
-
-    // Create a more stable matrix system for the electron temperature
-    fvScalarMatrix TeEqn
-    (
-        fvm::ddt(metal*Ce, Te_)
-      - fvm::laplacian(metal*ke, Te_)
-      + fvm::Sp(metal*G, Te_)
-     ==
-        metal*(laserSource + G*Tl_)
-    );
-
-
-    // Apply stronger under-relaxation to electron equation
-    TeEqn.relax(relaxFactor);
-
-    constrainGasCells(TeEqn);
-
-    // Use customized robust solver settings
-    dictionary electronDict;
-    electronDict.add("solver", "PBiCGStab");
-    electronDict.add("preconditioner", "DIC");
-    electronDict.add("tolerance", 1e-6);
-    electronDict.add("relTol", 0.01);  // Looser relative tolerance
-    electronDict.add("maxIter", 1000);
+    // Perform electron temperature solve using fvSolution controls
+    TeEqn.solve(mesh_.solver("Te"));
     
+    scalar prevResidual = gMax(mag(Te_ - Tl_)).value();
+
+    for (label sweep = 0; sweep < nInnerSweeps; ++sweep)
+    {
+        volScalarField ke = electronThermalConductivity();
+        volScalarField G = electronPhononCoupling();
+        tmp<volScalarField> tkl = kl();
+        const volScalarField& klField = tkl();
+
+        fvScalarMatrix TlEqn
+        (
+            fvm::ddt(metal*Cl_, Tl_)
+          - fvm::laplacian(metal*klField, Tl_)
+          + fvm::Sp(metal*G, Tl_)
+          + fvm::Sp(metal*Cl_*phaseChangeRelaxCoeff, Tl_)
+         ==
+            metal*
+            (
+                G*Te_
+              + Cl_*(phaseChangeSource + phaseChangeRelaxCoeff*TlOld)
+            )
+
+        );
+
+        // Under-relax the lattice equation for stability
+        TlEqn.relax(relaxFactor);
+
+        constrainGasCells(TlEqn);
+
+        // Perform lattice temperature solve; any additional iterations are
+        // handled by the solver controls (maxIter, tolerance, etc.)
+        TlEqn.solve(latticeDict);
+
+        tmp<volScalarField> tCe = electronHeatCapacity();
+        const volScalarField& Ce = tCe();
+
+        // Create a more stable matrix system for the electron temperature
+        fvScalarMatrix TeEqn
+        (
+            fvm::ddt(metal*Ce, Te_)
+          - fvm::laplacian(metal*ke, Te_)
+          + fvm::Sp(metal*G, Te_)
+         ==
+            metal*(laserSource + G*Tl_)
+        );
+
+
+        // Apply stronger under-relaxation to electron equation
+        TeEqn.relax(relaxFactor);
+
+        constrainGasCells(TeEqn);
+
         TeEqn.solve(electronDict);
 
+        if (sweep + 1 < nInnerSweeps)
+        {
+            const scalar residual = gMax(mag(Te_ - Tl_)).value();
+            const scalar reduction = max(prevResidual - residual, scalar(0));
+
+            if (reduction < innerCouplingReductionTol)
+            {
+                if (verbose)
+                {
+                    Info<< "Inner two-temperature coupling converged after "
+                        << sweep + 1 << " sweeps with reduction "
+                        << reduction << endl;
+                }
+                break;
+            }
+
+            prevResidual = residual;
+        }
+    }
     volScalarField CeAfter = electronHeatCapacity();
     dimensionedScalar electronEnergyAfter =
         fvc::domainIntegrate(metal*CeAfter*Te_);
@@ -764,11 +795,17 @@ void twoTemperatureModel::write() const
 
 tmp<volScalarField> Foam::twoTemperatureModel::ke() const
 {
+    
     // Electronic thermal conductivity derived from constant diffusivity
     return electronThermalConductivity();
 }
 tmp<volScalarField> Foam::twoTemperatureModel::kl() const
 {
+    // Return lattice thermal conductivity
+    const scalar klHighTThreshold =
+        dict_.lookupOrDefault<scalar>("klHighTThreshold", 1000.0);
+    const scalar klExponent =
+        dict_.lookupOrDefault<scalar>("klExponent", 0.5);    
     // Return lattice thermal conductivity
     tmp<volScalarField> tkl
     (
@@ -801,9 +838,11 @@ tmp<volScalarField> Foam::twoTemperatureModel::kl() const
         scalar Tl = Tl_[cellI];
    
         // Apply temperature dependent correction
-        if (Tl > 1000.0)
+        if (Tl > klHighTThreshold && klExponent != 0.0)
         {
-            kl[cellI] *= pow(1000.0/Tl, 0.5);  // High temperature correction
+            const scalar ratio =
+                Foam::max(klHighTThreshold, VSMALL)/Foam::max(Tl, VSMALL);
+            kl[cellI] *= pow(ratio, klExponent);  // High temperature correction
         }
     }
 
