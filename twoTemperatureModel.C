@@ -411,12 +411,6 @@ void twoTemperatureModel::solve
                 }
             }
         };
-
-    // Perform lattice temperature solve using fvSolution controls
-    TlEqn.solve(mesh_.solver("Tl"));
-    
-    // Perform electron temperature solve using fvSolution controls
-    TeEqn.solve(mesh_.solver("Te"));
     
     scalar prevResidual = gMax(mag(Te_ - Tl_)().internalField());
 
@@ -449,7 +443,7 @@ void twoTemperatureModel::solve
 
         // Perform lattice temperature solve; any additional iterations are
         // handled by the solver controls (maxIter, tolerance, etc.)
-        TlEqn.solve(latticeDict);
+        TlEqn.solve(mesh_.solver("Tl"));
 
         tmp<volScalarField> tCe = electronHeatCapacity();
         const volScalarField& Ce = tCe();
@@ -466,15 +460,15 @@ void twoTemperatureModel::solve
 
 
         // Apply stronger under-relaxation to electron equation
-        TeEqn.relax(relaxFactor);
+        TeEqn.solve(mesh_.solver("Te"));
 
         constrainGasCells(TeEqn);
 
-        TeEqn.solve(electronDict);
+        TeEqn.solve(mesh_.solver("Te"));
 
         if (sweep + 1 < nInnerSweeps)
         {
-            const scalar residual = gMax(mag(Te_ - Tl_)).value();
+            const scalar residual = gMax(mag(Te_ - Tl_)().internalField());
 
             if (residual <= prevResidual)
             {
