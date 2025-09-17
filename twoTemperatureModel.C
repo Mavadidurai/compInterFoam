@@ -458,9 +458,7 @@ void twoTemperatureModel::solve
             metal*(laserSource + G*Tl_)
         );
 
-
-        // Apply stronger under-relaxation to electron equation
-        TeEqn.solve(mesh_.solver("Te"));
+        // Constrain gas cells before solving the electron equation
 
         constrainGasCells(TeEqn);
 
