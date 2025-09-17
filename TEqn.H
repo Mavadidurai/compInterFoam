@@ -18,19 +18,49 @@ extern Foam::Switch verbose;
       + fvm::div(rhoPhi, T)
       - fvm::Sp(contErr, T)
       - fvm::laplacian(transportModel.alphaEff(), T)
-      + (
-            fvc::div(fvc::absolute(phi, U), p)()()
-          + (fvc::ddt(rho, K) + fvc::div(rhoPhi, K))()()
-          - contErrK.dimensionedInternalField()
-        )
-       *
-        (
-            alpha1/mixture.thermo1().Cv()()
-          + alpha2/mixture.thermo2().Cv()()
-        )
      ==
         fvOptions(rho, T)
     );
+
+    tmp<volScalarField> tDivAbsolutePhiP
+    (
+        fvc::div(fvc::absolute(phi, U), p)
+    );
+
+    tmp<volScalarField> tKTransport
+    (
+        fvc::ddt(rho, K) + fvc::div(rhoPhi, K)
+    );
+
+    tmp<volScalarField> tCv1 = mixture.thermo1().Cv();
+    tmp<volScalarField> tCv2 = mixture.thermo2().Cv();
+
+    tmp<volScalarField> tHeatCapacityWeighting
+    (
+        alpha1/tCv1()
+      + alpha2/tCv2()
+    );
+
+    tCv1.clear();
+    tCv2.clear();
+
+    tmp<volScalarField> tPressureKSource
+    (
+        tHeatCapacityWeighting()
+       *
+        (
+            tDivAbsolutePhiP()
+          + tKTransport()
+          - contErrK
+        )
+    );
+
+    TEqn += tPressureKSource();
+
+    tPressureKSource.clear();
+    tHeatCapacityWeighting.clear();
+    tKTransport.clear();
+    tDivAbsolutePhiP.clear();
 
     TEqn.relax();
 

@@ -322,7 +322,8 @@ void twoTemperatureModel::updateEnergyTracking() const
 void twoTemperatureModel::solve
 (
     const volScalarField& laserSource,
-    const volScalarField& phaseChangeSource
+    const volScalarField& phaseChangeSource,
+    const volScalarField& phaseChangeRelaxCoeff
 )
 {
     if (!validateFields())
@@ -364,13 +365,20 @@ void twoTemperatureModel::solve
 
     // First solve lattice temperature - more stable to do this first
     // Create a more stable matrix system for the lattice temperature
+    const volScalarField& TlOld = Tl_.oldTime();
+
     fvScalarMatrix TlEqn
     (
         fvm::ddt(metal*Cl_, Tl_)
       - fvm::laplacian(metal*klField, Tl_)
       + fvm::Sp(metal*G, Tl_)
+      + fvm::Sp(metal*Cl_*phaseChangeRelaxCoeff, Tl_)
      ==
-        metal*(G*Te_ + Cl_*phaseChangeSource)
+        metal*
+        (
+            G*Te_
+          + Cl_*(phaseChangeSource + phaseChangeRelaxCoeff*TlOld)
+        )
 
     );
 

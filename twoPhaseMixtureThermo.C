@@ -313,7 +313,7 @@ Foam::tmp<Foam::volScalarField> Foam::twoPhaseMixtureThermo::computePhaseChange(
     scalar maxSource = pc.lookupOrDefault<scalar>("maxSource", GREAT);
     if (maxSource >= GREAT && pc.found("minCoefficient"))
     {
-        maxSource = pc.lookup<scalar>("minCoefficient");
+        maxSource = readScalar(pc.lookup("minCoefficient"));
     }
     const Switch onlyAboveVapor
     (

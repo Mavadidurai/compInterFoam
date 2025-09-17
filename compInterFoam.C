@@ -213,6 +213,8 @@ int main(int argc, char *argv[])
             // alpha equation
             mixture.correct();
             const volScalarField& phaseChangeSource = mixture.phaseChangeSource();
+            const volScalarField& phaseChangeRelaxCoeff =
+                mixture.phaseChangeRelaxCoeff();            
             const volScalarField& dgdt = mixture.dgdt();
 
             // Solve alpha transport using the unified compressible path
@@ -241,7 +243,8 @@ mixture.correct();
                         << ", max(Tl_) = " << max(ttm.Tl()).value() << nl;
                 }
             }
-ttm.solve(laserSrc(), phaseChangeSource);
+            ttm.solve(laserSrc(), phaseChangeSource, phaseChangeRelaxCoeff);
+
 #include "TEqn.H"
 
 // Recoil update: only if alpha subcycle didn’t run
