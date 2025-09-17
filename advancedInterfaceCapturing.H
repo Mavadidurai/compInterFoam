@@ -57,7 +57,8 @@ public:
     void calculateRecoilPressure();  // Calculate recoil pressure
     // Access functions
     const volScalarField& recoilPressure() const { return recoilPressure_; }
-    label recoilUpdateInterval() const { return recoilUpdateInterval_; }
+    label recoilUpdateInterval() const { return throttleRecoilUpdates_ ? recoilUpdateInterval_ : 1; }
+    Switch throttleRecoilUpdates() const { return throttleRecoilUpdates_; }
     scalar relaxFactor() const { return relaxFactor_; }
     scalar C0() const { return C0_; }
     scalar C1() const { return C1_; }

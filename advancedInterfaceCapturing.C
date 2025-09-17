@@ -98,11 +98,37 @@ advancedInterfaceCapturing::advancedInterfaceCapturing
         pressureScale_
     );
     recoilMax_ = aicDict.lookupOrDefault<scalar>("recoilMax", recoilMax_);
-    recoilUpdateInterval_ = aicDict.lookupOrDefault<label>
+    throttleRecoilUpdates_ = aicDict.lookupOrDefault<Switch>
     (
-        "recoilUpdateInterval",
-        recoilUpdateInterval_
+        "throttleRecoilUpdates",
+        throttleRecoilUpdates_
     );
+
+    if (throttleRecoilUpdates_)
+    {
+        recoilUpdateInterval_ = aicDict.lookupOrDefault<label>
+        (
+            "recoilUpdateInterval",
+            recoilUpdateInterval_
+        );
+
+        if (recoilUpdateInterval_ < 1)
+        {
+            WarningInFunction
+                << "recoilUpdateInterval must be >= 1 when throttling is enabled."
+                << " Resetting to 1" << endl;
+            recoilUpdateInterval_ = 1;
+        }
+    }
+    else if (aicDict.found("recoilUpdateInterval"))
+    {
+        WarningInFunction
+            << "Ignoring recoilUpdateInterval because throttleRecoilUpdates is"
+            << " disabled (default)." << nl
+            << "Set throttleRecoilUpdates true to reinstate throttled updates."
+            << endl;
+        recoilUpdateInterval_ = 1;
+    }
     recoilTempOffset_ = aicDict.lookupOrDefault<dimensionedScalar>
     (
         "recoilTempOffset",
@@ -285,11 +311,25 @@ void Foam::advancedInterfaceCapturing::correct()
     {
         Info<< "Performing simplified interface capturing" << endl;
     }
-    // First update the recoil pressure field
-    // Only do this every few steps to reduce MPI communication
-    if (recoilUpdateInterval_ <= 1 || callCount_++ % recoilUpdateInterval_ == 0)
+    // First update the recoil pressure field. By default we recalculate every
+    // invocation so that recoil pressure can follow fast transients.
+    if (!throttleRecoilUpdates_)
     {
+        callCount_ = 0;
         calculateRecoilPressure();
+    }
+    else
+    {
+        const label interval = recoilUpdateInterval_ > 1 ? recoilUpdateInterval_ : 1;
+        if (interval == 1)
+        {
+            callCount_ = 0;
+            calculateRecoilPressure();
+        }
+        else if (callCount_++ % interval == 0)
+        {
+            calculateRecoilPressure();
+        }
     }
 
     alpha1_.correctBoundaryConditions();

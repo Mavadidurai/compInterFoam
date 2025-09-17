@@ -29,39 +29,142 @@ if (pInterfaceCapturing.valid())
         }
     }
     
-    // perform advanced interface capturing only if the object exists
-    pInterfaceCapturing->correct();
-    interfaceCorrectionAppliedInSubCycle = true;
-    
-    // Check for NaN/Inf values in alpha1
-    const scalarField& alphaField = alpha1.internalField();
-    forAll(alphaField, i)
+    const bool useSubCycling = nAlphaSubCycles > 1;
+
+    if (useSubCycling)
     {
-        if (!std::isfinite(alphaField[i]))
+        tmp<surfaceScalarField> talphaPhi1(alphaPhi10);
+        dimensionedScalar totalDeltaT = runTime.deltaT();
+        talphaPhi1.reset
+        (
+            new surfaceScalarField
+            (
+                IOobject
+                (
+                    "alphaPhi1",
+                    runTime.timeName(),
+                    mesh,
+                    IOobject::NO_READ,
+                    IOobject::NO_WRITE
+                ),
+                mesh,
+                dimensionedScalar(alphaPhi10.dimensions(), Zero)
+            )
+        );
+
+        surfaceScalarField rhoPhiSum
+        (
+            IOobject
+            (
+                "rhoPhiSum",
+                runTime.timeName(),
+                mesh,
+                IOobject::NO_READ,
+                IOobject::NO_WRITE
+            ),
+            mesh,
+            dimensionedScalar(rhoPhi.dimensions(), Zero)
+        );
+
+        tmp<volScalarField> trSubDeltaT;
+        if (LTS)
         {
-            FatalErrorInFunction
-                << "Non-finite value detected in alpha1 at cell " << i
-                << ". Value: " << alphaField[i]
-                << abort(FatalError);
+            trSubDeltaT =
+                fv::localEulerDdt::localRSubDeltaT(mesh, nAlphaSubCycles);
+        }
+
+        for
+        (
+            subCycle<volScalarField> alphaSubCycle(alpha1, nAlphaSubCycles);
+            !(++alphaSubCycle).end();
+        )
+        {
+            pInterfaceCapturing->correct();
+            interfaceCorrectionAppliedInSubCycle = true;
+
+            const scalarField& alphaField = alpha1.internalField();
+            forAll(alphaField, i)
+            {
+                if (!std::isfinite(alphaField[i]))
+                {
+                    FatalErrorInFunction
+                        << "Non-finite value detected in alpha1 at cell " << i
+                        << ". Value: " << alphaField[i]
+                        << abort(FatalError);
+                }
+            }
+
+            alpha1 = max(min(alpha1, scalar(1)), scalar(0));
+            alpha1.correctBoundaryConditions();
+            alpha2 = scalar(1) - alpha1;
+            alpha2.correctBoundaryConditions();
+
+            #include "alphaEqn.H"
+
+            dimensionedScalar subCycleWeight = runTime.deltaT()/totalDeltaT;
+            talphaPhi1.ref() += subCycleWeight*alphaPhi10;
+            rhoPhiSum += subCycleWeight*rhoPhi;
+        }
+
+        alphaPhi10 = talphaPhi1();
+        rhoPhi = rhoPhiSum;
+    }
+    else
+    {
+        pInterfaceCapturing->correct();
+        interfaceCorrectionAppliedInSubCycle = true;
+
+        const scalarField& alphaField = alpha1.internalField();
+        forAll(alphaField, i)
+        {
+            if (!std::isfinite(alphaField[i]))
+            {
+                FatalErrorInFunction
+                    << "Non-finite value detected in alpha1 at cell " << i
+                    << ". Value: " << alphaField[i]
+                    << abort(FatalError);
+            }
+        }
+
+        alpha1 = max(min(alpha1, scalar(1)), scalar(0));
+        alpha1.correctBoundaryConditions();
+        alpha2 = scalar(1) - alpha1;
+        alpha2.correctBoundaryConditions();
+
+        #include "alphaEqn.H"
+    }
+
+    // Final safety check on alpha1 after sub-cycling
+    {
+        const scalarField& alphaField = alpha1.internalField();
+        forAll(alphaField, i)
+        {
+            if (!std::isfinite(alphaField[i]))
+            {
+                FatalErrorInFunction
+                    << "Non-finite value detected in alpha1 at cell " << i
+                    << ". Value: " << alphaField[i]
+                    << abort(FatalError);
+            }
         }
     }
-    
-    // Ensure alpha1 field is bounded between 0 and 1
+
     alpha1 = max(min(alpha1, scalar(1)), scalar(0));
     alpha1.correctBoundaryConditions();
-    // Update the complementary phase fraction
     alpha2 = scalar(1) - alpha1;
     alpha2.correctBoundaryConditions();
-    // Solve mass-transfer equation consistent with elsewhere
-    #include "alphaEqn.H"
 
     // Recompute density, fluxes and provide diagnostics
     rho = alpha1*rho1 + alpha2*rho2;
-    // Store intermediate fields to avoid redundant temporaries
-    tmp<surfaceScalarField> trho1 = fvc::interpolate(rho1);
-    tmp<surfaceScalarField> trho2 = fvc::interpolate(rho2);
-    surfaceScalarField phiDiff = phi - alphaPhi10;
-    rhoPhi = alphaPhi10*trho1() + phiDiff*trho2();
+
+    if (!useSubCycling)
+    {
+        // Store intermediate fields to avoid redundant temporaries
+        tmp<surfaceScalarField> trho1 = fvc::interpolate(rho1);
+        tmp<surfaceScalarField> trho2 = fvc::interpolate(rho2);
+        surfaceScalarField phiDiff = phi - alphaPhi10;
+        rhoPhi = alphaPhi10*trho1() + phiDiff*trho2();
+    }
 
     if (verbose)
     {
