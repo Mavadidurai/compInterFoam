@@ -43,6 +43,7 @@ advancedInterfaceCapturing::advancedInterfaceCapturing
     pressureScale_(20000.0),
     recoilMax_(5e6),
     recoilUpdateInterval_(1),
+    throttleRecoilUpdates_(false),
     recoilTempOffset_
     (
         dimensionedScalar("recoilTempOffset", dimTemperature, 0.0)
@@ -98,11 +99,10 @@ advancedInterfaceCapturing::advancedInterfaceCapturing
         pressureScale_
     );
     recoilMax_ = aicDict.lookupOrDefault<scalar>("recoilMax", recoilMax_);
-    throttleRecoilUpdates_ = aicDict.lookupOrDefault<Switch>
-    (
-        "throttleRecoilUpdates",
-        throttleRecoilUpdates_
-    );
+    if (aicDict.found("throttleRecoilUpdates"))
+    {
+        throttleRecoilUpdates_ = aicDict.lookup<Switch>("throttleRecoilUpdates");
+    }
 
     if (throttleRecoilUpdates_)
     {

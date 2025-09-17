@@ -24,6 +24,7 @@ private:
     scalar pressureScale_;           // Scaling factor for evaporation rate
     scalar recoilMax_;               // Base recoil pressure cap
     label  recoilUpdateInterval_;    // Steps between recoil pressure updates
+    Switch throttleRecoilUpdates_;   // Enable throttling of recoil updates    
     dimensionedScalar recoilTempOffset_;        // Temperature offset for recoil activation
     dimensionedScalar phaseChangeTempOffset_;   // Offset for phase-change threshold
     Switch clampRecoil_;             // Enable/disable recoil pressure clamping

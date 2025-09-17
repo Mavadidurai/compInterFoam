@@ -251,10 +251,23 @@ mixture.correct();
 // Recoil update: only if alpha subcycle didn’t run
 if (!alphaSubCycleExecuted && pInterfaceCapturing.valid())
 {
-    const label interval = pInterfaceCapturing->recoilUpdateInterval();
-    if (interval <= 1 || recoilCallCount++ % interval == 0)
+    if (!pInterfaceCapturing->throttleRecoilUpdates())
     {
+        recoilCallCount = 0;
         pInterfaceCapturing->calculateRecoilPressure();
+    }
+    else
+    {
+        const label interval = pInterfaceCapturing->recoilUpdateInterval();
+        if (interval <= 1)
+        {
+            recoilCallCount = 0;
+            pInterfaceCapturing->calculateRecoilPressure();
+        }
+        else if (recoilCallCount++ % interval == 0)
+        {
+            pInterfaceCapturing->calculateRecoilPressure();
+        }
     }
 }
 
