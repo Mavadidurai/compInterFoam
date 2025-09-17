@@ -332,7 +332,8 @@ twoTemperatureModel ttm
     twoTemperatureDict,
     alpha1
 );
-
+// Synchronise cached lattice heat capacity with the two-temperature model
+mixture.setClTTM(ttm.Cl());
 
 // Retrieve alpha solver controls from fvSolution
 const dictionary& alphaSolverControls = mesh.solverDict("alpha.metal");

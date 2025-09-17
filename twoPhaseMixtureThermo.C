@@ -35,6 +35,7 @@ License
 #include "IOdictionary.H"
 #include "Switch.H"
 #include "Tuple2.H"
+#include "Time.H"
 
 // * * * * * * * * * * * * * * Static Data Members * * * * * * * * * * * * * //
 
@@ -117,7 +118,8 @@ Foam::twoPhaseMixtureThermo::twoPhaseMixtureThermo
     nu1_("nu1", dimViscosity, 0.0),
     nu2_("nu2", dimViscosity, 0.0),
     rho1_("rho1", dimDensity, 0.0),
-    rho2_("rho2", dimDensity, 0.0)
+    rho2_("rho2", dimDensity, 0.0),
+    ClTTM_("ClTTM", dimEnergy/dimVolume/dimTemperature, 0.0)
 {
         // Read metal phase thermophysical properties from dedicated dictionary
     IOdictionary metalDict
@@ -183,6 +185,7 @@ Foam::twoPhaseMixtureThermo::twoPhaseMixtureThermo
         << "    " << phase2Name() << ": nu=" << nu2_.value()
         << ", rho=" << rho2_.value() << endl;
 
+    updateTwoTemperatureCache();
 
     thermo1_ = rhoThermo::New(U.mesh(), phase1Name());
     thermo2_ = rhoThermo::New(U.mesh(), phase2Name());
@@ -214,7 +217,8 @@ void Foam::twoPhaseMixtureThermo::correct()
     interfaceProperties::correct();
     // Laser heating is now supplied externally via setQLaser()
 
-    phaseChangeSource_ = computePhaseChange()();
+    computePhaseChange();
+
     phaseChangeSource_.correctBoundaryConditions();
     phaseChangeRelaxCoeff_.correctBoundaryConditions();
 
@@ -227,6 +231,32 @@ void Foam::twoPhaseMixtureThermo::setQLaser(const volScalarField& src)
 {
     Q_laser_ = src;
     Q_laser_.correctBoundaryConditions();
+}
+void Foam::twoPhaseMixtureThermo::updateTwoTemperatureCache()
+{
+    const Time& time = T_.mesh().time();
+
+    if (time.controlDict().found("twoTemperatureProperties"))
+    {
+        const dictionary& twoTempDict =
+            time.controlDict().subDict("twoTemperatureProperties");
+
+        ClTTM_ = twoTempDict.lookupOrDefault<dimensionedScalar>("Cl", ClTTM_);
+    }
+    else
+    {
+        ClTTM_ = dimensionedScalar
+        (
+            "ClTTM",
+            dimEnergy/dimVolume/dimTemperature,
+            0.0
+        );
+    }
+}
+
+void Foam::twoPhaseMixtureThermo::setClTTM(const dimensionedScalar& Cl)
+{
+    ClTTM_ = Cl;
 }
 Foam::word Foam::twoPhaseMixtureThermo::thermoName() const
 {
@@ -250,26 +280,10 @@ Foam::twoPhaseMixtureThermo::sigma() const
 {
     return this->Foam::interfaceProperties::sigmaK();
 }
-Foam::tmp<Foam::volScalarField> Foam::twoPhaseMixtureThermo::computePhaseChange()
+void Foam::twoPhaseMixtureThermo::computePhaseChange()
 {
-    tmp<volScalarField> tSource
-    (
-        new volScalarField
-        (
-            IOobject
-            (
-                "phaseChangeSource",
-                T_.time().timeName(),
-                T_.mesh(),
-                IOobject::NO_READ,
-                IOobject::NO_WRITE
-            ),
-            T_.mesh(),
-            dimensionedScalar("source", dimTemperature/dimTime, 0.0)
-        )
-    );
-
-    volScalarField& source = tSource.ref();
+    phaseChangeSource_ =
+        dimensionedScalar("source", dimTemperature/dimTime, 0.0);
     // Reset the implicit relaxation coefficient
     phaseChangeRelaxCoeff_ = dimensionedScalar("relax", dimless/dimTime, 0.0);
     // Access coefficients from transportProperties
@@ -282,7 +296,7 @@ Foam::tmp<Foam::volScalarField> Foam::twoPhaseMixtureThermo::computePhaseChange(
             << "phaseChangeCoeffs not found in transportProperties" << nl
             << "Supply a phaseChangeCoeffs sub-dictionary or disable phase change." << nl
             << exit(FatalError);
-        return tSource;
+        return;
     }
 
     const dictionary& pc = transportDict.subDict("phaseChangeCoeffs");
@@ -310,11 +324,50 @@ Foam::tmp<Foam::volScalarField> Foam::twoPhaseMixtureThermo::computePhaseChange(
             << exit(FatalError);
     }
 
-    scalar maxSource = pc.lookupOrDefault<scalar>("maxSource", GREAT);
-    if (maxSource >= GREAT && pc.found("minCoefficient"))
+    const word maxSourceDefaultKey("phaseChangeMaxSourceDefault");
+    const bool hasTransportDefault = transportDict.found(maxSourceDefaultKey);
+
+    scalar defaultMaxSource =
+        transportDict.lookupOrDefault<scalar>
+        (
+            maxSourceDefaultKey,
+            1e7
+        );
+
+    scalar maxSource = defaultMaxSource;
+    bool usingDefaultMaxSource = false;
+
+    if (pc.found("maxSource"))
+    {
+        maxSource = pc.lookupOrDefault<scalar>("maxSource", defaultMaxSource);
+    }
+    else if (pc.found("minCoefficient"))
     {
         maxSource = readScalar(pc.lookup("minCoefficient"));
     }
+    else
+    {
+        usingDefaultMaxSource = true;
+    }
+
+    if (usingDefaultMaxSource)
+    {
+        static bool defaultMaxSourceWarned = false;
+
+        if (!defaultMaxSourceWarned)
+        {
+            WarningInFunction
+                << "phaseChangeCoeffs:maxSource not specified; using "
+                << (hasTransportDefault
+                    ? "transportProperties entry 'phaseChangeMaxSourceDefault'"
+                    : "internal fallback")
+                << " = " << maxSource << " [K/s]" << endl;
+
+            defaultMaxSourceWarned = true;
+        }
+    }
+
+    const bool limitSource = (maxSource > 0 && maxSource < GREAT);
     const Switch onlyAboveVapor
     (
         pc.lookupOrDefault<Switch>("onlyAboveVapor", false)
@@ -373,7 +426,7 @@ Foam::tmp<Foam::volScalarField> Foam::twoPhaseMixtureThermo::computePhaseChange(
         if (!active)
         {
             Info<< "phaseChangeCoeffs inactive at time " << timeVal << nl;
-            return tSource;
+            return;
         }
     }
 
@@ -404,7 +457,7 @@ Foam::tmp<Foam::volScalarField> Foam::twoPhaseMixtureThermo::computePhaseChange(
 
         scalar sourceVal = localRate*(Tvapor - Tcell);
 
-        if (maxSource < GREAT)
+        if (limitSource)
         {
             sourceVal = Foam::max(Foam::min(sourceVal, maxSource), -maxSource);
 
@@ -425,10 +478,8 @@ Foam::tmp<Foam::volScalarField> Foam::twoPhaseMixtureThermo::computePhaseChange(
         }
 
         phaseChangeRelaxCoeff_[cellI] = localRate;
-        source[cellI] = sourceVal;
+        phaseChangeSource_[cellI] = sourceVal;
     }
-
-    return tSource;
 }
 
 Foam::tmp<Foam::volScalarField>
@@ -467,21 +518,8 @@ Foam::twoPhaseMixtureThermo::computeMassTransfer() const
     const scalar rateMax = mt.lookupOrDefault<scalar>("rateMax", -1.0);
 
     // lattice heat capacity [J/m^3/K] from two-temperature properties
-    const dictionary& twoTempDict =
-        T_.mesh().time().controlDict().subDict("twoTemperatureProperties");
-
-    const dimensionedScalar Cl
-    (
-        twoTempDict.lookupOrDefault<dimensionedScalar>
-        (
-            "Cl",
-            dimensionedScalar("Cl", dimEnergy/dimVolume/dimTemperature, 0.0)
-        )
-    );
-
-    const dimensionedScalar L = latentHeat();
-    const scalar ClVal = Cl.value();
-    const scalar LVal = L.value();
+    const scalar ClVal = ClTTM_.value();
+    const scalar LVal = latentHeat().value();
 
     List<scalar> tStart, tEnd;
     if (mt.found("tStart"))
@@ -819,6 +857,7 @@ bool Foam::twoPhaseMixtureThermo::read()
 {
     if (psiThermo::read())
     {
+        updateTwoTemperatureCache();        
         return interfaceProperties::read();
     }
 

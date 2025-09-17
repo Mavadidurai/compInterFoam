@@ -62,7 +62,11 @@ class twoPhaseMixtureThermo
         //- Density of each phase from transportProperties
         dimensionedScalar rho1_;
         dimensionedScalar rho2_;
+        //- Cached lattice heat capacity from the two-temperature model [J/m^3/K]
+        dimensionedScalar ClTTM_;
 
+        //- Refresh cached two-temperature properties from the control dictionary
+        void updateTwoTemperatureCache();
 public:
 
     //- Runtime type information
@@ -124,6 +128,11 @@ public:
         //- Access densities read from transportProperties
         const dimensionedScalar& rho1() const { return rho1_; }
         const dimensionedScalar& rho2() const { return rho2_; }
+        //- Access cached lattice heat capacity from the two-temperature model
+        const dimensionedScalar& ClTTM() const { return ClTTM_; }
+
+        //- Update cached lattice heat capacity from the two-temperature model
+        void setClTTM(const dimensionedScalar& Cl);        
         //- Return const access to laser heating source
         const volScalarField& Q_laser() const
         {
@@ -171,8 +180,8 @@ public:
         //  i.e. rho = const
         virtual bool isochoric() const;
         
-        //- Compute and return phase change source term
-        virtual tmp<volScalarField> computePhaseChange();
+        //- Compute phase change source term
+        virtual void computePhaseChange();
 
         //- Compute and return mass-transfer rate dg/dt
         virtual tmp<volScalarField> computeMassTransfer() const;

@@ -201,7 +201,8 @@ int main(int argc, char *argv[])
         laser.correct(runTime.value());
         tmp<volScalarField> laserSrc = laser.source();
         mixture.setQLaser(laserSrc());
-
+        // Refresh cached two-temperature properties in case the model updated
+        mixture.setClTTM(ttm.Cl());
 
         // --- Pressure-velocity PIMPLE corrector loop
         while (pimple.loop())

@@ -418,7 +418,7 @@ void twoTemperatureModel::solve
     // Perform electron temperature solve using fvSolution controls
     TeEqn.solve(mesh_.solver("Te"));
     
-    scalar prevResidual = gMax(mag(Te_ - Tl_)).value();
+    scalar prevResidual = gMax(mag(Te_ - Tl_)().internalField());
 
     for (label sweep = 0; sweep < nInnerSweeps; ++sweep)
     {
@@ -475,17 +475,22 @@ void twoTemperatureModel::solve
         if (sweep + 1 < nInnerSweeps)
         {
             const scalar residual = gMax(mag(Te_ - Tl_)).value();
-            const scalar reduction = max(prevResidual - residual, scalar(0));
 
-            if (reduction < innerCouplingReductionTol)
+            if (residual <= prevResidual)
             {
-                if (verbose)
+                const scalar reduction = max(prevResidual - residual, scalar(0));
+
+                if (reduction < innerCouplingReductionTol)
                 {
-                    Info<< "Inner two-temperature coupling converged after "
-                        << sweep + 1 << " sweeps with reduction "
-                        << reduction << endl;
+                    if (verbose)
+                    {
+                        Info<< "Inner two-temperature coupling converged after "
+                            << sweep + 1 << " sweeps with reduction "
+                            << reduction << endl;
+                    }
+                    prevResidual = residual;
+                    break;
                 }
-                break;
             }
 
             prevResidual = residual;
