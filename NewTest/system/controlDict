@@ -50,11 +50,12 @@ runTimeModifiable yes;
 useAdvancedInterfaceCapturing  true;
 advancedInterfaceCapturing
 {
+    // Recoil pressure is recalculated each timestep; throttling controls removed.
     pressureScale        1e6;           // Reduced from 1e7
     recoilMax            1e7;           // Much smaller cap initially
     clampRecoil          true;
     scaleRecoilMax       true;          // Enable scaling
-    recoilUpdateInterval 5;             // Less frequent updates
+
     recoilTempOffset     [0 0 0 1 0 0 0] 1000;  // Higher threshold
     phaseChangeTempOffset [0 0 0 1 0 0 0] 100;  // Delay recoil until T > Tv + 100 K
     relaxFactor          0.05;          // More relaxation
@@ -76,6 +77,9 @@ twoTemperatureProperties
     energyTol 0.01;             // Relaxed tolerance
     minTe 250;                  // Conservative bounds
     maxTe 8000;                 // Conservative bounds
+        // Optional lattice conductivity correction controls:
+    // klHighTThreshold 1000;   // [K] start reducing kl above this Tl
+    // klExponent       0.5;    // Power-law exponent (set 0 to disable)
 }
 
 // --- Additional stability controls

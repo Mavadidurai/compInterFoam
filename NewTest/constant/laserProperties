@@ -28,7 +28,6 @@ FoamFile
 //   pulseDutyCycle      [-, optional]
 //   reflectivity        [-]
 //   gaussianProfile     [bool]
-//   maxReflections      [label]
 //   continuousLaser     [bool]
 //   laserStartTime      [s]
 //   laserEndTime        [s]
@@ -69,7 +68,6 @@ absorptionCoeff     5e7;      // [1/m] ~20–50 nm optical depth
 // Reflectivity / profile
 reflectivity        0.55;
 gaussianProfile     true;
-maxReflections      1;
 
 // Optional intensity entry (consistent with pulseEnergy & pulseWidth)
 //peakIntensity       1e15;      // [W/m^2] from pulseEnergy

@@ -109,6 +109,8 @@ compInterFoamCoeffs
     maxVelocity            5000;    // UEqn.H velocity limiter
     defaultMetalDensity    4500;    // UEqn.H (fallback if rho1 invalid)
     defaultAirDensity      1.2;     // UEqn.H (fallback if rho2 invalid)
+    maxInitialResidual     1e3;     // pEqn.H pressure rollback threshold
+    
     // Keep α bounded but not over-restricted
     enableAlphaClamp  true;
     minAlpha          0.001;                // CHANGE: was 0.0

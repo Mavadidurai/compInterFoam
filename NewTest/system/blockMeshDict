@@ -34,24 +34,24 @@ vertices
 
 blocks
 (
-    //                bottom (z=0)    top (z=10)         Nx   Ny  Nz
-    hex ( 0  1  5  4   3  2  6  7)   (240  80  20)  simpleGrading (1 1 1)  // Glass
-    hex ( 4  5  9  8   7  6 10 11)   (240 2 20)    simpleGrading (1 2.0 1)  // Ti film (20 cells across 71.4 nm)
-    hex ( 8  9 13 12  11 10 14 15)   (240 120  20)  simpleGrading (1 1 1)  // Air gap 1 (12 µm)
-    hex (12 13 17 16  15 14 18 19)   (240 120  20)  simpleGrading (1 1 1)  // Air gap 2 (12 µm)
+    //                y-low face       y-high face        Nz   Nx   Ny
+    hex ( 0  3  2  1   4  7  6  5)   (20 240  80)  simpleGrading (1 1 1)  // Glass
+    hex ( 4  7  6  5   8 11 10  9)   (20 240 2)    simpleGrading (1 1 2.0)  // Ti film (20 cells across 71.4 nm)
+    hex ( 8 11 10  9  12 15 14 13)   (20 240 120)  simpleGrading (1 1 1)  // Air gap 1 (12 µm)
+    hex (12 15 14 13  16 19 18 17)   (20 240 120)  simpleGrading (1 1 1)  // Air gap 2 (12 µm)
 );
 edges ();
 
 boundary
 (
-  left 		{ type symmetryPlane; faces ((0 3 7 4)(4 7 11 8)(8 11 15 12)(12 15 19 16)); }
-  right 	{ type symmetryPlane; faces ((1 5 6 2)(5 9 10 6)(9 13 14 10)(13 17 18 14)); }
+  left          { type symmetryPlane; faces ((0 3 7 4)(4 7 11 8)(8 11 15 12)(12 15 19 16)); }
+  right         { type symmetryPlane; faces ((1 5 6 2)(5 9 10 6)(9 13 14 10)(13 17 18 14)); }
 
-  front 	{ type symmetryPlane; faces ((0 1 5 4)(4 5 9 8)(8 9 13 12)(12 13 17 16)); }
-  back 		{ type symmetryPlane; faces ((3 2 6 7)(7 6 10 11)(11 10 14 15)(15 14 18 19)); }
+  front         { type symmetryPlane; faces ((0 4 5 1)(4 8 9 5)(8 12 13 9)(12 16 17 13)); }
+  back          { type symmetryPlane; faces ((3 2 6 7)(7 6 10 11)(11 10 14 15)(15 14 18 19)); }
 
-  substrate 	{ type wall;  faces ((16 17 18 19)); }     // receiver wall (top of second air gap)
-  donor 	{ type wall;  faces ((0 1 2 3)); }         // donor glass bottom wall
+  substrate     { type wall;  faces ((16 19 18 17)); }     // receiver wall (top of second air gap)
+  donor         { type wall;  faces ((0 1 2 3)); }         // donor glass bottom wall
 );
 
 mergePatchPairs();
