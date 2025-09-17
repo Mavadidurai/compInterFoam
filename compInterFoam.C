@@ -245,13 +245,7 @@ mixture.correct();
 
 #include "TEqn.H"
 
-// Recoil update: only if alpha subcycle didn’t run
-if (!alphaSubCycleExecuted && pInterfaceCapturing.valid())
-{
-    pInterfaceCapturing->calculateRecoilPressure();
-}
-
-// Apply interface-capturing corrections after recoil update
+// Apply interface-capturing corrections after the thermal solve if needed
 if
 (
     useAdvancedCapturing
@@ -260,12 +254,19 @@ if
 )
 {
     pInterfaceCapturing->correct();
+    interfaceCorrectionAppliedInSubCycle = true;
 }
 
-if (verbose)
+// Ensure the momentum equation sees the latest recoil pressure
+if (pInterfaceCapturing.valid())
 {
-    Info<< "max recoilPressure = "
-        << max(pInterfaceCapturing->recoilPressure()).value() << " Pa" << endl;
+    pInterfaceCapturing->calculateRecoilPressure();
+
+    if (verbose)
+    {
+        Info<< "max recoilPressure = "
+            << max(pInterfaceCapturing->recoilPressure()).value() << " Pa" << endl;
+    }
 }
 
 #include "UEqn.H"
