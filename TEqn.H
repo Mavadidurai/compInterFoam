@@ -10,7 +10,8 @@ extern Foam::Switch verbose;
     // Solve the compressible temperature equation to evolve the gas phase
     tmp<volScalarField> tContErr = fvc::div(rhoPhi);
     const volScalarField& contErr = tContErr();
-
+    tmp<volScalarField> tContErrK(contErr*K);
+    const volScalarField& contErrK = tContErrK();
     fvScalarMatrix TEqn
     (
         fvm::ddt(rho, T)
@@ -20,7 +21,7 @@ extern Foam::Switch verbose;
       + (
             fvc::div(fvc::absolute(phi, U), p)()()
           + (fvc::ddt(rho, K) + fvc::div(rhoPhi, K))()()
-          - (contErr*K).dimensionedInternalField()
+          - contErrK.dimensionedInternalField()
         )
        *
         (
@@ -40,6 +41,7 @@ extern Foam::Switch verbose;
     fvOptions.correct(T);
 
     tContErr.clear();
+    tContErrK.clear();
 
     // Store the solved temperature field for gas-dominated regions
     const scalarField solvedTInternal(T.internalField());

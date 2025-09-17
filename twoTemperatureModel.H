@@ -98,7 +98,8 @@ public:
         void solve
         (
             const volScalarField& laserSource,
-            const volScalarField& phaseChangeSource
+            const volScalarField& phaseChangeSource,
+            const volScalarField& phaseChangeRelaxCoeff
         );
         //- Calculate electron thermal conductivity
         tmp<volScalarField> electronThermalConductivity() const;

@@ -88,6 +88,19 @@ Foam::twoPhaseMixtureThermo::twoPhaseMixtureThermo
         U.mesh(),
         dimensionedScalar("source", dimTemperature/dimTime, 0.0)  // [K/s]
        ),
+     phaseChangeRelaxCoeff_
+    (
+        IOobject
+        (
+            "phaseChangeRelaxCoeff",
+            U.mesh().time().timeName(),
+            U.mesh(),
+            IOobject::NO_READ,
+            IOobject::AUTO_WRITE
+        ),
+        U.mesh(),
+        dimensionedScalar("relax", dimless/dimTime, 0.0)
+    ),
     dgdt_
     (
         IOobject
@@ -203,6 +216,7 @@ void Foam::twoPhaseMixtureThermo::correct()
 
     phaseChangeSource_ = computePhaseChange()();
     phaseChangeSource_.correctBoundaryConditions();
+    phaseChangeRelaxCoeff_.correctBoundaryConditions();
 
     // Compute mass-transfer rate [1/s]
     dgdt_ = computeMassTransfer()();
@@ -236,7 +250,7 @@ Foam::twoPhaseMixtureThermo::sigma() const
 {
     return this->Foam::interfaceProperties::sigmaK();
 }
-Foam::tmp<Foam::volScalarField> Foam::twoPhaseMixtureThermo::computePhaseChange() const
+Foam::tmp<Foam::volScalarField> Foam::twoPhaseMixtureThermo::computePhaseChange()
 {
     tmp<volScalarField> tSource
     (
@@ -256,7 +270,8 @@ Foam::tmp<Foam::volScalarField> Foam::twoPhaseMixtureThermo::computePhaseChange(
     );
 
     volScalarField& source = tSource.ref();
-
+    // Reset the implicit relaxation coefficient
+    phaseChangeRelaxCoeff_ = dimensionedScalar("relax", dimless/dimTime, 0.0);
     // Access coefficients from transportProperties
     const dictionary& transportDict =
         T_.mesh().lookupObject<dictionary>("transportProperties");
@@ -275,10 +290,31 @@ Foam::tmp<Foam::volScalarField> Foam::twoPhaseMixtureThermo::computePhaseChange(
     const scalar Tvapor = pc.lookupOrDefault<scalar>("Tvapor", T_vapor_);
     const scalar windowWidth = pc.lookupOrDefault<scalar>("windowWidth", 0.0);
     dtFloor_ = pc.lookupOrDefault<scalar>("dtFloor", dtFloor_);
-    const scalar minCoefficient
-    (
-        pc.lookupOrDefault<scalar>("minCoefficient", GREAT)
-    );
+    scalar relaxationRate = pc.lookupOrDefault<scalar>("relaxationRate", -1.0);
+    if (relaxationRate < 0)
+    {
+        const scalar relaxationTime =
+            pc.lookupOrDefault<scalar>("relaxationTime", -1.0);
+
+        if (relaxationTime > 0)
+        {
+            relaxationRate = 1.0/relaxationTime;
+        }
+    }
+
+    if (relaxationRate < 0)
+    {
+        FatalErrorInFunction
+            << "phaseChangeCoeffs requires either 'relaxationRate' [1/s]"
+            << " or 'relaxationTime' [s] to be specified" << nl
+            << exit(FatalError);
+    }
+
+    scalar maxSource = pc.lookupOrDefault<scalar>("maxSource", GREAT);
+    if (maxSource >= GREAT && pc.found("minCoefficient"))
+    {
+        maxSource = pc.lookup<scalar>("minCoefficient");
+    }
     const Switch onlyAboveVapor
     (
         pc.lookupOrDefault<Switch>("onlyAboveVapor", false)
@@ -297,7 +333,10 @@ Foam::tmp<Foam::volScalarField> Foam::twoPhaseMixtureThermo::computePhaseChange(
             << "    Tvapor        " << Tvapor << nl
             << "    windowWidth   " << windowWidth << nl
             << "    dtFloor       " << dtFloor_ << nl
-            << "    minCoefficient " << minCoefficient << nl
+            << "    relaxationRate " << relaxationRate << nl
+            << "    relaxationTime "
+            << (relaxationRate > SMALL ? 1.0/relaxationRate : GREAT) << nl
+            << "    maxSource     " << maxSource << nl
             << "    onlyAboveVapor " << onlyAboveVapor << nl;
         if (actTimes.size())
         {
@@ -338,65 +377,56 @@ Foam::tmp<Foam::volScalarField> Foam::twoPhaseMixtureThermo::computePhaseChange(
         }
     }
 
-    // Use phase-specific Cp (metal for alpha1 > 0.5, gas otherwise)
-    const tmp<volScalarField> tCp1 = thermo1_->Cp();
-    const tmp<volScalarField> tCp2 = thermo2_->Cp();
-    const volScalarField& Cp1Field = tCp1();
-    const volScalarField& Cp2Field = tCp2();
-    const dimensionedScalar dt = T_.time().deltaT();
-    const dimensionedScalar L = latentHeat();
+    const scalar minAlpha = 0.0;
+    const scalar maxAlpha = 1.0;
 
-    const scalar LVal = L.value();
-    const scalar dtVal = dt.value();
-
-    // Linear blend width around the interface to avoid Cp discontinuities
-    const scalar blendWidth = 0.1;
-
-forAll(T_, cellI)
-{
-    const scalar a1    = alpha1()[cellI];
-    scalar w = (a1 - 0.5)/blendWidth + 0.5;
-    w = min(max(w, 0.0), 1.0);
-    const scalar CpCell = w*Cp1Field[cellI] + (1.0 - w)*Cp2Field[cellI];
-    const scalar Tcell = T_[cellI];
-
-    // magnitude in K/s (guard Cp and dt to avoid division spikes)
-    scalar magCoeff =
-        LVal/(max(CpCell, VSMALL))*(1.0/max(dtVal, dtFloor_));
-if (minCoefficient < GREAT)
-{
-    magCoeff = min(magCoeff, minCoefficient);
-}	
-    // optional smoothing around vaporisation window
-    if (windowWidth > SMALL)
+    forAll(T_, cellI)
     {
-        magCoeff *= min(Foam::mag(Tcell - Tvapor)/windowWidth, 1.0);
-    }
+        const scalar a1 = Foam::min(Foam::max(alpha1()[cellI], minAlpha), maxAlpha);
+        const scalar Tcell = T_[cellI];
 
-    // Sign convention for phase change:
-    //  - above Tvapor: lattice loses energy -> sink (evaporation)
-    //  - below Tvapor: lattice gains energy -> source (condensation)
-    if (Tcell > Tvapor)
-    {
-        // scale evaporation by available liquid fraction
-        source[cellI] = -magCoeff*a1;
-    }
-    else if (Tcell < Tvapor)
-    {
-        // scale condensation by available vapour fraction
-        source[cellI] = +magCoeff*(1.0 - a1);
-    }
-    else
-    {
-        source[cellI] = 0.0;
-    }
+        scalar available = 0.0;
+        if (Tcell > Tvapor)
+        {
+            available = a1;
+        }
+        else if (Tcell < Tvapor)
+        {
+            available = 1.0 - a1;
+        }
 
-    // preserve your boolean gate; read it as "onlyAboveVapor"
-    if (onlyAboveVapor && Tcell < Tvapor)
-    {
-        source[cellI] = 0.0;
+        scalar localRate = relaxationRate*available;
+
+        if (windowWidth > SMALL)
+        {
+            localRate *= Foam::min(Foam::mag(Tcell - Tvapor)/windowWidth, 1.0);
+        }
+
+        scalar sourceVal = localRate*(Tvapor - Tcell);
+
+        if (maxSource < GREAT)
+        {
+            sourceVal = Foam::max(Foam::min(sourceVal, maxSource), -maxSource);
+
+            if (Foam::mag(Tvapor - Tcell) > SMALL)
+            {
+                localRate = Foam::mag(sourceVal)/(Foam::mag(Tvapor - Tcell));
+            }
+            else
+            {
+                localRate = 0.0;
+            }
+        }
+
+        if (onlyAboveVapor && Tcell < Tvapor)
+        {
+            localRate = 0.0;
+            sourceVal = 0.0;
+        }
+
+        phaseChangeRelaxCoeff_[cellI] = localRate;
+        source[cellI] = sourceVal;
     }
-}
 
     return tSource;
 }

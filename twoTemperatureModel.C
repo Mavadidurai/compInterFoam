@@ -354,7 +354,6 @@ void twoTemperatureModel::solve
             << ", max(Tl_) = " << max(Tl_).value() << endl;
     }
 
-
     // Calculate temperature-dependent properties
     volScalarField ke = electronThermalConductivity();
     volScalarField G = electronPhononCoupling();

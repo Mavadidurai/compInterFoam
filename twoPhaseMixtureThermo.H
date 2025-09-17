@@ -48,8 +48,11 @@ class twoPhaseMixtureThermo
         //- Laser volumetric heat source (W/m^3)
         volScalarField Q_laser_;
 
-        //- Phase change source term
+        //- Phase change source term (explicit part)
         volScalarField phaseChangeSource_;
+
+        //- Relaxation coefficient used for implicit phase-change treatment
+        volScalarField phaseChangeRelaxCoeff_;
         //- Mass-transfer rate due to phase change [1/s]
         volScalarField dgdt_;
         //- Kinematic viscosity of each phase from transportProperties
@@ -138,6 +141,11 @@ public:
         {
             return phaseChangeSource_;
         }
+        //- Return const access to the implicit relaxation coefficient
+        const volScalarField& phaseChangeRelaxCoeff() const
+        {
+            return phaseChangeRelaxCoeff_;
+        }        
 	 //- Access dg/dt field [1/s]
         const volScalarField& dgdt() const
         {
@@ -164,7 +172,7 @@ public:
         virtual bool isochoric() const;
         
         //- Compute and return phase change source term
-        virtual tmp<volScalarField> computePhaseChange() const;
+        virtual tmp<volScalarField> computePhaseChange();
 
         //- Compute and return mass-transfer rate dg/dt
         virtual tmp<volScalarField> computeMassTransfer() const;
