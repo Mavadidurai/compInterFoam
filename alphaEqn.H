@@ -66,10 +66,6 @@ extern Foam::Switch verbose;
     (
         alphaControls.lookupOrDefault<scalar>("thinFilmCoeff", 0.0)
     );
-    const scalar alphaSourceFloor
-    (
-        alphaControls.lookupOrDefault<scalar>("alphaSourceFloor", 1e-3) // recommended ~1e-3
-    );
     const scalar sourceMaxMag
     (
         alphaControls.lookupOrDefault<scalar>("sourceMaxMag", GREAT)
@@ -168,84 +164,61 @@ extern Foam::Switch verbose;
             dimensionedScalar(dgdt.dimensions(), Zero)
         );
 
-               // Basic source term calculation with clamping
-        label sourceClampCells = 0;
-        bool hitAlphaFloor = false;
+       // Construct bounded implicit/explicit source contributions
         scalarField& SpInternalField = SpInternal.field();
         scalarField& SuInternalField = SuInternal.field();
-        const scalarField& alpha1Field = alpha1.internalField();
-        const scalarField& dgdtField = dgdt.internalField();
+        const dimensionedScalar sourceLimit
+        (
+            "sourceLimit",
+            dgdt.dimensions(),
+            sourceMaxMag
+        );
 
-        forAll(dgdtField, celli)
+        tmp<volScalarField> tdgdtLimited =
+            Foam::min
+            (
+                Foam::max(dgdt, -sourceLimit),
+                sourceLimit
+            );
+        const volScalarField& dgdtLimited = tdgdtLimited();
+
+        if (sourceMaxMag < GREAT)
         {
-            const scalar dgt = dgdtField[celli];
-
-            // Separate evaporation (positive) and condensation (negative) contributions
-            scalar evapRate = max(dgt, scalar(0));   // posPart(dgdt)
-            scalar condRate = max(-dgt, scalar(0));  // posPart(-dgdt) ~ negPart(dgdt)
-
-            bool cellClamped = false;
-            if (evapRate > sourceMaxMag)
+            const scalar maxAbs = gMax(mag(dgdt).internalField());
+            if (maxAbs > sourceMaxMag + SMALL)
             {
-                evapRate = sourceMaxMag;
-                cellClamped = true;
-            }
-            if (condRate > sourceMaxMag)
-            {
-                condRate = sourceMaxMag;
-                cellClamped = true;
-            }
-
-            scalar evapDenom = max(alpha1Field[celli], alphaSourceFloor);
-            if (evapRate > 0 && alpha1Field[celli] < alphaSourceFloor)
-            {
-                hitAlphaFloor = true;
-            }
-            if (evapDenom > sourceMaxMag)
-            {
-                evapDenom = sourceMaxMag;
-                cellClamped = true;
-            }
-
-            const scalar alpha2Cell = 1.0 - alpha1Field[celli];
-            scalar condDenom = max(alpha2Cell, alphaSourceFloor);
-            if (condRate > 0 && alpha2Cell < alphaSourceFloor)
-            {
-                hitAlphaFloor = true;
-            }
-            if (condDenom > sourceMaxMag)
-            {
-                condDenom = sourceMaxMag;
-                cellClamped = true;
-            }
-
-            const scalar evapCoeff = evapRate/evapDenom;
-            const scalar condCoeff = condRate/condDenom;
-
-            // Implicit Sp terms retain the true evaporation/condensation scaling
-            // and reduce to the previous dgt/denom formulation
-            SpInternalField[celli] = -(evapCoeff + condCoeff);
-            SuInternalField[celli] = condCoeff;
-
-            if (cellClamped)
-            {
-                sourceClampCells++;
+                WarningInFunction
+                    << "Clamped mass-transfer source magnitude to "
+                    << sourceMaxMag << endl;
             }
         }
-        reduce(sourceClampCells, sumOp<label>());
-        if (sourceClampCells > 0)
-        {
-            WarningInFunction
-                << "Clamped " << sourceClampCells
-                << " source term values to max magnitude "
-                << sourceMaxMag << endl;
-        }
-        if (hitAlphaFloor)
-        {
-            WarningInFunction
-                << "alphaSourceFloor triggered in source term division;"
-                << " solution may be stiff" << endl;
-        }
+
+        tmp<volScalarField> tAbsRate = mag(dgdtLimited);
+        tmp<volScalarField> tevapRate =
+            0.5*(dgdtLimited + tAbsRate());
+        tmp<volScalarField> tcondRate =
+            0.5*(tAbsRate() - dgdtLimited);
+
+        tmp<volScalarField> trhoMix = alpha1*rho1 + alpha2*rho2;
+        volScalarField& rhoMixField = trhoMix.ref();
+        rhoMixField = Foam::max
+        (
+            rhoMixField,
+            dimensionedScalar("rhoMin", rhoMixField.dimensions(), SMALL)
+        );
+
+        tmp<volScalarField> tevapWeight = (alpha2*rho2)/rhoMixField;
+        tmp<volScalarField> tcondWeight = (alpha1*rho1)/rhoMixField;
+
+        tmp<volScalarField> tDiag =
+            -(tevapRate()*tevapWeight() + tcondRate()*tcondWeight());
+        volScalarField& diagField = tDiag.ref();
+
+        tmp<volScalarField> tSource =
+            -dgdtLimited - diagField*alpha1;
+
+        SpInternalField = diagField.internalField();
+        SuInternalField = tSource().internalField();
 
         label nonFiniteSources = 0;
         forAll(SpInternal, celli)

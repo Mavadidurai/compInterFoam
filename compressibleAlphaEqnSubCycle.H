@@ -1,4 +1,41 @@
 // Execute interface capturing if the model is available
+auto checkAlphaFinite = [&](const char* context)
+{
+    const scalarField& alpha1Internal = alpha1.internalField();
+    const scalarField& alpha2Internal = alpha2.internalField();
+
+    forAll(alpha1Internal, cellI)
+    {
+        if
+        (
+            !std::isfinite(alpha1Internal[cellI])
+         || !std::isfinite(alpha2Internal[cellI])
+        )
+        {
+            FatalErrorInFunction
+                << "Non-finite alpha values detected (" << context << ")"
+                << " at cell " << cellI
+                << " alpha1:" << alpha1Internal[cellI]
+                << " alpha2:" << alpha2Internal[cellI]
+                << abort(FatalError);
+        }
+    }
+};
+
+auto enforceAlphaBounds = [&]()
+{
+    alpha1 = max(min(alpha1, scalar(1)), scalar(0));
+    alpha1.correctBoundaryConditions();
+    alpha2 = scalar(1) - alpha1;
+    alpha2.correctBoundaryConditions();
+};
+
+auto stabilizeAlphaFields = [&](const char* context)
+{
+    checkAlphaFinite(context);
+    enforceAlphaBounds();
+    checkAlphaFinite(context);
+};
 if (pInterfaceCapturing.valid())
 {
     // Flag that the alpha subcycle has been executed
@@ -14,20 +51,7 @@ if (pInterfaceCapturing.valid())
             << abort(FatalError);
     }
 
-    // Check for non-finite values
-    const scalarField& alpha1Internal = alpha1.internalField();
-    const scalarField& alpha2Internal = alpha2.internalField();
-    forAll(alpha1Internal, cellI)
-    {
-        if (!std::isfinite(alpha1Internal[cellI]) || !std::isfinite(alpha2Internal[cellI]))
-        {
-            FatalErrorInFunction
-                << "Non-finite alpha values detected at cell " << cellI
-                << " alpha1:" << alpha1Internal[cellI]
-                << " alpha2:" << alpha2Internal[cellI]
-                << abort(FatalError);
-        }
-    }
+    stabilizeAlphaFields("initial alpha fields before interface capturing");
     
     const bool useSubCycling = nAlphaSubCycles > 1;
 
@@ -81,25 +105,11 @@ if (pInterfaceCapturing.valid())
         {
             pInterfaceCapturing->correct();
             interfaceCorrectionAppliedInSubCycle = true;
-
-            const scalarField& alphaField = alpha1.internalField();
-            forAll(alphaField, i)
-            {
-                if (!std::isfinite(alphaField[i]))
-                {
-                    FatalErrorInFunction
-                        << "Non-finite value detected in alpha1 at cell " << i
-                        << ". Value: " << alphaField[i]
-                        << abort(FatalError);
-                }
-            }
-
-            alpha1 = max(min(alpha1, scalar(1)), scalar(0));
-            alpha1.correctBoundaryConditions();
-            alpha2 = scalar(1) - alpha1;
-            alpha2.correctBoundaryConditions();
+            stabilizeAlphaFields("after interface correction (sub-cycle)");
 
             #include "alphaEqn.H"
+
+            stabilizeAlphaFields("post alphaEqn sub-cycle (interface capturing)");
 
             dimensionedScalar subCycleWeight = runTime.deltaT()/totalDeltaT;
             talphaPhi1.ref() += subCycleWeight*alphaPhi10;
@@ -113,46 +123,14 @@ if (pInterfaceCapturing.valid())
     {
         pInterfaceCapturing->correct();
         interfaceCorrectionAppliedInSubCycle = true;
-
-        const scalarField& alphaField = alpha1.internalField();
-        forAll(alphaField, i)
-        {
-            if (!std::isfinite(alphaField[i]))
-            {
-                FatalErrorInFunction
-                    << "Non-finite value detected in alpha1 at cell " << i
-                    << ". Value: " << alphaField[i]
-                    << abort(FatalError);
-            }
-        }
-
-        alpha1 = max(min(alpha1, scalar(1)), scalar(0));
-        alpha1.correctBoundaryConditions();
-        alpha2 = scalar(1) - alpha1;
-        alpha2.correctBoundaryConditions();
+        stabilizeAlphaFields("after interface correction");
 
         #include "alphaEqn.H"
+
+        stabilizeAlphaFields("post alphaEqn interface capturing");
     }
 
-    // Final safety check on alpha1 after sub-cycling
-    {
-        const scalarField& alphaField = alpha1.internalField();
-        forAll(alphaField, i)
-        {
-            if (!std::isfinite(alphaField[i]))
-            {
-                FatalErrorInFunction
-                    << "Non-finite value detected in alpha1 at cell " << i
-                    << ". Value: " << alphaField[i]
-                    << abort(FatalError);
-            }
-        }
-    }
-
-    alpha1 = max(min(alpha1, scalar(1)), scalar(0));
-    alpha1.correctBoundaryConditions();
-    alpha2 = scalar(1) - alpha1;
-    alpha2.correctBoundaryConditions();
+    stabilizeAlphaFields("post interface-capturing alpha solve");
 
     // Recompute density, fluxes and provide diagnostics
     rho = alpha1*rho1 + alpha2*rho2;
@@ -237,7 +215,9 @@ else
             !(++alphaSubCycle).end();
         )
         {
+            stabilizeAlphaFields("alpha subcycle (no interface capturing)");
             #include "alphaEqn.H"
+            stabilizeAlphaFields("post alpha subcycle (no interface capturing)");
             talphaPhi1.ref() += (runTime.deltaT()/totalDeltaT)*alphaPhi10;
             rhoPhiSum += (runTime.deltaT()/totalDeltaT)*rhoPhi;
         }
@@ -245,8 +225,11 @@ else
     }
     else
     {
+        stabilizeAlphaFields("alpha solve (no interface capturing)");
         #include "alphaEqn.H"
+        stabilizeAlphaFields("post alpha solve (no interface capturing)");
     }
+    stabilizeAlphaFields("final alpha state (no interface capturing)");
     rho = alpha1*rho1 + alpha2*rho2;
     if (verbose)
     {
