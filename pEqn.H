@@ -177,11 +177,9 @@ extern Foam::Switch verbose;
         const tmp<surfaceScalarField> trho = fvc::interpolate(rho);
         const surfaceScalarField& rhoInterp = trho();
 
-        rhoPhi = rhoInterp*phi;
-
-        tmp<surfaceScalarField> tRhoPhiCorr = fvc::ddtCorr(rho, U, rhoPhi);
-        rhoPhi += tRhoPhiCorr();
-        tRhoPhiCorr.clear();
+        tmp<surfaceScalarField> tPhiCorr = fvc::ddtCorr(U, phi);
+        phi += tPhiCorr();
+        tPhiCorr.clear();
 
         const dimensionedScalar rhoFloor
         (
@@ -190,6 +188,7 @@ extern Foam::Switch verbose;
             1e-12
         );
 
+        rhoPhi = rhoInterp*phi;
         phi = rhoPhi/max(rhoInterp, rhoFloor);
         rhoPhi = rhoInterp*phi;
 
