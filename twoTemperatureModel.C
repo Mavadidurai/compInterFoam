@@ -496,8 +496,15 @@ void twoTemperatureModel::solve
     // Store initial energy
     updateEnergyTracking();
     const volScalarField& metal = metalFraction_;
+    const scalar ambient = ambientTemperature_.value();
     const scalar metalFractionFloor =
         dict_.lookupOrDefault<scalar>("metalFractionFloor", 1e-6);
+    const scalar metalCutoff =
+        dict_.lookupOrDefault<scalar>
+        (
+            "metalFractionCutoff",
+            metalFractionFloor
+        );
     const dimensionedScalar metalFloor
     (
         "metalFractionFloor",
@@ -547,8 +554,8 @@ void twoTemperatureModel::solve
     if (verbose)
     {
         Info<< "  gasMetalHeatFlux range entering TTM solve: ["
-            << gMin(gasMetalHeatFlux).value() << ", "
-            << gMax(gasMetalHeatFlux).value() << "] W/m³" << endl;
+            << gMin(gasMetalHeatFlux) << ", "
+            << gMax(gasMetalHeatFlux) << "] W/m³" << endl;
     }
     
     scalar prevResidual = gMax(mag(Te_ - Tl_)().internalField());

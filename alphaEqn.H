@@ -184,7 +184,9 @@ extern Foam::Switch verbose;
 
         if (sourceMaxMag < GREAT)
         {
-            const scalar maxAbs = gMax(mag(dgdt).internalField());
+            tmp<volScalarField> tMagDgdt = mag(dgdt);
+            const volScalarField& magDgdt = tMagDgdt();
+            const scalar maxAbs = gMax(magDgdt.internalField());
             if (maxAbs > sourceMaxMag + SMALL)
             {
                 WarningInFunction
