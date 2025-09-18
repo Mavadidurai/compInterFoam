@@ -12,14 +12,20 @@ extern Foam::Switch verbose;
     const volScalarField& contErr = tContErr();
     tmp<volScalarField> tContErrK(contErr*K);
     const volScalarField& contErrK = tContErrK();
+    tmp<volScalarField> tG = ttm.electronPhononCoupling();
+    const volScalarField& GField = tG();
+    const volScalarField& TeField = ttm.Te();
+
     fvScalarMatrix TEqn
     (
         fvm::ddt(rho, T)
       + fvm::div(rhoPhi, T)
       - fvm::Sp(contErr, T)
       - fvm::laplacian(transportModel.alphaEff(), T)
+      + fvm::Sp(alpha1*GField, T)
      ==
         fvOptions(rho, T)
+      + alpha1*GField*TeField
     );
 
     tmp<volScalarField> tDivAbsolutePhiP
@@ -65,10 +71,11 @@ extern Foam::Switch verbose;
     TEqn.relax();
 
     fvOptions.constrain(TEqn);
-        const dictionary& ctrl = runTime.controlDict();
+    const dictionary& ctrl = runTime.controlDict();
     const scalar alphaMetalThreshold =
         ctrl.lookupOrDefault<scalar>("alphaMetalThreshold", 0.7);
     const volScalarField& TlField = ttm.Tl();
+    const volScalarField& TeField = ttm.Te();
 
     boolList metalCells(mesh.nCells(), false);
     forAll(T, cellI)
@@ -114,7 +121,15 @@ extern Foam::Switch verbose;
     TEqn.solve();
 
     fvOptions.correct(T);
-
+    volScalarField& TlWritable = ttm.Tl();
+    forAll(T, cellI)
+    {
+        if (metalCells[cellI])
+        {
+            TlWritable[cellI] = T[cellI];
+        }
+    }
+    TlWritable.correctBoundaryConditions();
     tContErr.clear();
     tContErrK.clear();
 
@@ -298,7 +313,7 @@ extern Foam::Switch verbose;
         }
     }
     // Check electron-lattice temperature difference for TTM validation
-    volScalarField tempDiff = mag(ttm.Te() - ttm.Tl());
+    volScalarField tempDiff = mag(TeField - TlField);
     scalar maxTempDiff = max(tempDiff).value();
     if (maxTempDiff > 500.0)  // Significant electron-lattice temperature difference
     {

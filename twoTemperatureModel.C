@@ -186,7 +186,29 @@ twoTemperatureModel::~twoTemperatureModel()
         mesh_.objectRegistry::checkOut("Tl");
     }
 }
+volScalarField& twoTemperatureModel::Te()
+{
+    if (!validateFields())
+    {
+        FatalErrorInFunction
+            << "Invalid Te/Tl values prior to non-const Te() access"
+            << abort(FatalError);
+    }
 
+    return Te_;
+}
+
+volScalarField& twoTemperatureModel::Tl()
+{
+    if (!validateFields())
+    {
+        FatalErrorInFunction
+            << "Invalid Te/Tl values prior to non-const Tl() access"
+            << abort(FatalError);
+    }
+
+    return Tl_;
+}
 bool twoTemperatureModel::validateParameters() const
 {
     bool valid = true;

@@ -127,10 +127,16 @@ public:
         tmp<volScalarField> ke() const;  //- Electronic thermal conductivity
         tmp<volScalarField> kl() const;  //- Lattice thermal conductivity
         // Access Functions
+        //- Return electron temperature (non-const)
+        volScalarField& Te();        
         //- Return electron temperature
         const volScalarField& Te() const { return Te_; }
+        //- Return lattice temperature (non-const)
+        volScalarField& Tl();        
         //- Return lattice temperature
         const volScalarField& Tl() const { return Tl_; }
+        //- Return writable lattice temperature
+        volScalarField& Tl() { return Tl_; }        
         //- Return electron heat capacity
         const dimensionedScalar& Ce() const { return Ce_; }
         //- Return lattice heat capacity

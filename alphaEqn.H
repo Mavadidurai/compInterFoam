@@ -171,59 +171,65 @@ extern Foam::Switch verbose;
                // Basic source term calculation with clamping
         label sourceClampCells = 0;
         bool hitAlphaFloor = false;
-        forAll(dgdt, celli)
+        scalarField& SpInternalField = SpInternal.ref();
+        scalarField& SuInternalField = SuInternal.ref();
+        const scalarField& alpha1Field = alpha1.internalField();
+        const scalarField& dgdtField = dgdt.internalField();
+
+        forAll(dgdtField, celli)
         {
-            scalar dgt = dgdt[celli];
-            if (dgt > 0.0)
+            const scalar dgt = dgdtField[celli];
+
+            // Separate evaporation (positive) and condensation (negative) contributions
+            scalar evapRate = max(dgt, scalar(0));   // posPart(dgdt)
+            scalar condRate = max(-dgt, scalar(0));  // posPart(-dgdt) ~ negPart(dgdt)
+
+            bool cellClamped = false;
+            if (evapRate > sourceMaxMag)
             {
-                if (alpha1[celli] < alphaSourceFloor)
-                {
-                    hitAlphaFloor = true;
-                }
-                scalar denom = max(alpha1[celli], alphaSourceFloor);
-                bool cellClamped = false;
-                if (mag(dgt) > sourceMaxMag)
-                {
-                    dgt = sign(dgt)*sourceMaxMag;
-                    cellClamped = true;
-                }
-                if (denom > sourceMaxMag)
-                {
-                    denom = sourceMaxMag;
-                    cellClamped = true;
-                }
-                if (cellClamped)
-                {
-                    sourceClampCells++;
-                }
-                // Evaporation: remove mass from liquid
-                SpInternal[celli] -= dgt/denom;
+                evapRate = sourceMaxMag;
+                cellClamped = true;
             }
-            else if (dgt < 0.0)
+            if (condRate > sourceMaxMag)
             {
-                scalar denom = max(1.0 - alpha1[celli], alphaSourceFloor);
-                if ((1.0 - alpha1[celli]) < alphaSourceFloor)
-                {
-                    hitAlphaFloor = true;
-                }
-                bool cellClamped = false;
-                if (mag(dgt) > sourceMaxMag)
-                {
-                    dgt = sign(dgt)*sourceMaxMag;
-                    cellClamped = true;
-                }
-                if (denom > sourceMaxMag)
-                {
-                    denom = sourceMaxMag;
-                    cellClamped = true;
-                }
-                if (cellClamped)
-                {
-                    sourceClampCells++;
-                }
-                // Condensation: add mass to liquid
-                SpInternal[celli] += dgt/denom;
-                SuInternal[celli] -= dgt/denom;
+                condRate = sourceMaxMag;
+                cellClamped = true;
+            }
+
+            scalar evapDenom = max(alpha1Field[celli], alphaSourceFloor);
+            if (evapRate > 0 && alpha1Field[celli] < alphaSourceFloor)
+            {
+                hitAlphaFloor = true;
+            }
+            if (evapDenom > sourceMaxMag)
+            {
+                evapDenom = sourceMaxMag;
+                cellClamped = true;
+            }
+
+            const scalar alpha2Cell = 1.0 - alpha1Field[celli];
+            scalar condDenom = max(alpha2Cell, alphaSourceFloor);
+            if (condRate > 0 && alpha2Cell < alphaSourceFloor)
+            {
+                hitAlphaFloor = true;
+            }
+            if (condDenom > sourceMaxMag)
+            {
+                condDenom = sourceMaxMag;
+                cellClamped = true;
+            }
+
+            const scalar evapCoeff = evapRate/evapDenom;
+            const scalar condCoeff = condRate/condDenom;
+
+            // Implicit Sp terms retain the true evaporation/condensation scaling
+            // and reduce to the previous dgt/denom formulation
+            SpInternalField[celli] = -(evapCoeff + condCoeff);
+            SuInternalField[celli] = condCoeff;
+
+            if (cellClamped)
+            {
+                sourceClampCells++;
             }
         }
         reduce(sourceClampCells, sumOp<label>());

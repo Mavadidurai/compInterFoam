@@ -295,14 +295,17 @@ if (pInterfaceCapturing.valid())
         tmp<volScalarField> tCe = ttm.electronHeatCapacity();
         const volScalarField& CeField = tCe();
 
+        const volScalarField& TeFieldForEnergy = ttm.Te();
+        const volScalarField& TlFieldForEnergy = ttm.Tl();
+
         dimensionedScalar Ee = fvc::domainIntegrate
         (
-            alpha1*CeField*ttm.Te()
+            alpha1*CeField*TeFieldForEnergy
         );
 
         dimensionedScalar Elattice = fvc::domainIntegrate
         (
-            alpha1*Cl_*ttm.Tl()
+            alpha1*Cl_*TlFieldForEnergy
         );
 
         const dimensionedScalar L = mixture.latentHeat();
