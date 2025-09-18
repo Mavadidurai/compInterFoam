@@ -150,9 +150,12 @@ const scalar maxRau =
 // NOTE: gMax(rho) returns a dimensionedScalar; use .value()
 // --- dynamic lower bound sized to current Δt and density ---
 const scalar rhoMax = gMax(rho.internalField());
-const scalar minRauDyn = 0.05*runTime.deltaTValue()/max(rhoMax, SMALL);
-const scalar minRauEff = min(minRau, minRauDyn);
-
+scalar minRauDyn = 0.05*runTime.deltaTValue()/max(rhoMax, SMALL);
+if (!std::isfinite(minRauDyn))
+{
+    minRauDyn = minRau;
+}
+const scalar minRauEff = max(minRau, minRauDyn);
 
 // Create rAU field
 volScalarField rAU
