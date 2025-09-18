@@ -30,9 +30,7 @@ boundaryField
       substrate         {	 type        zeroGradient;      }
       donor
       {
-          type    constantAlphaContactAngle;
-          theta0  2;           // degrees
-          limit   gradient;
+          type    fixedValue;
           value   uniform 1;   // metal wetting at the substrate side
       }
 }
