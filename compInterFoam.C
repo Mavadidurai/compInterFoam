@@ -361,7 +361,13 @@ if (pInterfaceCapturing.valid())
             rho1*L*alpha1
         );
 
-        dimensionedScalar Etot = Ek + Ee + Elattice + El;
+        const volScalarField& he2 = mixture.thermo2().he();
+        dimensionedScalar Egas = fvc::domainIntegrate
+        (
+            alpha2*rho2*(he2 - p/rho2)
+        );
+
+        dimensionedScalar Etot = Ek + Ee + Elattice + El + Egas;
 
         static scalar prevEtot = Etot.value();
         scalar dE = Etot.value() - prevEtot;
@@ -384,9 +390,10 @@ if (pInterfaceCapturing.valid())
                 << Ee.value() << " J" << nl
                 << "    Elattice = " << Elattice.value() << " J" << nl
                 << "    Elatent = " << El.value() << " J" << nl
+                << "    Egas (gas internal energy) = " << Egas.value() << " J" << nl                
                 << "    Etot = " << Etot.value() << " J" << endl;
         }
-                prevEtot = Etot.value();
+        prevEtot = Etot.value();
 
         // Write additional model fields and data
         if (runTime.writeTime())

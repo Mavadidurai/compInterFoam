@@ -12,8 +12,6 @@ extern Foam::Switch verbose;
     const volScalarField& contErr = tContErr();
     tmp<volScalarField> tContErrK(contErr*K);
     const volScalarField& contErrK = tContErrK();
-    tmp<volScalarField> tG = ttm.electronPhononCoupling();
-    const volScalarField& GField = tG();
     const volScalarField& TeField = ttm.Te();
     const volScalarField& TlField = ttm.Tl();
     volScalarField& gasMetalHeatFlux =
@@ -26,10 +24,8 @@ extern Foam::Switch verbose;
       + fvm::div(rhoPhi, T)
       - fvm::Sp(contErr, T)
       - fvm::laplacian(transportModel.alphaEff(), T)
-      + fvm::Sp(alpha1*GField, T)
      ==
         fvOptions(rho, T)
-      + alpha1*GField*TeField
     );
 
     tmp<volScalarField> tDivAbsolutePhiP
@@ -90,13 +86,17 @@ extern Foam::Switch verbose;
 
     if (fluxRelax < 1.0 - SMALL)
     {
-        gasMetalHeatFlux.internalField() =
-            fluxRelax*rawFlux.internalField()
-          + (1.0 - fluxRelax)*gasMetalHeatFlux.internalField();
+        scalarField& gasMetalHeatFluxPf =
+            gasMetalHeatFlux.primitiveFieldRef();
+        const scalarField& rawFluxPf = rawFlux.primitiveField();
 
-        fvBoundaryScalarField& gasMetalHeatFluxBf =
+        gasMetalHeatFluxPf =
+            fluxRelax*rawFluxPf
+          + (1.0 - fluxRelax)*gasMetalHeatFluxPf;
+
+        volScalarField::Boundary& gasMetalHeatFluxBf =
             gasMetalHeatFlux.boundaryFieldRef();
-        const fvBoundaryScalarField& rawFluxBf = rawFlux.boundaryField();
+        const volScalarField::Boundary& rawFluxBf = rawFlux.boundaryField();
 
         forAll(gasMetalHeatFluxBf, patchI)
         {
