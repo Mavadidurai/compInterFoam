@@ -12,7 +12,7 @@
 #include "fvm.H"
 #include "mathematicalConstants.H"
 #include "HashSet.H"
-
+#include "DynamicList.H"
 #include <cmath>
 
 extern Foam::Switch verbose;
@@ -380,11 +380,27 @@ if (temporalTerm <= VSMALL)
     return;
 }
     // --- Apply laser heating over cells ---
-        if (transmission_ >= 0)
-    {
-        WarningInFunction
-            << "transmission overrides reflectivity" << endl;
-    }
+    const scalar radialHalfWidth = 1.5*spotSize_.value();
+    const scalar axialHalfLength = max(spotSize_.value(), 2e-6);
+    const vector axialOffset = axialHalfLength*direction_;
+    const point axisMin = focus_ - axialOffset;
+    const point axisMax = focus_ + axialOffset;
+
+    const point prismMin
+    (
+        min(axisMin.x(), axisMax.x()) - radialHalfWidth,
+        min(axisMin.y(), axisMax.y()) - radialHalfWidth,
+        min(axisMin.z(), axisMax.z()) - radialHalfWidth
+    );
+    const point prismMax
+    (
+        max(axisMin.x(), axisMax.x()) + radialHalfWidth,
+        max(axisMin.y(), axisMax.y()) + radialHalfWidth,
+        max(axisMin.z(), axisMax.z()) + radialHalfWidth
+    );
+
+    DynamicList<label> candidateCells;
+    candidateCells.reserve(mesh_.nCells()/10 + 1);
 
     label cellsInBeam = 0, cellsInFilm = 0;
     scalar maxSourceValue = 0.0;
@@ -395,9 +411,36 @@ if (temporalTerm <= VSMALL)
     {
         const point& c = mesh_.C()[cellI];
 
-        const bool inFilm = (c.y() >= filmYMin_ && c.y() <= filmYMax_);
-        if (inFilm) ++cellsInFilm;
+        if (c.y() >= filmYMin_ && c.y() <= filmYMax_)
+        {
+            ++cellsInFilm;
+        }
 
+        if
+        (
+            c.x() < prismMin.x() || c.x() > prismMax.x()
+         || c.y() < prismMin.y() || c.y() > prismMax.y()
+         || c.z() < prismMin.z() || c.z() > prismMax.z()
+        )
+        {
+            continue;
+        }
+
+        candidateCells.append(cellI);
+    }
+
+    if (transmission_ >= 0)
+    {
+        WarningInFunction
+            << "transmission overrides reflectivity" << endl;
+    }
+
+    forAll(candidateCells, candidateI)
+    {
+        const label cellI = candidateCells[candidateI];
+        const point& c = mesh_.C()[cellI];
+
+        const bool inFilm = (c.y() >= filmYMin_ && c.y() <= filmYMax_);
         if (!isInBeam(c)) continue;
 
         ++cellsInBeam;
