@@ -50,13 +50,36 @@ extern Foam::Switch verbose;
         1e-12
     );
 
+    const dimensionedScalar cvFloor
+    (
+        "cvFloor",
+        dimSpecificHeat,
+        1e-12
+    );
+
+    const dimensionedScalar capFloor
+    (
+        "capFloor",
+        dimensionSet(1, -1, -2, -1, 0, 0, 0),
+        1e-12
+    );
+
+    tmp<volScalarField> tMixedVolumetricHeatCapacity
+    (
+        alpha1*max(tRho1(), rhoFloor)*max(tCv1(), cvFloor)
+      + alpha2*max(tRho2(), rhoFloor)*max(tCv2(), cvFloor)
+    );
+    const volScalarField& mixedVolumetricHeatCapacity =
+        tMixedVolumetricHeatCapacity();
+
     tmp<volScalarField> tVolumetricHeatCapacityWeighting
     (
-        alpha1/max(tRho1(), rhoFloor)/tCv1()
-      + alpha2/max(tRho2(), rhoFloor)/tCv2()
+        rho/max(mixedVolumetricHeatCapacity, capFloor)
     );
     const volScalarField& volumetricHeatCapacityWeighting =
         tVolumetricHeatCapacityWeighting();
+
+    tMixedVolumetricHeatCapacity.clear();
 
     tCv1.clear();
     tCv2.clear();
