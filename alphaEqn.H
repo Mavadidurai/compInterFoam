@@ -171,8 +171,8 @@ extern Foam::Switch verbose;
                // Basic source term calculation with clamping
         label sourceClampCells = 0;
         bool hitAlphaFloor = false;
-        scalarField& SpInternalField = SpInternal.ref();
-        scalarField& SuInternalField = SuInternal.ref();
+        scalarField& SpInternalField = SpInternal.field();
+        scalarField& SuInternalField = SuInternal.field();
         const scalarField& alpha1Field = alpha1.internalField();
         const scalarField& dgdtField = dgdt.internalField();
 
