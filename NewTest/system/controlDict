@@ -35,7 +35,7 @@ verbose         true;
 
 // --- Writing - More frequent for debugging
 writeControl    runTime;
-writeInterval   5e-12;          // 1 ps for debugging
+writeInterval   2e-11;          // 1 ps for debugging
 purgeWrite      50;             // Keep fewer files initially
 writeFormat     ascii;
 writePrecision  10;
@@ -56,8 +56,8 @@ advancedInterfaceCapturing
     clampRecoil          true;
     scaleRecoilMax       true;          // Enable scaling
 
-    recoilTempOffset     [0 0 0 1 0 0 0] 1000;  // Higher threshold
-    phaseChangeTempOffset [0 0 0 1 0 0 0] 100;  // Delay recoil until T > Tv + 100 K
+    recoilTempOffset     [0 0 0 1 0 0 0] 100;   // Recoil force begins when T > Tvap + 100 K
+    phaseChangeTempOffset [0 0 0 1 0 0 0] 0;     // Phase change begins at Tvap
     relaxFactor          0.05;          // More relaxation
     alphaMin             0.05;          // Wider bounds
     alphaMax             0.95;
@@ -105,7 +105,7 @@ functions
         libs            ("libfieldFunctionObjects.so");
         fields          (T alpha.metal p_rgh U rho);
         writeControl    timeStep;
-        writeInterval   1;              // Every time step
+        writeInterval   50;              // Every 50 time step
     }
 
     // Courant number monitoring
@@ -114,7 +114,7 @@ functions
         type            CourantNo;
         libs            ("libutilityFunctionObjects.so");
         writeControl    timeStep;
-        writeInterval   1;
+        writeInterval   50;
     }
 
     // Only enable these after basic stability is achieved

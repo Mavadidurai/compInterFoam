@@ -18,11 +18,11 @@ solvers
 {
     "alpha.*"
     {
-        solver          smoothSolver;        // CHANGE: was PBiCGStab
-        smoother        symGaussSeidel;      // CHANGE: was DILU preconditioner
+        solver          smoothSolver;
+        smoother        symGaussSeidel;
         tolerance       1e-8;                // CHANGE: was 1e-10 (too tight)
-        relTol          0;            
-        maxIter         50;                  // ADD: limit iterations
+        relTol          0;
+        maxIter         50;
         
         nAlphaCorr      1;                   // REDUCE: was 2
         nAlphaSubCycles 2;                   // REDUCE: was 4
@@ -34,14 +34,13 @@ solvers
         alphaApplyPrevCorr false;
         sharpeningScheme standard;
         thinFilmCoeff   0.0;
-        alphaSourceFloor 1e-3;
     }
 
     
     p_rgh
     {
         solver          GAMG;
-        smoother        DICGaussSeidel;
+        smoother        DIC;
         tolerance       1e-8;           // Good enough for millisecond scale
         relTol          0.0;           
         maxIter         100;   
@@ -66,7 +65,7 @@ solvers
 
 PIMPLE
 {
-    momentumPredictor           false;       // CHANGE: was true (disable for stability)
+    momentumPredictor           false;
     nOuterCorrectors            2;           // REDUCE: was 4
     nCorrectors                 1;           // REDUCE: was 2
     nNonOrthogonalCorrectors    0;           // REDUCE: was 1
@@ -111,13 +110,13 @@ compInterFoamCoeffs
     defaultAirDensity      1.2;     // UEqn.H (fallback if rho2 invalid)
     maxInitialResidual     1e3;     // pEqn.H pressure rollback threshold
     
-    // Keep α bounded but not over-restricted
+    // Keep α bounded to help stabilize interface calculations
     enableAlphaClamp  true;
-    minAlpha          0.001;                // CHANGE: was 0.0
-    maxAlpha          0.999;                // CHANGE: was 1.0
+    minAlpha          0.001;
+    maxAlpha          0.999;
     // Pressure bounds (fall back to controlDict if absent)
-    pressureClamp      true;                // CHANGE: was false
-    maxPressure        1e6;                 // REDUCE: was 1e8
+    pressureClamp      true;               
+    maxPressure        5e7; 
     minPressure        -1e6;      // keep a modest floor
 
     // Density bounds (controlDict entries are deprecated)

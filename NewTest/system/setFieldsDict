@@ -48,10 +48,10 @@ regions
 
         fieldValues
         (
-           volScalarFieldValue Tl 2570
-            volScalarFieldValue Te 2570
+           volScalarFieldValue Tl 4000  // INCREASED: Above vaporization temp (3560 K)
+           volScalarFieldValue Te 4000  // INCREASED: Above vaporization temp (3560 K)
             // optional but tidy: initialise scalar T too, even though TTM will overwrite it
-            volScalarFieldValue T  2570
+           volScalarFieldValue T 4000  // INCREASED: Keep all temperatures consistent
         );
     }
 );
