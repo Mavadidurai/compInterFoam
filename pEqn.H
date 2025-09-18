@@ -174,8 +174,21 @@ extern Foam::Switch verbose;
         }
 
         phi = phiHbyA - pEqn.flux();
-        phi += fvc::ddtCorr(rho, U, phi);
-        rhoPhi = fvc::interpolate(rho)*phi;
+        const tmp<surfaceScalarField> trho = fvc::interpolate(rho);
+        const surfaceScalarField& rhoInterp = trho();
+
+        rhoPhi = rhoInterp*phi;
+        rhoPhi += fvc::ddtCorr(rho, U, rhoPhi);
+
+        const dimensionedScalar rhoFloor
+        (
+            "rhoFloor",
+            dimDensity,
+            1e-12
+        );
+
+        phi = rhoPhi/max(rhoInterp, rhoFloor);
+        rhoPhi = rhoInterp*phi;
 
         if (pimple.finalNonOrthogonalIter())
         {
