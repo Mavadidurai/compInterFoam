@@ -62,7 +62,15 @@ solvers
         relTol          0.01;
     }
 
-    "(T|Te|Tl).*"
+    T
+    {
+        solver          PBiCGStab;
+        preconditioner  DILU;
+        tolerance       1e-8;
+        relTol          0.0;
+    }
+
+    "(Te|Tl).*"
     {
         solver          PCG;
         preconditioner  DIC;
