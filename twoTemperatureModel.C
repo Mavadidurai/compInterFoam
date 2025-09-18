@@ -101,8 +101,15 @@ twoTemperatureModel::twoTemperatureModel
         dimLength*dimLength/dimTime,
         1e-4
     ),
+    gasMetalExchangeCoeff_
+    (
+        "gasMetalExchangeCoeff",
+        dimEnergy/dimVolume/dimTime/dimTemperature,
+        5e17
+    ),
     CeFunction_(nullptr),
     GFunction_(nullptr),
+    gasMetalExchangeFunction_(nullptr),
     lastTotalEnergy_
     (
         "lastTotalEnergy",
@@ -144,6 +151,29 @@ if (dict.found("Ce"))
     {
         De_ = dict.lookupOrDefault<dimensionedScalar>("De", De_);
     }
+    if (dict.found("gasMetalExchangeCoeff"))
+    {
+        if (dict.isDict("gasMetalExchangeCoeff"))
+        {
+            gasMetalExchangeFunction_.reset
+            (
+                Function1<scalar>::New
+                (
+                    "gasMetalExchangeCoeff",
+                    dict.subDict("gasMetalExchangeCoeff")
+                ).ptr()
+            );
+        }
+        else
+        {
+            gasMetalExchangeCoeff_ =
+                dict.lookupOrDefault<dimensionedScalar>
+                (
+                    "gasMetalExchangeCoeff",
+                    gasMetalExchangeCoeff_
+                );
+        }
+    }
     if (!validateParameters())
     {
         FatalErrorInFunction
@@ -170,6 +200,8 @@ if (dict.found("Ce"))
             << "  Cl = " << Cl_.value() << " J/m³/K" << nl
             << "  G = " << G_.value() << " W/m³/K" << nl
             << "  De = " << De_.value() << " m²/s" << nl
+            << "  Gas-metal exchange coeff = "
+            << gasMetalExchangeCoeff_.value() << " W/m³/K" << nl            
             << "  Ambient temperature = " << ambientTemperature_.value() << " K" << nl
             << "  Metal fraction field = " << metalFraction_.name() << endl;
     }
@@ -450,7 +482,8 @@ void twoTemperatureModel::solve
 (
     const volScalarField& laserSource,
     const volScalarField& phaseChangeSource,
-    const volScalarField& phaseChangeRelaxCoeff
+    const volScalarField& phaseChangeRelaxCoeff,
+    const volScalarField& gasMetalHeatFlux
 )
 {
     if (!validateFields())
@@ -463,9 +496,17 @@ void twoTemperatureModel::solve
     // Store initial energy
     updateEnergyTracking();
     const volScalarField& metal = metalFraction_;
-    const scalar ambient = ambientTemperature_.value();
-    const scalar metalCutoff =
-        dict_.lookupOrDefault<scalar>("metalFractionCutoff", 1e-6);
+    const scalar metalFractionFloor =
+        dict_.lookupOrDefault<scalar>("metalFractionFloor", 1e-6);
+    const dimensionedScalar metalFloor
+    (
+        "metalFractionFloor",
+        dimless,
+        Foam::max(metalFractionFloor, VSMALL)
+    );
+
+    tmp<volScalarField> tMetalEff = Foam::max(metal, metalFloor);
+    const volScalarField& metalEff = tMetalEff();
 
     const label nInnerSweeps =
         dict_.lookupOrDefault<label>("nInnerCouplingSweeps", 1);
@@ -503,41 +544,12 @@ void twoTemperatureModel::solve
     // Create a more stable matrix system for the lattice temperature
     const volScalarField& TlOld = Tl_.oldTime();
 
-        auto constrainGasCells =
-        [&](fvScalarMatrix& eqn)
-        {
-            scalarField& diag = eqn.diag();
-            scalarField& source = eqn.source();
-            scalarField& lower = eqn.lower();
-            scalarField& upper = eqn.upper();
-
-            const labelUList& owner = mesh_.owner();
-            const labelUList& neighbour = mesh_.neighbour();
-
-            forAll(owner, facei)
-            {
-                const label own = owner[facei];
-                const label nei = neighbour[facei];
-
-                if (metal[own] <= metalCutoff)
-                {
-                    lower[facei] = 0.0;
-                }
-                if (metal[nei] <= metalCutoff)
-                {
-                    upper[facei] = 0.0;
-                }
-            }
-
-            forAll(metal, cellI)
-            {
-                if (metal[cellI] <= metalCutoff)
-                {
-                    diag[cellI] = 1.0;
-                    source[cellI] = ambient;
-                }
-            }
-        };
+    if (verbose)
+    {
+        Info<< "  gasMetalHeatFlux range entering TTM solve: ["
+            << gMin(gasMetalHeatFlux).value() << ", "
+            << gMax(gasMetalHeatFlux).value() << "] W/m³" << endl;
+    }
     
     scalar prevResidual = gMax(mag(Te_ - Tl_)().internalField());
 
@@ -550,23 +562,22 @@ void twoTemperatureModel::solve
 
         fvScalarMatrix TlEqn
         (
-            fvm::ddt(metal*Cl_, Tl_)
-          - fvm::laplacian(metal*klField, Tl_)
-          + fvm::Sp(metal*G, Tl_)
-          + fvm::Sp(metal*Cl_*phaseChangeRelaxCoeff, Tl_)
+            fvm::ddt(metalEff*Cl_, Tl_)
+          - fvm::laplacian(metalEff*klField, Tl_)
+          + fvm::Sp(metalEff*G, Tl_)
+          + fvm::Sp(metalEff*Cl_*phaseChangeRelaxCoeff, Tl_)
          ==
             metal*
             (
                 G*Te_
               + Cl_*(phaseChangeSource + phaseChangeRelaxCoeff*TlOld)
             )
+            + gasMetalHeatFlux
 
         );
 
         // Under-relax the lattice equation for stability
         TlEqn.relax(relaxFactor);
-
-        constrainGasCells(TlEqn);
 
         // Perform lattice temperature solve; any additional iterations are
         // handled by the solver controls (maxIter, tolerance, etc.)
@@ -579,16 +590,12 @@ void twoTemperatureModel::solve
         // Create a more stable matrix system for the electron temperature
         fvScalarMatrix TeEqn
         (
-            fvm::ddt(metal*Ce, Te_)
-          - fvm::laplacian(metal*ke, Te_)
-          + fvm::Sp(metal*G, Te_)
+            fvm::ddt(metalEff*Ce, Te_)
+          - fvm::laplacian(metalEff*ke, Te_)
+          + fvm::Sp(metalEff*G, Te_)
          ==
             metal*(laserSource + G*Tl_)
         );
-
-        // Constrain gas cells before solving the electron equation
-
-        constrainGasCells(TeEqn);
 
         TeEqn.solve(mesh_.solver("Te"));
         guardTemperatureFields("TeEqn.solve", sweep);
@@ -855,7 +862,39 @@ tmp<volScalarField> twoTemperatureModel::electronPhononCoupling() const
 
     return tG;
 }
+tmp<volScalarField> twoTemperatureModel::gasMetalExchangeCoeffField() const
+{
+    tmp<volScalarField> tCoeff
+    (
+        new volScalarField
+        (
+            IOobject
+            (
+                "gasMetalExchangeCoeffField",
+                mesh_.time().timeName(),
+                mesh_,
+                IOobject::NO_READ,
+                IOobject::NO_WRITE
+            ),
+            mesh_,
+            gasMetalExchangeCoeff_
+        )
+    );
 
+    volScalarField& coeff = tCoeff.ref();
+
+    if (gasMetalExchangeFunction_.valid())
+    {
+        forAll(coeff, cellI)
+        {
+            coeff[cellI] = gasMetalExchangeFunction_->value(Tl_[cellI]);
+        }
+    }
+
+    coeff *= metalFraction_;
+
+    return tCoeff;
+}
 bool twoTemperatureModel::valid() const
 {
     if (!validateParameters())

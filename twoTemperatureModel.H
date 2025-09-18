@@ -66,10 +66,14 @@ private:
         dimensionedScalar Cl_;     //- Lattice heat capacity [J/m³/K]
         dimensionedScalar G_;      //- Electron-phonon coupling [W/m³/K]
         dimensionedScalar De_;     //- Electron thermal diffusivity [m^2/s]
+        dimensionedScalar gasMetalExchangeCoeff_;
+        
         //- Optional temperature-dependent electron heat capacity Ce(T)
         autoPtr<Function1<scalar>> CeFunction_;
         //- Optional temperature-dependent coupling factor G(T)
         autoPtr<Function1<scalar>> GFunction_;
+        //- Optional gas-metal exchange coefficient variation
+        autoPtr<Function1<scalar>> gasMetalExchangeFunction_;        
         //- Energy Conservation Tracking
         mutable dimensionedScalar lastTotalEnergy_;  //- Previous total energy [J]
         mutable bool energyInitialized_;             //- Energy tracking flag
@@ -111,7 +115,8 @@ public:
         (
             const volScalarField& laserSource,
             const volScalarField& phaseChangeSource,
-            const volScalarField& phaseChangeRelaxCoeff
+            const volScalarField& phaseChangeRelaxCoeff,
+            const volScalarField& gasMetalHeatFlux
         );
         //- Calculate electron thermal conductivity
         tmp<volScalarField> electronThermalConductivity() const;
@@ -119,6 +124,8 @@ public:
         tmp<volScalarField> electronHeatCapacity() const;
         //- Calculate electron-phonon coupling
         tmp<volScalarField> electronPhononCoupling() const;
+        //- Gas-metal exchange coefficient for coupling with gas solver
+        tmp<volScalarField> gasMetalExchangeCoeffField() const;        
         //- Check model validity
         bool valid() const;
         //- Write model information

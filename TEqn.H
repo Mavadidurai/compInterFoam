@@ -15,7 +15,11 @@ extern Foam::Switch verbose;
     tmp<volScalarField> tG = ttm.electronPhononCoupling();
     const volScalarField& GField = tG();
     const volScalarField& TeField = ttm.Te();
-
+    const volScalarField& TlField = ttm.Tl();
+    volScalarField& gasMetalHeatFlux =
+        mesh.lookupObjectRef<volScalarField>("gasMetalHeatFlux");
+    tmp<volScalarField> tInterfaceExchange = ttm.gasMetalExchangeCoeffField();
+    const volScalarField& interfaceExchange = tInterfaceExchange();
     fvScalarMatrix TEqn
     (
         fvm::ddt(rho, T)
@@ -68,140 +72,75 @@ extern Foam::Switch verbose;
     tKTransport.clear();
     tDivAbsolutePhiP.clear();
 
+    TEqn += fvm::Sp(interfaceExchange, T);
+    TEqn.source() += interfaceExchange*TlField;
+
     TEqn.relax();
 
     fvOptions.constrain(TEqn);
     const dictionary& ctrl = runTime.controlDict();
-    const scalar alphaMetalThreshold =
-        ctrl.lookupOrDefault<scalar>("alphaMetalThreshold", 0.7);
-    const volScalarField& TlField = ttm.Tl();
-
-    boolList metalCells(mesh.nCells(), false);
-    forAll(T, cellI)
-    {
-        if (alpha1[cellI] >= alphaMetalThreshold)
-        {
-            metalCells[cellI] = true;
-        }
-    }
-
-    scalarField& TEqnDiag = TEqn.diag();
-    scalarField& TEqnSource = TEqn.source();
-    scalarField& TEqnUpper = TEqn.upper();
-    scalarField& TEqnLower = TEqn.lower();
-    const labelUList& owners = mesh.owner();
-    const labelUList& neighbours = mesh.neighbour();
-
-    forAll(owners, faceI)
-    {
-        const label own = owners[faceI];
-        const label nei = neighbours[faceI];
-
-        if (metalCells[own])
-        {
-            TEqnUpper[faceI] = 0;
-        }
-
-        if (metalCells[nei])
-        {
-            TEqnLower[faceI] = 0;
-        }
-    }
-
-    forAll(T, cellI)
-    {
-        if (metalCells[cellI])
-        {
-            TEqnDiag[cellI] = 1;
-            TEqnSource[cellI] = TlField[cellI];
-        }
-    }
 
     TEqn.solve();
 
     fvOptions.correct(T);
-    volScalarField& TlWritable = ttm.Tl();
-    forAll(T, cellI)
+
+    scalar fluxRelax = Foam::max(scalar(0), Foam::min(scalar(1), thermalFluxRelax));
+    tmp<volScalarField> tRawFlux = interfaceExchange*(T - TlField);
+    const volScalarField& rawFlux = tRawFlux();
+
+    if (fluxRelax < 1.0 - SMALL)
     {
-        if (metalCells[cellI])
+        gasMetalHeatFlux.internalField() =
+            fluxRelax*rawFlux.internalField()
+          + (1.0 - fluxRelax)*gasMetalHeatFlux.internalField();
+
+        fvBoundaryScalarField& gasMetalHeatFluxBf =
+            gasMetalHeatFlux.boundaryFieldRef();
+        const fvBoundaryScalarField& rawFluxBf = rawFlux.boundaryField();
+
+        forAll(gasMetalHeatFluxBf, patchI)
         {
-            TlWritable[cellI] = T[cellI];
+            gasMetalHeatFluxBf[patchI] =
+                fluxRelax*rawFluxBf[patchI]
+              + (1.0 - fluxRelax)*gasMetalHeatFluxBf[patchI];
         }
     }
-    TlWritable.correctBoundaryConditions();
-    tContErr.clear();
-    tContErrK.clear();
-
-    label metalSyncedCells = 0;
-    label gasCells = 0;
-    scalar metalMaxDeviation = 0.0;
-    scalar gasTempSum = 0.0;
-    scalar gasMinTemp = GREAT;
-    scalar gasMaxTemp = -GREAT;
-    scalar maxGasTlDiff = 0.0;
-
-    forAll(T, cellI)
+    else
     {
-        const scalar Tval = T[cellI];
-        const scalar TlVal = TlField[cellI];
-
-        if (metalCells[cellI])
-        {
-            metalMaxDeviation = Foam::max
-            (
-                metalMaxDeviation,
-                Foam::mag(Tval - TlVal)
-            );
-            ++metalSyncedCells;
-        }
-        else
-        {
-            gasMinTemp = Foam::min(gasMinTemp, Tval);
-            gasMaxTemp = Foam::max(gasMaxTemp, Tval);
-            gasTempSum += Tval;
-            maxGasTlDiff = Foam::max
-            (
-                maxGasTlDiff,
-                Foam::mag(Tval - TlVal)
-            );
-            ++gasCells;
-        }
+        gasMetalHeatFlux = rawFlux;
     }
 
-    reduce(metalSyncedCells, sumOp<label>());
-    reduce(gasCells, sumOp<label>());
-    reduce(metalMaxDeviation, maxOp<scalar>());
-    reduce(gasMinTemp, minOp<scalar>());
-    reduce(gasMaxTemp, maxOp<scalar>());
-    reduce(gasTempSum, sumOp<scalar>());
-    reduce(maxGasTlDiff, maxOp<scalar>());
-
-    scalar meanGasTemp = 0.0;
-    if (gasCells > 0)
-    {
-        meanGasTemp = gasTempSum/Foam::max(static_cast<scalar>(gasCells), VSMALL);
-    }
+    gasMetalHeatFlux.correctBoundaryConditions();
 
     if (verbose)
     {
-        Info<< "Selective temperature synchronisation:" << nl
-            << "  alpha1 threshold: " << alphaMetalThreshold << nl
-            << "  Cells constrained to Tl: " << metalSyncedCells << nl
-            << "  Max |Tl - solved T| residual: "
-            << metalMaxDeviation << " K" << endl;
+        Info<< "  Updated gas-metal heat flux range: ["
+            << gMin(gasMetalHeatFlux).value() << ", "
+            << gMax(gasMetalHeatFlux).value() << "] W/m³" << endl;
+    }
 
-        if (gasCells > 0)
-        {
-            Info<< "  Gas-dominated cells: " << gasCells << nl
-                << "    Gas T range: " << gasMinTemp << " - "
-                << gasMaxTemp << " K" << nl
-                << "    Gas T mean: " << meanGasTemp << " K" << nl
-                << "    Max |Tgas - Tl|: " << maxGasTlDiff << " K" << endl;
-        }
-        else
-        {
-            Info<< "  Gas-dominated cells: none detected" << endl;
-        }
+    tRawFlux.clear();
+    tContErr.clear();
+    tContErrK.clear();
+
+    scalar couplingMin = gMin(interfaceExchange).value();
+    scalar couplingMax = gMax(interfaceExchange).value();
+
+    tmp<volScalarField> tCouplingDelta = mag(T - TlField);
+    const volScalarField& couplingDelta = tCouplingDelta();
+    scalar meanCouplingDelta = gAverage(couplingDelta);
+    scalar maxCouplingDelta = gMax(couplingDelta).value();
+    tCouplingDelta.clear();
+
+    if (verbose)
+    {
+        Info<< "Interface coupling diagnostics:" << nl
+            << "  Exchange coeff range: " << couplingMin << " - "
+            << couplingMax << " W/m³/K" << nl
+            << "  Heat flux range: " << gMin(gasMetalHeatFlux).value()
+            << " - " << gMax(gasMetalHeatFlux).value() << " W/m³" << nl
+            << "  Mean |T - Tl|: " << meanCouplingDelta << " K" << nl
+            << "  Max |T - Tl|: " << maxCouplingDelta << " K" << endl;
     }
 
     // Evaluate global temperature statistics after selective synchronisation
@@ -323,6 +262,7 @@ extern Foam::Switch verbose;
                 << "  This indicates strong electron-phonon coupling effects" << endl;
         }
     }
+    tInterfaceExchange.clear();    
     if (verbose)
     {
         Info<< "Temperature equation completed successfully" << endl;

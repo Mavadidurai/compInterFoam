@@ -91,7 +91,24 @@ int main(int argc, char *argv[])
     #include "createFields.H"
     #define CREATE_FIELDS_DONE
     #endif
-    
+    volScalarField gasMetalHeatFlux
+    (
+        IOobject
+        (
+            "gasMetalHeatFlux",
+            runTime.timeName(),
+            mesh,
+            IOobject::NO_READ,
+            IOobject::AUTO_WRITE
+        ),
+        mesh,
+        dimensionedScalar
+        (
+            "gasMetalHeatFlux",
+            dimEnergy/dimVolume/dimTime,
+            0.0
+        )
+    );    
     // Reference to psi fields (needed for compressibility)
     #ifndef NDEBUG
     const volScalarField& psi1 = mixture.thermo1().psi();
@@ -241,9 +258,39 @@ mixture.correct();
                         << ", max(Tl_) = " << max(ttm.Tl()).value() << nl;
                 }
             }
-            ttm.solve(laserSrc(), phaseChangeSource, phaseChangeRelaxCoeff);
+
+            const dictionary& thermalCouplingDict = runTime.controlDict();
+            const label nThermalCouplingIter =
+                thermalCouplingDict.lookupOrDefault<label>
+                (
+                    "nThermalCouplingIter",
+                    1
+                );
+            scalar thermalFluxRelax =
+                thermalCouplingDict.lookupOrDefault<scalar>
+                (
+                    "thermalFluxRelax",
+                    1.0
+                );
+
+            for (label thermalIter = 0; thermalIter < nThermalCouplingIter; ++thermalIter)
+            {
+                if (verbose && nThermalCouplingIter > 1)
+                {
+                    Info<< "  Thermal coupling iteration " << thermalIter + 1
+                        << " / " << nThermalCouplingIter << endl;
+                }
+
+                ttm.solve
+                (
+                    laserSrc(),
+                    phaseChangeSource,
+                    phaseChangeRelaxCoeff,
+                    gasMetalHeatFlux
+                );
 
 #include "TEqn.H"
+            }
 
 // Apply interface-capturing corrections after the thermal solve if needed
 if
