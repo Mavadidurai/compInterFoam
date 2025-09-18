@@ -75,7 +75,6 @@ extern Foam::Switch verbose;
     const scalar alphaMetalThreshold =
         ctrl.lookupOrDefault<scalar>("alphaMetalThreshold", 0.7);
     const volScalarField& TlField = ttm.Tl();
-    const volScalarField& TeField = ttm.Te();
 
     boolList metalCells(mesh.nCells(), false);
     forAll(T, cellI)

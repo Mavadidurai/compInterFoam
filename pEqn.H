@@ -174,7 +174,7 @@ extern Foam::Switch verbose;
         }
 
         phi = phiHbyA - pEqn.flux();
-        phi += fvc::ddtPhiCorr(rAU, rho, U, phi);
+        phi += fvc::ddtCorr(rho, U, phi);
         rhoPhi = fvc::interpolate(rho)*phi;
 
         if (pimple.finalNonOrthogonalIter())
