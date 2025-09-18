@@ -334,7 +334,25 @@ Foam::dimensionedScalar Foam::twoPhaseMixtureThermo::latentHeat() const
 Foam::tmp<Foam::volScalarField>
 Foam::twoPhaseMixtureThermo::sigma() const
 {
-    return this->Foam::interfaceProperties::sigmaK();
+    Foam::tmp<Foam::volScalarField> tsigma
+    (
+        surfaceTensionModel::New(*this, alpha1().mesh())->sigma()
+    );
+
+    if
+    (
+        tsigma.valid()
+     && tsigma().dimensions() != dimForce/dimLength
+    )
+    {
+        FatalErrorInFunction
+            << "Surface tension field has dimensions "
+            << tsigma().dimensions()
+            << ", expected " << dimForce/dimLength << nl
+            << exit(FatalError);
+    }
+
+    return tsigma;
 }
 void Foam::twoPhaseMixtureThermo::computePhaseChange()
 {

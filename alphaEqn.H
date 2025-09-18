@@ -375,7 +375,7 @@ extern Foam::Switch verbose;
         // Bound and update fields with validation
         alpha1 = min(max(alpha1, scalar(0)), scalar(1));
         alpha2 = 1.0 - alpha1;
-        
+
         // Validate density fields
         if (rho1.size() != mesh.nCells() || rho2.size() != mesh.nCells())
         {
@@ -447,7 +447,11 @@ extern Foam::Switch verbose;
                 zeroField()
             );
         }
+        
+        alpha1 = min(max(alpha1, scalar(0)), scalar(1));
         alpha2 = 1.0 - alpha1;
+        alpha1.correctBoundaryConditions();
+        alpha2.correctBoundaryConditions();
 
         if (verbose)
         {

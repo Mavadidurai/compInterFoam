@@ -116,13 +116,42 @@ twoPhaseMixtureThermo mixture(U, phi);
 // Set verbosity flag from controlDict now that runTime is available
 
 {
-    Foam::tmp<Foam::volScalarField> tsig = mixture.sigma();   // tmp<volScalarField>
-    const Foam::volScalarField& sig = tsig();                 // bind to avoid double eval
+    Foam::tmp<Foam::volScalarField> tsig = mixture.sigma();
+    const Foam::volScalarField& sig = tsig();
 
-    const Foam::dimensionedScalar intSigma = Foam::fvc::domainIntegrate(sig);
-    const Foam::scalar Vtotal = Foam::gSum(mesh.V());
+    const Foam::dimensionedScalar sigmaMin = Foam::gMin(sig);
+    const Foam::dimensionedScalar sigmaMax = Foam::gMax(sig);
+    const Foam::dimensionedScalar sigmaAvg =
+        Foam::fvc::domainIntegrate(sig)
+       / Foam::dimensionedScalar
+        (
+            "totalVolume",
+            Foam::dimVolume,
+            Foam::gSum(mesh.V())
+        );
 
-    Info<< "avg(sigma) = " << (intSigma.value()/Vtotal) << endl;
+    Foam::dimensionedScalar sigmaInput
+    (
+        "sigmaInput",
+        Foam::dimForce/Foam::dimLength,
+        0.0
+    );
+
+    if (mixture.found("sigma"))
+    {
+        if (mixture.isDict("sigma"))
+        {
+            mixture.subDict("sigma").lookup("sigma") >> sigmaInput;
+        }
+        else
+        {
+            mixture.lookup("sigma") >> sigmaInput;
+        }
+    }
+
+    Info<< "surfaceTension input    = " << sigmaInput << nl
+        << "surfaceTension [min,max,avg] = "
+        << sigmaMin << ", " << sigmaMax << ", " << sigmaAvg << endl;
 }
 
 // ✅ INTUITIVE: Access alpha fields using clear naming
