@@ -290,17 +290,19 @@ if (pInterfaceCapturing.valid())
             0.5*rho*magSqr(U)
         );
 
-        const dimensionedScalar& Ce_ = ttm.Ce();
         const dimensionedScalar& Cl_ = ttm.Cl();
+
+        tmp<volScalarField> tCe = ttm.electronHeatCapacity();
+        const volScalarField& CeField = tCe();
 
         dimensionedScalar Ee = fvc::domainIntegrate
         (
-            Ce_*ttm.Te()
+            alpha1*CeField*ttm.Te()
         );
 
         dimensionedScalar Elattice = fvc::domainIntegrate
         (
-            Cl_*ttm.Tl()
+            alpha1*Cl_*ttm.Tl()
         );
 
         const dimensionedScalar L = mixture.latentHeat();
@@ -317,7 +319,9 @@ if (pInterfaceCapturing.valid())
         
         if (verbose)
         {
-            Info<< "Total energy change: " << dE << " J (" << relChange << ")" << endl;
+            Info<< "Total energy change: " << dE << " J (" << relChange << ")" << nl
+                << "    Ee (metal-weighted, Ce(Te) when configured) = "
+                << Ee.value() << " J" << endl;
         }
 
         if (relChange > energyTolerance)
@@ -326,7 +330,8 @@ if (pInterfaceCapturing.valid())
                 << "    Relative energy change " << relChange
                 << "    exceeds energyTolerance (" << energyTolerance << ")" << nl
                 << "    Ek = " << Ek.value() << " J" << nl
-                << "    Ee = " << Ee.value() << " J" << nl
+                << "    Ee (metal-weighted, Ce(Te) when configured) = "
+                << Ee.value() << " J" << nl
                 << "    Elattice = " << Elattice.value() << " J" << nl
                 << "    Elatent = " << El.value() << " J" << nl
                 << "    Etot = " << Etot.value() << " J" << endl;

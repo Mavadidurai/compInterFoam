@@ -13,6 +13,7 @@
 #include "mathematicalConstants.H"
 #include "HashSet.H"
 #include "DynamicList.H"
+#include "treeBoundBox.H"
 #include <cmath>
 
 extern Foam::Switch verbose;
@@ -380,54 +381,65 @@ if (temporalTerm <= VSMALL)
     return;
 }
     // --- Apply laser heating over cells ---
-    const scalar radialHalfWidth = 1.5*spotSize_.value();
-    const scalar axialHalfLength = max(spotSize_.value(), 2e-6);
-    const vector axialOffset = axialHalfLength*direction_;
-    const point axisMin = focus_ - axialOffset;
-    const point axisMax = focus_ + axialOffset;
+    const scalar beamRadius = spotSize_.value()/2.0;
+    const scalar radialHalfWidth = 3.0*beamRadius; // ~3-sigma laterally
 
-    const point prismMin
+    scalar axialHalfLength = max(spotSize_.value(), 2e-6);
+    if (absorptionCoeff_.value() > VSMALL)
+    {
+        const scalar absorptionDepth = 1.0/absorptionCoeff_.value();
+        axialHalfLength = max(axialHalfLength, 3.0*absorptionDepth);
+    }
+
+    const vector axialContribution
     (
-        min(axisMin.x(), axisMax.x()) - radialHalfWidth,
-        min(axisMin.y(), axisMax.y()) - radialHalfWidth,
-        min(axisMin.z(), axisMax.z()) - radialHalfWidth
+        axialHalfLength*mag(direction_.x()),
+        axialHalfLength*mag(direction_.y()),
+        axialHalfLength*mag(direction_.z())
     );
-    const point prismMax
-    (
-        max(axisMin.x(), axisMax.x()) + radialHalfWidth,
-        max(axisMin.y(), axisMax.y()) + radialHalfWidth,
-        max(axisMin.z(), axisMax.z()) + radialHalfWidth
-    );
+
+    const vector halfWidths =
+        vector(radialHalfWidth, radialHalfWidth, radialHalfWidth)
+      + axialContribution;
+
+    const treeBoundBox searchBox(focus_ - halfWidths, focus_ + halfWidths);
+
+    labelList treeCandidates;
+    mesh_.cellTree().findBox(searchBox, treeCandidates);
 
     DynamicList<label> candidateCells;
-    candidateCells.reserve(mesh_.nCells()/10 + 1);
+    candidateCells.reserve(treeCandidates.size());
+
+    forAll(treeCandidates, idx)
+    {
+        const label cellI = treeCandidates[idx];
+        const point& c = mesh_.C()[cellI];
+
+        if (searchBox.contains(c))
+        {
+            candidateCells.append(cellI);
+        }
+    }
+
+    if (candidateCells.empty())
+    {
+        forAll(mesh_.C(), cellI)
+        {
+            const point& c = mesh_.C()[cellI];
+
+            if (searchBox.contains(c))
+            {
+                candidateCells.append(cellI);
+            }
+        }
+    }
+
+    candidateCells.shrink();
 
     label cellsInBeam = 0, cellsInFilm = 0;
     scalar maxSourceValue = 0.0;
     scalar totalSourceIntegral = 0.0;
     scalar totalBeamVolume = 0.0;
-
-    forAll(mesh_.C(), cellI)
-    {
-        const point& c = mesh_.C()[cellI];
-
-        if (c.y() >= filmYMin_ && c.y() <= filmYMax_)
-        {
-            ++cellsInFilm;
-        }
-
-        if
-        (
-            c.x() < prismMin.x() || c.x() > prismMax.x()
-         || c.y() < prismMin.y() || c.y() > prismMax.y()
-         || c.z() < prismMin.z() || c.z() > prismMax.z()
-        )
-        {
-            continue;
-        }
-
-        candidateCells.append(cellI);
-    }
 
     if (transmission_ >= 0)
     {
@@ -442,6 +454,7 @@ if (temporalTerm <= VSMALL)
 
         const bool inFilm = (c.y() >= filmYMin_ && c.y() <= filmYMax_);
         if (!isInBeam(c)) continue;
+        if (inFilm) ++cellsInFilm;
 
         ++cellsInBeam;
         totalBeamVolume += mesh_.V()[cellI];
