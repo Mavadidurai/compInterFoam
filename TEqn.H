@@ -46,13 +46,14 @@ extern Foam::Switch verbose;
         alpha1/tCv1()
       + alpha2/tCv2()
     );
+    const volScalarField& heatCapacityWeighting = tHeatCapacityWeighting();
 
     tCv1.clear();
     tCv2.clear();
 
     tmp<volScalarField> tPressureKSource
     (
-        tHeatCapacityWeighting()
+        heatCapacityWeighting
        *
         (
             tDivAbsolutePhiP()
@@ -64,12 +65,14 @@ extern Foam::Switch verbose;
     TEqn += tPressureKSource();
 
     tPressureKSource.clear();
-    tHeatCapacityWeighting.clear();
+
     tKTransport.clear();
     tDivAbsolutePhiP.clear();
 
-    TEqn += fvm::Sp(interfaceExchange, T);
-    TEqn.source() += interfaceExchange*TlField;
+    TEqn += fvm::Sp(interfaceExchange*heatCapacityWeighting, T);
+    TEqn.source() += interfaceExchange*heatCapacityWeighting*TlField;
+
+    tHeatCapacityWeighting.clear();
 
     TEqn.relax();
 
