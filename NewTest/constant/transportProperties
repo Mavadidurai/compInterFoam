@@ -33,7 +33,6 @@ air
 // Surface tension of molten titanium in contact with air (~1.64 N/m)
 sigma           sigma [1 0 -2 0 0 0 0] 1.64;
 
-cAlpha          cAlpha [0 0 0 0 0 0 0] 1;
 icAlpha         icAlpha [0 0 0 0 0 0 0] 0;
 scAlpha         scAlpha [0 0 0 0 0 0 0] 0;
 // Example latent-heat source term specification
@@ -43,6 +42,7 @@ scAlpha         scAlpha [0 0 0 0 0 0 0] 0;
         Tvapor         3560;      // or your value
         windowWidth    300;       // smoothing band [K]
         dtFloor        1e-12;     // floor for time-step regularisation
+        relaxationTime 5e-11;   // [s] Set to 50 ps for a faster, more physical response       
         minCoefficient 1e7;      // optional cap on |phaseChangeSource| [K/s]
         onlyAboveVapor false;     // allow both melt/condense logic
         // Activation window for laser pulse
