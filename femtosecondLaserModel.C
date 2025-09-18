@@ -14,6 +14,8 @@
 #include "HashSet.H"
 #include "DynamicList.H"
 #include "treeBoundBox.H"
+#include "treeDataCell.H"
+
 #include <cmath>
 
 extern Foam::Switch verbose;
@@ -404,8 +406,7 @@ if (temporalTerm <= VSMALL)
 
     const treeBoundBox searchBox(focus_ - halfWidths, focus_ + halfWidths);
 
-    labelList treeCandidates;
-    mesh_.cellTree().findBox(searchBox, treeCandidates);
+    labelList treeCandidates = mesh_.cellTree().findBox(searchBox);
 
     DynamicList<label> candidateCells;
     candidateCells.reserve(treeCandidates.size());
