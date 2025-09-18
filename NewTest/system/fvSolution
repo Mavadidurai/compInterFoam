@@ -54,13 +54,21 @@ solvers
     
     p_rghFinal { $p_rgh; relTol 0; }
     
-  "(U|T|Te|Tl).*"
-  {
-    solver  PBiCGStab;
-    preconditioner DILU;
-    tolerance 1e-9;
-    relTol   0.01;
-  }
+    "U.*"
+    {
+        solver          PBiCGStab;
+        preconditioner  DILU;
+        tolerance       1e-9;
+        relTol          0.01;
+    }
+
+    "(T|Te|Tl).*"
+    {
+        solver          PCG;
+        preconditioner  DIC;
+        tolerance       1e-8;
+        relTol          0.0;
+    }
 }
 
 PIMPLE
