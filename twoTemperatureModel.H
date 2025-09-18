@@ -132,11 +132,9 @@ public:
         //- Return electron temperature
         const volScalarField& Te() const { return Te_; }
         //- Return lattice temperature (non-const)
-        volScalarField& Tl();        
+        volScalarField& Tl();
         //- Return lattice temperature
-        const volScalarField& Tl() const { return Tl_; }
-        //- Return writable lattice temperature
-        volScalarField& Tl() { return Tl_; }        
+        const volScalarField& Tl() const { return Tl_; }      
         //- Return electron heat capacity
         const dimensionedScalar& Ce() const { return Ce_; }
         //- Return lattice heat capacity

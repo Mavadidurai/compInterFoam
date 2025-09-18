@@ -112,49 +112,78 @@ extern Foam::Switch verbose;
 
     constrainPressure(p_rgh, U, phiHbyA, rAUf);
 
-    fvScalarMatrix pEqn(fvm::laplacian(rAUf, p_rgh) == fvc::div(phiHbyA));
-    
-    // Set reference and apply adaptive under-relaxation (relaxP is set in fvSolution)
-   if (p_rgh.needReference())
-    {
-        pEqn.setReference(pRefCell, pRefValue);
-    }
     static scalar relaxP
     (
         mesh.solutionDict().lookupOrDefault<scalar>("relaxP", 0.3)
     );
     const scalar targetResP = mesh.solutionDict().lookupOrDefault<scalar>(
         "targetResP", 0.1);
-    pEqn.relax(relaxP);
-    
+
     // Create backups in case solver diverges
     volScalarField p_rgh_old(p_rgh);
     surfaceScalarField phi_old(phi);
+    surfaceScalarField rhoPhi_old(rhoPhi);
     volVectorField U_old(U);
 
-    // Solve and inspect initial residual
-    SolverPerformance<scalar> solverPerf = pEqn.solve();
-    scalar residual = solverPerf.initialResidual();
-    if (verbose)
+    bool firstIteration = true;
+
+    while (pimple.correctNonOrthogonal())
     {
-        Info<< "pEqn initial residual: " << residual << endl;
-    }
-    relaxP = max(min(relaxP * targetResP/(residual + SMALL), 0.7), 0.1);
-    if (verbose)
-    {
-        Info<< "  Updated relaxP: " << relaxP << endl;
+        fvScalarMatrix pEqn
+        (
+            fvm::laplacian(rAUf, p_rgh) == fvc::div(phiHbyA)
+        );
+
+        // Set reference and apply adaptive under-relaxation (relaxP is set in fvSolution)
+        if (p_rgh.needReference())
+        {
+            pEqn.setReference(pRefCell, pRefValue);
+        }
+
+        pEqn.relax(relaxP);
+
+        SolverPerformance<scalar> solverPerf = pEqn.solve();
+
+        if (firstIteration)
+        {
+            scalar residual = solverPerf.initialResidual();
+            if (verbose)
+            {
+                Info<< "pEqn initial residual: " << residual << endl;
+            }
+
+            relaxP = max(min(relaxP * targetResP/(residual + SMALL), 0.7), 0.1);
+            if (verbose)
+            {
+                Info<< "  Updated relaxP: " << relaxP << endl;
+            }
+
+            if (residual >= maxInitialResidual)
+            {
+                Warning
+                    << "Pressure solve appears unstable - reverting to previous"
+                    << " solution" << endl;
+                p_rgh = p_rgh_old;
+                phi = phi_old;
+                rhoPhi = rhoPhi_old;
+                U = U_old;
+                break;
+            }
+
+            firstIteration = false;
+        }
+
+        phi = phiHbyA - pEqn.flux();
+        phi += fvc::ddtPhiCorr(rAU, rho, U, phi);
+        rhoPhi = fvc::interpolate(rho)*phi;
+
+        if (pimple.finalNonOrthogonalIter())
+        {
+            U = HbyA - rAU*fvc::grad(p_rgh);
+            U.correctBoundaryConditions();
+        }
     }
 
-    // Revert to previous solution if residual too large
-    if (residual >= maxInitialResidual)
-    {
-        Warning << "Pressure solve appears unstable - reverting to previous solution" << endl;
-        p_rgh = p_rgh_old;
-        phi = phi_old;
-        U = U_old;
-    }
-
-    
     // Check for invalid values after solve
     bool hasInvalidValues = false;
     forAll(p_rgh, cellI)
