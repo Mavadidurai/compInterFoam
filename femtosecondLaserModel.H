@@ -34,9 +34,10 @@ private:
     dimensionedScalar   pulseWidth_;        // [s]
     dimensionedScalar   wavelength_;        // [m]
     dimensionedScalar   absorptionCoeff_;   // [1/m]
-    dimensionedScalar   gasAbsorptionCoeff_; // [1/m]    
+    dimensionedScalar   gasAbsorptionCoeff_; // [1/m]
     dimensionedScalar   spotSize_;          // [m] (diameter)
     dimensionedScalar   pulseEnergy_;       // [J]
+    dimensionedScalar   maxVolumetricSource_; // [W/m^3]
 
     // Geometry / timing
     vector              direction_;         // unit vector
@@ -108,12 +109,12 @@ public:
     const dimensionedScalar& wavelength()    const { return wavelength_; }
     const dimensionedScalar& spotSize()      const { return spotSize_; }
     const dimensionedScalar& pulseEnergy()   const { return pulseEnergy_; }
+    const dimensionedScalar& maxVolumetricSource() const {        return maxVolumetricSource_;    }    
     const point&              focus()        const { return focus_; }
     const vector&             direction()    const { return direction_; }
     scalar laserStartTime() const { return laserStartTime_; }
     scalar laserEndTime()   const { return laserEndTime_; }
     bool   isContinuous()   const { return continuousLaser_; }
-
     bool valid() const;
     void write() const;
 };

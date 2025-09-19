@@ -484,8 +484,6 @@ void twoTemperatureModel::solve
             << "Invalid field values before solve"
             << abort(FatalError);
     }
-    // Store initial energy
-    updateEnergyTracking();
     const volScalarField& metal = metalFraction_;
     const scalar ambient = ambientTemperature_.value();
     const scalar metalFractionFloor =
@@ -499,6 +497,87 @@ void twoTemperatureModel::solve
     const dimensionedScalar metalFloor("metalFractionFloor", dimless, Foam::max(metalFractionFloor, VSMALL));
     tmp<volScalarField> tMetalEff = Foam::max(metal, metalFloor);
     const volScalarField& metalEff = tMetalEff();
+    dimensionedScalar minTemp
+    (
+        "minTemp",
+        dimTemperature,
+        dict_.lookupOrDefault<scalar>("minTe", 300.0)
+    );
+    dimensionedScalar maxTemp
+    (
+        "maxTemp",
+        dimTemperature,
+        dict_.lookupOrDefault<scalar>("maxTe", 3500.0)
+    );
+
+    const auto enforceTemperatureBounds = [&]
+    {
+        scalarField& TeInternal = Te_.primitiveFieldRef();
+        scalarField& TlInternal = Tl_.primitiveFieldRef();
+        const scalarField& metalInternal = metal.primitiveField();
+
+        forAll(TeInternal, cellI)
+        {
+            if (metalInternal[cellI] > metalCutoff)
+            {
+                TeInternal[cellI] = Foam::max
+                (
+                    Foam::min(TeInternal[cellI], maxTemp.value()),
+                    minTemp.value()
+                );
+                TlInternal[cellI] = Foam::max
+                (
+                    Foam::min(TlInternal[cellI], maxTemp.value()),
+                    minTemp.value()
+                );
+            }
+            else
+            {
+                TeInternal[cellI] = ambient;
+                TlInternal[cellI] = ambient;
+            }
+        }
+
+        volScalarField::Boundary& TeBoundary = Te_.boundaryFieldRef();
+        volScalarField::Boundary& TlBoundary = Tl_.boundaryFieldRef();
+        const volScalarField::Boundary& metalBoundary = metal.boundaryField();
+
+        forAll(TeBoundary, patchI)
+        {
+            scalarField& TePatch = TeBoundary[patchI];
+            scalarField& TlPatch = TlBoundary[patchI];
+            const scalarField& metalPatch = metalBoundary[patchI];
+
+            forAll(TePatch, faceI)
+            {
+                if (metalPatch[faceI] > metalCutoff)
+                {
+                    TePatch[faceI] = Foam::max
+                    (
+                        Foam::min(TePatch[faceI], maxTemp.value()),
+                        minTemp.value()
+                    );
+                    TlPatch[faceI] = Foam::max
+                    (
+                        Foam::min(TlPatch[faceI], maxTemp.value()),
+                        minTemp.value()
+                    );
+                }
+                else
+                {
+                    TePatch[faceI] = ambient;
+                    TlPatch[faceI] = ambient;
+                }
+            }
+        }
+
+        Te_.correctBoundaryConditions();
+        Tl_.correctBoundaryConditions();
+    };
+
+    enforceTemperatureBounds();
+    // Store initial energy
+    updateEnergyTracking();    
     tmp<volScalarField> tGasMetalHeatFluxMasked
     (
         new volScalarField
@@ -671,35 +750,7 @@ void twoTemperatureModel::solve
             << "  Metal lattice energy after laser: "
             << latticeEnergyAfter.value() << " J" << endl;
     }
-    // Apply temperature bounds from dictionary
-    dimensionedScalar minTemp
-    (
-        "minTemp",
-        dimTemperature,
-        dict_.lookupOrDefault<scalar>("minTe", 300.0)
-    );
-    dimensionedScalar maxTemp
-    (
-        "maxTemp",
-        dimTemperature,
-        dict_.lookupOrDefault<scalar>("maxTe", 3500.0)
-    );
-    // Bound fields safely, keeping gas cells at ambient temperature
-    forAll(Te_, cellI)
-    {
-        if (metal[cellI] > metalCutoff)
-        {
-            Te_[cellI] = max(min(Te_[cellI], maxTemp.value()), minTemp.value());
-            Tl_[cellI] = max(min(Tl_[cellI], maxTemp.value()), minTemp.value());
-        }
-        else
-        {
-            Te_[cellI] = ambient;
-            Tl_[cellI] = ambient;
-        }
-    }
-    Te_.correctBoundaryConditions();
-    Tl_.correctBoundaryConditions();
+    enforceTemperatureBounds();
     dimensionedScalar totalEnergyInput =
         laserEnergy + phaseChangeEnergy + couplingEnergy;
     // Check energy conservation
@@ -886,6 +937,27 @@ tmp<volScalarField> twoTemperatureModel::gasMetalExchangeCoeffField() const
     }
     coeff *= metalFraction_;
     coeff *= (scalar(1) - metalFraction_);
+    const scalar maxExchange =
+        dict_.lookupOrDefault<scalar>("maxGasMetalExchangeCoeff", 1e18);
+    const scalar minExchange =
+        dict_.lookupOrDefault<scalar>("minGasMetalExchangeCoeff", 0.0);
+    scalarField& coeffInternal = coeff.primitiveFieldRef();
+    forAll(coeffInternal, cellI)
+    {
+        scalar& value = coeffInternal[cellI];
+        value = Foam::max(minExchange, Foam::min(value, maxExchange));
+    }
+    volScalarField::Boundary& coeffBoundary = coeff.boundaryFieldRef();
+    forAll(coeffBoundary, patchI)
+    {
+        scalarField& patchField = coeffBoundary[patchI];
+
+        forAll(patchField, faceI)
+        {
+            scalar& value = patchField[faceI];
+            value = Foam::max(minExchange, Foam::min(value, maxExchange));
+        }
+    }    
     return tCoeff;
 }
 bool twoTemperatureModel::valid() const

@@ -48,6 +48,16 @@ femtosecondLaserModel::femtosecondLaserModel
     ),
     spotSize_("spotSize", dimLength, dict.get<scalar>("spotSize")),
     pulseEnergy_("pulseEnergy", dimEnergy, dict.get<scalar>("pulseEnergy")),
+    maxVolumetricSource_
+    (
+        "maxVolumetricSource",
+        dimPower/dimVolume,
+        Foam::max
+        (
+            scalar(0),
+            dict.getOrDefault<scalar>("maxVolumetricSource", 1e18)
+        )
+    ),    
     direction_(dict.get<vector>("direction")),
     focus_(dict.get<point>("focus")),
     initialFocus_(focus_),
@@ -130,6 +140,8 @@ femtosecondLaserModel::femtosecondLaserModel
             << "  Wavelength: " << wavelength_.value() << " m" << nl
             << "  Spot size: " << spotSize_.value() << " m" << nl
             << "  Pulse energy: " << pulseEnergy_.value() << " J" << nl
+            << "  Max volumetric source: " << maxVolumetricSource_.value()
+            << " W/m^3" << nl            
             << "  Focus: " << focus_ << nl
             << "  Direction: " << direction_ << nl
             << "  Active time: " << laserStartTime_ << " to "
@@ -172,13 +184,15 @@ bool femtosecondLaserModel::validateParameters() const
     ok = ok && (gasAbsorptionCoeff_.dimensions()== dimless/dimLength);    
     ok = ok && (spotSize_.dimensions()      == dimLength);
     ok = ok && (pulseEnergy_.dimensions()   == dimEnergy);
+    ok = ok && (maxVolumetricSource_.dimensions() == dimPower/dimVolume);
 
     ok = ok && (peakIntensity_.value() > 0);
     ok = ok && (pulseWidth_.value()    > 0);
     ok = ok && (wavelength_.value()    > 0);
     ok = ok && (spotSize_.value()      > 0);
     ok = ok && (pulseEnergy_.value()   > 0);
-    ok = ok && (gasAbsorptionCoeff_.value() >= 0);    
+    ok = ok && (gasAbsorptionCoeff_.value() >= 0);
+    ok = ok && (maxVolumetricSource_.value() >= 0);
     if (laserStartTime_ < 0)
     {
         FatalErrorInFunction
@@ -522,7 +536,10 @@ if (temporalTerm <= VSMALL)
     scalar totalBeamVolume = 0.0;
     scalar totalFilmSourceIntegral = 0.0;
     scalar totalGasSourceIntegral  = 0.0;
+    label limitedCells = 0;
 
+    const scalar maxSourceCap = maxVolumetricSource_.value();
+    const bool limitLaserSource = maxSourceCap > SMALL;
     if (transmission_ >= 0)
     {
         WarningInFunction
@@ -592,7 +609,18 @@ if (temporalTerm <= VSMALL)
 
         if (std::isfinite(volIntensity) && volIntensity > 0)
         {
-            source[cellI] = volIntensity;
+            scalar limitedValue = volIntensity;
+
+            if (limitLaserSource && limitedValue > maxSourceCap)
+            {
+                limitedValue = maxSourceCap;
+                ++limitedCells;
+            }
+
+            limitedValue = Foam::max(limitedValue, scalar(0));
+
+            source[cellI] = limitedValue;
+
 
             const scalar cellPower = source[cellI] * mesh_.V()[cellI];
 
@@ -613,7 +641,13 @@ if (temporalTerm <= VSMALL)
     reduce(totalBeamVolume, sumOp<scalar>());
     reduce(totalFilmSourceIntegral, sumOp<scalar>());
     reduce(totalGasSourceIntegral, sumOp<scalar>());
+    reduce(limitedCells, sumOp<label>());
 
+    if (limitLaserSource && limitedCells > 0 && verbose)
+    {
+        Info<< "Laser source limited to " << maxSourceCap
+            << " W/m^3 in " << limitedCells << " cells" << endl;
+    }
     const scalar avgIntensityInBeam =
         (totalBeamVolume > 0) ? totalSourceIntegral/totalBeamVolume : 0.0;
 
@@ -727,8 +761,10 @@ void femtosecondLaserModel::write() const
             << "  Wavelength: " << wavelength_.value() << " m" << nl
             << "  Spot size: " << spotSize_.value() << " m" << nl
             << "  Pulse energy: " << pulseEnergy_.value() << " J" << nl
+            << "  Max volumetric source: " << maxVolumetricSource_.value()
+            << " W/m^3" << nl
             << "  Absorption coefficient: " << absorptionCoeff_.value() << " 1/m" << nl
-            << "  Gas absorption coefficient: " << gasAbsorptionCoeff_.value() << " 1/m" << nl            
+            << "  Gas absorption coefficient: " << gasAbsorptionCoeff_.value() << " 1/m" << nl         
             << "  Reflectivity: " << reflectivity_ << nl
             << "  Transmission: " << (transmission_ >= 0
                                       ? transmission_ : (1.0 - reflectivity_)) << nl

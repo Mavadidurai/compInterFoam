@@ -8,16 +8,103 @@ extern Foam::Switch verbose;
         Info<< "Solving temperature equation" << endl;
     }
     // Solve the compressible temperature equation to evolve the gas phase
-// Before TEqn construction, bound the temperature field
-//T = max(T, minPhysicalTemp);
-//T = min(T, maxPhysicalTemp);
+    const dictionary& ctrl = runTime.controlDict();
+    const scalar minPhysicalTemp = ctrl.lookupOrDefault<scalar>("minT", 250.0);
+    const scalar maxPhysicalTemp = ctrl.lookupOrDefault<scalar>("maxT", 15000.0);
+    const Switch enableTClamp = ctrl.lookupOrDefault<Switch>("enableTClamp", true);
+
+    if (enableTClamp)
+    {
+        const dimensionedScalar minTempDim
+        (
+            "minT",
+            dimTemperature,
+            minPhysicalTemp
+        );
+        const dimensionedScalar maxTempDim
+        (
+            "maxT",
+            dimTemperature,
+            maxPhysicalTemp
+        );
+
+        T = Foam::max(T, minTempDim);
+        T = Foam::min(T, maxTempDim);
+        T.correctBoundaryConditions();
+    }
+
     const volScalarField& TeField = ttm.Te();
     const volScalarField& TlField = ttm.Tl();
     volScalarField& gasMetalHeatFlux =
         mesh.lookupObjectRef<volScalarField>("gasMetalHeatFlux");
     tmp<volScalarField> tInterfaceExchange = ttm.gasMetalExchangeCoeffField();
-    const volScalarField& interfaceExchange = tInterfaceExchange();
+    volScalarField& interfaceExchange = tInterfaceExchange.ref();
     const volScalarField& gasFraction = alpha2;
+
+    const scalar maxInterfaceExchange =
+        ctrl.lookupOrDefault<scalar>("maxGasMetalExchangeCoeff", 1e18);
+    const scalar minInterfaceExchange =
+        ctrl.lookupOrDefault<scalar>("minGasMetalExchangeCoeff", 0.0);
+
+    label interfaceClampedCells = 0;
+    label interfaceClampedFaces = 0;
+
+    {
+        scalarField& coeffInternal = interfaceExchange.primitiveFieldRef();
+
+        forAll(coeffInternal, cellI)
+        {
+            scalar& value = coeffInternal[cellI];
+
+            if (value < minInterfaceExchange)
+            {
+                value = minInterfaceExchange;
+                ++interfaceClampedCells;
+            }
+            else if (value > maxInterfaceExchange)
+            {
+                value = maxInterfaceExchange;
+                ++interfaceClampedCells;
+            }
+        }
+
+        volScalarField::Boundary& coeffBoundary =
+            interfaceExchange.boundaryFieldRef();
+
+        forAll(coeffBoundary, patchI)
+        {
+            scalarField& patchField = coeffBoundary[patchI];
+
+            forAll(patchField, faceI)
+            {
+                scalar& value = patchField[faceI];
+
+                if (value < minInterfaceExchange)
+                {
+                    value = minInterfaceExchange;
+                    ++interfaceClampedFaces;
+                }
+                else if (value > maxInterfaceExchange)
+                {
+                    value = maxInterfaceExchange;
+                    ++interfaceClampedFaces;
+                }
+            }
+        }
+    }
+
+    reduce(interfaceClampedCells, sumOp<label>());
+    reduce(interfaceClampedFaces, sumOp<label>());
+
+    if (verbose && (interfaceClampedCells > 0 || interfaceClampedFaces > 0))
+    {
+        Info<< "Interface exchange coefficient limited in "
+            << interfaceClampedCells << " cells and "
+            << interfaceClampedFaces << " faces (range "
+            << minInterfaceExchange << " - "
+            << maxInterfaceExchange << " W/m³/K)" << endl;
+    }
+
 
     tmp<volScalarField> tCv2 = mixture.thermo2().Cv();
     const volScalarField& Cv2 = tCv2();
@@ -111,7 +198,6 @@ extern Foam::Switch verbose;
     tCvolGasClamp.clear();
     TEqn.relax();
     fvOptions.constrain(TEqn);
-    const dictionary& ctrl = runTime.controlDict();
     const dictionary solvers(mesh.solutionDict().subOrEmptyDict("solvers"));
     const word finalName(T.name() + "Final");
 
@@ -143,9 +229,6 @@ extern Foam::Switch verbose;
     }
 
     // Apply physical bounds to prevent numerical issues
-    const scalar minPhysicalTemp = ctrl.lookupOrDefault<scalar>("minT", 250.0);
-    const scalar maxPhysicalTemp = ctrl.lookupOrDefault<scalar>("maxT", 15000.0);
-    const Switch enableTClamp = ctrl.lookupOrDefault<Switch>("enableTClamp", true);
     label minTCells = 0;
     label maxTCells = 0;
     if (enableTClamp)
@@ -223,6 +306,61 @@ extern Foam::Switch verbose;
     else
     {
         gasMetalHeatFlux = rawFlux;
+    }
+    const scalar maxPhysicalFlux =
+        ctrl.lookupOrDefault<scalar>("maxGasMetalHeatFlux", 1e15);
+
+    label fluxLimitedCells = 0;
+    label fluxLimitedFaces = 0;
+
+    if (maxPhysicalFlux > SMALL)
+    {
+        scalarField& fluxInternal = gasMetalHeatFlux.primitiveFieldRef();
+
+        forAll(fluxInternal, cellI)
+        {
+            scalar& value = fluxInternal[cellI];
+
+            if (Foam::mag(value) > maxPhysicalFlux)
+            {
+                value = Foam::sign(value)*maxPhysicalFlux;
+                ++fluxLimitedCells;
+            }
+        }
+    }
+
+    gasMetalHeatFlux.correctBoundaryConditions();
+
+    if (maxPhysicalFlux > SMALL)
+    {
+        volScalarField::Boundary& fluxBoundary =
+            gasMetalHeatFlux.boundaryFieldRef();
+
+        forAll(fluxBoundary, patchI)
+        {
+            scalarField& patchField = fluxBoundary[patchI];
+
+            forAll(patchField, faceI)
+            {
+                scalar& value = patchField[faceI];
+
+                if (Foam::mag(value) > maxPhysicalFlux)
+                {
+                    value = Foam::sign(value)*maxPhysicalFlux;
+                    ++fluxLimitedFaces;
+                }
+            }
+        }
+    }
+
+    reduce(fluxLimitedCells, sumOp<label>());
+    reduce(fluxLimitedFaces, sumOp<label>());
+
+    if (verbose && (fluxLimitedCells > 0 || fluxLimitedFaces > 0))
+    {
+        Info<< "Gas-metal heat flux limited in " << fluxLimitedCells
+            << " cells and " << fluxLimitedFaces << " faces (|q| ≤ "
+            << maxPhysicalFlux << " W/m³)" << endl;
     }
 
     gasMetalHeatFlux.correctBoundaryConditions();
