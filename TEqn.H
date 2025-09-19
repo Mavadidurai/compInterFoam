@@ -156,13 +156,6 @@ extern Foam::Switch verbose;
      ==
         fvOptions(CvolGas, T)
     );
-
-    tmp<volScalarField> tCvolGasClamp
-    (
-        max(CvolGas, rhoFloor*cvFloor)
-    );
-    const volScalarField& CvolGasClamp = tCvolGasClamp();
-
     dimensionedScalar oldGasEnergy("oldGasEnergy", dimEnergy, 0.0);
 
     if (verbose)
@@ -197,7 +190,6 @@ extern Foam::Switch verbose;
     tGasDensity.clear();
     tInterfaceRelaxCoeff.clear();
     tCvolGas.clear();
-    tCvolGasClamp.clear();
     TEqn.relax();
     fvOptions.constrain(TEqn);
     const dictionary solvers(mesh.solutionDict().subOrEmptyDict("solvers"));
