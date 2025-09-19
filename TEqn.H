@@ -393,14 +393,21 @@ extern Foam::Switch verbose;
 
         dimensionedScalar gasMetalPower = fvc::domainIntegrate(gasMetalHeatFlux);
         dimensionedScalar exchangeEnergy = -gasMetalPower*runTime.deltaT();
-        dimensionedScalar energyResidual = deltaGasEnergy - exchangeEnergy;
+        dimensionedScalar laserEnergy =
+            fvc::domainIntegrate(alpha2*Qlaser)*runTime.deltaT();
+        dimensionedScalar energyResidual =
+            deltaGasEnergy - exchangeEnergy - laserEnergy;
 
         scalar denom = Foam::max
         (
             Foam::max
             (
-                Foam::mag(deltaGasEnergy.value()),
-                Foam::mag(exchangeEnergy.value())
+                Foam::max
+                (
+                    Foam::mag(deltaGasEnergy.value()),
+                    Foam::mag(exchangeEnergy.value())
+                ),
+                Foam::mag(laserEnergy.value())
             ),
             VSMALL
         );
@@ -411,6 +418,7 @@ extern Foam::Switch verbose;
             << "  E_gas (new) = " << newGasEnergy.value() << " J" << nl
             << "  ΔE_gas      = " << deltaGasEnergy.value() << " J" << nl
             << "  ∫Q_gm dt    = " << exchangeEnergy.value() << " J" << nl
+            << "  ∫Q_laser dt = " << laserEnergy.value() << " J" << nl
             << "  Residual    = " << energyResidual.value() << " J" << nl
             << "  Relative residual = " << relResidual << nl
             << "  Gas-metal power   = " << gasMetalPower.value() << " W" << endl;
