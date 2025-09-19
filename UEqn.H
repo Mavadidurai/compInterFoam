@@ -115,7 +115,7 @@ if (verbose && corruptedRhoCells > 0)
 fvVectorMatrix UEqn(fvm::ddt(rho, U) + fvm::div(rhoPhi, U));
 
 UEqn += transportModel.divDevRhoReff(U);
-
+UEqn += fvOptions(rho, U);
 // Add recoil pressure gradient whenever the model is available
 if (useAdvancedCapturing && pInterfaceCapturing.valid())
 {
@@ -124,6 +124,7 @@ if (useAdvancedCapturing && pInterfaceCapturing.valid())
 
 // Apply adaptive momentum relaxation
 UEqn.relax(relaxU);
+fvOptions.constrain(UEqn);
 
 // Obtain diagonal coefficients and compute reciprocal with optional clamping
 tmp<volScalarField> tA = UEqn.A();
@@ -229,7 +230,9 @@ rAU.correctBoundaryConditions();
 
 
 // Momentum predictor
-if (pimple.momentumPredictor())
+const bool runMomentumPredictor = pimple.momentumPredictor();
+
+if (runMomentumPredictor)
 {
     SolverPerformance<vector> solverPerf = solve
     (
@@ -295,6 +298,7 @@ if (pimple.momentumPredictor())
         Info<< "Momentum predictor:" << nl
             << "  Max velocity after limiting: " << maxVelAfterSolve << " m/s" << endl;
     }
+    fvOptions.correct(U);    
 }
 
 // Update fluxes
@@ -319,7 +323,12 @@ if (!std::isfinite(maxPhi) || !std::isfinite(maxRhoPhi))
     phi = fvc::interpolate(U) & mesh.Sf();
     rhoPhi = fvc::interpolate(rho)*phi;
 }
+fvOptions.makeRelative(rhoPhi, rho, U);
 
+if (runMomentumPredictor)
+{
+    fvOptions.correct(U);
+}
 // Continuity error calculation
 volScalarField contErr(fvc::div(rhoPhi));
 scalar sumLocalContErr = runTime.deltaT().value()

@@ -192,10 +192,13 @@ extern Foam::Switch verbose;
         tRhoPhiCorr.clear();
 
         rhoPhi = rhoInterp*phi;
+        fvOptions.makeRelative(rhoPhi, rho, U);
+
         if (pimple.finalNonOrthogonalIter())
         {
             U = HbyA - rAU*fvc::grad(p_rgh);
             U.correctBoundaryConditions();
+            fvOptions.correct(U);
         }
     }
 
