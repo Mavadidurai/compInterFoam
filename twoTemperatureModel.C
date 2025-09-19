@@ -514,7 +514,69 @@ void twoTemperatureModel::solve
 
     tmp<volScalarField> tMetalEff = Foam::max(metal, metalFloor);
     const volScalarField& metalEff = tMetalEff();
+    tmp<volScalarField> tGasMetalHeatFluxMasked
+    (
+        new volScalarField
+        (
+            IOobject
+            (
+                "gasMetalHeatFluxMasked",
+                mesh_.time().timeName(),
+                mesh_,
+                IOobject::NO_READ,
+                IOobject::NO_WRITE
+            ),
+            gasMetalHeatFlux
+        )
+    );
 
+    volScalarField& gasMetalHeatFluxMaskedRef = tGasMetalHeatFluxMasked.ref();
+
+    scalarField& gasMetalHeatFluxMaskedInternal =
+        gasMetalHeatFluxMaskedRef.primitiveFieldRef();
+    const scalarField& gasMetalHeatFluxInternal =
+        gasMetalHeatFlux.primitiveField();
+    const scalarField& metalInternal = metal.primitiveField();
+
+    forAll(gasMetalHeatFluxMaskedInternal, cellI)
+    {
+        if (metalInternal[cellI] < metalFractionFloor)
+        {
+            gasMetalHeatFluxMaskedInternal[cellI] = 0.0;
+        }
+        else
+        {
+            gasMetalHeatFluxMaskedInternal[cellI] =
+                gasMetalHeatFluxInternal[cellI];
+        }
+    }
+
+    volScalarField::Boundary& gasMetalHeatFluxMaskedBoundary =
+        gasMetalHeatFluxMaskedRef.boundaryFieldRef();
+    const volScalarField::Boundary& gasMetalHeatFluxBoundary =
+        gasMetalHeatFlux.boundaryField();
+    const volScalarField::Boundary& metalBoundary = metal.boundaryField();
+
+    forAll(gasMetalHeatFluxMaskedBoundary, patchI)
+    {
+        scalarField& maskedPatch = gasMetalHeatFluxMaskedBoundary[patchI];
+        const scalarField& fluxPatch = gasMetalHeatFluxBoundary[patchI];
+        const scalarField& metalPatch = metalBoundary[patchI];
+
+        forAll(maskedPatch, faceI)
+        {
+            if (metalPatch[faceI] < metalFractionFloor)
+            {
+                maskedPatch[faceI] = 0.0;
+            }
+            else
+            {
+                maskedPatch[faceI] = fluxPatch[faceI];
+            }
+        }
+    }
+
+    const volScalarField& gasMetalHeatFluxMasked = tGasMetalHeatFluxMasked();
     const label nInnerSweeps =
         dict_.lookupOrDefault<label>("nInnerCouplingSweeps", 1);
     const scalar innerCouplingReductionTol =
@@ -553,9 +615,9 @@ void twoTemperatureModel::solve
 
     if (verbose)
     {
-        Info<< "  gasMetalHeatFlux range entering TTM solve: ["
-            << gMin(gasMetalHeatFlux) << ", "
-            << gMax(gasMetalHeatFlux) << "] W/m³" << endl;
+        Info<< "  gasMetalHeatFlux range entering TTM solve (masked): ["
+            << gMin(gasMetalHeatFluxMasked) << ", "
+            << gMax(gasMetalHeatFluxMasked) << "] W/m³" << endl;
     }
     
     scalar prevResidual = gMax(mag(Te_ - Tl_)().internalField());
@@ -579,7 +641,7 @@ void twoTemperatureModel::solve
                 G*Te_
               + Cl_*(phaseChangeSource + phaseChangeRelaxCoeff*TlOld)
             )
-            + gasMetalHeatFlux
+            + gasMetalHeatFluxMasked
 
         );
 
