@@ -643,6 +643,8 @@ void twoTemperatureModel::solve
         fvc::domainIntegrate(metal*laserSource)*mesh_.time().deltaT();
     dimensionedScalar phaseChangeEnergy =
         fvc::domainIntegrate(metal*(Cl_*phaseChangeSource))*mesh_.time().deltaT();
+    dimensionedScalar couplingEnergy =
+        fvc::domainIntegrate(gasMetalHeatFluxMasked)*mesh_.time().deltaT();    
     if (verbose)
     {
         Info<< "max(laserSource) = " << max(laserSource).value()
@@ -752,6 +754,8 @@ void twoTemperatureModel::solve
             << laserEnergy.value() << " J" << nl
             << "  Phase-change energy input: "
             << phaseChangeEnergy.value() << " J" << nl
+            << "  Gas-metal coupling energy input: "
+            << couplingEnergy.value() << " J" << nl            
             << "  Metal electron energy after laser: "
             << electronEnergyAfter.value() << " J" << nl
             << "  Metal lattice energy after laser: "
@@ -790,15 +794,18 @@ void twoTemperatureModel::solve
     Te_.correctBoundaryConditions();
     Tl_.correctBoundaryConditions();
     
+    dimensionedScalar totalEnergyInput =
+        laserEnergy + phaseChangeEnergy + couplingEnergy;
+
     // Check energy conservation
-    if (!checkEnergyConservation(laserEnergy + phaseChangeEnergy))
+    if (!checkEnergyConservation(totalEnergyInput))
     {
-   tmp<volScalarField> tCe = electronHeatCapacity();
-    const volScalarField& CeField = tCe();
-    dimensionedScalar currentEnergy =
-        fvc::domainIntegrate(metal*(CeField*Te_ + Cl_*Tl_));
+        tmp<volScalarField> tCe = electronHeatCapacity();
+        const volScalarField& CeField = tCe();
+        dimensionedScalar currentEnergy =
+            fvc::domainIntegrate(metal*(CeField*Te_ + Cl_*Tl_));
         dimensionedScalar expectedEnergy =
-            lastTotalEnergy_ + laserEnergy + phaseChangeEnergy;
+            lastTotalEnergy_ + totalEnergyInput;
         scalar energyError = mag
         (
             (currentEnergy.value() - expectedEnergy.value())/
@@ -815,7 +822,7 @@ void twoTemperatureModel::solve
             << "Error = " << energyError * 100 << " %" << nl
             << "Previous energy: " << lastTotalEnergy_.value() << " J" << nl
             << "Source energy: "
-            << (laserEnergy + phaseChangeEnergy).value() << " J" << nl
+            << totalEnergyInput.value() << " J" << nl
             << "Expected energy: " << expectedEnergy.value() << " J" << nl
             << "Current energy: " << currentEnergy.value() << " J" << nl
             << "Ce = " << Ce_.value() << " J/m^3/K" << nl

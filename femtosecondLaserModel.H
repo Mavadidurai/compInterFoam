@@ -34,6 +34,7 @@ private:
     dimensionedScalar   pulseWidth_;        // [s]
     dimensionedScalar   wavelength_;        // [m]
     dimensionedScalar   absorptionCoeff_;   // [1/m]
+    dimensionedScalar   gasAbsorptionCoeff_; // [1/m]    
     dimensionedScalar   spotSize_;          // [m] (diameter)
     dimensionedScalar   pulseEnergy_;       // [J]
 
@@ -57,14 +58,12 @@ private:
     scalar              filmYMin_;
     scalar              filmYMax_;
 
-    // Off-film scaling
-    scalar              offFilmScale_;
-    scalar              offFilmMax_;
-
     // Cached source
     mutable tmp<volScalarField> tSource_;
     mutable bool         sourceValid_;
     mutable scalar       cumulativeEnergy_;
+    mutable scalar       cumulativeFilmEnergy_;
+    mutable scalar       cumulativeGasEnergy_;    
     mutable label        lastTimeIndex_;
 
     // --- helpers ---

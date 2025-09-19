@@ -40,7 +40,12 @@ femtosecondLaserModel::femtosecondLaserModel
     pulseWidth_("pulseWidth", dimTime, dict.get<scalar>("pulseWidth")),
     wavelength_("wavelength", dimLength, dict.get<scalar>("wavelength")),
     absorptionCoeff_("absorptionCoeff", dimless/dimLength,
-        dict.getOrDefault<scalar>("absorptionCoeff", 5e6)),
+    dict.getOrDefault<scalar>("absorptionCoeff", 5e6)),
+    gasAbsorptionCoeff_(
+        "gasAbsorptionCoeff",
+        dimless/dimLength,
+        dict.getOrDefault<scalar>("gasAbsorptionCoeff", 0.0)
+    ),
     spotSize_("spotSize", dimLength, dict.get<scalar>("spotSize")),
     pulseEnergy_("pulseEnergy", dimEnergy, dict.get<scalar>("pulseEnergy")),
     direction_(dict.get<vector>("direction")),
@@ -58,11 +63,11 @@ femtosecondLaserModel::femtosecondLaserModel
     laserEndTime_(dict.getOrDefault<scalar>("laserEndTime", 2e-12)),
     filmYMin_(dict.getOrDefault<scalar>("filmYMin", 8e-6)),
     filmYMax_(dict.getOrDefault<scalar>("filmYMax", 10e-6)),
-    offFilmScale_(dict.getOrDefault<scalar>("offFilmScale", 0.1)),
-    offFilmMax_(dict.getOrDefault<scalar>("offFilmMax", 1e14)),
     tSource_(),
     sourceValid_(false),
     cumulativeEnergy_(0.0),
+    cumulativeFilmEnergy_(0.0),
+    cumulativeGasEnergy_(0.0),
     lastTimeIndex_(mesh.time().timeIndex())
 {
     // normalize direction
@@ -162,6 +167,7 @@ bool femtosecondLaserModel::validateParameters() const
     ok = ok && (pulseWidth_.dimensions()    == dimTime);
     ok = ok && (wavelength_.dimensions()    == dimLength);
     ok = ok && (absorptionCoeff_.dimensions()== dimless/dimLength);
+    ok = ok && (gasAbsorptionCoeff_.dimensions()== dimless/dimLength);    
     ok = ok && (spotSize_.dimensions()      == dimLength);
     ok = ok && (pulseEnergy_.dimensions()   == dimEnergy);
 
@@ -170,6 +176,7 @@ bool femtosecondLaserModel::validateParameters() const
     ok = ok && (wavelength_.value()    > 0);
     ok = ok && (spotSize_.value()      > 0);
     ok = ok && (pulseEnergy_.value()   > 0);
+    ok = ok && (gasAbsorptionCoeff_.value() >= 0);    
     if (laserStartTime_ < 0)
     {
         FatalErrorInFunction
@@ -327,7 +334,12 @@ void femtosecondLaserModel::calculateSource() const
     const scalar t = mesh_.time().value();
     const dimensionedScalar dt = mesh_.time().deltaT();
     const label timeIndex = mesh_.time().timeIndex();
-    if (timeIndex < lastTimeIndex_) cumulativeEnergy_ = 0.0; // restart
+    if (timeIndex < lastTimeIndex_)
+    {
+        cumulativeEnergy_ = 0.0;
+        cumulativeFilmEnergy_ = 0.0;
+        cumulativeGasEnergy_  = 0.0;
+    }
     lastTimeIndex_ = timeIndex;
 
 // Active only within the global window
@@ -437,10 +449,12 @@ if (temporalTerm <= VSMALL)
 
     candidateCells.shrink();
 
-    label cellsInBeam = 0, cellsInFilm = 0;
+    label cellsInBeam = 0, cellsInFilm = 0, cellsInGas = 0;
     scalar maxSourceValue = 0.0;
     scalar totalSourceIntegral = 0.0;
     scalar totalBeamVolume = 0.0;
+    scalar totalFilmSourceIntegral = 0.0;
+    scalar totalGasSourceIntegral  = 0.0;
 
     if (transmission_ >= 0)
     {
@@ -456,6 +470,7 @@ if (temporalTerm <= VSMALL)
         const bool inFilm = (c.y() >= filmYMin_ && c.y() <= filmYMax_);
         if (!isInBeam(c)) continue;
         if (inFilm) ++cellsInFilm;
+        else        ++cellsInGas;
 
         ++cellsInBeam;
         totalBeamVolume += mesh_.V()[cellI];
@@ -465,8 +480,15 @@ if (temporalTerm <= VSMALL)
         r -= z*direction_;
         const scalar R = mag(r);
 
-        const scalar spatialTerm    = calculateGaussianIntensity(R);
-        const scalar absorptionTerm = exp(-absorptionCoeff_.value()*max(z, 0.0));
+        const scalar spatialTerm = calculateGaussianIntensity(R);
+
+        const scalar cellAbsorptionCoeff =
+            inFilm ? absorptionCoeff_.value() : gasAbsorptionCoeff_.value();
+
+        const scalar absorptionTerm =
+            (cellAbsorptionCoeff > VSMALL)
+          ? exp(-cellAbsorptionCoeff*max(z, 0.0))
+          : 1.0;
 
         scalar transmissionFactor = 1.0 - reflectivity_;
         if (transmission_ >= 0) transmissionFactor = transmission_;
@@ -499,26 +521,31 @@ if (temporalTerm <= VSMALL)
             * absorptionTerm
             * transmissionFactor;
 
-        const scalar volIntensity = intensity * absorptionCoeff_.value();
+        const scalar volIntensity = intensity * cellAbsorptionCoeff;
 
         if (std::isfinite(volIntensity) && volIntensity > 0)
         {
-            source[cellI] =
-                inFilm
-              ? volIntensity
-              : min(volIntensity * offFilmScale_, offFilmMax_);
+            source[cellI] = volIntensity;
+
+            const scalar cellPower = source[cellI] * mesh_.V()[cellI];
 
             maxSourceValue       = max(maxSourceValue, source[cellI]);
-            totalSourceIntegral += source[cellI] * mesh_.V()[cellI];
+            totalSourceIntegral += cellPower;
+
+            if (inFilm) totalFilmSourceIntegral += cellPower;
+            else        totalGasSourceIntegral  += cellPower;
         }
     }
 
     // parallel reductions
     reduce(cellsInBeam, sumOp<label>());
     reduce(cellsInFilm, sumOp<label>());
+    reduce(cellsInGas,  sumOp<label>());
     reduce(maxSourceValue, maxOp<scalar>());
     reduce(totalSourceIntegral, sumOp<scalar>());
     reduce(totalBeamVolume, sumOp<scalar>());
+    reduce(totalFilmSourceIntegral, sumOp<scalar>());
+    reduce(totalGasSourceIntegral, sumOp<scalar>());
 
     const scalar avgIntensityInBeam =
         (totalBeamVolume > 0) ? totalSourceIntegral/totalBeamVolume : 0.0;
@@ -526,6 +553,12 @@ if (temporalTerm <= VSMALL)
     const dimensionedScalar energyThisStep =
         fvc::domainIntegrate(source * dt);
     cumulativeEnergy_ += energyThisStep.value();
+
+    const scalar filmEnergyThisStep = totalFilmSourceIntegral * dt.value();
+    const scalar gasEnergyThisStep  = totalGasSourceIntegral  * dt.value();
+
+    cumulativeFilmEnergy_ += filmEnergyThisStep;
+    cumulativeGasEnergy_  += gasEnergyThisStep;
 
     if (!checkEnergyConservation())
     {
@@ -539,7 +572,8 @@ if (temporalTerm <= VSMALL)
         Info<< "LASER DIAGNOSTICS:" << nl
             << "  Input peak intensity: " << peakIntensity_.value() << " W/m^2" << nl
             << "  Average volumetric intensity in beam: " << avgIntensityInBeam << " W/m^3" << nl
-            << "  Absorption coefficient: " << absorptionCoeff_.value() << " 1/m" << nl
+            << "  Absorption coefficient (film): " << absorptionCoeff_.value() << " 1/m" << nl
+            << "  Absorption coefficient (gas):  " << gasAbsorptionCoeff_.value() << " 1/m" << nl
             << "  Spot radius: " << spotSize_.value()/2.0*1e6 << " µm" << nl
             << "  Beam area: "
             << constant::mathematical::pi*sqr(spotSize_.value()/2.0)*1e12
@@ -552,11 +586,18 @@ if (temporalTerm <= VSMALL)
                 << "  Temporal factor: " << temporalTerm << nl
                 << "  Cells in beam: " << cellsInBeam << nl
                 << "  Cells in metal film: " << cellsInFilm << nl
+                << "  Cells in gas: " << cellsInGas << nl
                 << "  Max intensity: " << maxSourceValue/1e12 << " TW/m^3" << nl
                 << "  Total power: " << totalSourceIntegral/1e12 << " TW" << nl
+                << "    Film power: " << totalFilmSourceIntegral/1e12 << " TW" << nl
+                << "    Gas power:  " << totalGasSourceIntegral/1e12 << " TW" << nl
                 << "  dt: " << dt.value() << " s" << nl
                 << "  Energy this step: " << energyThisStep.value() << " J" << nl
-                << "  Cumulative energy: " << cumulativeEnergy_ << " J" << endl;
+                << "    Film energy this step: " << filmEnergyThisStep << " J" << nl
+                << "    Gas energy this step:  " << gasEnergyThisStep  << " J" << nl
+                << "  Cumulative energy: " << cumulativeEnergy_ << " J" << nl
+                << "    Cumulative film: " << cumulativeFilmEnergy_ << " J" << nl
+                << "    Cumulative gas:  " << cumulativeGasEnergy_  << " J" << endl;
 
             if (cellsInBeam == 0)
             {
@@ -571,6 +612,11 @@ if (temporalTerm <= VSMALL)
                     << "Beam hits " << cellsInBeam
                     << " cells but none in metal film region" << endl;
             }
+            else if (cellsInGas > 0 && gasAbsorptionCoeff_.value() <= VSMALL)
+            {
+                Info<< "    Gas absorption disabled (gasAbsorptionCoeff ≈ 0);"
+                    << " no direct heating deposited off-film." << endl;
+            }            
         }
     }
 
@@ -603,6 +649,7 @@ void femtosecondLaserModel::write() const
             << "  Spot size: " << spotSize_.value() << " m" << nl
             << "  Pulse energy: " << pulseEnergy_.value() << " J" << nl
             << "  Absorption coefficient: " << absorptionCoeff_.value() << " 1/m" << nl
+            << "  Gas absorption coefficient: " << gasAbsorptionCoeff_.value() << " 1/m" << nl            
             << "  Reflectivity: " << reflectivity_ << nl
             << "  Transmission: " << (transmission_ >= 0
                                       ? transmission_ : (1.0 - reflectivity_)) << nl
@@ -620,7 +667,9 @@ void femtosecondLaserModel::write() const
 
             Info<< "Source stats: max=" << maxI.value() << " W/m^3, "
                 << "E(step)=" << e.value() << " J" << nl
-                << "  Cumulative energy: " << cumulativeEnergy_ << " J" << endl;
+                << "  Cumulative energy: " << cumulativeEnergy_ << " J" << nl
+                << "    Film cumulative: " << cumulativeFilmEnergy_ << " J" << nl
+                << "    Gas cumulative:  " << cumulativeGasEnergy_  << " J" << endl;
         }
     }
 }

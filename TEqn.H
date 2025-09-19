@@ -62,6 +62,11 @@ extern Foam::Switch verbose;
         1e-12
     );
 
+    tmp<volScalarField> tCvMetal(max(Cv1, cvFloor));
+    tmp<volScalarField> tCvGas(max(Cv2, cvFloor));
+    const volScalarField& CvMetal = tCvMetal();
+    const volScalarField& CvGas = tCvGas();
+
     tmp<volScalarField> tYMetal
     (
         alpha1*max(rho1, rhoFloor)/max(rho, rhoFloor)
@@ -73,15 +78,27 @@ extern Foam::Switch verbose;
     const volScalarField& YMetal = tYMetal();
     const volScalarField& YGas = tYGas();
 
+    tmp<volScalarField> tCvMix
+    (
+        max
+        (
+            YMetal*CvMetal + YGas*CvGas,
+            cvFloor
+        )
+    );
+    const volScalarField& CvMix = tCvMix();
+
     tmp<volScalarField> tHeatCapacityWeighting
     (
-        YMetal/max(Cv1, cvFloor)
-      + YGas/max(Cv2, cvFloor)
+        dimensionedScalar("one", dimless, 1.0)/CvMix
     );
     const volScalarField& heatCapacityWeighting = tHeatCapacityWeighting();
 
     tYMetal.clear();
     tYGas.clear();
+    tCvMix.clear();
+    tCvMetal.clear();
+    tCvGas.clear();
     tCv1.clear();
     tCv2.clear();
     tRho1.clear();
