@@ -8,7 +8,9 @@ extern Foam::Switch verbose;
         Info<< "Solving temperature equation" << endl;
     }
     // Solve the compressible temperature equation to evolve the gas phase
-
+// Before TEqn construction, bound the temperature field
+//T = max(T, minPhysicalTemp);
+//T = min(T, maxPhysicalTemp);
     const volScalarField& TeField = ttm.Te();
     const volScalarField& TlField = ttm.Tl();
     volScalarField& gasMetalHeatFlux =
@@ -36,23 +38,11 @@ extern Foam::Switch verbose;
         dimDensity,
         1e-12
     );
-    tmp<volScalarField> tGasDensity(gasFraction*max(rho2, rhoFloor));
-    const volScalarField& gasDensity = tGasDensity();
-    tmp<surfaceScalarField> tGasRhoPhi(fvc::interpolate(alpha2)*rhoPhi);
-    const surfaceScalarField& gasRhoPhi = tGasRhoPhi();
-    tmp<volScalarField> tContErr = fvc::div(gasRhoPhi);
-    const volScalarField& contErr = tContErr();    
-    fvScalarMatrix TEqn
-    (
-        fvm::ddt(gasDensity, T)
-      + fvm::div(gasRhoPhi, T)
-      - fvm::Sp(contErr, T)
-      - fvm::laplacian(transportModel.alphaEff(), T)
-     ==
-        fvOptions(gasDensity, T)
-    );
     tmp<volScalarField> tCvGas(max(Cv2, cvFloor));
     const volScalarField& CvGas = tCvGas();
+
+    tmp<volScalarField> tGasDensity(gasFraction*max(rho2, rhoFloor));
+    const volScalarField& gasDensity = tGasDensity();
 
     tmp<volScalarField> tCvolGas
     (
@@ -60,12 +50,30 @@ extern Foam::Switch verbose;
     );
     const volScalarField& CvolGas = tCvolGas();
 
-    tmp<volScalarField> tInvCvolGas
+    tmp<surfaceScalarField> tGasCvolPhi
     (
-        dimensionedScalar("one", dimless, 1.0)
-       /max(CvolGas, rhoFloor*cvFloor)
+        fvc::interpolate(CvolGas)*phi
     );
-    const volScalarField& invCvolGas = tInvCvolGas();
+    const surfaceScalarField& gasCvolPhi = tGasCvolPhi();
+
+    tmp<volScalarField> tContErr = fvc::div(gasCvolPhi);
+    const volScalarField& contErr = tContErr();
+
+    fvScalarMatrix TEqn
+    (
+        fvm::ddt(CvolGas, T)
+      + fvm::div(gasCvolPhi, T)
+      - fvm::Sp(contErr, T)
+      - fvm::laplacian(transportModel.alphaEff(), T)
+     ==
+        fvOptions(CvolGas, T)
+    );
+
+    tmp<volScalarField> tCvolGasClamp
+    (
+        max(CvolGas, rhoFloor*cvFloor)
+    );
+    const volScalarField& CvolGasClamp = tCvolGasClamp();
 
     dimensionedScalar oldGasEnergy("oldGasEnergy", dimEnergy, 0.0);
 
@@ -83,17 +91,24 @@ extern Foam::Switch verbose;
     tCv2.clear();
     tRho2.clear();
 
+    tmp<volScalarField> tInterfaceRelaxCoeff
+    (
+        interfaceExchange/CvolGasClamp
+    );
+    const volScalarField& interfaceRelaxCoeff = tInterfaceRelaxCoeff();
+
     TEqn += fvm::Sp
     (
-        gasDensity*interfaceExchange*invCvolGas,
+        interfaceRelaxCoeff,
         T
     );
-    TEqn.source() +=
-        gasDensity*interfaceExchange*invCvolGas*TlField;
-    tGasRhoPhi.clear();
+    TEqn.source() += interfaceRelaxCoeff*TlField;
+
+    tGasCvolPhi.clear();
     tGasDensity.clear();
-    tInvCvolGas.clear();
+    tInterfaceRelaxCoeff.clear();
     tCvolGas.clear();
+    tCvolGasClamp.clear();
     TEqn.relax();
     fvOptions.constrain(TEqn);
     const dictionary& ctrl = runTime.controlDict();
@@ -283,7 +298,15 @@ extern Foam::Switch verbose;
             << "  Mean |T - Tl| (flux-derived): " << meanCouplingDelta << " K" << nl
             << "  Max |T - Tl| (flux-derived): " << maxCouplingDelta << " K" << endl;
     }
-
+// After calculating gasMetalHeatFlux, add limiting:
+const scalar maxPhysicalFlux = 1e15;  // W/m³ - reasonable upper bound
+forAll(gasMetalHeatFlux, cellI)
+{
+    if (mag(gasMetalHeatFlux[cellI]) > maxPhysicalFlux)
+    {
+        gasMetalHeatFlux[cellI] = sign(gasMetalHeatFlux[cellI]) * maxPhysicalFlux;
+    }
+}
     tCouplingDelta.clear();
     tRawFlux.clear();
     // Validate thermodynamic consistency
