@@ -26,10 +26,11 @@ endTime         2.1e-10;        // Very short test: 210 ps
 
 // --- ULTRA-CONSERVATIVE TIME STEPPING ---
 deltaT          5e-15;          // 0.005 ps (1/4 of characteristic time)
-maxDeltaT       2e-14;          // 0.02 ps cap
+maxDeltaT        1e-12;
+minDeltaT        1e-15;
 adjustTimeStep  yes;
-maxCo           0.001;          // Ultra-conservative
-maxAlphaCo      0.0005;         // Even more conservative
+maxCo           0.1;          // Ultra-conservative
+maxAlphaCo      0.05;         // Even more conservative
 
 verbose         true;
 

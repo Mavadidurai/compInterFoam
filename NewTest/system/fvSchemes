@@ -25,16 +25,13 @@ ddtSchemes
 
 gradSchemes
 {
-    default           Gauss linear;           // ✓ GOOD - Standard choice
-    grad(p_rgh)       Gauss linear;           
-    grad(p)           Gauss linear;           
-    grad(alpha.metal) Gauss linear;           // CONSIDER: Could use limitedLinear for stability
-    grad(alpha.air)   Gauss linear;           
-    grad(alpha)       Gauss linear;           
-    grad(U)           Gauss linear;           
-    grad(T)           Gauss linear; // IMPROVE: Add limiting for temperature
-    grad(Te)          Gauss linear; // IMPROVE: Add limiting 
-    grad(Tl)          Gauss linear;
+    default         Gauss linear;
+    grad(U)         cellLimited Gauss linear 0.5;
+    grad(alpha)     cellLimited Gauss linear 1;
+    grad(Te)        cellLimited Gauss linear 0.5;
+    grad(Tl)        cellLimited Gauss linear 0.5;
+    // If you have a single-phase gas T field too:
+    grad(T)         cellLimited Gauss linear 0.5;
 }
 
 divSchemes
@@ -43,9 +40,9 @@ divSchemes
 
     // Interface transport - GOOD improvements made
     div(phi,alpha)                   Gauss vanLeer01;        // ✓ GOOD change from vanLeer
-    div(phir,alpha)                  Gauss upwind;           // IMPROVE: upwind more stable than linear
+    div(phir,alpha)                  Gauss interfaceCompression; // REQUIRED: specialised scheme for compression flux
     div(phi,alpha.metal)             Gauss vanLeer01;        // ✓ GOOD
-    div(phir,alpha.metal)            Gauss upwind;           // IMPROVE: upwind more stable
+    div(phir,alpha.metal)            Gauss interfaceCompression; // REQUIRED: specialised scheme for compression flux
     div(phi,alpha.air)               Gauss vanLeer01;        // ✓ GOOD
 
     // Momentum - could be more conservative
@@ -60,7 +57,6 @@ divSchemes
     div(phi,p_rgh)                   Gauss upwind;           // ✓ GOOD change from linear
     div(((rho*nuEff)*dev2(T(grad(U))))) Gauss linear;       // ✓ OK for viscous terms
 }
-
 laplacianSchemes
 {
     default                          Gauss linear corrected;  // ✓ GOOD
@@ -86,38 +82,12 @@ laplacianSchemes
 
 interpolationSchemes
 {
-    default                 linear;                    // ✓ GOOD
-    interpolate(alpha.metal) linear;                   // ✓ GOOD
-    interpolate(alpha.air)   linear;                   // ✓ GOOD  
-    interpolate(alpha)       linear;                   // ✓ GOOD
-
-    interpolate(rho)         linear;                   // ✓ GOOD
-    interpolate(mu)          linear;                   // ✓ GOOD
-    interpolate(kappa)       linear;                   // ✓ GOOD
-
-    // Two-temperature interpolation - could be more conservative  
-    interpolate(Te)          limitedLinear 1.0;       // IMPROVE: bounded interpolation
-    interpolate(Tl)          limitedLinear 1.0;       // IMPROVE: bounded interpolation
-    interpolate(ke)          linear;                   // ✓ OK
-    interpolate(kl)          linear;                   // ✓ OK
-
-    interpolate((1|A(U)))    linear;                   // ✓ GOOD
-    interpolate(rAU)         linear;                   // ✓ GOOD
+    default         linear;
 }
 
 snGradSchemes
 {
-    default                 corrected;                 // ✓ GOOD for good meshes
-    snGrad(p_rgh)           corrected;                 // ✓ GOOD
-    snGrad(p)               corrected;                 // ✓ GOOD
-    
-    // Temperature gradients - could limit correction for stability
-    snGrad(T)               limited 0.33;             // IMPROVE: limit correction
-    snGrad(Te)              limited 0.33;             // IMPROVE: limit correction
-    snGrad(Tl)              limited 0.33;             // IMPROVE: limit correction
-    
-    snGrad(alpha.metal)     corrected;                 // ✓ GOOD
-    snGrad(alpha)           corrected;                 // ✓ GOOD
+    default         corrected;
 }
 
 wallDist

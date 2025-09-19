@@ -27,13 +27,13 @@ solvers
         
         nAlphaCorr      1;              // Keep at 1
         nAlphaSubCycles 1;              // REDUCE: was 2 
-        cAlpha          0.1;            // DRASTICALLY REDUCE: was 0.5
+        cAlpha          1;              // Restore order-one compression
         icAlpha         0;              
         scAlpha         0;
-        MULESCorr       false;          // DISABLE: Can cause instability
-        nLimiterIter    1;              // REDUCE: was 2
+        MULESCorr       true;
+        nLimiterIter    2;
         alphaApplyPrevCorr false;
-        sharpeningScheme none;          // DISABLE: was standard
+        sharpeningScheme standard;
         thinFilmCoeff   0.0;
     }
 
@@ -41,8 +41,8 @@ solvers
     {
         solver          GAMG;
         smoother        DIC;
-        tolerance       1e-6;           // RELAX: was 1e-8
-        relTol          0.01;           // CHANGE: was 0.0
+        tolerance       1e-7;           // RELAX: was 1e-8
+        relTol          0.05;           // CHANGE: was 0.0
         maxIter         200;            // INCREASE: was 100
         nPreSweeps      1;              // INCREASE: was 0
         nPostSweeps     3;              // INCREASE: was 2
@@ -60,30 +60,40 @@ solvers
     }
     
     "U.*"
-    {
-        solver          PBiCGStab;
-        preconditioner  DILU;
-        tolerance       1e-7;           // RELAX: was 1e-9
-        relTol          0.05;           // RELAX: was 0.01
-        maxIter         200;            // ADD: prevent excessive iterations
+   {
+        solver      smoothSolver;
+        smoother    symGaussSeidel;
+        nSweeps     2;
+        tolerance   1e-08;
+        relTol      0.1;
     }
 
+    // Gas T (if present)
     T
     {
-        solver          PBiCGStab;
-        preconditioner  DILU;
-        tolerance       1e-6;           // RELAX: was 1e-8
-        relTol          0.01;           // CHANGE: was 0.0
-        maxIter         100;            // ADD: limit iterations
+        solver      smoothSolver;
+        smoother    symGaussSeidel;
+        nSweeps     2;
+        tolerance   1e-08;
+        relTol      0.1;
     }
 
-    "(Te|Tl).*"
+    // Two-temperature fields
+    Te
     {
-        solver          PCG;
-        preconditioner  DIC;
-        tolerance       1e-6;           // RELAX: was 1e-8  
-        relTol          0.01;           // CHANGE: was 0.0
-        maxIter         100;            // ADD: limit iterations
+        solver      smoothSolver;
+        smoother    symGaussSeidel;
+        nSweeps     2;
+        tolerance   1e-08;
+        relTol      0.1;
+    }
+    Tl
+    {
+        solver      smoothSolver;
+        smoother    symGaussSeidel;
+        nSweeps     2;
+        tolerance   1e-08;
+        relTol      0.1;
     }
 }
 
