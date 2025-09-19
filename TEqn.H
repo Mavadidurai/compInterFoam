@@ -119,68 +119,8 @@ extern Foam::Switch verbose;
 
     fvOptions.correct(T);
 
-    scalar fluxRelax = Foam::max(scalar(0), Foam::min(scalar(1), thermalFluxRelax));
-    tmp<volScalarField> tRawFlux = interfaceExchange*(T - TlField);
-    const volScalarField& rawFlux = tRawFlux();
-
-    if (fluxRelax < 1.0 - SMALL)
-    {
-        scalarField& gasMetalHeatFluxPf =
-            gasMetalHeatFlux.primitiveFieldRef();
-        const scalarField& rawFluxPf = rawFlux.primitiveField();
-
-        gasMetalHeatFluxPf =
-            fluxRelax*rawFluxPf
-          + (1.0 - fluxRelax)*gasMetalHeatFluxPf;
-
-        volScalarField::Boundary& gasMetalHeatFluxBf =
-            gasMetalHeatFlux.boundaryFieldRef();
-        const volScalarField::Boundary& rawFluxBf = rawFlux.boundaryField();
-
-        forAll(gasMetalHeatFluxBf, patchI)
-        {
-            gasMetalHeatFluxBf[patchI] =
-                fluxRelax*rawFluxBf[patchI]
-              + (1.0 - fluxRelax)*gasMetalHeatFluxBf[patchI];
-        }
-    }
-    else
-    {
-        gasMetalHeatFlux = rawFlux;
-    }
-
-    gasMetalHeatFlux.correctBoundaryConditions();
-
-    if (verbose)
-    {
-        Info<< "  Updated gas-metal heat flux range: ["
-            << gMin(gasMetalHeatFlux) << ", "
-            << gMax(gasMetalHeatFlux) << "] W/m³" << endl;
-    }
-
-    tRawFlux.clear();
     tContErr.clear();
     tContErrK.clear();
-
-    scalar couplingMin = gMin(interfaceExchange);
-    scalar couplingMax = gMax(interfaceExchange);
-
-    tmp<volScalarField> tCouplingDelta = mag(T - TlField);
-    const volScalarField& couplingDelta = tCouplingDelta();
-    scalar meanCouplingDelta = gAverage(couplingDelta);
-    scalar maxCouplingDelta = gMax(couplingDelta);
-    tCouplingDelta.clear();
-
-    if (verbose)
-    {
-        Info<< "Interface coupling diagnostics:" << nl
-            << "  Exchange coeff range: " << couplingMin << " - "
-            << couplingMax << " W/m³/K" << nl
-            << "  Heat flux range: " << gMin(gasMetalHeatFlux)
-            << " - " << gMax(gasMetalHeatFlux) << " W/m³" << nl
-            << "  Mean |T - Tl|: " << meanCouplingDelta << " K" << nl
-            << "  Max |T - Tl|: " << maxCouplingDelta << " K" << endl;
-    }
 
     // Evaluate global temperature statistics after selective synchronisation
     scalar minT = min(T).value();
@@ -245,6 +185,74 @@ extern Foam::Switch verbose;
     // Update mixture thermodynamic properties based on new temperature
     mixture.correctThermo();
     mixture.correct();
+
+    // Recompute the gas-metal heat flux using the clamped temperature field
+    scalar fluxRelax = Foam::max(scalar(0), Foam::min(scalar(1), thermalFluxRelax));
+    tmp<volScalarField> tRawFlux = interfaceExchange*(T - TlField);
+    const volScalarField& rawFlux = tRawFlux();
+
+    if (fluxRelax < 1.0 - SMALL)
+    {
+        scalarField& gasMetalHeatFluxPf =
+            gasMetalHeatFlux.primitiveFieldRef();
+        const scalarField& rawFluxPf = rawFlux.primitiveField();
+
+        gasMetalHeatFluxPf =
+            fluxRelax*rawFluxPf
+          + (1.0 - fluxRelax)*gasMetalHeatFluxPf;
+
+        volScalarField::Boundary& gasMetalHeatFluxBf =
+            gasMetalHeatFlux.boundaryFieldRef();
+        const volScalarField::Boundary& rawFluxBf = rawFlux.boundaryField();
+
+        forAll(gasMetalHeatFluxBf, patchI)
+        {
+            gasMetalHeatFluxBf[patchI] =
+                fluxRelax*rawFluxBf[patchI]
+              + (1.0 - fluxRelax)*gasMetalHeatFluxBf[patchI];
+        }
+    }
+    else
+    {
+        gasMetalHeatFlux = rawFlux;
+    }
+
+    gasMetalHeatFlux.correctBoundaryConditions();
+
+    scalar couplingMin = gMin(interfaceExchange);
+    scalar couplingMax = gMax(interfaceExchange);
+
+    const dimensionedScalar interfaceExchangeFloor
+    (
+        "interfaceExchangeFloor",
+        interfaceExchange.dimensions(),
+        SMALL
+    );
+
+    tmp<volScalarField> tCouplingDelta =
+        Foam::mag(gasMetalHeatFlux)
+       /Foam::max(interfaceExchange, interfaceExchangeFloor);
+    const volScalarField& couplingDelta = tCouplingDelta();
+    scalar meanCouplingDelta = gAverage(couplingDelta);
+    scalar maxCouplingDelta = gMax(couplingDelta);
+
+    if (verbose)
+    {
+        Info<< "  Updated gas-metal heat flux range: ["
+            << gMin(gasMetalHeatFlux) << ", "
+            << gMax(gasMetalHeatFlux) << "] W/m³" << endl;
+
+        Info<< "Interface coupling diagnostics:" << nl
+            << "  Exchange coeff range: " << couplingMin << " - "
+            << couplingMax << " W/m³/K" << nl
+            << "  Heat flux range: " << gMin(gasMetalHeatFlux)
+            << " - " << gMax(gasMetalHeatFlux) << " W/m³" << nl
+            << "  Mean |T - Tl| (flux-derived): " << meanCouplingDelta << " K" << nl
+            << "  Max |T - Tl| (flux-derived): " << maxCouplingDelta << " K" << endl;
+    }
+
+    tCouplingDelta.clear();
+    tRawFlux.clear();
     // Validate thermodynamic consistency
     const volScalarField& rho1 = mixture.thermo1().rho();
     const volScalarField& rho2 = mixture.thermo2().rho();
