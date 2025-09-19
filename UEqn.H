@@ -40,12 +40,18 @@ forAll(U, cellI)
     {
         U[cellI] = vector::zero;
         corruptedVelCells++;
+        hasVelocityIssues = true;
     }
     else
     {
         scalar velMag = mag(U[cellI]);
         maxVelMagnitude = max(maxVelMagnitude, velMag);
-        
+
+        if (velMag > maxReasonableVelocity)
+        {
+            hasVelocityIssues = true;
+        }
+
     }
 }
 
@@ -53,16 +59,59 @@ forAll(U, cellI)
 reduce(maxVelMagnitude, maxOp<scalar>());
 reduce(corruptedVelCells, sumOp<label>());
 
+label hasVelocityIssuesFlag = hasVelocityIssues ? 1 : 0;
+reduce(hasVelocityIssuesFlag, maxOp<label>());
+hasVelocityIssues = hasVelocityIssuesFlag > 0;
+
+if (corruptedVelCells > 0 || maxVelMagnitude > maxReasonableVelocity)
+{
+    hasVelocityIssues = true;
+}
+
+scalar originalMaxVel = maxVelMagnitude;
+label limitedToReasonable = 0;
+
+if (hasVelocityIssues && limitVelocity && maxVelMagnitude > maxReasonableVelocity)
+{
+    forAll(U, cellI)
+    {
+        scalar velMag = mag(U[cellI]);
+        if (velMag > maxReasonableVelocity)
+        {
+            U[cellI] *= maxReasonableVelocity/velMag;
+            limitedToReasonable++;
+        }
+    }
+
+    maxVelMagnitude = gMax(mag(U)().internalField());
+}
+
+reduce(limitedToReasonable, sumOp<label>());
+
 if (verbose)
 {
     Info<< "Velocity field statistics:" << nl
         << "  Maximum velocity: " << maxVelMagnitude << " m/s" << endl;
+
+    if (maxVelMagnitude > maxReasonableVelocity)
+    {
+        Info<< "  Maximum velocity exceeded maxReasonableVelocity ("
+            << maxReasonableVelocity << " m/s)" << endl;
+    }
 }
 
 if (verbose && corruptedVelCells > 0)
 {
     Info<< "  Fixed " << corruptedVelCells << " corrupted velocity values" << endl;
 }
+
+if (verbose && limitedToReasonable > 0)
+{
+    Info<< "  Limited " << limitedToReasonable
+        << " velocity cells to maxReasonableVelocity (" << maxReasonableVelocity
+        << " m/s) from a peak of " << originalMaxVel << " m/s" << endl;
+}
+
 
 // Enhanced density field validation
 label corruptedRhoCells = 0;
