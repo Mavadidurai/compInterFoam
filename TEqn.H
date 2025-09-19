@@ -10,8 +10,7 @@ extern Foam::Switch verbose;
     // Solve the compressible temperature equation to evolve the gas phase
     tmp<volScalarField> tContErr = fvc::div(rhoPhi);
     const volScalarField& contErr = tContErr();
-    tmp<volScalarField> tContErrK(contErr*K);
-    const volScalarField& contErrK = tContErrK();
+
     const volScalarField& TeField = ttm.Te();
     const volScalarField& TlField = ttm.Tl();
     volScalarField& gasMetalHeatFlux =
@@ -31,16 +30,6 @@ extern Foam::Switch verbose;
       - fvm::laplacian(transportModel.alphaEff(), T)
      ==
         fvOptions(gasDensity, T)
-    );
-
-    tmp<volScalarField> tDivAbsolutePhiP
-    (
-        fvc::div(fvc::absolute(phi, U), p)
-    );
-
-    tmp<volScalarField> tKTransport
-    (
-        fvc::ddt(rho, K) + fvc::div(rhoPhi, K)
     );
 
     tmp<volScalarField> tCv1 = mixture.thermo1().Cv();
@@ -127,23 +116,6 @@ extern Foam::Switch verbose;
     tRho1.clear();
     tRho2.clear();
     tCvol.clear();
-    tmp<volScalarField> tPressureKSource
-    (
-        rhoEffective
-       *heatCapacityWeighting
-       *(
-            tDivAbsolutePhiP()
-          + tKTransport()
-          - contErrK
-        )
-    );
-
-    //TEqn += tPressureKSource();
-
-    tPressureKSource.clear();
-
-    tKTransport.clear();
-    tDivAbsolutePhiP.clear();
 
     TEqn += fvm::Sp
     (
@@ -181,7 +153,7 @@ extern Foam::Switch verbose;
     fvOptions.correct(T);
 
     tContErr.clear();
-    tContErrK.clear();
+
 
     // Evaluate global temperature statistics after selective synchronisation
     scalar minT = min(T).value();

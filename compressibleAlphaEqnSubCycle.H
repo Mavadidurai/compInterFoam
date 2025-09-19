@@ -89,14 +89,6 @@ if (pInterfaceCapturing.valid())
             mesh,
             dimensionedScalar(rhoPhi.dimensions(), Zero)
         );
-
-        tmp<volScalarField> trSubDeltaT;
-        if (LTS)
-        {
-            trSubDeltaT =
-                fv::localEulerDdt::localRSubDeltaT(mesh, nAlphaSubCycles);
-        }
-
         for
         (
             subCycle<volScalarField> alphaSubCycle(alpha1, nAlphaSubCycles);
@@ -203,12 +195,6 @@ else
             mesh,
             dimensionedScalar(rhoPhi.dimensions(), Zero)
         );
-        tmp<volScalarField> trSubDeltaT;
-        if (LTS)
-        {
-            trSubDeltaT =
-                fv::localEulerDdt::localRSubDeltaT(mesh, nAlphaSubCycles);
-        }
         for
         (
             subCycle<volScalarField> alphaSubCycle(alpha1, nAlphaSubCycles);

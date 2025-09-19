@@ -428,20 +428,19 @@ if (verbose)
     }
 }
 
-
-// ✅ CLEAR: Field validation with intuitive naming
-dimensionedScalar totalMetalVOF = fvc::domainIntegrate(alpha1);
-dimensionedScalar totalDomainVolume
-(
-    "totalDomainVolume",
-    dimVolume,
-    gSum(mesh.V())
-);
-scalar metalVolume_um3 = (totalMetalVOF*1e18).value();  // Convert m³ to μm³
-scalar metalFraction = (totalMetalVOF/totalDomainVolume).value();
-
 if (verbose)
 {
+    // ✅ CLEAR: Field validation with intuitive naming
+    const dimensionedScalar totalMetalVOF = fvc::domainIntegrate(alpha1);
+    const dimensionedScalar totalDomainVolume
+    (
+        "totalDomainVolume",
+        dimVolume,
+        gSum(mesh.V())
+    );
+    const scalar metalVolume_um3 = (totalMetalVOF*1e18).value();  // Convert m³ to μm³
+    const scalar metalFraction = (totalMetalVOF/totalDomainVolume).value();
+
     Info<< "LIFT Field Validation:" << nl
         << "  Total domain volume: " << (totalDomainVolume*1e18).value() << " μm³" << nl
         << "  Total metal volume: " << metalVolume_um3 << " μm³" << nl

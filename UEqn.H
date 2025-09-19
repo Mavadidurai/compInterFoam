@@ -39,7 +39,6 @@ forAll(U, cellI)
     if (!std::isfinite(U[cellI].x()) || !std::isfinite(U[cellI].y()) || !std::isfinite(U[cellI].z()))
     {
         U[cellI] = vector::zero;
-        hasVelocityIssues = true;
         corruptedVelCells++;
     }
     else
@@ -47,16 +46,11 @@ forAll(U, cellI)
         scalar velMag = mag(U[cellI]);
         maxVelMagnitude = max(maxVelMagnitude, velMag);
         
-        if (velMag > maxReasonableVelocity)
-        {
-            hasVelocityIssues = true;
-        }
     }
 }
 
 // Reduce across processors
 reduce(maxVelMagnitude, maxOp<scalar>());
-reduce(hasVelocityIssues, orOp<bool>());
 reduce(corruptedVelCells, sumOp<label>());
 
 if (verbose)
