@@ -44,7 +44,7 @@ filmYMax        8.0714e-6;   // from setFields metal film
 gasAbsorptionCoeff 0;     // [1/m] gas absorption (0 disables direct gas heating)
 // --- Energy & timing ---
 // Boosted energy/intensity to reach melt/ablation threshold
-pulseEnergy     7.77e-8;          // [J] total energy
+pulseEnergy     7.77e-10;          // [J] total energy
 pulseWidth      2.14e-13;        // [s] 214 fs pulse width
 laserStartTime  0;        // [s] trigger immediately at simulation start
 laserEndTime    1e-10;    // [s] 100 ps pulse duration within controlDict end time
