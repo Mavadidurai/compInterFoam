@@ -79,7 +79,9 @@ Some solver features rely on additional entries in case dictionaries:
   laser model. Common entries include `laserModel`, `pulseEnergy`,
   `pulseWidth`, `spotSize`, `focus`, `direction`, `wavelength`, optional
   scanning entries (`scanVelocity`, `pulseFrequency`, `pulseDutyCycle`) and
-  `continuousLaser`.
+  `continuousLaser`. The absorption behavior is controlled separately for the
+  donor film (`absorptionCoeff`) and surrounding gas (`gasAbsorptionCoeff`,
+  default `0` for negligible off-film heating).
 * `twoTemperatureProperties` (`system/controlDict`): coefficients for the
   two‑temperature model—electron heat capacity `Ce`, lattice heat capacity
   `Cl`, coupling factor `G`, and the energy conservation tolerance
@@ -111,6 +113,7 @@ pulseWidth      150e-15;   // 100–300 fs, cf. Anisimov et al. (1974)
 spotSize        6e-6;      // 5–50 µm, cf. Brown & Arnold (2010)
 wavelength      1.03e-6;   // 0.8–1.1 µm, cf. Brown & Arnold (2010)
 absorptionCoeff 5e7;       // 10⁷–10⁸ m⁻¹, cf. Anisimov et al. (1974)
+gasAbsorptionCoeff 0;      // default: suppress direct gas heating
 ```
 
 Typical ranges above are drawn from the LIFT and ultrafast laser literature
