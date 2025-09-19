@@ -18,7 +18,6 @@ advancedInterfaceCapturing::advancedInterfaceCapturing
 :
     mesh_(mesh),
     alpha1_(alpha1),
-    phi_(phi),
     mixture_(mixture),
     T_(T),
     meltingTemp_
@@ -39,11 +38,8 @@ advancedInterfaceCapturing::advancedInterfaceCapturing
             mixture.T_vapor()
         )
     ),
-    latentHeat_(mixture.latentHeat()),
     pressureScale_(20000.0),
     recoilMax_(5e6),
-    recoilUpdateInterval_(1),
-    throttleRecoilUpdates_(false),
     recoilTempOffset_
     (
         dimensionedScalar("recoilTempOffset", dimTemperature, 0.0)
@@ -54,12 +50,9 @@ advancedInterfaceCapturing::advancedInterfaceCapturing
     ),
     clampRecoil_(true),
     scaleRecoilMax_(false),
-    relaxFactor_(0.5),
     // Relaxed default bounds to reduce clipping of interface values
     alphaMin_(0.001),
     alphaMax_(0.999),
-    C0_(0.0),
-    C1_(0.0),
     recoilPressure_
     (
         IOobject
@@ -74,10 +67,11 @@ advancedInterfaceCapturing::advancedInterfaceCapturing
         dimensionedScalar("zero", dimPressure, 0.0)
     )
 {
+    (void)phi;
     const dictionary& aicDict =
         mesh.time().controlDict().subOrEmptyDict("advancedInterfaceCapturing");
 
-        const bool verbose =
+    const bool verbose =
         mesh.time().controlDict().lookupOrDefault<Switch>("verbose", false);
 
     meltingTemp_ = aicDict.lookupOrDefault<dimensionedScalar>
@@ -151,15 +145,8 @@ advancedInterfaceCapturing::advancedInterfaceCapturing
         "scaleRecoilMax",
         scaleRecoilMax_
     );
-    relaxFactor_ = aicDict.lookupOrDefault<scalar>
-    (
-        "relaxFactor",
-        relaxFactor_
-    );
     alphaMin_ = aicDict.lookupOrDefault<scalar>("alphaMin", alphaMin_);
     alphaMax_ = aicDict.lookupOrDefault<scalar>("alphaMax", alphaMax_);
-    C0_ = aicDict.lookupOrDefault<scalar>("C0", C0_);
-    C1_ = aicDict.lookupOrDefault<scalar>("C1", C1_);
     // Simple initialization, no calculations in constructor to avoid MPI issues
     if (verbose)
     {

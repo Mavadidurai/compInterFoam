@@ -166,41 +166,32 @@ label maxRauCells = 0;
 
 forAll(rAU, cellI)
 {
-    scalar Acoeff = A[cellI];
+    const scalar Acoeff = A[cellI];
 
-if (!std::isfinite(Acoeff) || mag(Acoeff) <= SMALL)
-{
-    rAU[cellI] = minRauEff;
-    if (enableRAUClamp) minRauCells++;
-}
-else
-{
-    scalar value = 1.0/Acoeff;
-    if (enableRAUClamp)
+    if (!std::isfinite(Acoeff) || Acoeff <= SMALL)
     {
-        if (!std::isfinite(value) || value < minRauEff)
-        {
-            rAU[cellI] = minRauEff;
-            minRauCells++;
-        }
-        else if (value > maxRau)
-        {
-            rAU[cellI] = maxRau;
-            maxRauCells++;
-        }
-        else
-        {
-            rAU[cellI] = value;
-        }
+        rAU[cellI] = minRauEff;
+        minRauCells++;
+        continue;
+    }
+
+    const scalar value = 1.0/Acoeff;
+
+    if (!std::isfinite(value) || value <= 0)
+    {
+        rAU[cellI] = minRauEff;
+        minRauCells++;
+    }
+    else if (enableRAUClamp && value > maxRau)
+    {
+        rAU[cellI] = maxRau;
+        maxRauCells++;
     }
     else
     {
         rAU[cellI] = value;
     }
 }
-
-}
-
 reduce(minRauCells, sumOp<label>());
 reduce(maxRauCells, sumOp<label>());
 if (verbose)

@@ -48,6 +48,8 @@ extern Foam::Switch verbose;
 
     label minRAUfCount = 0;
 
+    const scalar fallbackValue = Foam::max(minRAUf, SMALL);
+
     // Internal field
     scalarField& rAUfIn = rAUf.primitiveFieldRef();
     forAll(rAUfIn, faceI)
@@ -55,10 +57,10 @@ extern Foam::Switch verbose;
         if
         (
             !std::isfinite(rAUfIn[faceI])
-         || (enableRAUfClamp && Foam::mag(rAUfIn[faceI]) < minRAUf)
+         || rAUfIn[faceI] <= SMALL
         )
         {
-            rAUfIn[faceI] = std::copysign(minRAUf, rAUfIn[faceI]);
+            rAUfIn[faceI] = fallbackValue;
             minRAUfCount++;
         }
     }
@@ -72,30 +74,27 @@ extern Foam::Switch verbose;
             if
             (
                 !std::isfinite(pRauf[faceI])
-             || (enableRAUfClamp && Foam::mag(pRauf[faceI]) < minRAUf)
+             || pRauf[faceI] <= SMALL
             )
             {
-                pRauf[faceI] = std::copysign(minRAUf, pRauf[faceI]);
+                pRauf[faceI] = fallbackValue;
                 minRAUfCount++;
             }
         }
     }
 
     reduce(minRAUfCount, sumOp<label>());
-    if (enableRAUfClamp && minRAUfCount > 0)
+    if (minRAUfCount > 0)
     {
         if (verbose)
         {
             Info<< "rAUf clamping stats: " << minRAUfCount
-                << " faces to minRAUf (" << minRAUf << ")" << endl;
-        }
-    }
-    else if (!enableRAUfClamp && min(rAUf).value() < minRAUf)
-    {
-        if (verbose)
-        {
-            Info<< "rAUf below expected range [" << minRAUf << "]: min="
-                << min(rAUf).value() << endl;
+                << " faces to minRAUf (" << fallbackValue << ")";
+            if (!enableRAUfClamp)
+            {
+                Info<< " [clamp override disabled]";
+            }
+            Info<< endl;
         }
     }
 

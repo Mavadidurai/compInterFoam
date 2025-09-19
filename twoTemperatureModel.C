@@ -633,20 +633,32 @@ void twoTemperatureModel::solve
             )
         );
 
-    tmp<volScalarField> tCeInitial = electronHeatCapacity();
-    const volScalarField& CeInitial = tCeInitial();
-    dimensionedScalar electronEnergyBefore =
-        fvc::domainIntegrate(metal*CeInitial*Te_);
-    dimensionedScalar latticeEnergyBefore =
-        fvc::domainIntegrate(metal*Cl_*Tl_);
+    dimensionedScalar electronEnergyBefore
+    (
+        "electronEnergyBefore",
+        dimEnergy,
+        0.0
+    );
+    dimensionedScalar latticeEnergyBefore
+    (
+        "latticeEnergyBefore",
+        dimEnergy,
+        0.0
+    );
     dimensionedScalar laserEnergy =
         fvc::domainIntegrate(metal*laserSource)*mesh_.time().deltaT();
     dimensionedScalar phaseChangeEnergy =
         fvc::domainIntegrate(metal*(Cl_*phaseChangeSource))*mesh_.time().deltaT();
     dimensionedScalar couplingEnergy =
-        fvc::domainIntegrate(gasMetalHeatFluxMasked)*mesh_.time().deltaT();    
+        fvc::domainIntegrate(gasMetalHeatFluxMasked)*mesh_.time().deltaT();
     if (verbose)
     {
+        tmp<volScalarField> tCeInitial = electronHeatCapacity();
+        const volScalarField& CeInitial = tCeInitial();
+        electronEnergyBefore =
+            fvc::domainIntegrate(metal*CeInitial*Te_);
+        latticeEnergyBefore =
+            fvc::domainIntegrate(metal*Cl_*Tl_);
         Info<< "max(laserSource) = " << max(laserSource).value()
             << ", max(Tl_) = " << max(Tl_).value() << endl;
     }
@@ -738,13 +750,14 @@ void twoTemperatureModel::solve
             prevResidual = residual;
         }
     }
-    volScalarField CeAfter = electronHeatCapacity();
-    dimensionedScalar electronEnergyAfter =
-        fvc::domainIntegrate(metal*CeAfter*Te_);
-    dimensionedScalar latticeEnergyAfter =
-        fvc::domainIntegrate(metal*Cl_*Tl_);
     if (verbose)
     {
+        tmp<volScalarField> tCeAfter = electronHeatCapacity();
+        const volScalarField& CeAfter = tCeAfter();
+        dimensionedScalar electronEnergyAfter =
+            fvc::domainIntegrate(metal*CeAfter*Te_);
+        dimensionedScalar latticeEnergyAfter =
+            fvc::domainIntegrate(metal*Cl_*Tl_);
         Info<< "Energy diagnostics:" << nl
             << "  Metal electron energy before laser: "
             << electronEnergyBefore.value() << " J" << nl
@@ -839,6 +852,7 @@ void twoTemperatureModel::solve
     updateEnergyTracking();
 
     // Diagnostics: track cumulative laser energy versus lattice/electron energy
+    if (verbose)
     {
         static dimensionedScalar cumulativeLaserEnergy
         (
@@ -858,16 +872,13 @@ void twoTemperatureModel::solve
         dimensionedScalar latticeEnergy  =
             fvc::domainIntegrate(metal*Cl_*Tl_);
 
-        if (verbose)
-        {
-            Info<< "Energy diagnostics:" << nl
-                << "  Cumulative laser energy: "
-                << cumulativeLaserEnergy.value() << " J" << nl
-                << "  Metal electron energy: " << electronEnergy.value() << " J" << nl
-                << "  Metal lattice energy: " << latticeEnergy.value() << " J" << nl
-                << "  Total energy: "
-                << (electronEnergy + latticeEnergy).value() << " J" << endl;
-        }
+        Info<< "Energy diagnostics:" << nl
+            << "  Cumulative laser energy: "
+            << cumulativeLaserEnergy.value() << " J" << nl
+            << "  Metal electron energy: " << electronEnergy.value() << " J" << nl
+            << "  Metal lattice energy: " << latticeEnergy.value() << " J" << nl
+            << "  Total energy: "
+            << (electronEnergy + latticeEnergy).value() << " J" << endl;
     }
 
     // Report solution statistics with more detail
