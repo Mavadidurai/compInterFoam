@@ -354,9 +354,12 @@ void femtosecondLaserModel::finalizePulseEnergyCheck
     }
 
     const scalar expected = pulseExpectedAccumulator_;
-    const scalar reference = max(expected, pulseEnergy_.value());
+    const scalar configured = pulseEnergy_.value();
+    const scalar reference = max(max(expected, configured), scalar(1e-12));
     const scalar tolerance = max(scalar(1e-12), 0.01*reference);
-    const scalar diff = mag(pulseEnergyAccumulator_ - expected);
+    const scalar diffExpected = mag(pulseEnergyAccumulator_ - expected);
+    const scalar diffConfigured = mag(pulseEnergyAccumulator_ - configured);
+    const scalar expectedMismatch = mag(expected - configured);
 
     ++pulseCounter_;
 
@@ -369,8 +372,10 @@ void femtosecondLaserModel::finalizePulseEnergyCheck
             << "  End time:         " << currentTime << " s" << nl
             << "  Deposited energy:      " << pulseEnergyAccumulator_ << " J" << nl
             << "  Expected (integrated): " << expected << " J" << nl
-            << "  Configured pulse:     " << pulseEnergy_.value() << " J" << nl
-            << "  Difference:           " << diff << " J" << nl
+            << "  Configured pulse:     " << configured << " J" << nl
+            << "  Diff vs expected:     " << diffExpected << " J" << nl
+            << "  Diff vs configured:   " << diffConfigured << " J" << nl
+            << "  Expected-config diff: " << expectedMismatch << " J" << nl
             << "  Tolerance:            " << tolerance << " J" << endl;
     }
 
@@ -378,8 +383,13 @@ void femtosecondLaserModel::finalizePulseEnergyCheck
     {
         WarningInFunction
             << "Laser pulse energy mismatch after pulse " << pulseCounter_
-            << ": deposited " << pulseEnergyAccumulator_ << " J vs expected "
-            << expected << " J (tolerance " << tolerance << ")" << endl;
+            << ": deposited " << pulseEnergyAccumulator_ << " J vs requested "
+            << configured << " J (tolerance " << tolerance << ")" << endl;
+    }
+    else if (expectedMismatch > tolerance && verbose)
+    {
+        Info<< "  Note: integrated expectation differs from configured energy by "
+            << expectedMismatch << " J" << endl;
     }
 
     trackingPulse_ = false;
@@ -448,7 +458,6 @@ void femtosecondLaserModel::calculateSource() const
     }
 
     scalar temporalIntegral = 0.0;
-    scalar temporalAverage  = 0.0;
     scalar expectedEnergyThisStep = 0.0;
 
     const auto gaussianIntegral =
@@ -464,8 +473,6 @@ void femtosecondLaserModel::calculateSource() const
     if (continuousLaser_)
     {
         temporalIntegral = overlapDuration;
-        temporalAverage  = temporalIntegral/max(dt, VSMALL);
-        temporalAverage  = min(scalar(1.0), max(temporalAverage, scalar(0.0)));
     }
     else if (pulseFrequency_ > SMALL)
     {
@@ -526,10 +533,8 @@ void femtosecondLaserModel::calculateSource() const
 
         if (temporalIntegral > VSMALL)
         {
-            temporalAverage = temporalIntegral/max(dt, VSMALL);
-            temporalAverage = min(scalar(1.0), max(temporalAverage, scalar(0.0)));
             expectedEnergyThisStep =
-                pulseEnergy_.value()*temporalIntegral/fullPulseIntegral;
+                pulseEnergy_.value()*temporalIntegral/max(fullPulseIntegral, VSMALL);
         }
     }
     else
@@ -542,19 +547,23 @@ void femtosecondLaserModel::calculateSource() const
 
         if (temporalIntegral > VSMALL)
         {
-            temporalAverage = temporalIntegral/max(dt, VSMALL);
-            temporalAverage = min(scalar(1.0), max(temporalAverage, scalar(0.0)));
-
             const scalar fullIntegral = sigma*sqrt(2.0*constant::mathematical::pi);
             expectedEnergyThisStep =
                 pulseEnergy_.value()*temporalIntegral/max(fullIntegral, VSMALL);
         }
     }
 
-    const bool laserActive = temporalAverage > VSMALL;
+    const bool laserActive = temporalIntegral > VSMALL;
+
+    scalar temporalAverage = 0.0;
+    if (laserActive)
+    {
+        temporalAverage = temporalIntegral/max(dt, VSMALL);
+        temporalAverage = min(scalar(1.0), max(temporalAverage, scalar(0.0)));
+    }
 
     // Negligible envelope → skip work this step
-    if (!laserActive)
+    if (!laserActive || temporalAverage <= VSMALL)
     {
         finalizePulseEnergyCheck("pulse window complete", t);
         sourceValid_ = true;
@@ -743,7 +752,7 @@ void femtosecondLaserModel::calculateSource() const
 
     if (!continuousLaser_)
     {
-        if (temporalIntegral > VSMALL || trackingPulse_)
+        if (laserActive || trackingPulse_)
         {
             if (!trackingPulse_)
             {
