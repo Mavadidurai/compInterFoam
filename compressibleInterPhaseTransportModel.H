@@ -69,6 +69,7 @@ public:
     );
     // Member Functions
     tmp<volScalarField> alphaEff() const;
+    tmp<volScalarField> kappaEff() const;   
     tmp<fvVectorMatrix> divDevRhoReff(volVectorField& U) const;
     void correctPhasePhi() {}  // Empty for simplified model
     void correct();

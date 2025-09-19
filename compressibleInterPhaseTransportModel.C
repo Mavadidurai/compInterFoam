@@ -54,6 +54,11 @@ Foam::compressibleInterPhaseTransportModel::alphaEff() const
 {
     return mixture_.alphaEff(turbulence_->alphat());
 }
+Foam::tmp<Foam::volScalarField>
+Foam::compressibleInterPhaseTransportModel::kappaEff() const
+{
+    return mixture_.kappaEff(turbulence_->alphat());
+}
 Foam::tmp<Foam::fvVectorMatrix>
 Foam::compressibleInterPhaseTransportModel::divDevRhoReff
 (
