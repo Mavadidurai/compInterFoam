@@ -51,8 +51,8 @@ useAdvancedInterfaceCapturing  true;
 advancedInterfaceCapturing
 {
     // Recoil pressure is recalculated each timestep; throttling controls removed.
-    pressureScale        1e6;           // Reduced from 1e7
-    recoilMax            1e7;           // Much smaller cap initially
+    pressureScale        1e2;           // Reduced from 1e7
+    recoilMax            1e5;           // Much smaller cap initially
     clampRecoil          true;
     scaleRecoilMax       true;          // Enable scaling
 

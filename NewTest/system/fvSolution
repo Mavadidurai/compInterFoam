@@ -106,11 +106,11 @@ relaxationFactors
     }
     equations
     {
-        U               0.2;                 // REDUCE: was 0.3
+        U               0.1;                 // REDUCE: was 0.3
         UFinal          0.7;                 // REDUCE: was 1.0
-        T               0.3;                 // REDUCE: was 0.5
-        Te              0.3;                 // REDUCE: was 0.5
-        Tl              0.3;                 // REDUCE: was 0.5
+        T               0.1;                 // REDUCE: was 0.5
+        Te              0.1;                 // REDUCE: was 0.5
+        Tl              0.1;                 // REDUCE: was 0.5
         "alpha.*"       0.5;                 // REDUCE: was 0.8
         ".*Final"       0.8;                 // REDUCE: was 1.0
     }

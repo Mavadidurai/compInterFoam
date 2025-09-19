@@ -49,8 +49,8 @@ divSchemes
     div(phi,alpha.air)               Gauss vanLeer01;        // CHANGE: was vanLeer
 
     // Keep other schemes as they are - they look good
-    div(rhoPhi,U)                    Gauss linearUpwindV grad(U);
-    div(phi,T)                       Gauss limitedLinear 1.0;
+    div(rhoPhi,U)                    Gauss upwind;
+    div(phi,T)                       Gauss upwind;
     div(phi,Te)                      Gauss limitedLinear 1.0;
     div(phi,Tl)                      Gauss limitedLinear 1.0;
     
