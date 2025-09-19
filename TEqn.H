@@ -40,6 +40,7 @@ extern Foam::Switch verbose;
     tmp<volScalarField> tInterfaceExchange = ttm.gasMetalExchangeCoeffField();
     volScalarField& interfaceExchange = tInterfaceExchange.ref();
     const volScalarField& gasFraction = alpha2;
+    const volScalarField& Qlaser = mixture.Q_laser();
 
     const scalar maxInterfaceExchange =
         ctrl.lookupOrDefault<scalar>("maxGasMetalExchangeCoeff", 1e18);
@@ -190,6 +191,7 @@ extern Foam::Switch verbose;
         T
     );
     TEqn.source() += interfaceRelaxCoeff*TlField;
+    TEqn.source() += alpha2*Qlaser/CvolGasClamp;
 
     tGasCvolPhi.clear();
     tGasDensity.clear();
@@ -348,9 +350,21 @@ extern Foam::Switch verbose;
                 {
                     value = Foam::sign(value)*maxPhysicalFlux;
                     ++fluxLimitedFaces;
-                }
+                }               
             }
         }
+        // Final safeguard using the controlDict-configured limit
+        scalarField& fluxInternal = gasMetalHeatFlux.primitiveFieldRef();
+
+        forAll(fluxInternal, cellI)
+        {
+            scalar& value = fluxInternal[cellI];
+
+            if (Foam::mag(value) > maxPhysicalFlux)
+            {
+                value = Foam::sign(value)*maxPhysicalFlux;
+            }
+        }        
     }
 
     reduce(fluxLimitedCells, sumOp<label>());
@@ -436,15 +450,7 @@ extern Foam::Switch verbose;
             << "  Mean |T - Tl| (flux-derived): " << meanCouplingDelta << " K" << nl
             << "  Max |T - Tl| (flux-derived): " << maxCouplingDelta << " K" << endl;
     }
-// After calculating gasMetalHeatFlux, add limiting:
-const scalar maxPhysicalFlux = 1e15;  // W/m³ - reasonable upper bound
-forAll(gasMetalHeatFlux, cellI)
-{
-    if (mag(gasMetalHeatFlux[cellI]) > maxPhysicalFlux)
-    {
-        gasMetalHeatFlux[cellI] = sign(gasMetalHeatFlux[cellI]) * maxPhysicalFlux;
-    }
-}
+
     tCouplingDelta.clear();
     tRawFlux.clear();
     // Validate thermodynamic consistency
