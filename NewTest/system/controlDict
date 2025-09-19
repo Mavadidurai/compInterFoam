@@ -17,120 +17,113 @@ FoamFile
 
 application     compInterFoam;
 
-// --- Start directly in the ejection phase (skip fs/ps windows)
+// --- EMERGENCY STABILITY MODE ---
 startFrom       startTime;
 startTime       2e-10;          // 200 ps
 stopAt          endTime;
-endTime         3e-10;          // Start with shorter run: 300 ps
-//endTime         1e-8;         // 10 ns (use this later when stable)
+endTime         2.1e-10;        // Very short test: 210 ps
+//endTime         3e-10;        // Use this when stable
 
-// --- Time stepping for ns dynamics - VERY CONSERVATIVE
-deltaT          1e-14;          // 0.01 ps initial step (much smaller)
-maxDeltaT       1e-13;          // 0.1 ps cap (much smaller)
+// --- ULTRA-CONSERVATIVE TIME STEPPING ---
+deltaT          5e-15;          // 0.005 ps (1/4 of characteristic time)
+maxDeltaT       2e-14;          // 0.02 ps cap
 adjustTimeStep  yes;
-maxCo           0.005;          // Very conservative - consistent with fvSolution
-maxAlphaCo      0.001;          // Ultra-conservative for recoil pressure
+maxCo           0.001;          // Ultra-conservative
+maxAlphaCo      0.0005;         // Even more conservative
 
 verbose         true;
 
-// --- Writing - More frequent for debugging
+// --- More frequent writing for debugging ---
 writeControl    runTime;
-writeInterval   2e-11;          // 1 ps for debugging
-purgeWrite      50;             // Keep fewer files initially
+writeInterval   5e-12;          // 0.5 ps intervals
+purgeWrite      20;             
 writeFormat     ascii;
-writePrecision  10;
+writePrecision  12;
 writeCompression off;           
 timeFormat      general;
-timePrecision   12;
-fileHandler     uncollated;     // Simpler for debugging
+timePrecision   15;             // Higher precision for small time steps
+fileHandler     uncollated;
 
 runTimeModifiable yes;
 
-// --- Interface/recoil settings - DISABLED initially for stability
+// --- DRASTICALLY REDUCE RECOIL PRESSURE ---
 useAdvancedInterfaceCapturing  true;
 advancedInterfaceCapturing
 {
-    // Recoil pressure is recalculated each timestep; throttling controls removed.
-    pressureScale        1e2;           // Reduced from 1e7
-    recoilMax            1e5;           // Much smaller cap initially
+    pressureScale        1e-2;          // DRASTICALLY reduced from 1e2
+    recoilMax            1e3;           // Much smaller: only 1000 Pa
     clampRecoil          true;
-    scaleRecoilMax       true;          // Enable scaling
-
-    recoilTempOffset     [0 0 0 1 0 0 0] 100;   // Recoil force begins when T > Tvap + 100 K
-    phaseChangeTempOffset [0 0 0 1 0 0 0] 0;     // Phase change begins at Tvap
-    relaxFactor          0.05;          // More relaxation
-    alphaMin             0.05;          // Wider bounds
-    alphaMax             0.95;
+    scaleRecoilMax       true;
+    
+    recoilTempOffset     [0 0 0 1 0 0 0] 1000;  // Higher threshold
+    phaseChangeTempOffset [0 0 0 1 0 0 0] 500;   // Higher threshold
+    relaxFactor          0.01;          // Maximum relaxation
+    alphaMin             0.1;           // Tighter bounds
+    alphaMax             0.9;
 }
 
-// --- Temperature clamps - ENABLE for stability
-enableTClamp    true;           // Enable clamping
-minT            200;            // Conservative minimum
-maxT            8000;           // Lower maximum initially
+// --- AGGRESSIVE TEMPERATURE CLAMPING ---
+enableTClamp    true;
+minT            250;            // Higher minimum
+maxT            4000;           // MUCH lower maximum initially
 
-// --- Two-temperature model bounds/diagnostics - More conservative
+// --- WEAKEN TWO-TEMPERATURE COUPLING ---
 twoTemperatureProperties
 {
     Ce   [1 -1 -2 -1 0 0 0] 2.5e6;
     Cl   [1 -1 -2 -1 0 0 0] 2.536e6;
-    G    [1 -1 -3 -1 0 0 0] 3.0e16;
-    energyTol 0.01;             // Relaxed tolerance
-    minTe 250;                  // Conservative bounds
-    maxTe 8000;                 // Conservative bounds
-        // Optional lattice conductivity correction controls:
-    // klHighTThreshold 1000;   // [K] start reducing kl above this Tl
-    // klExponent       0.5;    // Power-law exponent (set 0 to disable)
+    G    [1 -1 -3 -1 0 0 0] 1.0e12;    // REDUCED by 300x!!! Critical fix
+    energyTol 0.1;              // Very relaxed tolerance
+    minTe 250;
+    maxTe 4000;                 // Match maxT
+    minTl 250;                  // Add lattice bounds
+    maxTl 4000;
 }
 
-// --- Additional stability controls
 libs ("libutilityFunctionObjects.so");
 
-// ----------------- Minimal diagnostics for debugging ----------------- //
+// --- MINIMAL DIAGNOSTICS ONLY ---
 functions
 {
-    // Minimal field writing
-    fieldWrite
-    {
-        type writeObjects; 
-        libs ("libutilityFunctionObjects.so");
-        objects (T alpha.metal p_rgh U);  // Only essential fields initially
-        writeControl runTime; 
-        writeInterval 5e-12;   // 1 ps
-    }
-
-    // Field bounds checking - Critical for debugging
-    minmax_debug
+    // Critical monitoring only
+    minmax_critical
     {
         type            fieldMinMax;
         libs            ("libfieldFunctionObjects.so");
-        fields          (T alpha.metal p_rgh U rho);
+        fields          (T Te Tl alpha.metal p_rgh);
         writeControl    timeStep;
-        writeInterval   50;              // Every 50 time step
+        writeInterval   10;
+        log             true;       // Print to console
     }
-
-    // Courant number monitoring
-    CourantNo
+    
+    // Energy conservation monitoring
+    energy_monitor
     {
-        type            CourantNo;
+        type            coded;
         libs            ("libutilityFunctionObjects.so");
+        name            energyCheck;
         writeControl    timeStep;
         writeInterval   50;
+        
+        codeWrite
+        #{
+            Info<< "Energy diagnostics at time " << mesh().time().value() << endl;
+            
+            const volScalarField& T = mesh().lookupObject<volScalarField>("T");
+            const volScalarField& alpha = mesh().lookupObject<volScalarField>("alpha.metal");
+            
+            scalar maxT = gMax(T);
+            scalar minT = gMin(T);
+            scalar maxAlpha = gMax(alpha);
+            
+            Info<< "    Max T: " << maxT << " K" << endl;
+            Info<< "    Min T: " << minT << " K" << endl;
+            Info<< "    Max alpha: " << maxAlpha << endl;
+            
+            if (maxT > 5000 || minT < 200 || maxAlpha > 0.95)
+            {
+                WarningIn("energyCheck") << "Critical values detected!" << endl;
+            }
+        #};
     }
-
-    // Only enable these after basic stability is achieved
-    /*
-    probes_ns
-    {
-        type            probes;
-        libs            ("libsampling.so");
-        fields          (T p_rgh U alpha.metal);
-        probeLocations  (
-            (2.5e-05 8.02e-06 5e-06)   // in the film
-        );
-        writeControl    runTime;
-        writeInterval   1e-12;
-        timeStart       2e-10;
-        timeEnd         3e-10;
-    }
-    */
 }

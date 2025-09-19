@@ -14,141 +14,150 @@ FoamFile
     object      fvSolution;
 }
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
 solvers
 {
     "alpha.*"
     {
-        solver          smoothSolver;
-        smoother        symGaussSeidel;
-        tolerance       1e-8;                // CHANGE: was 1e-10 (too tight)
-        relTol          0;
-        maxIter         50;
+    solver          PBiCGStab;
+    preconditioner  DILU;
+    tolerance       1e-08;
+    relTol          0;
+        maxIter         100;            // INCREASE: was 50
         
-        nAlphaCorr      1;                   // REDUCE: was 2
-        nAlphaSubCycles 2;                   // REDUCE: was 4
-        cAlpha          0.5;                 // REDUCE: was 1 (less aggressive)
+        nAlphaCorr      1;              // Keep at 1
+        nAlphaSubCycles 1;              // REDUCE: was 2 
+        cAlpha          0.1;            // DRASTICALLY REDUCE: was 0.5
         icAlpha         0;              
         scAlpha         0;
-        MULESCorr       true;
-        nLimiterIter    2;                   // REDUCE: was 3
+        MULESCorr       false;          // DISABLE: Can cause instability
+        nLimiterIter    1;              // REDUCE: was 2
         alphaApplyPrevCorr false;
-        sharpeningScheme standard;
+        sharpeningScheme none;          // DISABLE: was standard
         thinFilmCoeff   0.0;
     }
 
-    
     p_rgh
     {
         solver          GAMG;
         smoother        DIC;
-        tolerance       1e-8;           // Good enough for millisecond scale
-        relTol          0.0;           
-        maxIter         100;   
-        nPreSweeps      0;
-        nPostSweeps     2;         
+        tolerance       1e-6;           // RELAX: was 1e-8
+        relTol          0.01;           // CHANGE: was 0.0
+        maxIter         200;            // INCREASE: was 100
+        nPreSweeps      1;              // INCREASE: was 0
+        nPostSweeps     3;              // INCREASE: was 2
         cacheAgglomeration true;
-        nCellsInCoarsestLevel 10;
+        nCellsInCoarsestLevel 20;       // INCREASE: was 10
         agglomerator    faceAreaPair;
         mergeLevels     2;
     }
     
-    p_rghFinal { $p_rgh; relTol 0; }
+    p_rghFinal 
+    { 
+        $p_rgh; 
+        tolerance   1e-7;               // Slightly tighter for final
+        relTol      0; 
+    }
     
     "U.*"
     {
         solver          PBiCGStab;
         preconditioner  DILU;
-        tolerance       1e-9;
-        relTol          0.01;
+        tolerance       1e-7;           // RELAX: was 1e-9
+        relTol          0.05;           // RELAX: was 0.01
+        maxIter         200;            // ADD: prevent excessive iterations
     }
 
     T
     {
         solver          PBiCGStab;
         preconditioner  DILU;
-        tolerance       1e-8;
-        relTol          0.0;
+        tolerance       1e-6;           // RELAX: was 1e-8
+        relTol          0.01;           // CHANGE: was 0.0
+        maxIter         100;            // ADD: limit iterations
     }
 
     "(Te|Tl).*"
     {
         solver          PCG;
         preconditioner  DIC;
-        tolerance       1e-8;
-        relTol          0.0;
+        tolerance       1e-6;           // RELAX: was 1e-8  
+        relTol          0.01;           // CHANGE: was 0.0
+        maxIter         100;            // ADD: limit iterations
     }
 }
 
 PIMPLE
 {
     momentumPredictor           false;
-    nOuterCorrectors            2;           // REDUCE: was 4
-    nCorrectors                 1;           // REDUCE: was 2
-    nNonOrthogonalCorrectors    0;           // REDUCE: was 1
+    nOuterCorrectors            1;           // REDUCE: was 2 (emergency mode)
+    nCorrectors                 1;           
+    nNonOrthogonalCorrectors    0;           
     
     residualControl
     {
-        "alpha.*" { tolerance 1e-6;  relTol 0; }  // RELAX: was 1e-8
-        p_rgh     { tolerance 1e-5;  relTol 0; }  // RELAX: was 1e-6
-        U         { tolerance 1e-6;  relTol 0; }  // RELAX: was 1e-7
+        "alpha.*" { tolerance 1e-4;  relTol 0.01; }  // DRASTICALLY RELAX
+        p_rgh     { tolerance 1e-4;  relTol 0.01; }  // DRASTICALLY RELAX
+        U         { tolerance 1e-5;  relTol 0.01; }  // RELAX
     }
     
     p_rghRefCell                0;
-    p_rghRefValue               100000;
+    p_rghRefValue               101325;     // Standard atmospheric
 }
 
 relaxationFactors
 {
     fields
     {
-        p_rgh           0.05;                // REDUCE: was 0.1
-        "alpha.*"       0.3;                 // REDUCE: was 0.5
+        p_rgh           0.01;                // DRASTICALLY REDUCE: was 0.05
+        "alpha.*"       0.1;                 // REDUCE: was 0.3
     }
     equations
     {
-        U               0.1;                 // REDUCE: was 0.3
-        UFinal          0.7;                 // REDUCE: was 1.0
-        T               0.1;                 // REDUCE: was 0.5
-        Te              0.1;                 // REDUCE: was 0.5
-        Tl              0.1;                 // REDUCE: was 0.5
-        "alpha.*"       0.5;                 // REDUCE: was 0.8
-        ".*Final"       0.8;                 // REDUCE: was 1.0
+        U               0.05;                // REDUCE: was 0.1
+        UFinal          0.3;                 // REDUCE: was 0.7
+        T               0.01;                // DRASTICALLY REDUCE: was 0.1
+        Te              0.01;                // DRASTICALLY REDUCE: was 0.1  
+        Tl              0.01;                // DRASTICALLY REDUCE: was 0.1
+        "alpha.*"       0.1;                 // REDUCE: was 0.5
+        ".*Final"       0.5;                 // REDUCE: was 0.8
     }
 }
-// Adaptive pressure relaxation controls read by pEqn.H
-relaxP      0.05;   // under-relaxation factor (edit here)
-targetResP  0.1;   // residual target for updating relaxP
+
+// EMERGENCY PRESSURE RELAXATION
+relaxP      0.01;           // DRASTICALLY REDUCE: was 0.05
+targetResP  0.5;           // RELAX: was 0.1
+
 compInterFoamCoeffs
 {
-    maxReasonableVelocity  1e5;     // UEqn.H
-    maxVelocity            5000;    // UEqn.H velocity limiter
-    defaultMetalDensity    4500;    // UEqn.H (fallback if rho1 invalid)
-    defaultAirDensity      1.2;     // UEqn.H (fallback if rho2 invalid)
-    maxInitialResidual     1e3;     // pEqn.H pressure rollback threshold
+    maxReasonableVelocity  1000;        // REDUCE: was 1e5
+    maxVelocity            500;         // REDUCE: was 5000
+    defaultMetalDensity    4500;        
+    defaultAirDensity      1.2;         
+    maxInitialResidual     10;          // REDUCE: was 1e3
     
-    // Keep α bounded to help stabilize interface calculations
+    // AGGRESSIVE ALPHA CLAMPING
     enableAlphaClamp  true;
-    minAlpha          0.001;
-    maxAlpha          0.999;
-    // Pressure bounds (fall back to controlDict if absent)
+    minAlpha          0.05;             // TIGHTEN: was 0.001
+    maxAlpha          0.95;             // TIGHTEN: was 0.999
+    
+    // AGGRESSIVE PRESSURE CLAMPING
     pressureClamp      true;               
-    maxPressure        5e7; 
-    minPressure        -1e6;      // keep a modest floor
+    maxPressure        1e6;             // DRASTICALLY REDUCE: was 5e7
+    minPressure        -1e5;            // TIGHTEN: was -1e6
 
-    // Density bounds (controlDict entries are deprecated)
+    // ENABLE DENSITY CLAMPING
+    densityClamp       true;            // ENABLE: was false
+    maxDensity         8000;            // REDUCE: was 10000
+    minDensity         1.0;             // INCREASE: was 0.5
 
-    densityClamp       false;
-    maxDensity         10000;
-    minDensity         0.5;
+    // ENABLE RAU CLAMPING  
+    enableRAUClamp     true;            // ENABLE: was false
+    minRAU             1e-8;            // INCREASE: was 1e-10
+    maxRAU             1e4;             // REDUCE: was 1e6
+    minRAUf            1e-12;           // INCREASE: was 1e-14
+    maxRAUf            1e4;             // REDUCE: was 1e6
 
-    // Momentum matrix safety (fall back to controlDict if absent)
-    enableRAUClamp     false;
-    minRAU             1e-10;
-    maxRAU             1e6;
-    minRAUf            1e-14;
-    maxRAUf            1e6;
-
-    // Optional residual targeting used in your code
-    targetResU         0.05;
+    // RELAX RESIDUAL TARGETS
+    targetResU         0.1;             // RELAX: was 0.05
 }
-
