@@ -40,6 +40,8 @@ extern Foam::Switch verbose;
 
     tmp<volScalarField> tCv1 = mixture.thermo1().Cv();
     tmp<volScalarField> tCv2 = mixture.thermo2().Cv();
+    tmp<volScalarField> tRho1 = mixture.thermo1().rho();
+    tmp<volScalarField> tRho2 = mixture.thermo2().rho();
 
     const dimensionedScalar cvFloor
     (
@@ -48,20 +50,29 @@ extern Foam::Switch verbose;
         1e-12
     );
 
-    tmp<volScalarField> tHeatCapacityWeighting
+    const dimensionedScalar rhoFloor
     (
-        alpha1/max(tCv1(), cvFloor)
-      + alpha2/max(tCv2(), cvFloor)
+        "rhoFloor",
+        dimDensity,
+        1e-12
     );
-    const volScalarField& heatCapacityWeighting =
-        tHeatCapacityWeighting();
+
+    tmp<volScalarField> tInvVolHeatCapacity
+    (
+        alpha1/(max(tRho1(), rhoFloor)*max(tCv1(), cvFloor))
+      + alpha2/(max(tRho2(), rhoFloor)*max(tCv2(), cvFloor))
+    );
+    const volScalarField& invVolHeatCapacity =
+        tInvVolHeatCapacity();
 
     tCv1.clear();
     tCv2.clear();
+    tRho1.clear();
+    tRho2.clear();
 
     tmp<volScalarField> tPressureKSource
     (
-        heatCapacityWeighting
+        invVolHeatCapacity
        *(
             tDivAbsolutePhiP()
           + tKTransport()
@@ -76,11 +87,11 @@ extern Foam::Switch verbose;
     tKTransport.clear();
     tDivAbsolutePhiP.clear();
 
-    TEqn += fvm::Sp(interfaceExchange*heatCapacityWeighting, T);
+    TEqn += fvm::Sp(interfaceExchange*invVolHeatCapacity, T);
     TEqn.source() +=
-        interfaceExchange*heatCapacityWeighting*TlField;
+        interfaceExchange*invVolHeatCapacity*TlField;
 
-    tHeatCapacityWeighting.clear();
+    tInvVolHeatCapacity.clear();
 
     TEqn.relax();
 
