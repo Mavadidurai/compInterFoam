@@ -121,11 +121,11 @@ extern Foam::Switch verbose;
     tCv2.clear();
     tRho1.clear();
     tRho2.clear();
-    tRhoEffective.clear();
     tCvol.clear();
     tmp<volScalarField> tPressureKSource
     (
-        heatCapacityWeighting
+        rhoEffective
+       *heatCapacityWeighting
        *(
             tDivAbsolutePhiP()
           + tKTransport()
@@ -136,6 +136,7 @@ extern Foam::Switch verbose;
     TEqn += tPressureKSource();
 
     tPressureKSource.clear();
+    tRhoEffective.clear();
 
     tKTransport.clear();
     tDivAbsolutePhiP.clear();
