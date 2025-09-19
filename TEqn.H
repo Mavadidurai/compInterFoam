@@ -79,30 +79,24 @@ extern Foam::Switch verbose;
         );
         tHeGasOld.clear();
     }
-
     tCvGas.clear();
     tCv2.clear();
     tRho2.clear();
 
     TEqn += fvm::Sp
     (
-        interfaceExchange*invCvolGas,
+        gasDensity*interfaceExchange*invCvolGas,
         T
     );
     TEqn.source() +=
-        interfaceExchange*invCvolGas*TlField;
-
+        gasDensity*interfaceExchange*invCvolGas*TlField;
     tGasRhoPhi.clear();
     tGasDensity.clear();
     tInvCvolGas.clear();
     tCvolGas.clear();
-
-
     TEqn.relax();
-
     fvOptions.constrain(TEqn);
     const dictionary& ctrl = runTime.controlDict();
-
     const dictionary solvers(mesh.solutionDict().subOrEmptyDict("solvers"));
     const word finalName(T.name() + "Final");
 

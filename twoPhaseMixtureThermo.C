@@ -10,22 +10,17 @@
 -------------------------------------------------------------------------------
 License
     This file is part of OpenFOAM.
-
     OpenFOAM is free software: you can redistribute it and/or modify it
     under the terms of the GNU General Public License as published by
     the Free Software Foundation, either version 3 of the License, or
     (at your option) any later version.
-
     OpenFOAM is distributed in the hope that it will be useful, but WITHOUT
     ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
     FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
     for more details.
-
     You should have received a copy of the GNU General Public License
     along with OpenFOAM.  If not, see <http://www.gnu.org/licenses/>.
-
 \*---------------------------------------------------------------------------*/
-
 #include "twoPhaseMixtureThermo.H"
 #include "interfaceProperties.H"
 #include "gradientEnergyFvPatchScalarField.H"
@@ -36,17 +31,9 @@ License
 #include "Switch.H"
 #include "Tuple2.H"
 #include "Time.H"
-
 // * * * * * * * * * * * * * * Static Data Members * * * * * * * * * * * * * //
-
-namespace Foam
-{
-    defineTypeNameAndDebug(twoPhaseMixtureThermo, 0);
-}
-
-
+namespace Foam { defineTypeNameAndDebug(twoPhaseMixtureThermo, 0); }
 // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
-
 Foam::twoPhaseMixtureThermo::twoPhaseMixtureThermo
 (
     const volVectorField& U,
@@ -57,61 +44,32 @@ Foam::twoPhaseMixtureThermo::twoPhaseMixtureThermo
     twoPhaseMixture(U.mesh(), *this),
     interfaceProperties(alpha1(), U, *this),
     thermo1_(nullptr),
-    thermo2_(nullptr),
-   // Initialise phase-change properties; values populated from metal dictionary
+    thermo2_(nullptr),  // Initialise phase-change properties; values populated from metal dictionary
     latentHeat_(0.0),
     T_melt_(0.0),
     T_vapor_(0.0),
     dtFloor_(1e-12),
     Q_laser_
     (
-        IOobject
-        (
-            "Q_laser",
-            U.mesh().time().timeName(),
-            U.mesh(),
-            IOobject::READ_IF_PRESENT,
-            IOobject::AUTO_WRITE
-        ),
+        IOobject("Q_laser", U.mesh().time().timeName(), U.mesh(), IOobject::READ_IF_PRESENT, IOobject::AUTO_WRITE),
         U.mesh(),
         dimensionedScalar("Q0", dimPower/dimVolume, 0.0)  // [W/m³]
     ),
     phaseChangeSource_
     (
-        IOobject
-        (
-            "phaseChangeSource",
-            U.mesh().time().timeName(),
-            U.mesh(),
-            IOobject::NO_READ,
-            IOobject::AUTO_WRITE
-        ),
+        IOobject("phaseChangeSource", U.mesh().time().timeName(), U.mesh(), IOobject::NO_READ, IOobject::AUTO_WRITE),
         U.mesh(),
         dimensionedScalar("source", dimTemperature/dimTime, 0.0)  // [K/s]
-       ),
-     phaseChangeRelaxCoeff_
+    ),
+    phaseChangeRelaxCoeff_
     (
-        IOobject
-        (
-            "phaseChangeRelaxCoeff",
-            U.mesh().time().timeName(),
-            U.mesh(),
-            IOobject::NO_READ,
-            IOobject::AUTO_WRITE
-        ),
+        IOobject("phaseChangeRelaxCoeff", U.mesh().time().timeName(), U.mesh(), IOobject::NO_READ, IOobject::AUTO_WRITE),
         U.mesh(),
         dimensionedScalar("relax", dimless/dimTime, 0.0)
     ),
     dgdt_
     (
-        IOobject
-        (
-            "dgdt",
-            U.mesh().time().timeName(),
-            U.mesh(),
-            IOobject::NO_READ,
-            IOobject::AUTO_WRITE
-        ),
+        IOobject("dgdt", U.mesh().time().timeName(), U.mesh(), IOobject::NO_READ, IOobject::AUTO_WRITE),
         U.mesh(),
         dimensionedScalar("dgdt", dimless/dimTime, 0.0)
     ),
@@ -121,42 +79,25 @@ Foam::twoPhaseMixtureThermo::twoPhaseMixtureThermo
     rho2_("rho2", dimDensity, 0.0),
     ClTTM_("ClTTM", dimEnergy/dimVolume/dimTemperature, 0.0)
 {
-        // Read metal phase thermophysical properties from dedicated dictionary
-    IOdictionary metalDict
+    IOdictionary metalDict  // Read metal phase thermophysical properties from dedicated dictionary
     (
-        IOobject
-        (
-            "thermophysicalProperties.metal",
-            U.mesh().time().constant(),
-            U.mesh(),
-            IOobject::MUST_READ,
-            IOobject::NO_WRITE
-        )
+        IOobject("thermophysicalProperties.metal", U.mesh().time().constant(), U.mesh(), IOobject::MUST_READ, IOobject::NO_WRITE)
     );
-
     latentHeat_ = metalDict.lookupOrDefault<scalar>("hf", 435e3);
     T_melt_ = metalDict.lookupOrDefault<scalar>("Tsol", 1941.0);
     T_vapor_ = metalDict.lookupOrDefault<scalar>("Tvap", 3000.0);
-
     {
         volScalarField T1(IOobject::groupName("T", phase1Name()), T_);
         T1.write();
     }
-
     {
         volScalarField T2(IOobject::groupName("T", phase2Name()), T_);
         T2.write();
     }
-
-    // Note: we're writing files to be read in immediately afterwards.
-    //       Avoid any thread-writing problems.
     fileHandler().flush();
-        const dictionary& transportDict =
-        U.mesh().lookupObject<dictionary>("transportProperties");
-
+    const dictionary& transportDict = U.mesh().lookupObject<dictionary>("transportProperties");
     const dictionary& phase1Dict = transportDict.subDict(phase1Name());
     const dictionary& phase2Dict = transportDict.subDict(phase2Name());
-
     nu1_ = phase1Dict.lookupOrDefault<dimensionedScalar>
     (
         "nu",
@@ -167,7 +108,6 @@ Foam::twoPhaseMixtureThermo::twoPhaseMixtureThermo
         "nu",
         dimensionedScalar("nu", dimViscosity, 0)
     );
-
     rho1_ = phase1Dict.lookupOrDefault<dimensionedScalar>
     (
         "rho",
@@ -178,33 +118,24 @@ Foam::twoPhaseMixtureThermo::twoPhaseMixtureThermo
         "rho",
         dimensionedScalar("rho", dimDensity, 0)
     );
-
     Info<< "Transport properties:" << nl
         << "    " << phase1Name() << ": nu=" << nu1_.value()
         << ", rho=" << rho1_.value() << nl
         << "    " << phase2Name() << ": nu=" << nu2_.value()
         << ", rho=" << rho2_.value() << endl;
-
     updateTwoTemperatureCache();
-
     thermo1_ = rhoThermo::New(U.mesh(), phase1Name());
     thermo2_ = rhoThermo::New(U.mesh(), phase2Name());
-
     correct();
 }
 // * * * * * * * * * * * * * * * * Destructor  * * * * * * * * * * * * * * * //
-
 Foam::twoPhaseMixtureThermo::~twoPhaseMixtureThermo()
 {}
-
-
 // * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * * //
-
 void Foam::twoPhaseMixtureThermo::correctThermo()
 {
     thermo1_->he() = thermo1_->he(p_, T_);
     thermo1_->correct();
-
     thermo2_->he() = thermo2_->he(p_, T_);
     thermo2_->correct();
 }
@@ -213,15 +144,11 @@ void Foam::twoPhaseMixtureThermo::correct()
     psi_ = alpha1()*thermo1_->psi() + alpha2()*thermo2_->psi();
     mu_ = alpha1()*thermo1_->mu() + alpha2()*thermo2_->mu();
     alpha_ = alpha1()*thermo1_->alpha() + alpha2()*thermo2_->alpha();
-
     interfaceProperties::correct();
     // Laser heating is now supplied externally via setQLaser()
-
     computePhaseChange();
-
     phaseChangeSource_.correctBoundaryConditions();
     phaseChangeRelaxCoeff_.correctBoundaryConditions();
-
     // Compute mass-transfer rate [1/s]
     dgdt_ = computeMassTransfer()();
     dgdt_.correctBoundaryConditions();
@@ -230,37 +157,28 @@ void Foam::twoPhaseMixtureThermo::correct()
         const fvMesh& mesh = T_.mesh();
         const label nCells = mesh.nCells();
         const label nSamples = Foam::min(label(5), nCells);
-
         if (nSamples > 0)
         {
             labelList sampleCells(nSamples);
-
             for (label i = 0; i < nSamples; ++i)
             {
                 sampleCells[i] = i;
             }
-
             scalarField pSamples(nSamples, 0.0);
             scalarField tSamples(nSamples, 0.0);
-
             const scalarField& pInternal = p_.internalField();
             const scalarField& tInternal = T_.internalField();
-
             forAll(sampleCells, i)
             {
                 const label celli = sampleCells[i];
                 pSamples[i] = pInternal[celli];
                 tSamples[i] = tInternal[celli];
             }
-
             tmp<scalarField> hSamplesTmp = he(pSamples, tSamples, sampleCells);
             const scalarField& hSamples = hSamplesTmp();
-
             tmp<scalarField> recoveredTmp = THE(hSamples, pSamples, tSamples, sampleCells);
             const scalarField& recovered = recoveredTmp();
-
             scalar maxError = 0.0;
-
             forAll(recovered, i)
             {
                 maxError = Foam::max
@@ -269,9 +187,7 @@ void Foam::twoPhaseMixtureThermo::correct()
                     Foam::mag(recovered[i] - tSamples[i])
                 );
             }
-
             const scalar tolerance = 1e-6;
-
             if (maxError > tolerance)
             {
                 FatalErrorInFunction
@@ -291,12 +207,10 @@ void Foam::twoPhaseMixtureThermo::setQLaser(const volScalarField& src)
 void Foam::twoPhaseMixtureThermo::updateTwoTemperatureCache()
 {
     const Time& time = T_.mesh().time();
-
     if (time.controlDict().found("twoTemperatureProperties"))
     {
         const dictionary& twoTempDict =
             time.controlDict().subDict("twoTemperatureProperties");
-
         ClTTM_ = twoTempDict.lookupOrDefault<dimensionedScalar>("Cl", ClTTM_);
     }
     else
@@ -309,7 +223,6 @@ void Foam::twoPhaseMixtureThermo::updateTwoTemperatureCache()
         );
     }
 }
-
 void Foam::twoPhaseMixtureThermo::setClTTM(const dimensionedScalar& Cl)
 {
     ClTTM_ = Cl;
@@ -338,7 +251,6 @@ Foam::twoPhaseMixtureThermo::sigma() const
     (
         surfaceTensionModel::New(*this, alpha1().mesh())->sigma()
     );
-
     if
     (
         tsigma.valid()
@@ -351,19 +263,15 @@ Foam::twoPhaseMixtureThermo::sigma() const
             << ", expected " << dimForce/dimLength << nl
             << exit(FatalError);
     }
-
     return tsigma;
 }
 void Foam::twoPhaseMixtureThermo::computePhaseChange()
 {
-    phaseChangeSource_ =
-        dimensionedScalar("source", dimTemperature/dimTime, 0.0);
+    phaseChangeSource_ = dimensionedScalar("source", dimTemperature/dimTime, 0.0);
     // Reset the implicit relaxation coefficient
     phaseChangeRelaxCoeff_ = dimensionedScalar("relax", dimless/dimTime, 0.0);
     // Access coefficients from transportProperties
-    const dictionary& transportDict =
-        T_.mesh().lookupObject<dictionary>("transportProperties");
-
+    const dictionary& transportDict = T_.mesh().lookupObject<dictionary>("transportProperties");
     if (!transportDict.found("phaseChangeCoeffs"))
     {
         FatalErrorInFunction
@@ -372,24 +280,19 @@ void Foam::twoPhaseMixtureThermo::computePhaseChange()
             << exit(FatalError);
         return;
     }
-
     const dictionary& pc = transportDict.subDict("phaseChangeCoeffs");
-
     const scalar Tvapor = pc.lookupOrDefault<scalar>("Tvapor", T_vapor_);
     const scalar windowWidth = pc.lookupOrDefault<scalar>("windowWidth", 0.0);
     dtFloor_ = pc.lookupOrDefault<scalar>("dtFloor", dtFloor_);
     scalar relaxationRate = pc.lookupOrDefault<scalar>("relaxationRate", -1.0);
     if (relaxationRate < 0)
     {
-        const scalar relaxationTime =
-            pc.lookupOrDefault<scalar>("relaxationTime", -1.0);
-
+        const scalar relaxationTime = pc.lookupOrDefault<scalar>("relaxationTime", -1.0);
         if (relaxationTime > 0)
         {
             relaxationRate = 1.0/relaxationTime;
         }
     }
-
     if (relaxationRate < 0)
     {
         FatalErrorInFunction
@@ -397,20 +300,11 @@ void Foam::twoPhaseMixtureThermo::computePhaseChange()
             << " or 'relaxationTime' [s] to be specified" << nl
             << exit(FatalError);
     }
-
     const word maxSourceDefaultKey("phaseChangeMaxSourceDefault");
     const bool hasTransportDefault = transportDict.found(maxSourceDefaultKey);
-
-    scalar defaultMaxSource =
-        transportDict.lookupOrDefault<scalar>
-        (
-            maxSourceDefaultKey,
-            1e7
-        );
-
+    scalar defaultMaxSource = transportDict.lookupOrDefault<scalar>(maxSourceDefaultKey, 1e7);
     scalar maxSource = defaultMaxSource;
     bool usingDefaultMaxSource = false;
-
     if (pc.found("maxSource"))
     {
         maxSource = pc.lookupOrDefault<scalar>("maxSource", defaultMaxSource);
@@ -423,11 +317,9 @@ void Foam::twoPhaseMixtureThermo::computePhaseChange()
     {
         usingDefaultMaxSource = true;
     }
-
     if (usingDefaultMaxSource)
     {
         static bool defaultMaxSourceWarned = false;
-
         if (!defaultMaxSourceWarned)
         {
             WarningInFunction
@@ -436,17 +328,14 @@ void Foam::twoPhaseMixtureThermo::computePhaseChange()
                     ? "transportProperties entry 'phaseChangeMaxSourceDefault'"
                     : "internal fallback")
                 << " = " << maxSource << " [K/s]" << endl;
-
             defaultMaxSourceWarned = true;
         }
     }
-
     const bool limitSource = (maxSource > 0 && maxSource < GREAT);
     const Switch onlyAboveVapor
     (
         pc.lookupOrDefault<Switch>("onlyAboveVapor", false)
     );
-
     List<Tuple2<scalar, scalar>> actTimes;
     if (pc.found("activationTime"))
     {
@@ -503,15 +392,12 @@ void Foam::twoPhaseMixtureThermo::computePhaseChange()
             return;
         }
     }
-
     const scalar minAlpha = 0.0;
     const scalar maxAlpha = 1.0;
-
     forAll(T_, cellI)
     {
         const scalar a1 = Foam::min(Foam::max(alpha1()[cellI], minAlpha), maxAlpha);
         const scalar Tcell = T_[cellI];
-
         scalar available = 0.0;
         if (Tcell > Tvapor)
         {
@@ -521,16 +407,12 @@ void Foam::twoPhaseMixtureThermo::computePhaseChange()
         {
             available = 1.0 - a1;
         }
-
         scalar localRate = relaxationRate*available;
-
         if (windowWidth > SMALL)
         {
             localRate *= Foam::min(Foam::mag(Tcell - Tvapor)/windowWidth, 1.0);
         }
-
         scalar sourceVal = localRate*(Tvapor - Tcell);
-
         if (limitSource)
         {
             sourceVal = Foam::max(Foam::min(sourceVal, maxSource), -maxSource);
@@ -544,18 +426,15 @@ void Foam::twoPhaseMixtureThermo::computePhaseChange()
                 localRate = 0.0;
             }
         }
-
         if (onlyAboveVapor && Tcell < Tvapor)
         {
             localRate = 0.0;
             sourceVal = 0.0;
         }
-
         phaseChangeRelaxCoeff_[cellI] = localRate;
         phaseChangeSource_[cellI] = sourceVal;
     }
 }
-
 Foam::tmp<Foam::volScalarField>
 Foam::twoPhaseMixtureThermo::computeMassTransfer() const
 {
@@ -575,26 +454,19 @@ Foam::twoPhaseMixtureThermo::computeMassTransfer() const
             dimensionedScalar("dgdt", dimless/dimTime, 0.0)
         )
     );
-
     volScalarField& dgdt = tDgdt.ref();
-
     const dictionary& transportDict =
         T_.mesh().lookupObject<dictionary>("transportProperties");
-
     if (!transportDict.found("massTransferCoeffs"))
     {
         Info<< "massTransferCoeffs not found - skipping mass transfer" << nl;
         return tDgdt;
     }
-
     const dictionary& mt = transportDict.subDict("massTransferCoeffs");
-
     const scalar rateMax = mt.lookupOrDefault<scalar>("rateMax", -1.0);
-
     // lattice heat capacity [J/m^3/K] from two-temperature properties
     const scalar ClVal = ClTTM_.value();
     const scalar LVal = latentHeat().value();
-
     List<scalar> tStart, tEnd;
     if (mt.found("tStart"))
     {
@@ -652,38 +524,30 @@ Foam::twoPhaseMixtureThermo::computeMassTransfer() const
             return tDgdt;
         }
     }
-
     // Retrieve phase-1 density field and store temporary to avoid referencing
     // destroyed objects
     const tmp<volScalarField> rho1Tmp = thermo1_->rho();
     const volScalarField& rho1Field = rho1Tmp();
-
     scalar rho1Ref = rho1_.value();
     if (rho1Ref <= SMALL)
     {
         rho1Ref = Foam::gMax(rho1Field.internalField());
     }
-
     const scalar rho1Min = Foam::max(1e-6*rho1Ref, SMALL);
-
     forAll(dgdt, cellI)
     {
         scalar localRate =
             -(ClVal*phaseChangeSource_[cellI])
             /(LVal*max(rho1Field[cellI], rho1Min));
-
         if (rateMax > 0)
         {
             localRate = max(min(localRate, rateMax), -rateMax);
         }
-
         dgdt[cellI] = localRate;
     }
-
     return tDgdt;
 }
 bool Foam::twoPhaseMixtureThermo::isochoric() const
-
 {
     return thermo1_->isochoric() && thermo2_->isochoric();
 }
@@ -701,7 +565,6 @@ namespace
     {
         const Foam::scalar rhoMix =
             Foam::max(alpha1*rho1 + alpha2*rho2, Foam::SMALL);
-
         return
             (alpha1*rho1*value1 + alpha2*rho2*value2)
            /rhoMix;
@@ -715,20 +578,16 @@ Foam::tmp<Foam::volScalarField> Foam::twoPhaseMixtureThermo::he
 {
     const volScalarField& alpha1Field = alpha1();
     const volScalarField& alpha2Field = alpha2();
-
     tmp<volScalarField> the1 = thermo1_->he(p, T);
     tmp<volScalarField> the2 = thermo2_->he(p, T);
     tmp<volScalarField> trho1 = thermo1_->rho();
     tmp<volScalarField> trho2 = thermo2_->rho();
-
     tmp<volScalarField> numerator =
         alpha1Field*trho1()*the1()
       + alpha2Field*trho2()*the2();
-
     tmp<volScalarField> denominator =
         alpha1Field*trho1()
       + alpha2Field*trho2();
-
     return numerator
        /
         (
@@ -744,24 +603,19 @@ Foam::tmp<Foam::scalarField> Foam::twoPhaseMixtureThermo::he
 ) const
 {
     const label nCells = cells.size();
-
     scalarField alpha1Field(nCells, 0.0);
     scalarField alpha2Field(nCells, 0.0);
-
     forAll(cells, i)
     {
         const label celli = cells[i];
         alpha1Field[i] = alpha1()[celli];
         alpha2Field[i] = alpha2()[celli];
     }
-
     tmp<scalarField> the1 = thermo1_->he(p, T, cells);
     tmp<scalarField> the2 = thermo2_->he(p, T, cells);
     tmp<scalarField> trho1 = thermo1_->rhoEoS(p, T, cells);
     tmp<scalarField> trho2 = thermo2_->rhoEoS(p, T, cells);
-
     scalarField result(nCells, 0.0);
-
     forAll(result, i)
     {
         result[i] = massWeighted
@@ -774,7 +628,6 @@ Foam::tmp<Foam::scalarField> Foam::twoPhaseMixtureThermo::he
             the2()[i]
         );
     }
-
     return tmp<scalarField>(new scalarField(std::move(result)));
 }
 Foam::tmp<Foam::scalarField> Foam::twoPhaseMixtureThermo::he
@@ -786,14 +639,11 @@ Foam::tmp<Foam::scalarField> Foam::twoPhaseMixtureThermo::he
 {
     const fvPatchScalarField& alpha1Patch = alpha1().boundaryField()[patchi];
     const fvPatchScalarField& alpha2Patch = alpha2().boundaryField()[patchi];
-
     tmp<scalarField> the1 = thermo1_->he(p, T, patchi);
     tmp<scalarField> the2 = thermo2_->he(p, T, patchi);
     tmp<scalarField> trho1 = thermo1_->rho(patchi);
     tmp<scalarField> trho2 = thermo2_->rho(patchi);
-
     scalarField result(the1().size(), 0.0);
-
     forAll(result, facei)
     {
         result[facei] = massWeighted
@@ -806,11 +656,8 @@ Foam::tmp<Foam::scalarField> Foam::twoPhaseMixtureThermo::he
             the2()[facei]
         );
     }
-
     return tmp<scalarField>(new scalarField(std::move(result)));
 }
-
-
 Foam::tmp<Foam::volScalarField> Foam::twoPhaseMixtureThermo::hc() const
 {
     return alpha1()*thermo1_->hc() + alpha2()*thermo2_->hc();
@@ -834,12 +681,9 @@ namespace
     )
     {
         Foam::scalarField T(T0);
-
         const Foam::label maxIter = 50;
         const Foam::scalar tol = 1e-6;
-
         bool converged = false;
-
         for (Foam::label iter = 0; iter < maxIter; ++iter)
         {
             Foam::tmp<Foam::scalarField> trho1 = rhoEval1(p, T);
@@ -848,9 +692,7 @@ namespace
             Foam::tmp<Foam::scalarField> the2 = heEval2(p, T);
             Foam::tmp<Foam::scalarField> tcp1 = cpEval1(p, T);
             Foam::tmp<Foam::scalarField> tcp2 = cpEval2(p, T);
-
             Foam::scalar maxDeltaT = 0.0;
-
             forAll(T, i)
             {
                 const Foam::scalar rho1 = trho1()[i];
@@ -861,35 +703,29 @@ namespace
                 const Foam::scalar cp2 = tcp2()[i];
                 const Foam::scalar a1 = alpha1[i];
                 const Foam::scalar a2 = alpha2[i];
-
                 const Foam::scalar rhoMix = Foam::max(a1*rho1 + a2*rho2, Foam::SMALL);
                 const Foam::scalar mixtureHe =
                     (a1*rho1*he1 + a2*rho2*he2)/rhoMix;
                 const Foam::scalar mixtureCp =
                     (a1*rho1*cp1 + a2*rho2*cp2)/rhoMix;
-
                 const Foam::scalar deltaT =
                     (mixtureHe - h[i])
                    /Foam::max(mixtureCp, Foam::SMALL);
-
                 T[i] -= deltaT;
                 maxDeltaT = Foam::max(maxDeltaT, Foam::mag(deltaT));
             }
-
             if (maxDeltaT < tol)
             {
                 converged = true;
                 break;
             }
         }
-
         if (!converged)
         {
             WarningInFunction
                 << "THE() iteration reached the maximum number of iterations"
                 << " without achieving the requested tolerance." << Foam::endl;
         }
-
         return T;
     }
 }
@@ -902,47 +738,38 @@ Foam::tmp<Foam::scalarField> Foam::twoPhaseMixtureThermo::THE
 ) const
 {
     const label nCells = cells.size();
-
     scalarField alpha1Field(nCells, 0.0);
     scalarField alpha2Field(nCells, 0.0);
-
     forAll(cells, i)
     {
         const label celli = cells[i];
         alpha1Field[i] = alpha1()[celli];
         alpha2Field[i] = alpha2()[celli];
     }
-
     auto rhoEval1 = [&](const scalarField& pVals, const scalarField& TVals)
     {
         return thermo1_->rhoEoS(pVals, TVals, cells);
     };
-
     auto rhoEval2 = [&](const scalarField& pVals, const scalarField& TVals)
     {
         return thermo2_->rhoEoS(pVals, TVals, cells);
     };
-
     auto heEval1 = [&](const scalarField& pVals, const scalarField& TVals)
     {
         return thermo1_->he(pVals, TVals, cells);
     };
-
     auto heEval2 = [&](const scalarField& pVals, const scalarField& TVals)
     {
         return thermo2_->he(pVals, TVals, cells);
     };
-
     auto cpEval1 = [&](const scalarField& pVals, const scalarField& TVals)
     {
         return thermo1_->Cp(pVals, TVals, cells);
     };
-
     auto cpEval2 = [&](const scalarField& pVals, const scalarField& TVals)
     {
         return thermo2_->Cp(pVals, TVals, cells);
     };
-
     scalarField result = invertMassWeightedEnthalpy
     (
         h,
@@ -957,7 +784,6 @@ Foam::tmp<Foam::scalarField> Foam::twoPhaseMixtureThermo::THE
         cpEval1,
         cpEval2
     );
-
     return tmp<scalarField>(new scalarField(std::move(result)));
 }
 Foam::tmp<Foam::scalarField> Foam::twoPhaseMixtureThermo::THE
@@ -970,46 +796,37 @@ Foam::tmp<Foam::scalarField> Foam::twoPhaseMixtureThermo::THE
 {
     const fvPatchScalarField& alpha1Patch = alpha1().boundaryField()[patchi];
     const fvPatchScalarField& alpha2Patch = alpha2().boundaryField()[patchi];
-
     scalarField alpha1Field(alpha1Patch.size(), 0.0);
     scalarField alpha2Field(alpha2Patch.size(), 0.0);
-
     forAll(alpha1Field, facei)
     {
         alpha1Field[facei] = alpha1Patch[facei];
         alpha2Field[facei] = alpha2Patch[facei];
     }
-
     auto rhoEval1 = [&](const scalarField&, const scalarField&)
     {
         return thermo1_->rho(patchi);
     };
-
     auto rhoEval2 = [&](const scalarField&, const scalarField&)
     {
         return thermo2_->rho(patchi);
     };
-
     auto heEval1 = [&](const scalarField& pVals, const scalarField& TVals)
     {
         return thermo1_->he(pVals, TVals, patchi);
     };
-
     auto heEval2 = [&](const scalarField& pVals, const scalarField& TVals)
     {
         return thermo2_->he(pVals, TVals, patchi);
     };
-
     auto cpEval1 = [&](const scalarField& pVals, const scalarField& TVals)
     {
         return thermo1_->Cp(pVals, TVals, patchi);
     };
-
     auto cpEval2 = [&](const scalarField& pVals, const scalarField& TVals)
     {
         return thermo2_->Cp(pVals, TVals, patchi);
     };
-
     scalarField result = invertMassWeightedEnthalpy
     (
         h,
@@ -1024,7 +841,6 @@ Foam::tmp<Foam::scalarField> Foam::twoPhaseMixtureThermo::THE
         cpEval1,
         cpEval2
     );
-
     return tmp<scalarField>(new scalarField(std::move(result)));
 }
 Foam::tmp<Foam::volScalarField> Foam::twoPhaseMixtureThermo::Cp() const
@@ -1042,7 +858,6 @@ Foam::tmp<Foam::scalarField> Foam::twoPhaseMixtureThermo::Cp
         alpha1().boundaryField()[patchi]*thermo1_->Cp(p, T, patchi)
       + alpha2().boundaryField()[patchi]*thermo2_->Cp(p, T, patchi);
 }
-
 Foam::tmp<Foam::scalarField> Foam::twoPhaseMixtureThermo::Cp
 (
     const scalarField& p,
@@ -1054,7 +869,6 @@ Foam::tmp<Foam::scalarField> Foam::twoPhaseMixtureThermo::Cp
         scalarField(alpha1(), cells)*thermo1_->Cp(p, T, cells)
       + scalarField(alpha2(), cells)*thermo2_->Cp(p, T, cells);
 }
-
 Foam::tmp<Foam::volScalarField> Foam::twoPhaseMixtureThermo::Cv() const
 {
     return alpha1()*thermo1_->Cv() + alpha2()*thermo2_->Cv();
@@ -1070,7 +884,6 @@ Foam::tmp<Foam::scalarField> Foam::twoPhaseMixtureThermo::Cv
         alpha1().boundaryField()[patchi]*thermo1_->Cv(p, T, patchi)
       + alpha2().boundaryField()[patchi]*thermo2_->Cv(p, T, patchi);
 }
-
 Foam::tmp<Foam::scalarField> Foam::twoPhaseMixtureThermo::rhoEoS
 (
     const scalarField& p,
@@ -1222,7 +1035,6 @@ bool Foam::twoPhaseMixtureThermo::read()
         updateTwoTemperatureCache();        
         return interfaceProperties::read();
     }
-
     return false;
 }
 // ************************************************************************* //

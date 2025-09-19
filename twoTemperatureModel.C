@@ -12,12 +12,9 @@
     - Material property calculations
     - Energy conservation tracking
     - Coupled electron-lattice temperature solution
-    
     The model uses temperature-dependent material properties and includes
     electron-phonon coupling for accurate simulation of ultrafast laser heating.
-
 \*---------------------------------------------------------------------------*/
-
 #include "twoTemperatureModel.H"
 #include "fvc.H"
 #include "fvm.H"
@@ -26,11 +23,9 @@
 extern Foam::Switch verbose;
 namespace Foam
 {
-
 /*---------------------------------------------------------------------------*\
                     twoTemperatureModel Implementation
 \*---------------------------------------------------------------------------*/
-
 twoTemperatureModel::twoTemperatureModel
 (
     const fvMesh& mesh,
@@ -129,12 +124,10 @@ if (dict.found("Ce"))
             Ce_ = dict.lookupOrDefault<dimensionedScalar>("Ce", Ce_);
         }
     }
-
     if (dict.found("Cl"))
     {
         Cl_ = dict.lookupOrDefault<dimensionedScalar>("Cl", Cl_);
     }
-
     if (dict.found("G"))
     {
         if (dict.isDict("G"))
@@ -146,7 +139,6 @@ if (dict.found("Ce"))
             G_ = dict.lookupOrDefault<dimensionedScalar>("G", G_);
         }
     }
-
     if (dict.found("De"))
     {
         De_ = dict.lookupOrDefault<dimensionedScalar>("De", De_);
@@ -180,7 +172,6 @@ if (dict.found("Ce"))
             << "Invalid model parameters"
             << abort(FatalError);
     }
-
     // Register fields if not already present
     if (!mesh_.foundObject<volScalarField>("Te"))
     {
@@ -190,7 +181,6 @@ if (dict.found("Ce"))
     {
         mesh_.objectRegistry::store(new volScalarField(Tl_));
     }
-
     // Initialize energy tracking
     updateEnergyTracking();
     if (verbose)
@@ -206,7 +196,6 @@ if (dict.found("Ce"))
             << "  Metal fraction field = " << metalFraction_.name() << endl;
     }
 }
-
 twoTemperatureModel::~twoTemperatureModel()
 {
     if (mesh_.foundObject<volScalarField>("Te"))
@@ -226,10 +215,8 @@ volScalarField& twoTemperatureModel::Te()
             << "Invalid Te/Tl values prior to non-const Te() access"
             << abort(FatalError);
     }
-
     return Te_;
 }
-
 volScalarField& twoTemperatureModel::Tl()
 {
     if (!validateFields())
@@ -238,13 +225,11 @@ volScalarField& twoTemperatureModel::Tl()
             << "Invalid Te/Tl values prior to non-const Tl() access"
             << abort(FatalError);
     }
-
     return Tl_;
 }
 bool twoTemperatureModel::validateParameters() const
 {
     bool valid = true;
-
        // Check dimensions
     if (Te_.dimensions() != dimTemperature || 
         Tl_.dimensions() != dimTemperature)
@@ -254,7 +239,6 @@ bool twoTemperatureModel::validateParameters() const
             << abort(FatalError);
         valid = false;
     }
-
     if (Ce_.dimensions() != dimEnergy/dimVolume/dimTemperature ||
         Cl_.dimensions() != dimEnergy/dimVolume/dimTemperature ||
         G_.dimensions() != dimEnergy/dimVolume/dimTime/dimTemperature ||
@@ -265,7 +249,6 @@ bool twoTemperatureModel::validateParameters() const
             << abort(FatalError);
         valid = false;
     }
-
     // Check property values
     if (Ce_.value() <= 0 || Cl_.value() <= 0 || G_.value() <= 0 || De_.value() <= 0)
     {
@@ -301,7 +284,6 @@ bool twoTemperatureModel::validateParameters() const
             << abort(FatalError);
         valid = false;
     }
-
     // Check temperature values
     forAll(Te_, cellI)
     {
@@ -314,56 +296,46 @@ bool twoTemperatureModel::validateParameters() const
             break;
         }
     }
-
     return valid;
 }
 scalar twoTemperatureModel::metalValidationThreshold() const
 {
     const scalar metalFractionFloor =
         dict_.lookupOrDefault<scalar>("metalFractionFloor", 1e-6);
-
     return dict_.lookupOrDefault<scalar>
     (
         "metalFractionCutoff",
         metalFractionFloor
     );
 }
-
 bool twoTemperatureModel::validateFields() const
 {
     const scalar metalThreshold = metalValidationThreshold();
     const volScalarField& metalField = metalFraction_;
-
     auto fieldValid =
         [&](const volScalarField& fld)
     {
         const scalarField& internal = fld.internalField();
         const scalarField& metalInternal = metalField.internalField();
-
         forAll(internal, cellI)
         {
             if (metalInternal[cellI] < metalThreshold)
             {
                 continue;
             }
-
             const scalar value = internal[cellI];
-
             if (value <= 0 || !std::isfinite(value))
             {
                 return false;
             }
         }
-
         const volScalarField::Boundary& bf = fld.boundaryField();
         const volScalarField::Boundary& metalBoundary =
             metalField.boundaryField();
-
         forAll(bf, patchI)
         {
             const fvPatchScalarField& pf = bf[patchI];
             const fvPatchScalarField& metalPatch = metalBoundary[patchI];
-
             forAll(pf, faceI)
             {
                 if (metalPatch[faceI] < metalThreshold)
@@ -371,20 +343,16 @@ bool twoTemperatureModel::validateFields() const
                     continue;
                 }
                 const scalar value = pf[faceI];
-
                 if (value <= 0 || !std::isfinite(value))
                 {
                     return false;
                 }
             }
         }
-
         return true;
     };
-
     return fieldValid(Te_) && fieldValid(Tl_);
 }
-
 void twoTemperatureModel::guardTemperatureFields
 (
     const char* context,
@@ -397,7 +365,6 @@ void twoTemperatureModel::guardTemperatureFields
     }
     const scalar metalThreshold = metalValidationThreshold();
     const volScalarField& metalField = metalFraction_;
-
     const auto reportFailure =
         [&](const word& fieldName,
             const scalar value,
@@ -410,46 +377,37 @@ void twoTemperatureModel::guardTemperatureFields
                  << " value " << value
                  << " detected on " << locationType
                  << " " << locationIndex;
-
             if (!patchName.empty())
             {
                 msg << " (patch " << patchName << ')';
             }
-
             msg << " during " << context
                 << " sweep " << sweep
                 << " at time " << mesh_.time().timeName();
-
             FatalErrorInFunction
                 << msg.str()
                 << abort(FatalError);
         };
-
     const auto checkField =
         [&](const volScalarField& fld, const word& fieldName)
         {
             const scalarField& internal = fld.internalField();
             const scalarField& metalInternal = metalField.internalField();
-
             forAll(internal, cellI)
             {
                 if (metalInternal[cellI] < metalThreshold)
                 {
                     continue;
                 }
-
                 const scalar value = internal[cellI];
-
                 if (value <= 0 || !std::isfinite(value))
                 {
                     reportFailure(fieldName, value, "cell", cellI, word());
                 }
             }
-
             const volScalarField::Boundary& bf = fld.boundaryField();
             const volScalarField::Boundary& metalBoundary =
                 metalField.boundaryField();
-
             forAll(bf, patchI)
             {
                 const fvPatchScalarField& pf = bf[patchI];
@@ -462,7 +420,6 @@ void twoTemperatureModel::guardTemperatureFields
                         continue;
                     }                    
                     const scalar value = pf[faceI];
-
                     if (value <= 0 || !std::isfinite(value))
                     {
                         reportFailure
@@ -477,11 +434,9 @@ void twoTemperatureModel::guardTemperatureFields
                 }
             }
         };
-
     checkField(Te_, "Te");
     checkField(Tl_, "Tl");
 }
-
 bool twoTemperatureModel::checkEnergyConservation
 (
     const dimensionedScalar& expectedEnergyChange
@@ -491,27 +446,22 @@ bool twoTemperatureModel::checkEnergyConservation
     {
         return true;
     }
-
     tmp<volScalarField> tCe = electronHeatCapacity();
     const volScalarField& CeField = tCe();
     dimensionedScalar currentEnergy =
         fvc::domainIntegrate(metalFraction_*(CeField*Te_ + Cl_*Tl_));
     dimensionedScalar expectedEnergy = lastTotalEnergy_ + expectedEnergyChange;
-
     scalar energyError = mag
     (
         (currentEnergy.value() - expectedEnergy.value())/
         (mag(expectedEnergy.value()) + SMALL)
     );
-
-
 const scalar energyTol =
     dict_.lookupOrDefault<scalar>("energyTol",
         dict_.lookupOrDefault<scalar>("energyTolerance", 0.01));
 return energyError < energyTol;
 
 }
-
 void twoTemperatureModel::updateEnergyTracking() const
 {
     tmp<volScalarField> tCe = electronHeatCapacity();
@@ -520,7 +470,6 @@ void twoTemperatureModel::updateEnergyTracking() const
         fvc::domainIntegrate(metalFraction_*(CeField*Te_ + Cl_*Tl_));
     energyInitialized_ = true;
 }
-
 void twoTemperatureModel::solve
 (
     const volScalarField& laserSource,
@@ -535,7 +484,6 @@ void twoTemperatureModel::solve
             << "Invalid field values before solve"
             << abort(FatalError);
     }
-
     // Store initial energy
     updateEnergyTracking();
     const volScalarField& metal = metalFraction_;
@@ -548,39 +496,23 @@ void twoTemperatureModel::solve
             "metalFractionCutoff",
             metalFractionFloor
         );
-    const dimensionedScalar metalFloor
-    (
-        "metalFractionFloor",
-        dimless,
-        Foam::max(metalFractionFloor, VSMALL)
-    );
-
+    const dimensionedScalar metalFloor("metalFractionFloor", dimless, Foam::max(metalFractionFloor, VSMALL));
     tmp<volScalarField> tMetalEff = Foam::max(metal, metalFloor);
     const volScalarField& metalEff = tMetalEff();
     tmp<volScalarField> tGasMetalHeatFluxMasked
     (
         new volScalarField
         (
-            IOobject
-            (
-                "gasMetalHeatFluxMasked",
-                mesh_.time().timeName(),
-                mesh_,
-                IOobject::NO_READ,
-                IOobject::NO_WRITE
-            ),
+            IOobject("gasMetalHeatFluxMasked", mesh_.time().timeName(), mesh_, IOobject::NO_READ, IOobject::NO_WRITE),
             gasMetalHeatFlux
         )
     );
-
     volScalarField& gasMetalHeatFluxMaskedRef = tGasMetalHeatFluxMasked.ref();
-
     scalarField& gasMetalHeatFluxMaskedInternal =
         gasMetalHeatFluxMaskedRef.primitiveFieldRef();
     const scalarField& gasMetalHeatFluxInternal =
         gasMetalHeatFlux.primitiveField();
     const scalarField& metalInternal = metal.primitiveField();
-
     forAll(gasMetalHeatFluxMaskedInternal, cellI)
     {
         if (metalInternal[cellI] < metalFractionFloor)
@@ -593,19 +525,16 @@ void twoTemperatureModel::solve
                 gasMetalHeatFluxInternal[cellI];
         }
     }
-
     volScalarField::Boundary& gasMetalHeatFluxMaskedBoundary =
         gasMetalHeatFluxMaskedRef.boundaryFieldRef();
     const volScalarField::Boundary& gasMetalHeatFluxBoundary =
         gasMetalHeatFlux.boundaryField();
     const volScalarField::Boundary& metalBoundary = metal.boundaryField();
-
     forAll(gasMetalHeatFluxMaskedBoundary, patchI)
     {
         scalarField& maskedPatch = gasMetalHeatFluxMaskedBoundary[patchI];
         const scalarField& fluxPatch = gasMetalHeatFluxBoundary[patchI];
         const scalarField& metalPatch = metalBoundary[patchI];
-
         forAll(maskedPatch, faceI)
         {
             if (metalPatch[faceI] < metalFractionFloor)
@@ -618,7 +547,6 @@ void twoTemperatureModel::solve
             }
         }
     }
-
     const volScalarField& gasMetalHeatFluxMasked = tGasMetalHeatFluxMasked();
     const label nInnerSweeps =
         dict_.lookupOrDefault<label>("nInnerCouplingSweeps", 1);
@@ -632,25 +560,11 @@ void twoTemperatureModel::solve
                 -GREAT
             )
         );
-
-    dimensionedScalar electronEnergyBefore
-    (
-        "electronEnergyBefore",
-        dimEnergy,
-        0.0
-    );
-    dimensionedScalar latticeEnergyBefore
-    (
-        "latticeEnergyBefore",
-        dimEnergy,
-        0.0
-    );
-    dimensionedScalar laserEnergy =
-        fvc::domainIntegrate(metal*laserSource)*mesh_.time().deltaT();
-    dimensionedScalar phaseChangeEnergy =
-        fvc::domainIntegrate(metal*(Cl_*phaseChangeSource))*mesh_.time().deltaT();
-    dimensionedScalar couplingEnergy =
-        fvc::domainIntegrate(gasMetalHeatFluxMasked)*mesh_.time().deltaT();
+    dimensionedScalar electronEnergyBefore("electronEnergyBefore", dimEnergy, 0.0);
+    dimensionedScalar latticeEnergyBefore("latticeEnergyBefore", dimEnergy, 0.0);
+    dimensionedScalar laserEnergy = fvc::domainIntegrate(metal*laserSource)*mesh_.time().deltaT();
+    dimensionedScalar phaseChangeEnergy = fvc::domainIntegrate(metal*(Cl_*phaseChangeSource))*mesh_.time().deltaT();
+    dimensionedScalar couplingEnergy = fvc::domainIntegrate(gasMetalHeatFluxMasked)*mesh_.time().deltaT();
     if (verbose)
     {
         tmp<volScalarField> tCeInitial = electronHeatCapacity();
@@ -662,30 +576,23 @@ void twoTemperatureModel::solve
         Info<< "max(laserSource) = " << max(laserSource).value()
             << ", max(Tl_) = " << max(Tl_).value() << endl;
     }
-
-    // Apply strong under-relaxation for stability
-    scalar relaxFactor = 0.3;
-
+    scalar relaxFactor = 0.3;// Apply strong under-relaxation for stability
     // First solve lattice temperature - more stable to do this first
     // Create a more stable matrix system for the lattice temperature
     const volScalarField& TlOld = Tl_.oldTime();
-
     if (verbose)
     {
         Info<< "  gasMetalHeatFlux range entering TTM solve (masked): ["
             << gMin(gasMetalHeatFluxMasked) << ", "
             << gMax(gasMetalHeatFluxMasked) << "] W/m³" << endl;
     }
-    
     scalar prevResidual = gMax(mag(Te_ - Tl_)().internalField());
-
     for (label sweep = 0; sweep < nInnerSweeps; ++sweep)
     {
         volScalarField ke = electronThermalConductivity();
         volScalarField G = electronPhononCoupling();
         tmp<volScalarField> tkl = kl();
         const volScalarField& klField = tkl();
-
         fvScalarMatrix TlEqn
         (
             fvm::ddt(metalEff*Cl_, Tl_)
@@ -699,20 +606,15 @@ void twoTemperatureModel::solve
               + Cl_*(phaseChangeSource + phaseChangeRelaxCoeff*TlOld)
             )
             + gasMetalHeatFluxMasked
-
         );
-
         // Under-relax the lattice equation for stability
         TlEqn.relax(relaxFactor);
-
         // Perform lattice temperature solve; any additional iterations are
         // handled by the solver controls (maxIter, tolerance, etc.)
         TlEqn.solve(mesh_.solver("Tl"));
         guardTemperatureFields("TlEqn.solve", sweep);
-
         tmp<volScalarField> tCe = electronHeatCapacity();
         const volScalarField& Ce = tCe();
-
         // Create a more stable matrix system for the electron temperature
         fvScalarMatrix TeEqn
         (
@@ -722,18 +624,14 @@ void twoTemperatureModel::solve
          ==
             metal*(laserSource + G*Tl_)
         );
-
         TeEqn.solve(mesh_.solver("Te"));
         guardTemperatureFields("TeEqn.solve", sweep);
-
         if (sweep + 1 < nInnerSweeps)
         {
             const scalar residual = gMax(mag(Te_ - Tl_)().internalField());
-
             if (residual <= prevResidual)
             {
                 const scalar reduction = max(prevResidual - residual, scalar(0));
-
                 if (reduction < innerCouplingReductionTol)
                 {
                     if (verbose)
@@ -746,7 +644,6 @@ void twoTemperatureModel::solve
                     break;
                 }
             }
-
             prevResidual = residual;
         }
     }
@@ -774,7 +671,6 @@ void twoTemperatureModel::solve
             << "  Metal lattice energy after laser: "
             << latticeEnergyAfter.value() << " J" << endl;
     }
-
     // Apply temperature bounds from dictionary
     dimensionedScalar minTemp
     (
@@ -788,7 +684,6 @@ void twoTemperatureModel::solve
         dimTemperature,
         dict_.lookupOrDefault<scalar>("maxTe", 3500.0)
     );
-
     // Bound fields safely, keeping gas cells at ambient temperature
     forAll(Te_, cellI)
     {
@@ -803,13 +698,10 @@ void twoTemperatureModel::solve
             Tl_[cellI] = ambient;
         }
     }
-
     Te_.correctBoundaryConditions();
     Tl_.correctBoundaryConditions();
-    
     dimensionedScalar totalEnergyInput =
         laserEnergy + phaseChangeEnergy + couplingEnergy;
-
     // Check energy conservation
     if (!checkEnergyConservation(totalEnergyInput))
     {
@@ -824,12 +716,10 @@ void twoTemperatureModel::solve
             (currentEnergy.value() - expectedEnergy.value())/
             (mag(expectedEnergy.value()) + SMALL)
         );
-        
         // Characteristic time-scales based on Ce/G and Cl/G
         scalar dt = mesh_.time().deltaTValue();
         scalar tauE = Ce_.value()/G_.value();
         scalar tauL = Cl_.value()/G_.value();
-
         WarningInFunction
             << "Energy conservation violation detected" << nl
             << "Error = " << energyError * 100 << " %" << nl
@@ -847,10 +737,7 @@ void twoTemperatureModel::solve
             << "Suggested max deltaT: " << 0.2*Foam::min(tauE, tauL)
             << " s" << endl;
     }
-
-    // Update energy tracking
-    updateEnergyTracking();
-
+    updateEnergyTracking(); // Update energy tracking
     // Diagnostics: track cumulative laser energy versus lattice/electron energy
     if (verbose)
     {
@@ -860,18 +747,15 @@ void twoTemperatureModel::solve
             dimEnergy,
             0.0
         );
-
         dimensionedScalar laserEnergyThisStep =
             fvc::domainIntegrate(metal*laserSource) * mesh_.time().deltaT();
         cumulativeLaserEnergy += laserEnergyThisStep;
-
         tmp<volScalarField> tCeDiag = electronHeatCapacity();
         const volScalarField& CeDiag = tCeDiag();
         dimensionedScalar electronEnergy =
             fvc::domainIntegrate(metal*CeDiag*Te_);
         dimensionedScalar latticeEnergy  =
             fvc::domainIntegrate(metal*Cl_*Tl_);
-
         Info<< "Energy diagnostics:" << nl
             << "  Cumulative laser energy: "
             << cumulativeLaserEnergy.value() << " J" << nl
@@ -880,7 +764,6 @@ void twoTemperatureModel::solve
             << "  Total energy: "
             << (electronEnergy + latticeEnergy).value() << " J" << endl;
     }
-
     // Report solution statistics with more detail
     volScalarField tempDiff = mag(Te_ - Tl_);
 
@@ -913,10 +796,8 @@ tmp<volScalarField> twoTemperatureModel::electronThermalConductivity() const
             dimensionedScalar("ke", dimPower/dimLength/dimTemperature, 1.0)
         )
     );
-
        // Get reference to field for modification
-    volScalarField& ke = tke.ref();
-    // Calculate conductivity using cell-wise electron heat capacity
+    volScalarField& ke = tke.ref(); // Calculate conductivity using cell-wise electron heat capacity
     // ke = CeField * De_, allowing spatially varying Ce
     tmp<volScalarField> tCe = electronHeatCapacity();
     const volScalarField& CeField = tCe();
@@ -924,10 +805,8 @@ tmp<volScalarField> twoTemperatureModel::electronThermalConductivity() const
     {
         ke[cellI] = (CeField[cellI] * De_).value();
     }
-
     return tke;
 }
-
 tmp<volScalarField> twoTemperatureModel::electronHeatCapacity() const
 {
     // Create temporary field for electron heat capacity
@@ -948,7 +827,6 @@ tmp<volScalarField> twoTemperatureModel::electronHeatCapacity() const
         )
     );
         volScalarField& CeField = tCe.ref();
-
     if (CeFunction_.valid())
     {
         forAll(CeField, cellI)
@@ -956,11 +834,8 @@ tmp<volScalarField> twoTemperatureModel::electronHeatCapacity() const
             CeField[cellI] = CeFunction_->value(Te_[cellI]);
         }
     }
-
-
     return tCe;
 }
-
 tmp<volScalarField> twoTemperatureModel::electronPhononCoupling() const
 {
     // Create temporary field for electron-phonon coupling
@@ -979,9 +854,8 @@ tmp<volScalarField> twoTemperatureModel::electronPhononCoupling() const
             mesh_,
             G_
         )
-    );
-        volScalarField& GField = tG.ref();
-
+    ); // Electron-phonon coupling field
+    volScalarField& GField = tG.ref(); // Reference for modification
     if (GFunction_.valid())
     {
         forAll(GField, cellI)
@@ -989,7 +863,6 @@ tmp<volScalarField> twoTemperatureModel::electronPhononCoupling() const
             GField[cellI] = GFunction_->value(Te_[cellI]);
         }
     }
-
     return tG;
 }
 tmp<volScalarField> twoTemperatureModel::gasMetalExchangeCoeffField() const
@@ -998,21 +871,12 @@ tmp<volScalarField> twoTemperatureModel::gasMetalExchangeCoeffField() const
     (
         new volScalarField
         (
-            IOobject
-            (
-                "gasMetalExchangeCoeffField",
-                mesh_.time().timeName(),
-                mesh_,
-                IOobject::NO_READ,
-                IOobject::NO_WRITE
-            ),
+            IOobject("gasMetalExchangeCoeffField", mesh_.time().timeName(), mesh_, IOobject::NO_READ, IOobject::NO_WRITE),
             mesh_,
             gasMetalExchangeCoeff_
         )
     );
-
     volScalarField& coeff = tCoeff.ref();
-
     if (gasMetalExchangeFunction_.valid())
     {
         forAll(coeff, cellI)
@@ -1020,7 +884,6 @@ tmp<volScalarField> twoTemperatureModel::gasMetalExchangeCoeffField() const
             coeff[cellI] = gasMetalExchangeFunction_->value(Tl_[cellI]);
         }
     }
-
     coeff *= metalFraction_;
     coeff *= (scalar(1) - metalFraction_);
     return tCoeff;
@@ -1036,7 +899,6 @@ bool twoTemperatureModel::valid() const
     {
         return false;
     }
-
     // Check field dimensions
     if (Te_.dimensions() != dimTemperature ||
         Tl_.dimensions() != dimTemperature ||
@@ -1047,10 +909,8 @@ bool twoTemperatureModel::valid() const
     {
         return false;
     }
-
     return true;
 }
-
 void twoTemperatureModel::write() const
 {
     if (verbose)
@@ -1066,7 +926,6 @@ void twoTemperatureModel::write() const
             << "  Mean Te: " << average(Te_).value() << " K" << nl
             << "  Mean Tl: " << average(Tl_).value() << " K" << nl;
     }
-
     if (energyInitialized_)
     {
         tmp<volScalarField> tCeW = electronHeatCapacity();
@@ -1078,7 +937,6 @@ void twoTemperatureModel::write() const
             (currentEnergy.value() - lastTotalEnergy_.value())/
             (mag(lastTotalEnergy_.value()) + SMALL)
         );
-        
         if (verbose)
         {
             Info<< "Energy conservation:" << nl
@@ -1087,33 +945,21 @@ void twoTemperatureModel::write() const
         }
     }
 }
-
 tmp<volScalarField> Foam::twoTemperatureModel::ke() const
 {
-    
-    // Electronic thermal conductivity derived from constant diffusivity
-    return electronThermalConductivity();
+    return electronThermalConductivity(); // Electronic thermal conductivity from constant diffusivity
 }
 tmp<volScalarField> Foam::twoTemperatureModel::kl() const
 {
-    // Return lattice thermal conductivity
     const scalar klHighTThreshold =
         dict_.lookupOrDefault<scalar>("klHighTThreshold", 1000.0);
     const scalar klExponent =
         dict_.lookupOrDefault<scalar>("klExponent", 0.5);    
-    // Return lattice thermal conductivity
     tmp<volScalarField> tkl
     (
         new volScalarField
         (
-            IOobject
-            (
-                "kl",
-                mesh_.time().timeName(),
-                mesh_,
-                IOobject::NO_READ,
-                IOobject::NO_WRITE
-            ),
+            IOobject("kl", mesh_.time().timeName(), mesh_, IOobject::NO_READ, IOobject::NO_WRITE),
             mesh_,
             dimensionedScalar
             (
@@ -1123,15 +969,12 @@ tmp<volScalarField> Foam::twoTemperatureModel::kl() const
             )
         )
     );
-
     volScalarField& kl = tkl.ref();
-
     // Calculate temperature-dependent lattice thermal conductivity
     // Using Drude model with phonon contribution
     forAll(mesh_.C(), cellI)
     {
         scalar Tl = Tl_[cellI];
-   
         // Apply temperature dependent correction
         if (Tl > klHighTThreshold && klExponent != 0.0)
         {
@@ -1140,7 +983,6 @@ tmp<volScalarField> Foam::twoTemperatureModel::kl() const
             kl[cellI] *= pow(ratio, klExponent);  // High temperature correction
         }
     }
-
     return tkl;
 }
 } // End namespace Foam
