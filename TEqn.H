@@ -55,24 +55,33 @@ extern Foam::Switch verbose;
         1e-12
     );
 
-    const dimensionedScalar volumetricCpFloor
+    const dimensionedScalar rhoFloor
     (
-        "volumetricCpFloor",
-        dimensionSet(1, -1, -2, -1, 0, 0, 0),
+        "rhoFloor",
+        dimDensity,
         1e-12
     );
 
-    tmp<volScalarField> tVolCp
+    tmp<volScalarField> tYMetal
     (
-        alpha1*rho1*max(Cv1, cvFloor)
-      + alpha2*rho2*max(Cv2, cvFloor)
-      + volumetricCpFloor
+        alpha1*max(rho1, rhoFloor)/max(rho, rhoFloor)
     );
+    tmp<volScalarField> tYGas
+    (
+        alpha2*max(rho2, rhoFloor)/max(rho, rhoFloor)
+    );
+    const volScalarField& YMetal = tYMetal();
+    const volScalarField& YGas = tYGas();
 
-    tmp<volScalarField> tHeatCapacityWeighting(1.0/tVolCp());
+    tmp<volScalarField> tHeatCapacityWeighting
+    (
+        YMetal/max(Cv1, cvFloor)
+      + YGas/max(Cv2, cvFloor)
+    );
     const volScalarField& heatCapacityWeighting = tHeatCapacityWeighting();
 
-    tVolCp.clear();
+    tYMetal.clear();
+    tYGas.clear();
     tCv1.clear();
     tCv2.clear();
     tRho1.clear();
@@ -256,18 +265,20 @@ extern Foam::Switch verbose;
     tCouplingDelta.clear();
     tRawFlux.clear();
     // Validate thermodynamic consistency
-    const volScalarField& rho1 = mixture.thermo1().rho();
-    const volScalarField& rho2 = mixture.thermo2().rho();
-    // Check for any thermodynamic inconsistencies
-    scalar minRho1 = min(rho1).value();
-    scalar minRho2 = min(rho2).value();
-    if (minRho1 <= 0 || minRho2 <= 0)
     {
-        WarningInFunction
-            << "Non-positive density detected after temperature update:" << nl
-            << "  min(rho1) = " << minRho1 << " kg/m³" << nl
-            << "  min(rho2) = " << minRho2 << " kg/m³" << nl
-            << "Check thermodynamic properties" << endl;
+        const volScalarField& rho1Diag = mixture.thermo1().rho();
+        const volScalarField& rho2Diag = mixture.thermo2().rho();
+        // Check for any thermodynamic inconsistencies
+        scalar minRho1 = min(rho1Diag).value();
+        scalar minRho2 = min(rho2Diag).value();
+        if (minRho1 <= 0 || minRho2 <= 0)
+        {
+            WarningInFunction
+                << "Non-positive density detected after temperature update:" << nl
+                << "  min(rho1) = " << minRho1 << " kg/m³" << nl
+                << "  min(rho2) = " << minRho2 << " kg/m³" << nl
+                << "Check thermodynamic properties" << endl;
+        }
     }
     // Report temperature statistics specific to LIFT process
     if (maxT > mixture.T_melt())
