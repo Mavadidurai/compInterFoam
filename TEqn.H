@@ -115,7 +115,18 @@ extern Foam::Switch verbose;
     fvOptions.constrain(TEqn);
     const dictionary& ctrl = runTime.controlDict();
 
-    TEqn.solve();
+    const dictionary solvers(mesh.solutionDict().subOrEmptyDict("solvers"));
+    const word finalName(T.name() + "Final");
+
+    if (pimple.finalIter() && !solvers.found(finalName))
+    {
+        dictionary fallback(mesh.solverDict(T.name()));
+        TEqn.solve(fallback);
+    }
+    else
+    {
+        TEqn.solve();
+    }
 
     fvOptions.correct(T);
 
