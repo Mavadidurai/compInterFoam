@@ -187,7 +187,8 @@ extern Foam::Switch verbose;
         rhoPhi = rhoInterp*phi;
 
         tmp<surfaceScalarField> tRhoPhiCorr = fvc::ddtCorr(rho, U, rhoPhi);
-        phi += tRhoPhiCorr()/max(rhoInterp, rhoFloor);
+        phi += mesh.time().deltaT()*tRhoPhiCorr()/max(rhoInterp, rhoFloor);
+
         tRhoPhiCorr.clear();
 
         rhoPhi = rhoInterp*phi;
