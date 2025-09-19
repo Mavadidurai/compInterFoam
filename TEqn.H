@@ -40,8 +40,13 @@ extern Foam::Switch verbose;
 
     tmp<volScalarField> tCv1 = mixture.thermo1().Cv();
     tmp<volScalarField> tCv2 = mixture.thermo2().Cv();
+    const volScalarField& Cv1 = tCv1();
+    const volScalarField& Cv2 = tCv2();
+
     tmp<volScalarField> tRho1 = mixture.thermo1().rho();
     tmp<volScalarField> tRho2 = mixture.thermo2().rho();
+    const volScalarField& rho1 = tRho1();
+    const volScalarField& rho2 = tRho2();
 
     const dimensionedScalar cvFloor
     (
@@ -50,21 +55,24 @@ extern Foam::Switch verbose;
         1e-12
     );
 
-    const dimensionedScalar rhoFloor
+    const dimensionedScalar volumetricCpFloor
     (
-        "rhoFloor",
-        dimDensity,
+        "volumetricCpFloor",
+        dimensionSet(1, -1, -2, -1, 0, 0, 0),
         1e-12
     );
 
-    tmp<volScalarField> tInvVolHeatCapacity
+    tmp<volScalarField> tVolCp
     (
-        alpha1/(max(tRho1(), rhoFloor)*max(tCv1(), cvFloor))
-      + alpha2/(max(tRho2(), rhoFloor)*max(tCv2(), cvFloor))
+        alpha1*rho1*max(Cv1, cvFloor)
+      + alpha2*rho2*max(Cv2, cvFloor)
+      + volumetricCpFloor
     );
-    const volScalarField& invVolHeatCapacity =
-        tInvVolHeatCapacity();
 
+    tmp<volScalarField> tHeatCapacityWeighting(1.0/tVolCp());
+    const volScalarField& heatCapacityWeighting = tHeatCapacityWeighting();
+
+    tVolCp.clear();
     tCv1.clear();
     tCv2.clear();
     tRho1.clear();
@@ -72,7 +80,7 @@ extern Foam::Switch verbose;
 
     tmp<volScalarField> tPressureKSource
     (
-        invVolHeatCapacity
+        heatCapacityWeighting
        *(
             tDivAbsolutePhiP()
           + tKTransport()
@@ -87,11 +95,11 @@ extern Foam::Switch verbose;
     tKTransport.clear();
     tDivAbsolutePhiP.clear();
 
-    TEqn += fvm::Sp(interfaceExchange*invVolHeatCapacity, T);
+    TEqn += fvm::Sp(interfaceExchange*heatCapacityWeighting, T);
     TEqn.source() +=
-        interfaceExchange*invVolHeatCapacity*TlField;
+        interfaceExchange*heatCapacityWeighting*TlField;
 
-    tInvVolHeatCapacity.clear();
+    tHeatCapacityWeighting.clear();
 
     TEqn.relax();
 
