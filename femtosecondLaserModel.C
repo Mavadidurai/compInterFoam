@@ -551,8 +551,10 @@ void femtosecondLaserModel::calculateSource() const
         }
     }
 
+    const bool laserActive = temporalAverage > VSMALL;
+
     // Negligible envelope → skip work this step
-    if (temporalAverage <= VSMALL)
+    if (!laserActive)
     {
         finalizePulseEnergyCheck("pulse window complete", t);
         sourceValid_ = true;
