@@ -68,7 +68,11 @@ femtosecondLaserModel::femtosecondLaserModel
     cumulativeEnergy_(0.0),
     cumulativeFilmEnergy_(0.0),
     cumulativeGasEnergy_(0.0),
-    lastTimeIndex_(mesh.time().timeIndex())
+    lastTimeIndex_(mesh.time().timeIndex()),
+    pulseEnergyAccumulator_(0.0),
+    currentPulseStartTime_(0.0),
+    pulseCounter_(0),
+    trackingPulse_(false)
 {
     // normalize direction
     direction_ /= mag(direction_) + SMALL;
@@ -82,10 +86,8 @@ femtosecondLaserModel::femtosecondLaserModel
             << " outside [0, 1]; clamping to " << pulseDutyCycle_ << endl;
     }
     // derive peak intensity if not provided
-    const scalar derivedPeak =
-        pulseEnergy_.value()
-      /(constant::mathematical::pi*sqr(spotSize_.value()/2.0)
-        * pulseWidth_.value());
+    const scalar normalization = max(VSMALL, pulseNormalizationFactor());
+    const scalar derivedPeak = pulseEnergy_.value()/normalization;
 
     if (dict.found("peakIntensity"))
     {
@@ -251,7 +253,28 @@ bool femtosecondLaserModel::checkPhysicalBounds() const
     }
     return ok;
 }
+//------------------------------------------------------------------------------
+scalar femtosecondLaserModel::pulseNormalizationFactor() const
+{
+    const scalar beamRadius = spotSize_.value()/2.0;
+    scalar spatialFactor = constant::mathematical::pi*sqr(beamRadius);
 
+    if (gaussianProfile_)
+    {
+        spatialFactor *= 0.5;
+    }
+
+    scalar temporalFactor = pulseWidth_.value();
+
+    if (!continuousLaser_)
+    {
+        const scalar sqrtPi = sqrt(constant::mathematical::pi);
+        const scalar sqrtLn2 = sqrt(log(2.0));
+        temporalFactor *= sqrtPi/(2.0*sqrtLn2);
+    }
+
+    return spatialFactor*max(VSMALL, temporalFactor);
+}
 //------------------------------------------------------------------------------
 scalar femtosecondLaserModel::calculateGaussianIntensity(const scalar R) const
 {
@@ -292,14 +315,51 @@ bool femtosecondLaserModel::checkEnergyConservation() const
     const dimensionedScalar expected
     (
         "expectedEnergy", dimEnergy,
-        peakIntensity_.value()
-      * constant::mathematical::pi*sqr(spotSize_.value()/2.0)
-      * pulseWidth_.value()
+        peakIntensity_.value()*pulseNormalizationFactor()
     );
     const scalar maxAllowed = 10.0*expected.value(); // very generous
     return totalEnergy.value() <= maxAllowed;
 }
+//------------------------------------------------------------------------------
+void femtosecondLaserModel::finalizePulseEnergyCheck
+(
+    const char* context,
+    const scalar currentTime
+) const
+{
+    if (continuousLaser_ || !trackingPulse_) return;
 
+    const scalar expected = pulseEnergy_.value();
+    const scalar tolerance = max(scalar(1e-12), 0.01*expected);
+    const scalar diff = mag(pulseEnergyAccumulator_ - expected);
+
+    ++pulseCounter_;
+
+    if (verbose)
+    {
+        Info<< "LASER PULSE ENERGY CHECK:" << nl
+            << "  Pulse index:      " << pulseCounter_ << nl
+            << "  Context:          " << context << nl
+            << "  Start time:       " << currentPulseStartTime_ << " s" << nl
+            << "  End time:         " << currentTime << " s" << nl
+            << "  Deposited energy: " << pulseEnergyAccumulator_ << " J" << nl
+            << "  Target energy:    " << expected << " J" << nl
+            << "  Difference:       " << diff << " J" << nl
+            << "  Tolerance:        " << tolerance << " J" << endl;
+    }
+
+    if (diff > tolerance)
+    {
+        WarningInFunction
+            << "Laser pulse energy mismatch after pulse " << pulseCounter_
+            << ": deposited " << pulseEnergyAccumulator_ << " J vs expected "
+            << expected << " J (tolerance " << tolerance << ")" << endl;
+    }
+
+    trackingPulse_ = false;
+    pulseEnergyAccumulator_ = 0.0;
+    currentPulseStartTime_ = 0.0;
+}
 //------------------------------------------------------------------------------
 // source compute (with pulsed window + duty cycle + temporal Gaussian)
 //------------------------------------------------------------------------------
@@ -339,6 +399,10 @@ void femtosecondLaserModel::calculateSource() const
         cumulativeEnergy_ = 0.0;
         cumulativeFilmEnergy_ = 0.0;
         cumulativeGasEnergy_  = 0.0;
+        trackingPulse_ = false;
+        pulseEnergyAccumulator_ = 0.0;
+        currentPulseStartTime_ = 0.0;
+        pulseCounter_ = 0;        
     }
     lastTimeIndex_ = timeIndex;
 
@@ -349,6 +413,7 @@ scalar temporalTerm = 0.0;
 
 if (!laserActive)
 {
+    finalizePulseEnergyCheck("inactive window", t);
     sourceValid_ = true; // keep zero field
     return;
 }
@@ -370,6 +435,7 @@ else if (pulseFrequency_ > SMALL)
     // Early exit when the pulse is OFF this period
     if (tip > onTime)
     {
+        finalizePulseEnergyCheck("pulse window complete", t);    
         sourceValid_ = true;
         return;
     }
@@ -391,6 +457,7 @@ else
 // Negligible envelope → skip work this step
 if (temporalTerm <= VSMALL)
 {
+    finalizePulseEnergyCheck("temporal tail", t);    
     sourceValid_ = true;
     return;
 }
@@ -552,8 +619,20 @@ if (temporalTerm <= VSMALL)
 
     const dimensionedScalar energyThisStep =
         fvc::domainIntegrate(source * dt);
-    cumulativeEnergy_ += energyThisStep.value();
+    const scalar stepEnergy = energyThisStep.value();
+    cumulativeEnergy_ += stepEnergy;
 
+    if (!continuousLaser_ && (stepEnergy > VSMALL || trackingPulse_))
+    {
+        if (!trackingPulse_)
+        {
+            trackingPulse_ = true;
+            pulseEnergyAccumulator_ = 0.0;
+            currentPulseStartTime_ = max(scalar(0.0), t - dt.value());
+        }
+
+        pulseEnergyAccumulator_ += stepEnergy;
+    }
     const scalar filmEnergyThisStep = totalFilmSourceIntegral * dt.value();
     const scalar gasEnergyThisStep  = totalGasSourceIntegral  * dt.value();
 

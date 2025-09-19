@@ -63,16 +63,22 @@ private:
     mutable bool         sourceValid_;
     mutable scalar       cumulativeEnergy_;
     mutable scalar       cumulativeFilmEnergy_;
-    mutable scalar       cumulativeGasEnergy_;    
+    mutable scalar       cumulativeGasEnergy_;
     mutable label        lastTimeIndex_;
+    mutable scalar       pulseEnergyAccumulator_;
+    mutable scalar       currentPulseStartTime_;
+    mutable label        pulseCounter_;
+    mutable bool         trackingPulse_;
 
     // --- helpers ---
+    scalar pulseNormalizationFactor() const;
     void   calculateSource() const;
     bool   validateParameters() const;
     bool   checkPhysicalBounds() const;
     scalar calculateGaussianIntensity(const scalar R) const;
     bool   isInBeam(const point& p) const;
     bool   checkEnergyConservation() const;
+    void   finalizePulseEnergyCheck(const char* context, const scalar currentTime) const;
 
     // disallow copy
     femtosecondLaserModel(const femtosecondLaserModel&) = delete;

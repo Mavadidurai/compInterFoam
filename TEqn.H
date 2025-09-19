@@ -87,12 +87,30 @@ extern Foam::Switch verbose;
         )
     );
     const volScalarField& CvMix = tCvMix();
+    tmp<volScalarField> tRhoEffective(max(rho, rhoFloor));
+    const volScalarField& rhoEffective = tRhoEffective();
+
+    tmp<volScalarField> tCvol(rhoEffective*CvMix);
+    const volScalarField& Cvol = tCvol();
 
     tmp<volScalarField> tHeatCapacityWeighting
     (
-        dimensionedScalar("one", dimless, 1.0)/CvMix
+        dimensionedScalar("one", dimless, 1.0)/Cvol
     );
     const volScalarField& heatCapacityWeighting = tHeatCapacityWeighting();
+
+    dimensionedScalar oldGasEnergy("oldGasEnergy", dimEnergy, 0.0);
+
+    if (verbose)
+    {
+        tmp<volScalarField> tHeGasOld = mixture.thermo2().he();
+        const volScalarField& heGasOld = tHeGasOld();
+        oldGasEnergy = fvc::domainIntegrate
+        (
+            alpha2*rho2*(heGasOld - p/rho2)
+        );
+        tHeGasOld.clear();
+    }
 
     tYMetal.clear();
     tYGas.clear();
@@ -103,7 +121,8 @@ extern Foam::Switch verbose;
     tCv2.clear();
     tRho1.clear();
     tRho2.clear();
-
+    tRhoEffective.clear();
+    tCvol.clear();
     tmp<volScalarField> tPressureKSource
     (
         heatCapacityWeighting
@@ -246,6 +265,46 @@ extern Foam::Switch verbose;
     }
 
     gasMetalHeatFlux.correctBoundaryConditions();
+    if (verbose)
+    {
+        tmp<volScalarField> tRho2Diag = mixture.thermo2().rho();
+        tmp<volScalarField> tHeGasNew = mixture.thermo2().he();
+        const volScalarField& rho2Diag = tRho2Diag();
+        const volScalarField& heGasNew = tHeGasNew();
+
+        dimensionedScalar newGasEnergy = fvc::domainIntegrate
+        (
+            alpha2*rho2Diag*(heGasNew - p/rho2Diag)
+        );
+        dimensionedScalar deltaGasEnergy = newGasEnergy - oldGasEnergy;
+
+        dimensionedScalar gasMetalPower = fvc::domainIntegrate(gasMetalHeatFlux);
+        dimensionedScalar exchangeEnergy = -gasMetalPower*runTime.deltaT();
+        dimensionedScalar energyResidual = deltaGasEnergy - exchangeEnergy;
+
+        scalar denom = Foam::max
+        (
+            Foam::max
+            (
+                Foam::mag(deltaGasEnergy.value()),
+                Foam::mag(exchangeEnergy.value())
+            ),
+            VSMALL
+        );
+        scalar relResidual = Foam::mag(energyResidual.value())/denom;
+
+        Info<< "Gas energy audit:" << nl
+            << "  E_gas (old) = " << oldGasEnergy.value() << " J" << nl
+            << "  E_gas (new) = " << newGasEnergy.value() << " J" << nl
+            << "  ΔE_gas      = " << deltaGasEnergy.value() << " J" << nl
+            << "  ∫Q_gm dt    = " << exchangeEnergy.value() << " J" << nl
+            << "  Residual    = " << energyResidual.value() << " J" << nl
+            << "  Relative residual = " << relResidual << nl
+            << "  Gas-metal power   = " << gasMetalPower.value() << " W" << endl;
+
+        tHeGasNew.clear();
+        tRho2Diag.clear();
+    }
 
     scalar couplingMin = gMin(interfaceExchange);
     scalar couplingMax = gMax(interfaceExchange);
