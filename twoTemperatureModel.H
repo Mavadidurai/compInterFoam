@@ -80,6 +80,8 @@ private:
     // Private Member Functions
         //- Validate model parameters and dimensions
         bool validateParameters() const;
+        //- Threshold for treating locations as metal-rich for validation
+        scalar metalValidationThreshold() const;        
         //- Validate temperature field values
         bool validateFields() const;
         //- Abort if Te/Tl develop invalid values during the solve

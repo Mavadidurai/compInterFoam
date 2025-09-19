@@ -317,15 +317,36 @@ bool twoTemperatureModel::validateParameters() const
 
     return valid;
 }
+scalar twoTemperatureModel::metalValidationThreshold() const
+{
+    const scalar metalFractionFloor =
+        dict_.lookupOrDefault<scalar>("metalFractionFloor", 1e-6);
+
+    return dict_.lookupOrDefault<scalar>
+    (
+        "metalFractionCutoff",
+        metalFractionFloor
+    );
+}
 
 bool twoTemperatureModel::validateFields() const
 {
-    auto fieldValid = [](const volScalarField& fld)
+    const scalar metalThreshold = metalValidationThreshold();
+    const volScalarField& metalField = metalFraction_;
+
+    auto fieldValid =
+        [&](const volScalarField& fld)
     {
         const scalarField& internal = fld.internalField();
+        const scalarField& metalInternal = metalField.internalField();
 
         forAll(internal, cellI)
         {
+            if (metalInternal[cellI] < metalThreshold)
+            {
+                continue;
+            }
+
             const scalar value = internal[cellI];
 
             if (value <= 0 || !std::isfinite(value))
@@ -335,13 +356,20 @@ bool twoTemperatureModel::validateFields() const
         }
 
         const volScalarField::Boundary& bf = fld.boundaryField();
+        const volScalarField::Boundary& metalBoundary =
+            metalField.boundaryField();
 
         forAll(bf, patchI)
         {
             const fvPatchScalarField& pf = bf[patchI];
+            const fvPatchScalarField& metalPatch = metalBoundary[patchI];
 
             forAll(pf, faceI)
             {
+                if (metalPatch[faceI] < metalThreshold)
+                {
+                    continue;
+                }
                 const scalar value = pf[faceI];
 
                 if (value <= 0 || !std::isfinite(value))
@@ -367,6 +395,8 @@ void twoTemperatureModel::guardTemperatureFields
     {
         return;
     }
+    const scalar metalThreshold = metalValidationThreshold();
+    const volScalarField& metalField = metalFraction_;
 
     const auto reportFailure =
         [&](const word& fieldName,
@@ -399,9 +429,15 @@ void twoTemperatureModel::guardTemperatureFields
         [&](const volScalarField& fld, const word& fieldName)
         {
             const scalarField& internal = fld.internalField();
+            const scalarField& metalInternal = metalField.internalField();
 
             forAll(internal, cellI)
             {
+                if (metalInternal[cellI] < metalThreshold)
+                {
+                    continue;
+                }
+
                 const scalar value = internal[cellI];
 
                 if (value <= 0 || !std::isfinite(value))
@@ -411,13 +447,20 @@ void twoTemperatureModel::guardTemperatureFields
             }
 
             const volScalarField::Boundary& bf = fld.boundaryField();
+            const volScalarField::Boundary& metalBoundary =
+                metalField.boundaryField();
 
             forAll(bf, patchI)
             {
                 const fvPatchScalarField& pf = bf[patchI];
-
+                const fvPatchScalarField& metalPatch =
+                    metalBoundary[patchI];
                 forAll(pf, faceI)
                 {
+                    if (metalPatch[faceI] < metalThreshold)
+                    {
+                        continue;
+                    }                    
                     const scalar value = pf[faceI];
 
                     if (value <= 0 || !std::isfinite(value))
