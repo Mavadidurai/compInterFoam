@@ -32,6 +32,11 @@ SourceFiles
         klExponent        Exponent applied to (klHighTThreshold/Tl) when
                           reducing kl at high temperature (optional,
                           default 0.5, set to 0 to disable)
+        gasMetalExchangeCoeff  Interfacial gas-metal coupling coefficient
+                          [W/m³/K]. Values in the 1e12-1e15 range provide
+                          moderate coupling, while coefficients above 1e16
+                          W/m³/K enforce near-equilibrium interface
+                          temperatures and can lead to stiff coupling.                          
 \*---------------------------------------------------------------------------*/
 #ifndef twoTemperatureModel_H
 #define twoTemperatureModel_H

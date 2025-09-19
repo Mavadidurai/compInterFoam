@@ -286,8 +286,9 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
             ? mag(massRateField[cellI])   // vapor rate drives recoil
             : 0.0;
         const scalar pressureValue = pressureScale * phaseChangeVal;
-        const scalar localRecoilMax =
-            scaleRecoilMax ? recoilMax_ * phaseChangeVal : recoilMax_;
+        const scalar localRecoilMax = scaleRecoilMax
+            ? recoilMax_ * alphaDamp
+            : recoilMax_;
         const scalar unclamped = pressureValue * alphaDamp;
         recoilField[cellI] = clampRecoil ? min(unclamped, localRecoilMax) : unclamped;
     }

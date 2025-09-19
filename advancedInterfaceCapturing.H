@@ -28,7 +28,7 @@ private:
     dimensionedScalar recoilTempOffset_;        // Temperature offset for recoil activation
     dimensionedScalar phaseChangeTempOffset_;   // Offset for phase-change threshold
     Switch clampRecoil_;             // Enable/disable recoil pressure clamping
-    Switch scaleRecoilMax_;          // Scale recoilMax with phase-change rate
+    Switch scaleRecoilMax_;          // Scale recoilMax with interface weighting
     scalar relaxFactor_;             // Relaxation factor for alpha transport
     // Valid alpha range (controlDict → advancedInterfaceCapturing)
     scalar alphaMin_;               // Minimum alpha for recoil activation

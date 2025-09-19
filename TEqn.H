@@ -18,14 +18,19 @@ extern Foam::Switch verbose;
         mesh.lookupObjectRef<volScalarField>("gasMetalHeatFlux");
     tmp<volScalarField> tInterfaceExchange = ttm.gasMetalExchangeCoeffField();
     const volScalarField& interfaceExchange = tInterfaceExchange();
+    const volScalarField& gasFraction = alpha2;
+    tmp<volScalarField> tGasDensity(alpha2*rho);
+    const volScalarField& gasDensity = tGasDensity();
+    tmp<surfaceScalarField> tGasRhoPhi(fvc::interpolate(alpha2)*rhoPhi);
+    const surfaceScalarField& gasRhoPhi = tGasRhoPhi();
     fvScalarMatrix TEqn
     (
-        fvm::ddt(rho, T)
-      + fvm::div(rhoPhi, T)
+        fvm::ddt(gasDensity, T)
+      + fvm::div(gasRhoPhi, T)
       - fvm::Sp(contErr, T)
       - fvm::laplacian(transportModel.alphaEff(), T)
      ==
-        fvOptions(rho, T)
+        fvOptions(gasDensity, T)
     );
 
     tmp<volScalarField> tDivAbsolutePhiP
@@ -140,9 +145,16 @@ extern Foam::Switch verbose;
     tKTransport.clear();
     tDivAbsolutePhiP.clear();
 
-    TEqn += fvm::Sp(interfaceExchange*rhoEffective*heatCapacityWeighting, T);
+    TEqn += fvm::Sp
+    (
+        interfaceExchange*rhoEffective*heatCapacityWeighting*gasFraction,
+        T
+    );
     TEqn.source() +=
-        interfaceExchange*rhoEffective*heatCapacityWeighting*TlField;
+        interfaceExchange*rhoEffective*heatCapacityWeighting*gasFraction*TlField;
+
+    tGasRhoPhi.clear();
+    tGasDensity.clear();
 
     tRhoEffective.clear();
 

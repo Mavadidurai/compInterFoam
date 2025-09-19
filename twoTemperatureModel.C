@@ -1011,7 +1011,7 @@ tmp<volScalarField> twoTemperatureModel::gasMetalExchangeCoeffField() const
     }
 
     coeff *= metalFraction_;
-
+    coeff *= (scalar(1) - metalFraction_);
     return tCoeff;
 }
 bool twoTemperatureModel::valid() const
