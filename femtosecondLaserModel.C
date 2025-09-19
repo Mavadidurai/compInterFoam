@@ -360,6 +360,7 @@ void femtosecondLaserModel::finalizePulseEnergyCheck
     const scalar diffExpected = mag(pulseEnergyAccumulator_ - expected);
     const scalar diffConfigured = mag(pulseEnergyAccumulator_ - configured);
     const scalar expectedMismatch = mag(expected - configured);
+    const scalar diff = max(diffExpected, diffConfigured);    
 
     ++pulseCounter_;
 
