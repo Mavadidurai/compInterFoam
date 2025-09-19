@@ -136,14 +136,15 @@ extern Foam::Switch verbose;
     TEqn += tPressureKSource();
 
     tPressureKSource.clear();
-    tRhoEffective.clear();
 
     tKTransport.clear();
     tDivAbsolutePhiP.clear();
 
-    TEqn += fvm::Sp(interfaceExchange*heatCapacityWeighting, T);
+    TEqn += fvm::Sp(interfaceExchange*rhoEffective*heatCapacityWeighting, T);
     TEqn.source() +=
-        interfaceExchange*heatCapacityWeighting*TlField;
+        interfaceExchange*rhoEffective*heatCapacityWeighting*TlField;
+
+    tRhoEffective.clear();
 
     tHeatCapacityWeighting.clear();
 
