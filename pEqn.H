@@ -174,24 +174,23 @@ extern Foam::Switch verbose;
         }
 
         phi = phiHbyA - pEqn.flux();
-        const tmp<surfaceScalarField> trho = fvc::interpolate(rho);
-        const surfaceScalarField& rhoInterp = trho();
-
-        rhoPhi = rhoInterp*phi;
-
-        tmp<surfaceScalarField> tRhoPhiCorr = fvc::ddtCorr(rho, U, rhoPhi);
-        rhoPhi += tRhoPhiCorr();
-        tRhoPhiCorr.clear();
-
         const dimensionedScalar rhoFloor
         (
             "rhoFloor",
             dimDensity,
             1e-12
         );
-        phi = rhoPhi/max(rhoInterp, rhoFloor);
+
+        const tmp<surfaceScalarField> trho = fvc::interpolate(rho);
+        const surfaceScalarField& rhoInterp = trho();
+
         rhoPhi = rhoInterp*phi;
 
+        tmp<surfaceScalarField> tRhoPhiCorr = fvc::ddtCorr(rho, U, rhoPhi);
+        phi += tRhoPhiCorr()/max(rhoInterp, rhoFloor);
+        tRhoPhiCorr.clear();
+
+        rhoPhi = rhoInterp*phi;
         if (pimple.finalNonOrthogonalIter())
         {
             U = HbyA - rAU*fvc::grad(p_rgh);
