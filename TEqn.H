@@ -8,8 +8,6 @@ extern Foam::Switch verbose;
         Info<< "Solving temperature equation" << endl;
     }
     // Solve the compressible temperature equation to evolve the gas phase
-    tmp<volScalarField> tContErr = fvc::div(rhoPhi);
-    const volScalarField& contErr = tContErr();
 
     const volScalarField& TeField = ttm.Te();
     const volScalarField& TlField = ttm.Tl();
@@ -18,19 +16,6 @@ extern Foam::Switch verbose;
     tmp<volScalarField> tInterfaceExchange = ttm.gasMetalExchangeCoeffField();
     const volScalarField& interfaceExchange = tInterfaceExchange();
     const volScalarField& gasFraction = alpha2;
-    tmp<volScalarField> tGasDensity(alpha2*rho);
-    const volScalarField& gasDensity = tGasDensity();
-    tmp<surfaceScalarField> tGasRhoPhi(fvc::interpolate(alpha2)*rhoPhi);
-    const surfaceScalarField& gasRhoPhi = tGasRhoPhi();
-    fvScalarMatrix TEqn
-    (
-        fvm::ddt(gasDensity, T)
-      + fvm::div(gasRhoPhi, T)
-      - fvm::Sp(contErr, T)
-      - fvm::laplacian(transportModel.alphaEff(), T)
-     ==
-        fvOptions(gasDensity, T)
-    );
 
     tmp<volScalarField> tCv1 = mixture.thermo1().Cv();
     tmp<volScalarField> tCv2 = mixture.thermo2().Cv();
@@ -55,7 +40,21 @@ extern Foam::Switch verbose;
         dimDensity,
         1e-12
     );
-
+    tmp<volScalarField> tGasDensity(gasFraction*max(rho2, rhoFloor));
+    const volScalarField& gasDensity = tGasDensity();
+    tmp<surfaceScalarField> tGasRhoPhi(fvc::interpolate(alpha2)*rhoPhi);
+    const surfaceScalarField& gasRhoPhi = tGasRhoPhi();
+    tmp<volScalarField> tContErr = fvc::div(gasRhoPhi);
+    const volScalarField& contErr = tContErr();    
+    fvScalarMatrix TEqn
+    (
+        fvm::ddt(gasDensity, T)
+      + fvm::div(gasRhoPhi, T)
+      - fvm::Sp(contErr, T)
+      - fvm::laplacian(transportModel.alphaEff(), T)
+     ==
+        fvOptions(gasDensity, T)
+    );
     tmp<volScalarField> tCvMetal(max(Cv1, cvFloor));
     tmp<volScalarField> tCvGas(max(Cv2, cvFloor));
     const volScalarField& CvMetal = tCvMetal();
