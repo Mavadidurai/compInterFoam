@@ -133,7 +133,7 @@ extern Foam::Switch verbose;
         )
     );
 
-    TEqn += tPressureKSource();
+    //TEqn += tPressureKSource();
 
     tPressureKSource.clear();
 
