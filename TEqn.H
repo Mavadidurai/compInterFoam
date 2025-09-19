@@ -181,7 +181,7 @@ extern Foam::Switch verbose;
 
     tmp<volScalarField> tInterfaceRelaxCoeff
     (
-        interfaceExchange/CvolGasClamp
+        interfaceExchange
     );
     const volScalarField& interfaceRelaxCoeff = tInterfaceRelaxCoeff();
 
@@ -190,8 +190,8 @@ extern Foam::Switch verbose;
         interfaceRelaxCoeff,
         T
     );
-    TEqn.source() += interfaceRelaxCoeff*TlField;
-    TEqn.source() += alpha2*Qlaser/CvolGasClamp;
+    TEqn.source() += interfaceExchange*TlField;
+    TEqn.source() += alpha2*Qlaser;
 
     tGasCvolPhi.clear();
     tGasDensity.clear();
