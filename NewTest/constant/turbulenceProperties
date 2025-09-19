@@ -17,7 +17,7 @@ FoamFile
 // LIFT operates at microscale with high viscosity - typically laminar
 
 simulationType  laminar;
-
+/*
 // Alternative: If high velocities develop during ejection
 RAS
 {
@@ -57,4 +57,5 @@ LES
         Pr              0.7;
     }
 }
+*/
 // ************************************************************************* //
