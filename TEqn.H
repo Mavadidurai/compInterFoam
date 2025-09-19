@@ -40,15 +40,6 @@ extern Foam::Switch verbose;
 
     tmp<volScalarField> tCv1 = mixture.thermo1().Cv();
     tmp<volScalarField> tCv2 = mixture.thermo2().Cv();
-    tmp<volScalarField> tRho1 = mixture.thermo1().rho();
-    tmp<volScalarField> tRho2 = mixture.thermo2().rho();
-
-    const dimensionedScalar rhoFloor
-    (
-        "rhoFloor",
-        dimDensity,
-        1e-12
-    );
 
     const dimensionedScalar cvFloor
     (
@@ -57,40 +48,21 @@ extern Foam::Switch verbose;
         1e-12
     );
 
-    const dimensionedScalar capFloor
+    tmp<volScalarField> tHeatCapacityWeighting
     (
-        "capFloor",
-        dimensionSet(1, -1, -2, -1, 0, 0, 0),
-        1e-12
+        alpha1/max(tCv1(), cvFloor)
+      + alpha2/max(tCv2(), cvFloor)
     );
-
-    tmp<volScalarField> tMixedVolumetricHeatCapacity
-    (
-        alpha1*max(tRho1(), rhoFloor)*max(tCv1(), cvFloor)
-      + alpha2*max(tRho2(), rhoFloor)*max(tCv2(), cvFloor)
-    );
-    const volScalarField& mixedVolumetricHeatCapacity =
-        tMixedVolumetricHeatCapacity();
-
-    tmp<volScalarField> tVolumetricHeatCapacityWeighting
-    (
-        scalar(1)/max(mixedVolumetricHeatCapacity, capFloor)
-    );
-    const volScalarField& volumetricHeatCapacityWeighting =
-        tVolumetricHeatCapacityWeighting();
-
-    tMixedVolumetricHeatCapacity.clear();
+    const volScalarField& heatCapacityWeighting =
+        tHeatCapacityWeighting();
 
     tCv1.clear();
     tCv2.clear();
-    tRho1.clear();
-    tRho2.clear();
 
     tmp<volScalarField> tPressureKSource
     (
-        volumetricHeatCapacityWeighting
-        *
-        (
+        heatCapacityWeighting
+       *(
             tDivAbsolutePhiP()
           + tKTransport()
           - contErrK
@@ -104,11 +76,11 @@ extern Foam::Switch verbose;
     tKTransport.clear();
     tDivAbsolutePhiP.clear();
 
-    TEqn += fvm::Sp(interfaceExchange*volumetricHeatCapacityWeighting, T);
+    TEqn += fvm::Sp(interfaceExchange*heatCapacityWeighting, T);
     TEqn.source() +=
-        interfaceExchange*volumetricHeatCapacityWeighting*TlField;
+        interfaceExchange*heatCapacityWeighting*TlField;
 
-    tVolumetricHeatCapacityWeighting.clear();
+    tHeatCapacityWeighting.clear();
 
     TEqn.relax();
 
