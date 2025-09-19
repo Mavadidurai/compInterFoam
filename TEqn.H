@@ -74,7 +74,7 @@ extern Foam::Switch verbose;
 
     tmp<volScalarField> tVolumetricHeatCapacityWeighting
     (
-        rho/max(mixedVolumetricHeatCapacity, capFloor)
+        scalar(1)/max(mixedVolumetricHeatCapacity, capFloor)
     );
     const volScalarField& volumetricHeatCapacityWeighting =
         tVolumetricHeatCapacityWeighting();

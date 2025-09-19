@@ -323,7 +323,8 @@ if (!std::isfinite(maxPhi) || !std::isfinite(maxRhoPhi))
     phi = fvc::interpolate(U) & mesh.Sf();
     rhoPhi = fvc::interpolate(rho)*phi;
 }
-fvOptions.makeRelative(rhoPhi, rho, U);
+fvc::makeRelative(rhoPhi, U);
+
 
 if (runMomentumPredictor)
 {
