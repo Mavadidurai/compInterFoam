@@ -67,6 +67,7 @@ private:
     mutable scalar       cumulativeGasEnergy_;
     mutable label        lastTimeIndex_;
     mutable scalar       pulseEnergyAccumulator_;
+    mutable scalar       pulseExpectedAccumulator_;    
     mutable scalar       currentPulseStartTime_;
     mutable label        pulseCounter_;
     mutable bool         trackingPulse_;

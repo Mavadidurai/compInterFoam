@@ -80,6 +80,7 @@ femtosecondLaserModel::femtosecondLaserModel
     cumulativeGasEnergy_(0.0),
     lastTimeIndex_(mesh.time().timeIndex()),
     pulseEnergyAccumulator_(0.0),
+    pulseExpectedAccumulator_(0.0),    
     currentPulseStartTime_(0.0),
     pulseCounter_(0),
     trackingPulse_(false)
@@ -343,8 +344,18 @@ void femtosecondLaserModel::finalizePulseEnergyCheck
 {
     if (continuousLaser_ || !trackingPulse_) return;
 
-    const scalar expected = pulseEnergy_.value();
-    const scalar tolerance = max(scalar(1e-12), 0.01*expected);
+    if (pulseExpectedAccumulator_ <= VSMALL)
+    {
+        trackingPulse_ = false;
+        pulseEnergyAccumulator_ = 0.0;
+        pulseExpectedAccumulator_ = 0.0;
+        currentPulseStartTime_ = 0.0;
+        return;
+    }
+
+    const scalar expected = pulseExpectedAccumulator_;
+    const scalar reference = max(expected, pulseEnergy_.value());
+    const scalar tolerance = max(scalar(1e-12), 0.01*reference);
     const scalar diff = mag(pulseEnergyAccumulator_ - expected);
 
     ++pulseCounter_;
@@ -356,10 +367,11 @@ void femtosecondLaserModel::finalizePulseEnergyCheck
             << "  Context:          " << context << nl
             << "  Start time:       " << currentPulseStartTime_ << " s" << nl
             << "  End time:         " << currentTime << " s" << nl
-            << "  Deposited energy: " << pulseEnergyAccumulator_ << " J" << nl
-            << "  Target energy:    " << expected << " J" << nl
-            << "  Difference:       " << diff << " J" << nl
-            << "  Tolerance:        " << tolerance << " J" << endl;
+            << "  Deposited energy:      " << pulseEnergyAccumulator_ << " J" << nl
+            << "  Expected (integrated): " << expected << " J" << nl
+            << "  Configured pulse:     " << pulseEnergy_.value() << " J" << nl
+            << "  Difference:           " << diff << " J" << nl
+            << "  Tolerance:            " << tolerance << " J" << endl;
     }
 
     if (diff > tolerance)
@@ -372,6 +384,7 @@ void femtosecondLaserModel::finalizePulseEnergyCheck
 
     trackingPulse_ = false;
     pulseEnergyAccumulator_ = 0.0;
+    pulseExpectedAccumulator_ = 0.0;    
     currentPulseStartTime_ = 0.0;
 }
 //------------------------------------------------------------------------------
@@ -406,7 +419,9 @@ void femtosecondLaserModel::calculateSource() const
 
     // Time bookkeeping
     const scalar t = mesh_.time().value();
-    const dimensionedScalar dt = mesh_.time().deltaT();
+    const dimensionedScalar dtDim = mesh_.time().deltaT();
+    const scalar dt = dtDim.value();
+    const scalar tStart = t - dt;
     const label timeIndex = mesh_.time().timeIndex();
     if (timeIndex < lastTimeIndex_)
     {
@@ -415,66 +430,134 @@ void femtosecondLaserModel::calculateSource() const
         cumulativeGasEnergy_  = 0.0;
         trackingPulse_ = false;
         pulseEnergyAccumulator_ = 0.0;
+        pulseExpectedAccumulator_ = 0.0;
         currentPulseStartTime_ = 0.0;
-        pulseCounter_ = 0;        
+        pulseCounter_ = 0;
     }
     lastTimeIndex_ = timeIndex;
 
-// Active only within the global window
-bool laserActive = (t >= laserStartTime_ && t <= laserEndTime_);
+    const scalar overlapStart = max(tStart, laserStartTime_);
+    const scalar overlapEnd   = min(t, laserEndTime_);
+    const scalar overlapDuration = overlapEnd - overlapStart;
 
-scalar temporalTerm = 0.0;
-
-if (!laserActive)
-{
-    finalizePulseEnergyCheck("inactive window", t);
-    sourceValid_ = true; // keep zero field
-    return;
-}
-
-if (continuousLaser_)
-{
-    // CW in the active window
-    temporalTerm = 1.0;
-}
-else if (pulseFrequency_ > SMALL)
-{
-    // Repeated fs pulses with a Gaussian inside each ON-window
-    const scalar period   = 1.0/pulseFrequency_;
-    const scalar onTime   = max(SMALL, pulseDutyCycle_*period);
-
-    const scalar local    = t - laserStartTime_;
-    const scalar tip      = std::fmod(local, period);         // time-in-period
-
-    // Early exit when the pulse is OFF this period
-    if (tip > onTime)
+    if (overlapDuration <= VSMALL)
     {
-        finalizePulseEnergyCheck("pulse window complete", t);    
-        sourceValid_ = true;
+        finalizePulseEnergyCheck("inactive window", t);
+        sourceValid_ = true; // keep zero field
         return;
     }
 
-    // FWHM → σ for the pulse Gaussian
-    const scalar sigma    = pulseWidth_.value()/(2.0*sqrt(2.0*log(2.0)));
-    const scalar center   = 0.5*onTime;
+    scalar temporalIntegral = 0.0;
+    scalar temporalAverage  = 0.0;
+    scalar expectedEnergyThisStep = 0.0;
 
-    temporalTerm = exp(-0.5*sqr((tip - center)/sigma));
-}
-else
-{
-    // Single Gaussian across the entire active window
-    const scalar sigma  = pulseWidth_.value()/(2.0*sqrt(2.0*log(2.0)));
-    const scalar center = 0.5*(laserStartTime_ + laserEndTime_);
-    temporalTerm        = exp(-0.5*sqr((t - center)/sigma));
-}
+    const auto gaussianIntegral =
+        [](const scalar a, const scalar b, const scalar center, const scalar sigma)
+        {
+            const scalar invSqrt2Sigma = 1.0/(sqrt(2.0)*sigma);
+            const scalar prefactor = sigma*sqrt(constant::mathematical::pi/2.0);
+            return prefactor
+                * (std::erf((b - center)*invSqrt2Sigma)
+                 - std::erf((a - center)*invSqrt2Sigma));
+        };
 
-// Negligible envelope → skip work this step
-if (temporalTerm <= VSMALL)
-{
-    finalizePulseEnergyCheck("temporal tail", t);    
-    sourceValid_ = true;
-    return;
-}
+    if (continuousLaser_)
+    {
+        temporalIntegral = overlapDuration;
+        temporalAverage  = temporalIntegral/max(dt, VSMALL);
+        temporalAverage  = min(scalar(1.0), max(temporalAverage, scalar(0.0)));
+    }
+    else if (pulseFrequency_ > SMALL)
+    {
+        // Repeated fs pulses with a Gaussian inside each ON-window
+        const scalar period   = 1.0/pulseFrequency_;
+        const scalar onTime   = max(SMALL, pulseDutyCycle_*period);
+        const scalar sigma    = pulseWidth_.value()/(2.0*sqrt(2.0*log(2.0)));
+        const scalar localStart = overlapStart - laserStartTime_;
+        const scalar localEnd   = overlapEnd   - laserStartTime_;
+
+        label periodIndex = 0;
+        if (localStart > SMALL)
+        {
+            periodIndex = static_cast<label>(std::floor(localStart/period));
+        }
+
+        const scalar fullPulseIntegral =
+            max
+            (
+                VSMALL,
+                2.0*sigma*sqrt(constant::mathematical::pi/2.0)
+              * std::erf(0.5*onTime/(sqrt(2.0)*sigma))
+            );
+
+        for
+        (
+            scalar windowStart = periodIndex*period;
+            windowStart < localEnd + period;
+            windowStart += period
+        )
+        {
+            const scalar windowEnd = windowStart + onTime;
+            if (windowEnd <= localStart)
+            {
+                continue;
+            }
+            if (windowStart >= localEnd)
+            {
+                break;
+            }
+
+            const scalar clipStart = max(windowStart, localStart);
+            const scalar clipEnd   = min(windowEnd, localEnd);
+
+            if (clipEnd <= clipStart)
+            {
+                continue;
+            }
+
+            const scalar center = windowStart + 0.5*onTime;
+            const scalar integral = gaussianIntegral(clipStart, clipEnd, center, sigma);
+
+            if (integral > VSMALL)
+            {
+                temporalIntegral += integral;
+            }
+        }
+
+        if (temporalIntegral > VSMALL)
+        {
+            temporalAverage = temporalIntegral/max(dt, VSMALL);
+            temporalAverage = min(scalar(1.0), max(temporalAverage, scalar(0.0)));
+            expectedEnergyThisStep =
+                pulseEnergy_.value()*temporalIntegral/fullPulseIntegral;
+        }
+    }
+    else
+    {
+        // Single Gaussian across the entire active window
+        const scalar sigma  = pulseWidth_.value()/(2.0*sqrt(2.0*log(2.0)));
+        const scalar center = 0.5*(laserStartTime_ + laserEndTime_);
+
+        temporalIntegral = gaussianIntegral(overlapStart, overlapEnd, center, sigma);
+
+        if (temporalIntegral > VSMALL)
+        {
+            temporalAverage = temporalIntegral/max(dt, VSMALL);
+            temporalAverage = min(scalar(1.0), max(temporalAverage, scalar(0.0)));
+
+            const scalar fullIntegral = sigma*sqrt(2.0*constant::mathematical::pi);
+            expectedEnergyThisStep =
+                pulseEnergy_.value()*temporalIntegral/max(fullIntegral, VSMALL);
+        }
+    }
+
+    // Negligible envelope → skip work this step
+    if (temporalAverage <= VSMALL)
+    {
+        finalizePulseEnergyCheck("pulse window complete", t);
+        sourceValid_ = true;
+        return;
+    }
     // --- Apply laser heating over cells ---
     const scalar beamRadius = spotSize_.value()/2.0;
     const scalar radialHalfWidth = 3.0*beamRadius; // ~3-sigma laterally
@@ -600,7 +683,7 @@ if (temporalTerm <= VSMALL)
 
         const scalar intensity =
               peakIntensity_.value()
-            * temporalTerm
+            * temporalAverage
             * spatialTerm
             * absorptionTerm
             * transmissionFactor;
@@ -652,23 +735,28 @@ if (temporalTerm <= VSMALL)
         (totalBeamVolume > 0) ? totalSourceIntegral/totalBeamVolume : 0.0;
 
     const dimensionedScalar energyThisStep =
-        fvc::domainIntegrate(source * dt);
+        fvc::domainIntegrate(source * dtDim);
     const scalar stepEnergy = energyThisStep.value();
     cumulativeEnergy_ += stepEnergy;
 
-    if (!continuousLaser_ && (stepEnergy > VSMALL || trackingPulse_))
+    if (!continuousLaser_)
     {
-        if (!trackingPulse_)
+        if (temporalIntegral > VSMALL || trackingPulse_)
         {
-            trackingPulse_ = true;
-            pulseEnergyAccumulator_ = 0.0;
-            currentPulseStartTime_ = max(scalar(0.0), t - dt.value());
-        }
+            if (!trackingPulse_)
+            {
+                trackingPulse_ = true;
+                pulseEnergyAccumulator_ = 0.0;
+                pulseExpectedAccumulator_ = 0.0;
+                currentPulseStartTime_ = overlapStart;
+            }
 
-        pulseEnergyAccumulator_ += stepEnergy;
+            pulseEnergyAccumulator_ += stepEnergy;
+            pulseExpectedAccumulator_ += expectedEnergyThisStep;
+        }
     }
-    const scalar filmEnergyThisStep = totalFilmSourceIntegral * dt.value();
-    const scalar gasEnergyThisStep  = totalGasSourceIntegral  * dt.value();
+    const scalar filmEnergyThisStep = totalFilmSourceIntegral * dt;
+    const scalar gasEnergyThisStep  = totalGasSourceIntegral  * dt;
 
     cumulativeFilmEnergy_ += filmEnergyThisStep;
     cumulativeGasEnergy_  += gasEnergyThisStep;
@@ -696,7 +784,7 @@ if (temporalTerm <= VSMALL)
         {
             Info<< "LASER ENERGY DEPOSITION:" << nl
                 << "  Time: " << t*1e12 << " ps" << nl
-                << "  Temporal factor: " << temporalTerm << nl
+                << "  Temporal factor: " << temporalAverage << nl
                 << "  Cells in beam: " << cellsInBeam << nl
                 << "  Cells in metal film: " << cellsInFilm << nl
                 << "  Cells in gas: " << cellsInGas << nl
@@ -704,7 +792,7 @@ if (temporalTerm <= VSMALL)
                 << "  Total power: " << totalSourceIntegral/1e12 << " TW" << nl
                 << "    Film power: " << totalFilmSourceIntegral/1e12 << " TW" << nl
                 << "    Gas power:  " << totalGasSourceIntegral/1e12 << " TW" << nl
-                << "  dt: " << dt.value() << " s" << nl
+                << "  dt: " << dt << " s" << nl
                 << "  Energy this step: " << energyThisStep.value() << " J" << nl
                 << "    Film energy this step: " << filmEnergyThisStep << " J" << nl
                 << "    Gas energy this step:  " << gasEnergyThisStep  << " J" << nl
