@@ -48,10 +48,10 @@ regions
 
         fieldValues
         (
-           volScalarFieldValue Tl 4000  // INCREASED: Above vaporization temp (3560 K)
-           volScalarFieldValue Te 4000  // INCREASED: Above vaporization temp (3560 K)
+           volScalarFieldValue Tl 300  // Return to ambient; laser will heat from this baseline
+           volScalarFieldValue Te 300  // Keep electronic temperature at ambient preheat level
             // optional but tidy: initialise scalar T too, even though TTM will overwrite it
-           volScalarFieldValue T 4000  // INCREASED: Keep all temperatures consistent
+           volScalarFieldValue T 300   // Maintain consistency with ambient solid/liquid temperature
         );
     }
 );

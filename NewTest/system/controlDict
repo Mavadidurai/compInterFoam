@@ -17,12 +17,11 @@ FoamFile
 
 application     compInterFoam;
 
-// --- EMERGENCY STABILITY MODE ---
+// --- HEATING STAGE SETUP ---
 startFrom       startTime;
-startTime       2e-10;          // 200 ps
+startTime       0;              // Begin at start of heating pulse
 stopAt          endTime;
-endTime         2.1e-10;        // Very short test: 210 ps
-//endTime         3e-10;        // Use this when stable
+endTime         3e-10;          // Cover full heating pulse (300 ps)
 
 // --- ULTRA-CONSERVATIVE TIME STEPPING ---
 deltaT          5e-15;          // 0.005 ps (1/4 of characteristic time)
@@ -47,40 +46,40 @@ fileHandler     uncollated;
 
 runTimeModifiable yes;
 
-// --- DRASTICALLY REDUCE RECOIL PRESSURE ---
+// --- ADVANCED INTERFACE CAPTURING ---
 useAdvancedInterfaceCapturing  true;
 advancedInterfaceCapturing
 {
-    pressureScale        1e-2;          // DRASTICALLY reduced from 1e2
-    recoilMax            1e3;           // Much smaller: only 1000 Pa
+    pressureScale        2e4;           // Recommended scaling
+    recoilMax            5e6;           // Allow physical recoil build-up
     clampRecoil          true;
-    scaleRecoilMax       true;
-    
-    recoilTempOffset     [0 0 0 1 0 0 0] 1000;  // Higher threshold
-    phaseChangeTempOffset [0 0 0 1 0 0 0] 500;   // Higher threshold
-    relaxFactor          0.01;          // Maximum relaxation
-    alphaMin             0.1;           // Tighter bounds
-    alphaMax             0.9;
+    scaleRecoilMax       false;
+
+    recoilTempOffset     [0 0 0 1 0 0 0] 0;
+    phaseChangeTempOffset [0 0 0 1 0 0 0] 0;
+    relaxFactor          0.2;
+    alphaMin             0.001;
+    alphaMax             0.999;
 }
 
-// --- AGGRESSIVE TEMPERATURE CLAMPING ---
-enableTClamp    true;
-minT            250;            // Higher minimum
-maxT            4000;           // MUCH lower maximum initially
+// --- TEMPERATURE CLAMPING ---
+enableTClamp    false;
+minT            300;
+maxT            6000;
 
-// --- WEAKEN TWO-TEMPERATURE COUPLING ---
+// --- TWO-TEMPERATURE COUPLING ---
 twoTemperatureProperties
 {
-    Ce   [1 -1 -2 -1 0 0 0] 2.5e6;
-    Cl   [1 -1 -2 -1 0 0 0] 2.536e6;
-    G    [1 -1 -3 -1 0 0 0] 1.0e12;    // REDUCED by 300x!!! Critical fix
-    energyTol 0.1;              // Very relaxed tolerance
-    minTe 250;
-    maxTe 4000;                 // Match maxT
-    minTl 250;                  // Add lattice bounds
-    maxTl 4000;
+    Ce   [1 -1 -2 -1 0 0 0] 210;
+    Cl   [1 -1 -2 -1 0 0 0] 2.3e6;
+    G    [1 -1 -3 -1 0 0 0] 5e17;
+    energyTol 0.01;
+    energyTolerance 0.01;
+    minTe 300;
+    maxTe 6000;
+    minTl 300;
+    maxTl 6000;
 }
-
 libs ("libutilityFunctionObjects.so");
 
 // --- MINIMAL DIAGNOSTICS ONLY ---
