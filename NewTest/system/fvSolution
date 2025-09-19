@@ -23,7 +23,7 @@ solvers
     preconditioner  DILU;
     tolerance       1e-08;
     relTol          0;
-        maxIter         100;            // INCREASE: was 50
+        maxIter         50;
         
         nAlphaCorr      1;              // Keep at 1
         nAlphaSubCycles 1;              // REDUCE: was 2 
@@ -41,22 +41,22 @@ solvers
     {
         solver          GAMG;
         smoother        DIC;
-        tolerance       1e-7;           // RELAX: was 1e-8
-        relTol          0.05;           // CHANGE: was 0.0
-        maxIter         200;            // INCREASE: was 100
-        nPreSweeps      1;              // INCREASE: was 0
-        nPostSweeps     3;              // INCREASE: was 2
+        tolerance       1e-8;
+        relTol          0;
+        maxIter         100;
+        nPreSweeps      0;
+        nPostSweeps     2;
         cacheAgglomeration true;
-        nCellsInCoarsestLevel 20;       // INCREASE: was 10
+        nCellsInCoarsestLevel 10;
         agglomerator    faceAreaPair;
         mergeLevels     2;
     }
-    
-    p_rghFinal 
-    { 
-        $p_rgh; 
-        tolerance   1e-7;               // Slightly tighter for final
-        relTol      0; 
+
+    p_rghFinal
+    {
+        $p_rgh;
+        tolerance   1e-8;
+        relTol      0;
     }
     
     "U.*"
@@ -101,14 +101,14 @@ PIMPLE
 {
     momentumPredictor           false;
     nOuterCorrectors            1;           // REDUCE: was 2 (emergency mode)
-    nCorrectors                 1;           
-    nNonOrthogonalCorrectors    0;           
-    
+    nCorrectors                 1;
+    nNonOrthogonalCorrectors    0;
+
     residualControl
     {
-        "alpha.*" { tolerance 1e-4;  relTol 0.01; }  // DRASTICALLY RELAX
-        p_rgh     { tolerance 1e-4;  relTol 0.01; }  // DRASTICALLY RELAX
-        U         { tolerance 1e-5;  relTol 0.01; }  // RELAX
+        "alpha.*" { tolerance 1e-5;  relTol 0.01; }
+        p_rgh     { tolerance 1e-5;  relTol 0.01; }
+        U         { tolerance 1e-6;  relTol 0.01; }
     }
     
     p_rghRefCell                0;
@@ -119,24 +119,23 @@ relaxationFactors
 {
     fields
     {
-        p_rgh           0.01;                // DRASTICALLY REDUCE: was 0.05
-        "alpha.*"       0.1;                 // REDUCE: was 0.3
+        p_rgh           0.3;
+        "alpha.*"       0.5;
     }
     equations
     {
-        U               0.05;                // REDUCE: was 0.1
-        UFinal          0.3;                 // REDUCE: was 0.7
-        T               0.01;                // DRASTICALLY REDUCE: was 0.1
-        Te              0.01;                // DRASTICALLY REDUCE: was 0.1  
-        Tl              0.01;                // DRASTICALLY REDUCE: was 0.1
-        "alpha.*"       0.1;                 // REDUCE: was 0.5
-        ".*Final"       0.5;                 // REDUCE: was 0.8
+        U               0.4;
+        UFinal          0.8;
+        T               0.4;
+        Te              0.4;
+        Tl              0.4;
+        "alpha.*"       0.5;
+        ".*Final"       0.8;
     }
 }
 
-// EMERGENCY PRESSURE RELAXATION
-relaxP      0.01;           // DRASTICALLY REDUCE: was 0.05
-targetResP  0.5;           // RELAX: was 0.1
+// Pressure relaxation control
+targetResP  0.5;
 
 compInterFoamCoeffs
 {
@@ -145,28 +144,28 @@ compInterFoamCoeffs
     defaultMetalDensity    4500;        
     defaultAirDensity      1.2;         
     maxInitialResidual     10;          // REDUCE: was 1e3
-    
-    // AGGRESSIVE ALPHA CLAMPING
-    enableAlphaClamp  true;
-    minAlpha          0.05;             // TIGHTEN: was 0.001
-    maxAlpha          0.95;             // TIGHTEN: was 0.999
-    
-    // AGGRESSIVE PRESSURE CLAMPING
-    pressureClamp      true;               
-    maxPressure        1e6;             // DRASTICALLY REDUCE: was 5e7
-    minPressure        -1e5;            // TIGHTEN: was -1e6
 
-    // ENABLE DENSITY CLAMPING
-    densityClamp       true;            // ENABLE: was false
-    maxDensity         8000;            // REDUCE: was 10000
-    minDensity         1.0;             // INCREASE: was 0.5
+    // Interface clamp settings
+    enableAlphaClamp  false;
+    minAlpha          0.001;
+    maxAlpha          0.999;
 
-    // ENABLE RAU CLAMPING  
-    enableRAUClamp     true;            // ENABLE: was false
-    minRAU             1e-8;            // INCREASE: was 1e-10
-    maxRAU             1e4;             // REDUCE: was 1e6
-    minRAUf            1e-12;           // INCREASE: was 1e-14
-    maxRAUf            1e4;             // REDUCE: was 1e6
+    // Pressure clamp settings
+    pressureClamp      false;
+    maxPressure        5e7;
+    minPressure        -1e6;
+
+    // Density clamp settings
+    densityClamp       false;
+    maxDensity         10000;
+    minDensity         0.5;
+
+    // RAU clamp settings
+    enableRAUClamp     false;
+    minRAU             1e-10;
+    maxRAU             1e6;
+    minRAUf            1e-14;
+    maxRAUf            1e6;
 
     // RELAX RESIDUAL TARGETS
     targetResU         0.1;             // RELAX: was 0.05
