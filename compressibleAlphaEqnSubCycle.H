@@ -39,7 +39,7 @@ auto stabilizeAlphaFields = [&](const char* context)
 if (pInterfaceCapturing.valid())
 {
     // Flag that the alpha subcycle has been executed
-    alphaSubCycleExecuted = true;
+    //alphaSubCycleExecuted = true;
     
     // Validate fields before operations
     if (alpha1.size() != mesh.nCells() || alpha2.size() != mesh.nCells())

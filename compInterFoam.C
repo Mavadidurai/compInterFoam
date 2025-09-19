@@ -221,7 +221,7 @@ int main(int argc, char *argv[])
         // --- Pressure-velocity PIMPLE corrector loop
         while (pimple.loop())
         {
-            bool alphaSubCycleExecuted = false;
+           // bool alphaSubCycleExecuted = false;
            bool interfaceCorrectionAppliedInSubCycle = false;
 
             // Update mixture properties and phase-change sources for the
