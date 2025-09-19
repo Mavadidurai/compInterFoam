@@ -17,14 +17,10 @@ extern Foam::Switch verbose;
     const volScalarField& interfaceExchange = tInterfaceExchange();
     const volScalarField& gasFraction = alpha2;
 
-    tmp<volScalarField> tCv1 = mixture.thermo1().Cv();
     tmp<volScalarField> tCv2 = mixture.thermo2().Cv();
-    const volScalarField& Cv1 = tCv1();
     const volScalarField& Cv2 = tCv2();
 
-    tmp<volScalarField> tRho1 = mixture.thermo1().rho();
     tmp<volScalarField> tRho2 = mixture.thermo2().rho();
-    const volScalarField& rho1 = tRho1();
     const volScalarField& rho2 = tRho2();
 
     const dimensionedScalar cvFloor
@@ -55,42 +51,21 @@ extern Foam::Switch verbose;
      ==
         fvOptions(gasDensity, T)
     );
-    tmp<volScalarField> tCvMetal(max(Cv1, cvFloor));
     tmp<volScalarField> tCvGas(max(Cv2, cvFloor));
-    const volScalarField& CvMetal = tCvMetal();
     const volScalarField& CvGas = tCvGas();
 
-    tmp<volScalarField> tYMetal
+    tmp<volScalarField> tCvolGas
     (
-        alpha1*max(rho1, rhoFloor)/max(rho, rhoFloor)
+        max(gasDensity, rhoFloor)*CvGas
     );
-    tmp<volScalarField> tYGas
-    (
-        alpha2*max(rho2, rhoFloor)/max(rho, rhoFloor)
-    );
-    const volScalarField& YMetal = tYMetal();
-    const volScalarField& YGas = tYGas();
+    const volScalarField& CvolGas = tCvolGas();
 
-    tmp<volScalarField> tCvMix
+    tmp<volScalarField> tInvCvolGas
     (
-        max
-        (
-            YMetal*CvMetal + YGas*CvGas,
-            cvFloor
-        )
+        dimensionedScalar("one", dimless, 1.0)
+       /max(CvolGas, rhoFloor*cvFloor)
     );
-    const volScalarField& CvMix = tCvMix();
-    tmp<volScalarField> tRhoEffective(max(rho, rhoFloor));
-    const volScalarField& rhoEffective = tRhoEffective();
-
-    tmp<volScalarField> tCvol(rhoEffective*CvMix);
-    const volScalarField& Cvol = tCvol();
-
-    tmp<volScalarField> tHeatCapacityWeighting
-    (
-        dimensionedScalar("one", dimless, 1.0)/Cvol
-    );
-    const volScalarField& heatCapacityWeighting = tHeatCapacityWeighting();
+    const volScalarField& invCvolGas = tInvCvolGas();
 
     dimensionedScalar oldGasEnergy("oldGasEnergy", dimEnergy, 0.0);
 
@@ -105,31 +80,23 @@ extern Foam::Switch verbose;
         tHeGasOld.clear();
     }
 
-    tYMetal.clear();
-    tYGas.clear();
-    tCvMix.clear();
-    tCvMetal.clear();
     tCvGas.clear();
-    tCv1.clear();
     tCv2.clear();
-    tRho1.clear();
     tRho2.clear();
-    tCvol.clear();
 
     TEqn += fvm::Sp
     (
-        interfaceExchange*rhoEffective*heatCapacityWeighting*gasFraction,
+        interfaceExchange*invCvolGas,
         T
     );
     TEqn.source() +=
-        interfaceExchange*rhoEffective*heatCapacityWeighting*gasFraction*TlField;
+        interfaceExchange*invCvolGas*TlField;
 
     tGasRhoPhi.clear();
     tGasDensity.clear();
+    tInvCvolGas.clear();
+    tCvolGas.clear();
 
-    tRhoEffective.clear();
-
-    tHeatCapacityWeighting.clear();
 
     TEqn.relax();
 
