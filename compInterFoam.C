@@ -218,60 +218,43 @@ int main(int argc, char *argv[])
         // Refresh cached two-temperature properties in case the model updated
         mixture.setClTTM(ttm.Cl());
 
-        // --- Pressure-velocity PIMPLE corrector loop
+    // --- Pressure-velocity PIMPLE corrector loop
         while (pimple.loop())
         {
-           // bool alphaSubCycleExecuted = false;
-           bool interfaceCorrectionAppliedInSubCycle = false;
-
-            // Update mixture properties and phase-change sources for the
-            // alpha equation
             mixture.correct();
+
             const volScalarField& phaseChangeSource = mixture.phaseChangeSource();
             const volScalarField& phaseChangeRelaxCoeff =
-                mixture.phaseChangeRelaxCoeff();            
-            const volScalarField& dgdt = mixture.dgdt();
+                mixture.phaseChangeRelaxCoeff();
 
-            // Solve alpha transport using the unified compressible path
 #include "compressibleAlphaEqnSubCycle.H"
 
-transportModel.correctPhasePhi();
-mixture.correct();
+            transportModel.correctPhasePhi();
+            mixture.correct();
 
-            // Only complain while the laser window is active
             const scalar tnow = runTime.value();
             if (tnow >= laser.laserStartTime() && tnow <= laser.laserEndTime())
             {
-                const dimensionedScalar maxQL = max(laserSrc());   // Q_laser field
-                const scalar eps = 1e-6;
-
-                if (maxQL.value() < eps)
+                const dimensionedScalar maxQL = max(laserSrc());
+                if (maxQL.value() < 1e-6)
                 {
                     WarningInFunction
                         << "Maximum Q_laser (" << maxQL.value()
-                        << ") below threshold " << eps << endl;
+                        << ") below threshold 1e-6" << endl;
                 }
 
                 if (verbose)
                 {
                     Info<< "max(Q_laser) = " << maxQL.value()
-                        << ", max(Tl_) = " << max(ttm.Tl()).value() << nl;
+                        << ", max(Tl) = " << max(ttm.Tl()).value() << endl;
                 }
             }
 
             const dictionary& thermalCouplingDict = runTime.controlDict();
             const label nThermalCouplingIter =
-                thermalCouplingDict.lookupOrDefault<label>
-                (
-                    "nThermalCouplingIter",
-                    1
-                );
+                thermalCouplingDict.lookupOrDefault<label>("nThermalCouplingIter", 1);
             scalar thermalFluxRelax =
-                thermalCouplingDict.lookupOrDefault<scalar>
-                (
-                    "thermalFluxRelax",
-                    1.0
-                );
+                thermalCouplingDict.lookupOrDefault<scalar>("thermalFluxRelax", 1.0);
 
             for (label thermalIter = 0; thermalIter < nThermalCouplingIter; ++thermalIter)
             {
@@ -292,108 +275,69 @@ mixture.correct();
 #include "TEqn.H"
             }
 
-// Apply interface-capturing corrections after the thermal solve if needed
-if
-(
-    useAdvancedCapturing
- && pInterfaceCapturing.valid()
- && !interfaceCorrectionAppliedInSubCycle
-)
-{
-    pInterfaceCapturing->correct();
-    interfaceCorrectionAppliedInSubCycle = true;
-}
+            if (pInterfaceCapturing.valid())
+            {
+                pInterfaceCapturing->calculateRecoilPressure();
 
-// Ensure the momentum equation sees the latest recoil pressure
-if (pInterfaceCapturing.valid())
-{
-    pInterfaceCapturing->calculateRecoilPressure();
-
-    if (verbose)
-    {
-        Info<< "max recoilPressure = "
-            << max(pInterfaceCapturing->recoilPressure()).value() << " Pa" << endl;
-    }
-}
+                if (verbose)
+                {
+                    Info<< "max recoilPressure = "
+                        << max(pInterfaceCapturing->recoilPressure()).value()
+                        << " Pa" << endl;
+                }
+            }
 
 #include "UEqn.H"
-            
-            
-            // --- Pressure corrector loop
+
             while (pimple.correct())
             {
                 #include "pEqn.H"
             }
-            
+
             if (pimple.turbCorr())
             {
                 transportModel.correct();
             }
         }
 
-       // Compute domain-integrated energy components
-        dimensionedScalar Ek = fvc::domainIntegrate
-        (
-            0.5*rho*magSqr(U)
-        );
-
-        const dimensionedScalar& Cl_ = ttm.Cl();
-
+        dimensionedScalar Ek = fvc::domainIntegrate(0.5*rho*magSqr(U));
         tmp<volScalarField> tCe = ttm.electronHeatCapacity();
         const volScalarField& CeField = tCe();
+        const volScalarField& TeField = ttm.Te();
+        const volScalarField& TlField = ttm.Tl();
+        const dimensionedScalar& Cl_ = ttm.Cl();
 
-        const volScalarField& TeFieldForEnergy = ttm.Te();
-        const volScalarField& TlFieldForEnergy = ttm.Tl();
-
-        dimensionedScalar Ee = fvc::domainIntegrate
-        (
-            alpha1*CeField*TeFieldForEnergy
-        );
-
-        dimensionedScalar Elattice = fvc::domainIntegrate
-        (
-            alpha1*Cl_*TlFieldForEnergy
-        );
-
+        dimensionedScalar Ee = fvc::domainIntegrate(alpha1*CeField*TeField);
+        dimensionedScalar Elattice = fvc::domainIntegrate(alpha1*Cl_*TlField);
         const dimensionedScalar L = mixture.latentHeat();
-        dimensionedScalar El = fvc::domainIntegrate
-        (
-            rho1*L*alpha1
-        );
-
+        dimensionedScalar El = fvc::domainIntegrate(rho1*L*alpha1);
         const volScalarField& he2 = mixture.thermo2().he();
-        dimensionedScalar Egas = fvc::domainIntegrate
-        (
-            alpha2*rho2*(he2 - p/rho2)
-        );
+        dimensionedScalar Egas = fvc::domainIntegrate(alpha2*rho2*(he2 - p/rho2));
 
         dimensionedScalar Etot = Ek + Ee + Elattice + El + Egas;
 
         static scalar prevEtot = Etot.value();
-        scalar dE = Etot.value() - prevEtot;
         scalar relChange = mag(Etot.value() - prevEtot)/max(mag(prevEtot), VSMALL);
-        
-        if (verbose)
-        {
-            Info<< "Total energy change: " << dE << " J (" << relChange << ")" << nl
-                << "    Ee (metal-weighted, Ce(Te) when configured) = "
-                << Ee.value() << " J" << endl;
-        }
 
         if (relChange > energyTolerance)
         {
             WarningInFunction
-                << "    Relative energy change " << relChange
-                << "    exceeds energyTolerance (" << energyTolerance << ")" << nl
-                << "    Ek = " << Ek.value() << " J" << nl
-                << "    Ee (metal-weighted, Ce(Te) when configured) = "
-                << Ee.value() << " J" << nl
-                << "    Elattice = " << Elattice.value() << " J" << nl
-                << "    Elatent = " << El.value() << " J" << nl
-                << "    Egas (gas internal energy) = " << Egas.value() << " J" << nl                
-                << "    Etot = " << Etot.value() << " J" << endl;
+                << "Relative energy change " << relChange
+                << " exceeds energyTolerance (" << energyTolerance << ")" << endl;
         }
+
+        if (verbose)
+        {
+            Info<< "Energy totals [J]: Ek=" << Ek.value()
+                << " Ee=" << Ee.value()
+                << " Elattice=" << Elattice.value()
+                << " Elatent=" << El.value()
+                << " Egas=" << Egas.value()
+                << " Etot=" << Etot.value() << endl;
+        }
+
         prevEtot = Etot.value();
+        tCe.clear();
 
         // Write additional model fields and data
         if (runTime.writeTime())
@@ -407,20 +351,6 @@ if (pInterfaceCapturing.valid())
         }
 
         runTime.write();
-        if (!U.headerOk())
-        {
-            WarningInFunction
-                << "Field U failed to write. Ensure initial conditions"
-                << " and write intervals are set." << endl;
-        }
-
-        if (!p_rgh.headerOk())
-        {
-            WarningInFunction
-                << "Field p_rgh failed to write. Ensure initial conditions"
-                << " and write intervals are set." << endl;
-        }
-
         runTime.printExecutionTime(Info);
     }
     
