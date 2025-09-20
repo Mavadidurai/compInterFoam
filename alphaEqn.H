@@ -95,7 +95,11 @@ extern Foam::Switch verbose;
     
     if (limitCompression)
     {
-        phic = Foam::min(phic, compressionLimiter*mag(phi));
+        phic = Foam::min
+        (
+            phic,
+            compressionLimiter*mag(phi)/mesh.magSf()
+        );
 
         if (verbose)
         {

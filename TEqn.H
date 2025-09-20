@@ -83,7 +83,9 @@ extern Foam::Switch verbose;
 
     TEqn += fvm::Sp(interfaceExchange, T);
     TEqn.source() += interfaceExchange*Tl;
-    TEqn.source() += alpha1*mixture.Q_laser();
+    // Ensure laser energy is deposited where metal is present (alpha.metal)
+    const volScalarField& alphaMetal = mixture.alpha1();
+    TEqn.source() += alphaMetal*mixture.Q_laser();
 
     TEqn.relax();
     fvOptions.constrain(TEqn);
