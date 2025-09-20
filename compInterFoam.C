@@ -174,7 +174,7 @@ int main(int argc, char *argv[])
             rDeltaT.ref() = max
             (
                 invMaxDeltaT,
-                fvc::surfaceSum(mag(rhoPhi))()()
+                fvc::surfaceSum(mag(rhoPhi))()
                /((2*maxCo)*mesh.V()*rho())
             );
 
@@ -187,7 +187,7 @@ int main(int argc, char *argv[])
                     rDeltaT(),
                     pos0(alpha1Bar() - 0.01)
                    *pos0(0.99 - alpha1Bar())
-                   *fvc::surfaceSum(mag(phi))()()
+                   *fvc::surfaceSum(mag(phi))()
                    /((2*maxAlphaCo)*mesh.V())
                 );
             }
