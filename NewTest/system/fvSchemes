@@ -49,9 +49,9 @@ divSchemes
     div(rhoPhi,U)                    Gauss linearUpwind grad(U); // IMPROVE: Add gradient limiting
     
     // Temperature transport - NEEDS IMPROVEMENT for stability
-    div(phi,T)                       Gauss limitedLinear01 1.0; // IMPROVE: bounded scheme
-    div(phi,Te)                      Gauss limitedLinear01 1.0; // IMPROVE: bounded scheme  
-    div(phi,Tl)                      Gauss limitedLinear01 1.0; // IMPROVE: bounded scheme
+    div(phi,T)                       Gauss upwind;              // More diffusive for stability
+    div(phi,Te)                      Gauss upwind;              // More diffusive for stability
+    div(phi,Tl)                      Gauss upwind;              // More diffusive for stability
     
     // Pressure gradient - good change
     div(phi,p_rgh)                   Gauss upwind;           // ✓ GOOD change from linear
@@ -71,13 +71,13 @@ laplacianSchemes
     laplacian((rho*nuEff),U)         Gauss linear corrected;
 
     // Temperature diffusion - could add orthogonal correction limiting
-    laplacian(alphaEff,T)            Gauss linear limited 0.33; // IMPROVE: limit correction
-    laplacian(kappaEff,T)            Gauss linear limited 0.33; // IMPROVE: limit correction
-    laplacian(kappa,T)               Gauss linear limited 0.33; // IMPROVE: limit correction
+    laplacian(alphaEff,T)            Gauss linear limited 0.1;  // Tighter limiter for non-orth
+    laplacian(kappaEff,T)            Gauss linear limited 0.1;  // Tighter limiter for non-orth
+    laplacian(kappa,T)               Gauss linear limited 0.1;  // Tighter limiter for non-orth
 
     // Two-temperature model diffusion - CRITICAL for stability
-    laplacian(ke,Te)                 Gauss linear limited 0.33; // IMPROVE: limit correction
-    laplacian(kl,Tl)                 Gauss linear limited 0.33; // IMPROVE: limit correction
+    laplacian(ke,Te)                 Gauss linear limited 0.1;  // Tighter limiter for non-orth
+    laplacian(kl,Tl)                 Gauss linear limited 0.1;  // Tighter limiter for non-orth
 }
 
 interpolationSchemes

@@ -27,8 +27,18 @@ boundaryField
   front     { type symmetryPlane; }
   back     { type symmetryPlane; }
 
-  substrate     { type zeroGradient; }
-  donor     { type zeroGradient; }
+    substrate
+    {
+        // Ambient-temperature solid boundary acts as a heat sink
+        type            fixedValue;
+        value           uniform 300;
+    }
+    donor
+    {
+        // Ambient-temperature solid boundary acts as a heat sink
+        type            fixedValue;
+        value           uniform 300;
+    }
 }
 
 // ************************************************************************* //

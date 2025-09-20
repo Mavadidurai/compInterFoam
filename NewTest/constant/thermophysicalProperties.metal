@@ -15,7 +15,9 @@ FoamFile
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
 // METAL PHASE PROPERTIES for LIFT Test Case
-// Density is now temperature dependent via a polynomial relation
+// Density is now temperature dependent via a polynomial relation derived from
+// representative solid/liquid titanium data (ρ ≈ 4500 kg/m3 at 300 K decreasing
+// to ≈ 3400 kg/m3 in the high-temperature liquid state).
 thermoType
 {
     type            heRhoThermo;
@@ -50,8 +52,10 @@ mixture
     
 equationOfState
 {
-    // constant density: rho ≈ 4515 kg/m3  → C0 = 1/rho, others 0
-    C (2.214839424e-4 0 0 0 0);
+    // rPolynomial expects the specific volume fit 1/ρ = Σ Ci T^i (T in K)
+    // Fitted to (T, ρ) = [(300 K, 4500 kg/m3), (1200 K, 4300 kg/m3),
+    // (1941 K, 4100 kg/m3), (3200 K, 3400 kg/m3)]
+    C (0.0002172169461 1.922024813e-08 -9.483330982e-12 3.433386724e-15 0);
 }
 
 

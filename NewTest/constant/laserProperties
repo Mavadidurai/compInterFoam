@@ -43,15 +43,16 @@ filmYMin        8.0000e-6;
 filmYMax        8.0714e-6;   // from setFields metal film
 gasAbsorptionCoeff 0;     // [1/m] gas absorption (0 disables direct gas heating)
 // --- Energy & timing ---
-// Boosted energy/intensity to reach melt/ablation threshold
-pulseEnergy     7.77e-10;          // [J] total energy
+// Tune energy to exceed the Ti melt+vapor energy (~2.6e-8 J absorbed)
+// while keeping the peak intensity below the 1e16 W/m^2 safety cap.
+pulseEnergy     6.0e-8;          // [J] total energy (0.094 J/cm^2 incident fluence)
 pulseWidth      2.14e-13;        // [s] 214 fs pulse width
 laserStartTime  0;        // [s] trigger immediately at simulation start
 laserEndTime    5e-12;    // [s] 100 ps pulse duration within controlDict end time
 pulseFrequency  1e12;     // [1/s] 1 ps period between pulses
 pulseDutyCycle  0.214;    // [-] 21% on-time matching 214 fs pulse
 // --- Spatial Gaussian (match the box center and film depth) ---
-spotSize        6.8e-6;         // [m] beam diameter
+spotSize        9.0e-6;         // [m] beam diameter (4.5 µm 1/e^2 radius)
 
 // Put the beam center inside the domain (mid x,z; inside donor film at y≈8.0357 µm)
 focus           (25e-6 8.0357e-6 5e-6);
@@ -61,7 +62,7 @@ direction       (0 -1 0);
 wavelength          3.43e-7;  // [m]
 
 // Absorption
-absorptionCoeff     5e7;      // [1/m] ~20–50 nm optical depth
+absorptionCoeff     6.0e7;    // [1/m] ≈17 nm optical depth in Ti at 343 nm
 
 // Reflectivity / profile
 reflectivity        0.55;

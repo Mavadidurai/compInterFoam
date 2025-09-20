@@ -24,11 +24,13 @@ stopAt          endTime;
 endTime         5e-12;          // MODIFIED: Shorter run time for debugging
 
 // --- DEBUG TIME STEPPING ---
-// Use a fixed time step to ensure the laser pulse is resolved.
-deltaT          2e-14;          // MODIFIED: 20 fs to resolve the 214 fs pulse
-adjustTimeStep  no;             // MODIFIED: Turn OFF adaptive time stepping
-maxCo           10;             // MODIFIED: Set high to not interfere
-maxAlphaCo      10;             // MODIFIED: Set high to not interfere
+// Use an adaptive time step to resolve the laser pulse without excessive iterations.
+deltaT          1e-14;          // Start with 10 fs base step (≈1/20 of the 214 fs pulse)
+adjustTimeStep  yes;            // Re-enable adaptive stepping for stability and efficiency
+maxCo           0.5;            // Keep Courant number in a physically stable range
+maxAlphaCo      0.5;            // Restrict interface Courant number similarly
+maxDeltaT       5e-14;          // Limit growth to keep pulse well-resolved (<25% of pulse)
+minDeltaT       5e-15;          // Allow reduction to capture sharp transients
 
 verbose         true;
 maxGasMetalHeatFlux 1e15;   // [W/m^3] limiter for gas-metal flux coupling
