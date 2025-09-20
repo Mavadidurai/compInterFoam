@@ -7,7 +7,16 @@ extern Foam::Switch verbose;
 
 {
     const dictionary& alphaControls = mesh.solverDict(alpha1.name());
+    
+    scalar compressionLimiter
+    (
+        alphaControls.lookupOrDefault<scalar>("compressionLimiter", 1.0)
+    );
 
+    const scalar minLimiter = Foam::SMALL;
+    compressionLimiter = Foam::max(compressionLimiter, minLimiter);
+    const bool limitCompression = compressionLimiter < 1.0 - Foam::SMALL;
+    
     #include "alphaScheme.H"
 
     tmp<fv::ddtScheme<scalar>> tDdtAlpha
@@ -83,7 +92,18 @@ extern Foam::Switch verbose;
         ),
         mixture.cAlpha()*mag(phi/mesh.magSf())
     );
+    
+    if (limitCompression)
+    {
+        phic = Foam::min(phic, compressionLimiter*mag(phi));
 
+        if (verbose)
+        {
+            Info<< "alphaEqn: limiting interface compression with "
+                << "compressionLimiter=" << compressionLimiter << endl;
+        }
+    }
+    
     if (icAlpha > 0)
     {
         phic *= (1.0 - icAlpha);
@@ -298,7 +318,7 @@ extern Foam::Switch verbose;
     if (verbose)
     {
         Info<< "Phase-1 volume fraction = "
-            << alpha1.weightedAverage(mesh.Vsc()).value()
+            << alpha1.weightedAverage(mesh.V()).value()
             << "  Min(" << alpha1.name() << ") = " << min(alpha1).value()
             << "  Max(" << alpha1.name() << ") = " << max(alpha1).value()
             << endl;

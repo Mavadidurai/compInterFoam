@@ -72,6 +72,31 @@ private:
     mutable label        pulseCounter_;
     mutable bool         trackingPulse_;
 
+    // Temporal envelope summary for the current time-step
+    struct EnvelopeResult
+    {
+        scalar temporalIntegral = 0.0; // [s] integrated pulse envelope
+        scalar temporalAverage  = 0.0; // [-] envelope averaged over dt
+        scalar expectedEnergy   = 0.0; // [J] energy implied by envelope
+        bool   active           = false; // true when the laser is on
+    };
+
+    // Accumulated spatial metrics during source assembly
+    struct SpatialMetrics
+    {
+        label  cellsInBeam             = 0;   // cells touched by the beam
+        label  cellsInFilm             = 0;   // beam cells within the film
+        label  cellsInGas              = 0;   // beam cells within the gas
+        label  limitedCells            = 0;   // cells capped at max source
+        scalar maxSourceValue          = 0.0; // [W/m^3] max volumetric source
+        scalar totalSourceIntegral     = 0.0; // [W] integrated volumetric source
+        scalar totalFilmSourceIntegral = 0.0; // [W] power into the film
+        scalar totalGasSourceIntegral  = 0.0; // [W] power into the gas
+        scalar totalBeamVolume         = 0.0; // [m^3] summed beam volume
+        scalar maxSourceCap            = 0.0; // [W/m^3] configured cap
+        bool   limitSource             = false; // true when limiting is active
+    };
+
     // --- helpers ---
     scalar pulseNormalizationFactor() const;
     void   calculateSource() const;
@@ -81,6 +106,48 @@ private:
     bool   isInBeam(const point& p) const;
     bool   checkEnergyConservation() const;
     void   finalizePulseEnergyCheck(const char* context, const scalar currentTime) const;
+    volScalarField& resetSourceField() const;  // ensure Q_laser exists and is zeroed
+    EnvelopeResult evaluateTemporalEnvelope
+    (
+        const scalar overlapStart,
+        const scalar overlapEnd,
+        const scalar dt
+    ) const;
+    scalar gaussianWindowIntegral
+    (
+        const scalar a,
+        const scalar b,
+        const scalar center,
+        const scalar sigma
+    ) const;
+    SpatialMetrics applySpatialWeighting
+    (
+        volScalarField& source,
+        const scalar temporalAverage
+    ) const;
+    void updateEnergyTracking
+    (
+        const volScalarField& source,
+        const dimensionedScalar& dtDim,
+        const EnvelopeResult& envelope,
+        const SpatialMetrics& metrics,
+        const scalar overlapStart,
+        const scalar currentTime,
+        const bool laserActive,
+        const label timeIndex
+    ) const;
+    void emitDiagnostics
+    (
+        const EnvelopeResult& envelope,
+        const SpatialMetrics& metrics,
+        const dimensionedScalar& dtDim,
+        const dimensionedScalar& energyThisStep,
+        const scalar filmEnergyThisStep,
+        const scalar gasEnergyThisStep,
+        const scalar currentTime,
+        const label timeIndex,
+        const bool laserActive
+    ) const;
 
     // disallow copy
     femtosecondLaserModel(const femtosecondLaserModel&) = delete;
