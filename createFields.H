@@ -405,7 +405,7 @@ scalar scAlpha
 // Conditionally create the interface-capturing model so legacy behaviour is preserved
 autoPtr<advancedInterfaceCapturing> pInterfaceCapturing;
 autoPtr<volScalarField> legacyRecoilPressure;
-
+const volScalarField* recoilPressurePtr = nullptr;
 if (useAdvancedCapturing)
 {
     if (verbose)
@@ -424,6 +424,7 @@ if (useAdvancedCapturing)
             T
         )
     );
+    recoilPressurePtr = &pInterfaceCapturing->recoilPressure();    
 }
 else
 {
@@ -451,6 +452,7 @@ else
     );
 
     legacyRecoilPressure->correctBoundaryConditions();
+    recoilPressurePtr = legacyRecoilPressure.ptr();
 }
 
 if (verbose)

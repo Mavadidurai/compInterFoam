@@ -68,7 +68,20 @@ Description
 #include "advancedInterfaceCapturing.H"
 
 Foam::Switch verbose(false);
+namespace
+{
+    inline void refreshLegacyRecoilPressure(Foam::volScalarField* fieldPtr)
+    {
+        if (!fieldPtr)
+        {
+            return;
+        }
 
+        Foam::volScalarField& recoilField = *fieldPtr;
+        recoilField.primitiveFieldRef() = 0.0;
+        recoilField.correctBoundaryConditions();
+    }
+}
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
 int main(int argc, char *argv[])
@@ -279,12 +292,17 @@ int main(int argc, char *argv[])
             {
                 pInterfaceCapturing->calculateRecoilPressure();
 
-                if (verbose)
-                {
-                    Info<< "max recoilPressure = "
-                        << max(pInterfaceCapturing->recoilPressure()).value()
-                        << " Pa" << endl;
-                }
+            }
+            else if (legacyRecoilPressure.valid())
+            {
+                refreshLegacyRecoilPressure(legacyRecoilPressure.ptr());
+            }
+
+            if (verbose && recoilPressurePtr)
+            {
+                Info<< "max recoilPressure = "
+                    << max(*recoilPressurePtr).value()
+                    << " Pa" << endl;
             }
 
 #include "UEqn.H"
@@ -348,6 +366,10 @@ int main(int argc, char *argv[])
             {
                 pInterfaceCapturing->write();
             }
+            else if (legacyRecoilPressure.valid())
+            {
+                legacyRecoilPressure->write();
+            }            
         }
 
         runTime.write();

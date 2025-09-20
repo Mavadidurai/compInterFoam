@@ -21,9 +21,9 @@ fvVectorMatrix UEqn
     UEqn -= fvm::Sp(contErr, U);
 }
 
-if (useAdvancedCapturing && pInterfaceCapturing.valid())
+if (recoilPressurePtr)
 {
-    UEqn -= fvc::grad(pInterfaceCapturing->recoilPressure());
+    UEqn -= fvc::grad(*recoilPressurePtr);
 }
 
 UEqn.relax();
