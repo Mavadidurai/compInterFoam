@@ -454,6 +454,7 @@ else
     legacyRecoilPressure->correctBoundaryConditions();
     recoilPressurePtr = legacyRecoilPressure.ptr();
 }
+(void)recoilPressurePtr;
 
 if (verbose)
 {
