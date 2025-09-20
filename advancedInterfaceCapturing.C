@@ -236,7 +236,15 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
     
     const scalarField& massRateField = massRate.primitiveField();
     scalarField& recoilField = recoilPressure_.primitiveFieldRef();
-
+    
+    const bool logRecoilSuppression =
+        mesh_.time().controlDict().lookupOrDefault<Switch>
+        (
+            "logRecoilSuppression",
+            false
+        );
+    label suppressedCondensationCells = 0;
+    
     // Utility: smooth step for alpha ramping
     auto smoothStep = [](const scalar x, const scalar x1, const scalar x2)
     {
@@ -268,16 +276,28 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
         }
         const scalar alphaDamp = 4.0 * alpha * (1.0 - alpha) * ramp;
 
-        scalar phaseChangeVal =
-            TField[cellI] >= (vaporTemp_.value() + phaseChangeTempOffset_.value())
-            ? mag(massRateField[cellI])   // vapor rate drives recoil
-            : 0.0;
+        scalar phaseChangeVal = 0.0;
+        if (TField[cellI] >= (vaporTemp_.value() + phaseChangeTempOffset_.value()))
+        {
+            const scalar evaporationRate = Foam::max(massRateField[cellI], scalar(0));
+            if (evaporationRate <= 0 && massRateField[cellI] < 0)
+            {
+                ++suppressedCondensationCells;
+            }
+            phaseChangeVal = evaporationRate;
+        }
         const scalar pressureValue = pressureScale * phaseChangeVal;
         const scalar localRecoilMax = scaleRecoilMax
             ? recoilMax_ * alphaDamp
             : recoilMax_;
         const scalar unclamped = pressureValue * alphaDamp;
         recoilField[cellI] = clampRecoil ? min(unclamped, localRecoilMax) : unclamped;
+    }
+    if (logRecoilSuppression && suppressedCondensationCells > 0)
+    {
+        Info<< "advancedInterfaceCapturing: suppressed recoil in "
+            << suppressedCondensationCells
+            << " cells due to condensation mass flux." << endl;
     }
     // Ensure boundary conditions are correct
     recoilPressure_.correctBoundaryConditions();

@@ -154,19 +154,30 @@ int main(int argc, char *argv[])
             volScalarField& rDeltaT = trDeltaT.ref();
             volScalarField& rSubDeltaT = trSubDeltaT.ref();
 
+            const dimensionedScalar maxDeltaT
+            (
+                runTime.controlDict().lookupOrDefault<dimensionedScalar>
+                (
+                    "maxDeltaT",
+                    dimensionedScalar("maxDeltaT", dimTime, GREAT)
+                )
+            );
+
+            const dimensionedScalar invMaxDeltaT(1/maxDeltaT);
+
             const dictionary& pimpleDict = mesh.solutionDict().subDict("PIMPLE");
 
             scalar maxCo = pimpleDict.getOrDefault<scalar>("maxCo", 0.9);
             scalar maxAlphaCo = pimpleDict.getOrDefault<scalar>("maxAlphaCo", 0.2);
-            
+
             // Set reciprocal time-step from local Courant number
             rDeltaT.ref() = max
             (
-                1/dimensionedScalar("maxDeltaT", dimTime, GREAT),
+                invMaxDeltaT,
                 fvc::surfaceSum(mag(rhoPhi))()()
                /((2*maxCo)*mesh.V()*rho())
             );
-            
+
             // Limit based on alpha Courant number
             if (maxAlphaCo < maxCo)
             {
@@ -183,6 +194,7 @@ int main(int argc, char *argv[])
 
             rDeltaT.correctBoundaryConditions();
             rSubDeltaT = rDeltaT;
+            rSubDeltaT = max(invMaxDeltaT, rSubDeltaT);
             rSubDeltaT.correctBoundaryConditions();
             
             if (verbose)
