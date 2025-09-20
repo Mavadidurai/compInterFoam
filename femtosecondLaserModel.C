@@ -357,7 +357,7 @@ void femtosecondLaserModel::finalizePulseEnergyCheck
     const scalar diffExpected = mag(pulseEnergyAccumulator_ - expected);
     const scalar diffConfigured = mag(pulseEnergyAccumulator_ - configured);
     const scalar expectedMismatch = mag(expected - configured);
-    const scalar diff = max(diffExpected, diffConfigured);    
+    const scalar maxDeviation = max(diffExpected, diffConfigured);
 
     ++pulseCounter_;
 
@@ -374,7 +374,7 @@ void femtosecondLaserModel::finalizePulseEnergyCheck
             << "  Diff vs expected:     " << diffExpected << " J" << nl
             << "  Diff vs configured:   " << diffConfigured << " J" << nl
             << "  Expected-config diff: " << expectedMismatch << " J" << nl
-            << "  Max deviation:        " << maxDeviation << " J" << nl            
+            << "  Max deviation:        " << maxDeviation << " J" << nl
             << "  Tolerance:            " << tolerance << " J" << endl;
     }
 
