@@ -20,7 +20,10 @@ tokenList defaultCompressionScheme(4);
 defaultCompressionScheme[0] = token(word("Gauss"));
 defaultCompressionScheme[1] = token(word("interfaceCompression"));
 defaultCompressionScheme[2] = token(alphaScheme);
-defaultCompressionScheme[3] = token(alphaControls.lookup<scalar>("cAlpha"));
+defaultCompressionScheme[3] = Foam::token
+(
+    alphaControls.lookupOrDefault<scalar>("cAlpha", mixture.cAlpha())
+);
 
 ITstream compressionScheme
 (
@@ -32,3 +35,25 @@ ITstream compressionScheme
         defaultCompressionScheme
     )
 );
+word compressionFluxSchemeName(alphaScheme);
+
+{
+    word integrationScheme(alphaScheme);
+    compressionScheme >> integrationScheme;
+
+    if (compressionScheme.good())
+    {
+        compressionScheme >> compressionFluxSchemeName;
+    }
+    else
+    {
+        compressionFluxSchemeName = integrationScheme;
+    }
+}
+
+if (!compressionSchemes.found(compressionFluxSchemeName))
+{
+    compressionFluxSchemeName = word(defaultCompressionScheme[1].wordToken());
+}
+
+compressionScheme.rewind();

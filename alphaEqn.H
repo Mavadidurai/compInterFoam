@@ -182,17 +182,13 @@ extern Foam::Switch verbose;
 
     for (label aCorr = 0; aCorr < nAlphaCorr; ++aCorr)
     {
-        // Reset the compression scheme stream before constructing the flux
-        // interpolation    
-        compressionScheme.rewind();
-
         tmp<surfaceScalarField> talphaPhi1Un
         (
             fvc::flux
             (
                 phiAlphaRef,
                 (cnCoeff*alpha1 + (1.0 - cnCoeff)*alpha1.oldTime())(),
-                compressionScheme
+                compressionFluxSchemeName
             )
         );
 

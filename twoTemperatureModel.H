@@ -94,7 +94,63 @@ private:
         (
             const char* context,
             label sweep
-        ) const;        
+        ) const;
+        //- Active-metal mask used for bounds and coupling
+        tmp<volScalarField> metalActiveMask(scalar cutoff) const;
+        //- Clamp Te/Tl within physical limits and reset non-metal cells
+        void clampTemperatureFields
+        (
+            const volScalarField& activeMask,
+            const dimensionedScalar& minTemp,
+            const dimensionedScalar& maxTemp,
+            scalar ambient
+        );
+        //- Mask gas-metal heat flux using the metal indicator
+        tmp<volScalarField> maskGasMetalHeatFlux
+        (
+            const volScalarField& gasMetalHeatFlux,
+            scalar metalFloor
+        ) const;
+        //- Assemble, relax, solve, and correct the lattice equation
+        void solveLatticeEquation
+        (
+            const volScalarField& metalEff,
+            const volScalarField& G,
+            const volScalarField& klField,
+            const volScalarField& phaseChangeRelaxCoeff,
+            const volScalarField& phaseChangeSource,
+            const volScalarField& TlOld,
+            const volScalarField& gasMetalHeatFluxMasked,
+            scalar relaxFactor,
+            label sweep
+        );
+        //- Assemble, relax, solve, and correct the electron equation
+        void solveElectronEquation
+        (
+            const volScalarField& metalEff,
+            const volScalarField& Ce,
+            const volScalarField& ke,
+            const volScalarField& G,
+            const volScalarField& laserSource,
+            label sweep
+        );
+        //- Integrated gas-metal coupling energy for this time-step
+        dimensionedScalar couplingEnergy
+        (
+            const volScalarField& gasMetalHeatFluxMasked
+        ) const;
+        //- Emit optional energy diagnostics and tracking information
+        void writeEnergyDiagnostics
+        (
+            const dimensionedScalar& laserEnergy,
+            const dimensionedScalar& phaseChangeEnergy,
+            const dimensionedScalar& couplingEnergy,
+            const dimensionedScalar& electronEnergyBefore,
+            const dimensionedScalar& latticeEnergyBefore,
+            const Switch& energyDiagnostics
+        ) const;
+        //- Report temperature statistics when requested
+        void writeSolveStatistics() const;        
         //- Check energy conservation with expected energy change
         bool checkEnergyConservation
         (

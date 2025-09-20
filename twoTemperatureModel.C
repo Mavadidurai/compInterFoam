@@ -432,11 +432,194 @@ void twoTemperatureModel::guardTemperatureFields
                         );
                     }
                 }
-            }
-        };
+        }
+    };
     checkField(Te_, "Te");
     checkField(Tl_, "Tl");
 }
+tmp<volScalarField> twoTemperatureModel::metalActiveMask(scalar cutoff) const
+{
+    const dimensionedScalar cutoffDim("metalCutoff", dimless, cutoff);
+    return pos(metalFraction_ - cutoffDim);
+}
+void twoTemperatureModel::clampTemperatureFields
+(
+    const volScalarField& activeMask,
+    const dimensionedScalar& minTemp,
+    const dimensionedScalar& maxTemp,
+    scalar ambient
+)
+{
+    const dimensionedScalar ambientDim("ambientTemperature", dimTemperature, ambient);
+    tmp<volScalarField> tInactiveMask = scalar(1) - activeMask;
+    const volScalarField& inactiveMask = tInactiveMask();
+
+    Te_ = activeMask*Foam::max(Foam::min(Te_, maxTemp), minTemp)
+        + inactiveMask*ambientDim;
+    Tl_ = activeMask*Foam::max(Foam::min(Tl_, maxTemp), minTemp)
+        + inactiveMask*ambientDim;
+
+    Te_.correctBoundaryConditions();
+    Tl_.correctBoundaryConditions();
+}
+tmp<volScalarField> twoTemperatureModel::maskGasMetalHeatFlux
+(
+    const volScalarField& gasMetalHeatFlux,
+    scalar metalFloor
+) const
+{
+    const dimensionedScalar floorDim
+    (
+        "metalFractionFloor",
+        dimless,
+        Foam::max(metalFloor, VSMALL)
+    );
+    tmp<volScalarField> tMask = pos(metalFraction_ - floorDim);
+    return tMask*gasMetalHeatFlux;
+}
+
+void twoTemperatureModel::solveLatticeEquation
+(
+    const volScalarField& metalEff,
+    const volScalarField& G,
+    const volScalarField& klField,
+    const volScalarField& phaseChangeRelaxCoeff,
+    const volScalarField& phaseChangeSource,
+    const volScalarField& TlOld,
+    const volScalarField& gasMetalHeatFluxMasked,
+    scalar relaxFactor,
+    label sweep
+)
+{
+    fvScalarMatrix TlEqn
+    (
+        fvm::ddt(metalEff*Cl_, Tl_)
+      - fvm::laplacian(metalEff*klField, Tl_)
+      + fvm::Sp(metalEff*G, Tl_)
+      + fvm::Sp(metalEff*Cl_*phaseChangeRelaxCoeff, Tl_)
+     ==
+        metalFraction_*
+        (
+            G*Te_
+          + Cl_*(phaseChangeSource + phaseChangeRelaxCoeff*TlOld)
+        )
+      + gasMetalHeatFluxMasked
+    );
+
+    TlEqn.relax(relaxFactor);
+    TlEqn.solve(mesh_.solver("Tl"));
+    Tl_.correctBoundaryConditions();
+    guardTemperatureFields("TlEqn.solve", sweep);
+}
+
+void twoTemperatureModel::solveElectronEquation
+(
+    const volScalarField& metalEff,
+    const volScalarField& Ce,
+    const volScalarField& ke,
+    const volScalarField& G,
+    const volScalarField& laserSource,
+    label sweep
+)
+{
+    fvScalarMatrix TeEqn
+    (
+        fvm::ddt(metalEff*Ce, Te_)
+      - fvm::laplacian(metalEff*ke, Te_)
+      + fvm::Sp(metalEff*G, Te_)
+     ==
+        metalFraction_*(laserSource + G*Tl_)
+    );
+
+    TeEqn.relax();
+    TeEqn.solve(mesh_.solver("Te"));
+    Te_.correctBoundaryConditions();
+    guardTemperatureFields("TeEqn.solve", sweep);
+}
+
+dimensionedScalar twoTemperatureModel::couplingEnergy
+(
+    const volScalarField& gasMetalHeatFluxMasked
+) const
+{
+    return fvc::domainIntegrate(gasMetalHeatFluxMasked)*mesh_.time().deltaT();
+}
+
+void twoTemperatureModel::writeEnergyDiagnostics
+(
+    const dimensionedScalar& laserEnergy,
+    const dimensionedScalar& phaseChangeEnergy,
+    const dimensionedScalar& couplingEnergy,
+    const dimensionedScalar& electronEnergyBefore,
+    const dimensionedScalar& latticeEnergyBefore,
+    const Switch& energyDiagnostics
+) const
+{
+    if (!energyDiagnostics)
+    {
+        return;
+    }
+
+    tmp<volScalarField> tCeAfter = electronHeatCapacity();
+    const volScalarField& CeAfter = tCeAfter();
+
+    const dimensionedScalar electronEnergyAfter =
+        fvc::domainIntegrate(metalFraction_*(CeAfter*Te_));
+    const dimensionedScalar latticeEnergyAfter =
+        fvc::domainIntegrate(metalFraction_*(Cl_*Tl_));
+
+    static dimensionedScalar cumulativeLaserEnergy
+    (
+        "cumulativeLaserEnergy",
+        dimEnergy,
+        0.0
+    );
+    cumulativeLaserEnergy += laserEnergy;
+
+    Info<< "Energy diagnostics:" << nl
+        << "  Electron energy before: "
+        << electronEnergyBefore.value() << " J" << nl
+        << "  Lattice energy before: "
+        << latticeEnergyBefore.value() << " J" << nl
+        << "  Laser energy input: " << laserEnergy.value() << " J" << nl
+        << "  Phase-change energy input: "
+        << phaseChangeEnergy.value() << " J" << nl
+        << "  Gas-metal coupling energy input: "
+        << couplingEnergy.value() << " J" << nl
+        << "  Electron energy after: "
+        << electronEnergyAfter.value() << " J" << nl
+        << "  Lattice energy after: "
+        << latticeEnergyAfter.value() << " J" << nl
+        << "  Total metal energy: "
+        << (electronEnergyAfter + latticeEnergyAfter).value() << " J" << nl
+        << "  Cumulative laser energy: "
+        << cumulativeLaserEnergy.value() << " J" << endl;
+}
+
+void twoTemperatureModel::writeSolveStatistics() const
+{
+    if (!verbose)
+    {
+        return;
+    }
+
+    const dimensionedScalar minTe = min(Te_);
+    const dimensionedScalar maxTe = max(Te_);
+    const dimensionedScalar minTl = min(Tl_);
+    const dimensionedScalar maxTl = max(Tl_);
+
+    tmp<volScalarField> tTempDiff = mag(Te_ - Tl_);
+    const volScalarField& tempDiff = tTempDiff();
+
+    Info<< "Two-temperature solve:" << nl
+        << "  Te range: " << minTe.value() << " - " << maxTe.value() << " K" << nl
+        << "  Tl range: " << minTl.value() << " - " << maxTl.value() << " K" << nl
+        << "  Max temperature difference: "
+        << max(tempDiff).value() << " K" << nl
+        << "  Mean Te: " << gAverage(Te_) << " K" << nl
+        << "  Mean Tl: " << gAverage(Tl_) << " K" << endl;
+}
+
 bool twoTemperatureModel::checkEnergyConservation
 (
     const dimensionedScalar& expectedEnergyChange
@@ -446,22 +629,28 @@ bool twoTemperatureModel::checkEnergyConservation
     {
         return true;
     }
+
     tmp<volScalarField> tCe = electronHeatCapacity();
     const volScalarField& CeField = tCe();
-    dimensionedScalar currentEnergy =
+    const dimensionedScalar currentEnergy =
         fvc::domainIntegrate(metalFraction_*(CeField*Te_ + Cl_*Tl_));
-    dimensionedScalar expectedEnergy = lastTotalEnergy_ + expectedEnergyChange;
-    scalar energyError = mag
+    const dimensionedScalar expectedEnergy =
+        lastTotalEnergy_ + expectedEnergyChange;
+    const scalar energyError = mag
     (
         (currentEnergy.value() - expectedEnergy.value())/
         (mag(expectedEnergy.value()) + SMALL)
     );
-const scalar energyTol =
-    dict_.lookupOrDefault<scalar>("energyTol",
-        dict_.lookupOrDefault<scalar>("energyTolerance", 0.01));
-return energyError < energyTol;
 
+    const scalar energyTol =
+        dict_.lookupOrDefault<scalar>
+        (
+            "energyTol",
+            dict_.lookupOrDefault<scalar>("energyTolerance", 0.01)
+        );
+    return energyError < energyTol;
 }
+
 void twoTemperatureModel::updateEnergyTracking() const
 {
     tmp<volScalarField> tCe = electronHeatCapacity();
@@ -470,6 +659,8 @@ void twoTemperatureModel::updateEnergyTracking() const
         fvc::domainIntegrate(metalFraction_*(CeField*Te_ + Cl_*Tl_));
     energyInitialized_ = true;
 }
+
+
 void twoTemperatureModel::solve
 (
     const volScalarField& laserSource,
@@ -484,6 +675,7 @@ void twoTemperatureModel::solve
             << "Invalid field values before solve"
             << abort(FatalError);
     }
+
     const volScalarField& metal = metalFraction_;
     const scalar ambient = ambientTemperature_.value();
     const scalar metalFractionFloor =
@@ -494,139 +686,64 @@ void twoTemperatureModel::solve
             "metalFractionCutoff",
             metalFractionFloor
         );
-    const dimensionedScalar metalFloor("metalFractionFloor", dimless, Foam::max(metalFractionFloor, VSMALL));
+    const dimensionedScalar metalFloor
+    (
+        "metalFractionFloor",
+        dimless,
+        Foam::max(metalFractionFloor, VSMALL)
+    );
     tmp<volScalarField> tMetalEff = Foam::max(metal, metalFloor);
     const volScalarField& metalEff = tMetalEff();
-    dimensionedScalar minTemp
+
+    const dimensionedScalar minTemp
     (
         "minTemp",
         dimTemperature,
         dict_.lookupOrDefault<scalar>("minTe", 300.0)
     );
-    dimensionedScalar maxTemp
+    const dimensionedScalar maxTemp
     (
         "maxTemp",
         dimTemperature,
         dict_.lookupOrDefault<scalar>("maxTe", 3500.0)
     );
 
-    const auto enforceTemperatureBounds = [&]
-    {
-        scalarField& TeInternal = Te_.primitiveFieldRef();
-        scalarField& TlInternal = Tl_.primitiveFieldRef();
-        const scalarField& metalInternal = metal.primitiveField();
-
-        forAll(TeInternal, cellI)
-        {
-            if (metalInternal[cellI] > metalCutoff)
-            {
-                TeInternal[cellI] = Foam::max
-                (
-                    Foam::min(TeInternal[cellI], maxTemp.value()),
-                    minTemp.value()
-                );
-                TlInternal[cellI] = Foam::max
-                (
-                    Foam::min(TlInternal[cellI], maxTemp.value()),
-                    minTemp.value()
-                );
-            }
-            else
-            {
-                TeInternal[cellI] = ambient;
-                TlInternal[cellI] = ambient;
-            }
-        }
-
-        volScalarField::Boundary& TeBoundary = Te_.boundaryFieldRef();
-        volScalarField::Boundary& TlBoundary = Tl_.boundaryFieldRef();
-        const volScalarField::Boundary& metalBoundary = metal.boundaryField();
-
-        forAll(TeBoundary, patchI)
-        {
-            scalarField& TePatch = TeBoundary[patchI];
-            scalarField& TlPatch = TlBoundary[patchI];
-            const scalarField& metalPatch = metalBoundary[patchI];
-
-            forAll(TePatch, faceI)
-            {
-                if (metalPatch[faceI] > metalCutoff)
-                {
-                    TePatch[faceI] = Foam::max
-                    (
-                        Foam::min(TePatch[faceI], maxTemp.value()),
-                        minTemp.value()
-                    );
-                    TlPatch[faceI] = Foam::max
-                    (
-                        Foam::min(TlPatch[faceI], maxTemp.value()),
-                        minTemp.value()
-                    );
-                }
-                else
-                {
-                    TePatch[faceI] = ambient;
-                    TlPatch[faceI] = ambient;
-                }
-            }
-        }
-
-        Te_.correctBoundaryConditions();
-        Tl_.correctBoundaryConditions();
-    };
-
-    enforceTemperatureBounds();
-    // Store initial energy
-    updateEnergyTracking();    
-    tmp<volScalarField> tGasMetalHeatFluxMasked
+    const Switch energyDiagnostics
     (
-        new volScalarField
-        (
-            IOobject("gasMetalHeatFluxMasked", mesh_.time().timeName(), mesh_, IOobject::NO_READ, IOobject::NO_WRITE),
-            gasMetalHeatFlux
-        )
+        dict_.lookupOrDefault<Switch>("energyDiagnostics", false)
     );
-    volScalarField& gasMetalHeatFluxMaskedRef = tGasMetalHeatFluxMasked.ref();
-    scalarField& gasMetalHeatFluxMaskedInternal =
-        gasMetalHeatFluxMaskedRef.primitiveFieldRef();
-    const scalarField& gasMetalHeatFluxInternal =
-        gasMetalHeatFlux.primitiveField();
-    const scalarField& metalInternal = metal.primitiveField();
-    forAll(gasMetalHeatFluxMaskedInternal, cellI)
-    {
-        if (metalInternal[cellI] < metalFractionFloor)
-        {
-            gasMetalHeatFluxMaskedInternal[cellI] = 0.0;
-        }
-        else
-        {
-            gasMetalHeatFluxMaskedInternal[cellI] =
-                gasMetalHeatFluxInternal[cellI];
-        }
-    }
-    volScalarField::Boundary& gasMetalHeatFluxMaskedBoundary =
-        gasMetalHeatFluxMaskedRef.boundaryFieldRef();
-    const volScalarField::Boundary& gasMetalHeatFluxBoundary =
-        gasMetalHeatFlux.boundaryField();
-    const volScalarField::Boundary& metalBoundary = metal.boundaryField();
-    forAll(gasMetalHeatFluxMaskedBoundary, patchI)
-    {
-        scalarField& maskedPatch = gasMetalHeatFluxMaskedBoundary[patchI];
-        const scalarField& fluxPatch = gasMetalHeatFluxBoundary[patchI];
-        const scalarField& metalPatch = metalBoundary[patchI];
-        forAll(maskedPatch, faceI)
-        {
-            if (metalPatch[faceI] < metalFractionFloor)
-            {
-                maskedPatch[faceI] = 0.0;
-            }
-            else
-            {
-                maskedPatch[faceI] = fluxPatch[faceI];
-            }
-        }
-    }
+
+    tmp<volScalarField> tActiveMask = metalActiveMask(metalCutoff);
+    const volScalarField& activeMask = tActiveMask();
+
+    clampTemperatureFields(activeMask, minTemp, maxTemp, ambient);
+    updateEnergyTracking();
+
+    tmp<volScalarField> tGasMetalHeatFluxMasked =
+        maskGasMetalHeatFlux(gasMetalHeatFlux, metalFractionFloor);
     const volScalarField& gasMetalHeatFluxMasked = tGasMetalHeatFluxMasked();
+
+    const scalar dt = mesh_.time().deltaTValue();
+    const dimensionedScalar laserEnergy =
+        fvc::domainIntegrate(metal*laserSource)*dt;
+    const dimensionedScalar phaseChangeEnergy =
+        fvc::domainIntegrate(metal*(Cl_*phaseChangeSource))*dt;
+    const dimensionedScalar couplingEnergyValue =
+        couplingEnergy(gasMetalHeatFluxMasked);
+
+    dimensionedScalar electronEnergyBefore("electronEnergyBefore", dimEnergy, 0.0);
+    dimensionedScalar latticeEnergyBefore("latticeEnergyBefore", dimEnergy, 0.0);
+
+    if (energyDiagnostics)
+    {
+        tmp<volScalarField> tCeInitial = electronHeatCapacity();
+        const volScalarField& CeInitial = tCeInitial();
+        electronEnergyBefore =
+            fvc::domainIntegrate(metal*(CeInitial*Te_));
+        latticeEnergyBefore =
+            fvc::domainIntegrate(metal*(Cl_*Tl_));
+    }
+
     const label nInnerSweeps =
         dict_.lookupOrDefault<label>("nInnerCouplingSweeps", 1);
     const scalar innerCouplingReductionTol =
@@ -639,72 +756,55 @@ void twoTemperatureModel::solve
                 -GREAT
             )
         );
-    dimensionedScalar electronEnergyBefore("electronEnergyBefore", dimEnergy, 0.0);
-    dimensionedScalar latticeEnergyBefore("latticeEnergyBefore", dimEnergy, 0.0);
-    dimensionedScalar laserEnergy = fvc::domainIntegrate(metal*laserSource)*mesh_.time().deltaT();
-    dimensionedScalar phaseChangeEnergy = fvc::domainIntegrate(metal*(Cl_*phaseChangeSource))*mesh_.time().deltaT();
-    dimensionedScalar couplingEnergy = fvc::domainIntegrate(gasMetalHeatFluxMasked)*mesh_.time().deltaT();
-    if (verbose)
-    {
-        tmp<volScalarField> tCeInitial = electronHeatCapacity();
-        const volScalarField& CeInitial = tCeInitial();
-        electronEnergyBefore =
-            fvc::domainIntegrate(metal*CeInitial*Te_);
-        latticeEnergyBefore =
-            fvc::domainIntegrate(metal*Cl_*Tl_);
-        Info<< "max(laserSource) = " << max(laserSource).value()
-            << ", max(Tl_) = " << max(Tl_).value() << endl;
-    }
-    scalar relaxFactor = 0.3;// Apply strong under-relaxation for stability
-    // First solve lattice temperature - more stable to do this first
-    // Create a more stable matrix system for the lattice temperature
-    const volScalarField& TlOld = Tl_.oldTime();
+
     if (verbose)
     {
         Info<< "  gasMetalHeatFlux range entering TTM solve (masked): ["
             << gMin(gasMetalHeatFluxMasked) << ", "
-            << gMax(gasMetalHeatFluxMasked) << "] W/m³" << endl;
+            << gMax(gasMetalHeatFluxMasked) << " ] W/m³" << endl;
     }
+
+    scalar relaxFactor = 0.3;
+    const volScalarField& TlOld = Tl_.oldTime();
     scalar prevResidual = gMax(mag(Te_ - Tl_)().internalField());
+
     for (label sweep = 0; sweep < nInnerSweeps; ++sweep)
     {
-        volScalarField ke = electronThermalConductivity();
-        volScalarField G = electronPhononCoupling();
+        tmp<volScalarField> tG = electronPhononCoupling();
+        const volScalarField& G = tG();
+
         tmp<volScalarField> tkl = kl();
         const volScalarField& klField = tkl();
-        fvScalarMatrix TlEqn
+
+        solveLatticeEquation
         (
-            fvm::ddt(metalEff*Cl_, Tl_)
-          - fvm::laplacian(metalEff*klField, Tl_)
-          + fvm::Sp(metalEff*G, Tl_)
-          + fvm::Sp(metalEff*Cl_*phaseChangeRelaxCoeff, Tl_)
-         ==
-            metal*
-            (
-                G*Te_
-              + Cl_*(phaseChangeSource + phaseChangeRelaxCoeff*TlOld)
-            )
-            + gasMetalHeatFluxMasked
+            metalEff,
+            G,
+            klField,
+            phaseChangeRelaxCoeff,
+            phaseChangeSource,
+            TlOld,
+            gasMetalHeatFluxMasked,
+            relaxFactor,
+            sweep
         );
-        // Under-relax the lattice equation for stability
-        TlEqn.relax(relaxFactor);
-        // Perform lattice temperature solve; any additional iterations are
-        // handled by the solver controls (maxIter, tolerance, etc.)
-        TlEqn.solve(mesh_.solver("Tl"));
-        guardTemperatureFields("TlEqn.solve", sweep);
+
+        tmp<volScalarField> tke = electronThermalConductivity();
+        const volScalarField& keField = tke();
+
         tmp<volScalarField> tCe = electronHeatCapacity();
         const volScalarField& Ce = tCe();
-        // Create a more stable matrix system for the electron temperature
-        fvScalarMatrix TeEqn
+
+        solveElectronEquation
         (
-            fvm::ddt(metalEff*Ce, Te_)
-          - fvm::laplacian(metalEff*ke, Te_)
-          + fvm::Sp(metalEff*G, Te_)
-         ==
-            metal*(laserSource + G*Tl_)
+            metalEff,
+            Ce,
+            keField,
+            G,
+            laserSource,
+            sweep
         );
-        TeEqn.solve(mesh_.solver("Te"));
-        guardTemperatureFields("TeEqn.solve", sweep);
+
         if (sweep + 1 < nInnerSweeps)
         {
             const scalar residual = gMax(mag(Te_ - Tl_)().internalField());
@@ -726,51 +826,27 @@ void twoTemperatureModel::solve
             prevResidual = residual;
         }
     }
-    if (verbose)
-    {
-        tmp<volScalarField> tCeAfter = electronHeatCapacity();
-        const volScalarField& CeAfter = tCeAfter();
-        dimensionedScalar electronEnergyAfter =
-            fvc::domainIntegrate(metal*CeAfter*Te_);
-        dimensionedScalar latticeEnergyAfter =
-            fvc::domainIntegrate(metal*Cl_*Tl_);
-        Info<< "Energy diagnostics:" << nl
-            << "  Metal electron energy before laser: "
-            << electronEnergyBefore.value() << " J" << nl
-            << "  Metal lattice energy before laser: "
-            << latticeEnergyBefore.value() << " J" << nl
-            << "  Laser energy input: "
-            << laserEnergy.value() << " J" << nl
-            << "  Phase-change energy input: "
-            << phaseChangeEnergy.value() << " J" << nl
-            << "  Gas-metal coupling energy input: "
-            << couplingEnergy.value() << " J" << nl            
-            << "  Metal electron energy after laser: "
-            << electronEnergyAfter.value() << " J" << nl
-            << "  Metal lattice energy after laser: "
-            << latticeEnergyAfter.value() << " J" << endl;
-    }
-    enforceTemperatureBounds();
-    dimensionedScalar totalEnergyInput =
-        laserEnergy + phaseChangeEnergy + couplingEnergy;
-    // Check energy conservation
+
+    clampTemperatureFields(activeMask, minTemp, maxTemp, ambient);
+
+    const dimensionedScalar totalEnergyInput =
+        laserEnergy + phaseChangeEnergy + couplingEnergyValue;
+
     if (!checkEnergyConservation(totalEnergyInput))
     {
         tmp<volScalarField> tCe = electronHeatCapacity();
         const volScalarField& CeField = tCe();
-        dimensionedScalar currentEnergy =
+        const dimensionedScalar currentEnergy =
             fvc::domainIntegrate(metal*(CeField*Te_ + Cl_*Tl_));
-        dimensionedScalar expectedEnergy =
+        const dimensionedScalar expectedEnergy =
             lastTotalEnergy_ + totalEnergyInput;
-        scalar energyError = mag
+        const scalar energyError = mag
         (
             (currentEnergy.value() - expectedEnergy.value())/
             (mag(expectedEnergy.value()) + SMALL)
         );
-        // Characteristic time-scales based on Ce/G and Cl/G
-        scalar dt = mesh_.time().deltaTValue();
-        scalar tauE = Ce_.value()/G_.value();
-        scalar tauL = Cl_.value()/G_.value();
+        const scalar tauE = Ce_.value()/G_.value();
+        const scalar tauL = Cl_.value()/G_.value();
         WarningInFunction
             << "Energy conservation violation detected" << nl
             << "Error = " << energyError * 100 << " %" << nl
@@ -788,46 +864,22 @@ void twoTemperatureModel::solve
             << "Suggested max deltaT: " << 0.2*Foam::min(tauE, tauL)
             << " s" << endl;
     }
-    updateEnergyTracking(); // Update energy tracking
-    // Diagnostics: track cumulative laser energy versus lattice/electron energy
-    if (verbose)
-    {
-        static dimensionedScalar cumulativeLaserEnergy
-        (
-            "cumulativeLaserEnergy",
-            dimEnergy,
-            0.0
-        );
-        dimensionedScalar laserEnergyThisStep =
-            fvc::domainIntegrate(metal*laserSource) * mesh_.time().deltaT();
-        cumulativeLaserEnergy += laserEnergyThisStep;
-        tmp<volScalarField> tCeDiag = electronHeatCapacity();
-        const volScalarField& CeDiag = tCeDiag();
-        dimensionedScalar electronEnergy =
-            fvc::domainIntegrate(metal*CeDiag*Te_);
-        dimensionedScalar latticeEnergy  =
-            fvc::domainIntegrate(metal*Cl_*Tl_);
-        Info<< "Energy diagnostics:" << nl
-            << "  Cumulative laser energy: "
-            << cumulativeLaserEnergy.value() << " J" << nl
-            << "  Metal electron energy: " << electronEnergy.value() << " J" << nl
-            << "  Metal lattice energy: " << latticeEnergy.value() << " J" << nl
-            << "  Total energy: "
-            << (electronEnergy + latticeEnergy).value() << " J" << endl;
-    }
-    // Report solution statistics with more detail
-    volScalarField tempDiff = mag(Te_ - Tl_);
 
-    if (verbose)
-    {
-        Info<< "Two-temperature solve:" << nl
-            << "  Te range: " << min(Te_).value() << " - " << max(Te_).value() << " K" << nl
-            << "  Tl range: " << min(Tl_).value() << " - " << max(Tl_).value() << " K" << nl
-            << "  Max temperature difference: " << max(tempDiff).value() << " K" << nl
-            << "  Mean Te: " << gAverage(Te_) << " K" << nl
-            << "  Mean Tl: " << gAverage(Tl_) << " K" << endl;
-    }
+    updateEnergyTracking();
+
+    writeEnergyDiagnostics
+    (
+        laserEnergy,
+        phaseChangeEnergy,
+        couplingEnergyValue,
+        electronEnergyBefore,
+        latticeEnergyBefore,
+        energyDiagnostics
+    );
+
+    writeSolveStatistics();
 }
+
 tmp<volScalarField> twoTemperatureModel::electronThermalConductivity() const
 {
     // Create temporary field for electron thermal conductivity
@@ -941,23 +993,20 @@ tmp<volScalarField> twoTemperatureModel::gasMetalExchangeCoeffField() const
         dict_.lookupOrDefault<scalar>("maxGasMetalExchangeCoeff", 1e18);
     const scalar minExchange =
         dict_.lookupOrDefault<scalar>("minGasMetalExchangeCoeff", 0.0);
-    scalarField& coeffInternal = coeff.primitiveFieldRef();
-    forAll(coeffInternal, cellI)
-    {
-        scalar& value = coeffInternal[cellI];
-        value = Foam::max(minExchange, Foam::min(value, maxExchange));
-    }
-    volScalarField::Boundary& coeffBoundary = coeff.boundaryFieldRef();
-    forAll(coeffBoundary, patchI)
-    {
-        scalarField& patchField = coeffBoundary[patchI];
-
-        forAll(patchField, faceI)
-        {
-            scalar& value = patchField[faceI];
-            value = Foam::max(minExchange, Foam::min(value, maxExchange));
-        }
-    }    
+    const dimensionedScalar minExchangeDim
+    (
+        "minGasMetalExchangeCoeff",
+        coeff.dimensions(),
+        minExchange
+    );
+    const dimensionedScalar maxExchangeDim
+    (
+        "maxGasMetalExchangeCoeff",
+        coeff.dimensions(),
+        maxExchange
+    );
+    coeff = Foam::max(Foam::min(coeff, maxExchangeDim), minExchangeDim);
+    coeff.correctBoundaryConditions();
     return tCoeff;
 }
 bool twoTemperatureModel::valid() const

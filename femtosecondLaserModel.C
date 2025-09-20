@@ -11,10 +11,7 @@
 #include "fvc.H"
 #include "fvm.H"
 #include "mathematicalConstants.H"
-#include "HashSet.H"
-#include "DynamicList.H"
 #include "treeBoundBox.H"
-#include "treeDataCell.H"
 
 #include <cmath>
 
@@ -395,17 +392,13 @@ void femtosecondLaserModel::finalizePulseEnergyCheck
 
     trackingPulse_ = false;
     pulseEnergyAccumulator_ = 0.0;
-    pulseExpectedAccumulator_ = 0.0;    
+    pulseExpectedAccumulator_ = 0.0;
     currentPulseStartTime_ = 0.0;
 }
-//------------------------------------------------------------------------------
-// source compute (with pulsed window + duty cycle + temporal Gaussian)
-//------------------------------------------------------------------------------
-void femtosecondLaserModel::calculateSource() const
-{
-    if (sourceValid_) return;
 
-    // Allocate/reset field
+//------------------------------------------------------------------------------
+volScalarField& femtosecondLaserModel::resetSourceField() const
+{
     if (!tSource_.valid())
     {
         tSource_.reset
@@ -425,59 +418,54 @@ void femtosecondLaserModel::calculateSource() const
             )
         );
     }
+
     volScalarField& source = tSource_.ref();
     source = dimensionedScalar("zero", source.dimensions(), 0.0);
+    return source;
+}
 
-    // Time bookkeeping
-    const scalar t = mesh_.time().value();
-    const dimensionedScalar dtDim = mesh_.time().deltaT();
-    const scalar dt = dtDim.value();
-    const scalar tStart = t - dt;
-    const label timeIndex = mesh_.time().timeIndex();
-    if (timeIndex < lastTimeIndex_)
+//------------------------------------------------------------------------------
+// Integrate a Gaussian pulse over [a, b] for energy bookkeeping
+//------------------------------------------------------------------------------
+scalar femtosecondLaserModel::gaussianWindowIntegral
+(
+    const scalar a,
+    const scalar b,
+    const scalar center,
+    const scalar sigma
+) const
+{
+    if (sigma <= VSMALL)
     {
-        cumulativeEnergy_ = 0.0;
-        cumulativeFilmEnergy_ = 0.0;
-        cumulativeGasEnergy_  = 0.0;
-        trackingPulse_ = false;
-        pulseEnergyAccumulator_ = 0.0;
-        pulseExpectedAccumulator_ = 0.0;
-        currentPulseStartTime_ = 0.0;
-        pulseCounter_ = 0;
-    }
-    lastTimeIndex_ = timeIndex;
-
-    const scalar overlapStart = max(tStart, laserStartTime_);
-    const scalar overlapEnd   = min(t, laserEndTime_);
-    const scalar overlapDuration = overlapEnd - overlapStart;
-
-    if (overlapDuration <= VSMALL)
-    {
-        finalizePulseEnergyCheck("inactive window", t);
-        sourceValid_ = true; // keep zero field
-        return;
+        return 0.0;
     }
 
-    scalar temporalIntegral = 0.0;
-    scalar expectedEnergyThisStep = 0.0;
+    const scalar invSqrt2Sigma = 1.0/(sqrt(2.0)*sigma);
+    const scalar prefactor = sigma*sqrt(constant::mathematical::pi/2.0);
 
-    const auto gaussianIntegral =
-        [](const scalar a, const scalar b, const scalar center, const scalar sigma)
-        {
-            const scalar invSqrt2Sigma = 1.0/(sqrt(2.0)*sigma);
-            const scalar prefactor = sigma*sqrt(constant::mathematical::pi/2.0);
-            return prefactor
-                * (std::erf((b - center)*invSqrt2Sigma)
-                 - std::erf((a - center)*invSqrt2Sigma));
-        };
+    return prefactor
+        * (std::erf((b - center)*invSqrt2Sigma)
+         - std::erf((a - center)*invSqrt2Sigma));
+}
+
+//------------------------------------------------------------------------------
+femtosecondLaserModel::EnvelopeResult
+femtosecondLaserModel::evaluateTemporalEnvelope
+(
+    const scalar overlapStart,
+    const scalar overlapEnd,
+    const scalar dt
+) const
+{
+    EnvelopeResult result;
 
     if (continuousLaser_)
     {
-        temporalIntegral = overlapDuration;
+        result.temporalIntegral = overlapEnd - overlapStart;
     }
     else if (pulseFrequency_ > SMALL)
     {
-        // Repeated fs pulses with a Gaussian inside each ON-window
+
         const scalar period   = 1.0/pulseFrequency_;
         const scalar onTime   = max(SMALL, pulseDutyCycle_*period);
         const scalar sigma    = pulseWidth_.value()/(2.0*sqrt(2.0*log(2.0)));
@@ -489,7 +477,7 @@ void femtosecondLaserModel::calculateSource() const
         {
             periodIndex = static_cast<label>(std::floor(localStart/period));
         }
-
+        // Normalised single-pulse integral used for energy expectations
         const scalar fullPulseIntegral =
             max
             (
@@ -506,6 +494,7 @@ void femtosecondLaserModel::calculateSource() const
         )
         {
             const scalar windowEnd = windowStart + onTime;
+            
             if (windowEnd <= localStart)
             {
                 continue;
@@ -524,18 +513,20 @@ void femtosecondLaserModel::calculateSource() const
             }
 
             const scalar center = windowStart + 0.5*onTime;
-            const scalar integral = gaussianIntegral(clipStart, clipEnd, center, sigma);
+            const scalar integral =
+                gaussianWindowIntegral(clipStart, clipEnd, center, sigma);
 
             if (integral > VSMALL)
             {
-                temporalIntegral += integral;
+                result.temporalIntegral += integral;
             }
         }
 
-        if (temporalIntegral > VSMALL)
+        if (result.temporalIntegral > VSMALL)
         {
-            expectedEnergyThisStep =
-                pulseEnergy_.value()*temporalIntegral/max(fullPulseIntegral, VSMALL);
+            result.expectedEnergy =
+                pulseEnergy_.value()
+              * result.temporalIntegral/max(fullPulseIntegral, VSMALL);
         }
     }
     else
@@ -544,33 +535,42 @@ void femtosecondLaserModel::calculateSource() const
         const scalar sigma  = pulseWidth_.value()/(2.0*sqrt(2.0*log(2.0)));
         const scalar center = 0.5*(laserStartTime_ + laserEndTime_);
 
-        temporalIntegral = gaussianIntegral(overlapStart, overlapEnd, center, sigma);
+        result.temporalIntegral =
+            gaussianWindowIntegral(overlapStart, overlapEnd, center, sigma);
 
-        if (temporalIntegral > VSMALL)
+        if (result.temporalIntegral > VSMALL)
         {
             const scalar fullIntegral = sigma*sqrt(2.0*constant::mathematical::pi);
-            expectedEnergyThisStep =
-                pulseEnergy_.value()*temporalIntegral/max(fullIntegral, VSMALL);
+            result.expectedEnergy =
+                pulseEnergy_.value()
+              * result.temporalIntegral/max(fullIntegral, VSMALL);
         }
     }
 
-    const bool laserActive = temporalIntegral > VSMALL;
+    result.active = result.temporalIntegral > VSMALL;
 
-    scalar temporalAverage = 0.0;
-    if (laserActive)
+    if (result.active)
     {
-        temporalAverage = temporalIntegral/max(dt, VSMALL);
-        temporalAverage = min(scalar(1.0), max(temporalAverage, scalar(0.0)));
+        result.temporalAverage = result.temporalIntegral/max(dt, VSMALL);
+        result.temporalAverage =
+            min(scalar(1.0), max(result.temporalAverage, scalar(0.0)));
     }
 
-    // Negligible envelope → skip work this step
-    if (!laserActive || temporalAverage <= VSMALL)
-    {
-        finalizePulseEnergyCheck("pulse window complete", t);
-        sourceValid_ = true;
-        return;
-    }
-    // --- Apply laser heating over cells ---
+    return result;
+}
+
+//------------------------------------------------------------------------------
+femtosecondLaserModel::SpatialMetrics
+femtosecondLaserModel::applySpatialWeighting
+(
+    volScalarField& source,
+    const scalar temporalAverage
+) const
+{
+    SpatialMetrics metrics;
+    metrics.maxSourceCap = maxVolumetricSource_.value();
+    metrics.limitSource = metrics.maxSourceCap > SMALL;
+
     const scalar beamRadius = spotSize_.value()/2.0;
     const scalar radialHalfWidth = 3.0*beamRadius; // ~3-sigma laterally
 
@@ -594,65 +594,33 @@ void femtosecondLaserModel::calculateSource() const
 
     const treeBoundBox searchBox(focus_ - halfWidths, focus_ + halfWidths);
 
-    labelList treeCandidates = mesh_.cellTree().findBox(searchBox);
-
-    DynamicList<label> candidateCells;
-    candidateCells.reserve(treeCandidates.size());
-
-    forAll(treeCandidates, idx)
-    {
-        const label cellI = treeCandidates[idx];
-        const point& c = mesh_.C()[cellI];
-
-        if (searchBox.contains(c))
-        {
-            candidateCells.append(cellI);
-        }
-    }
-
-    if (candidateCells.empty())
-    {
-        forAll(mesh_.C(), cellI)
-        {
-            const point& c = mesh_.C()[cellI];
-
-            if (searchBox.contains(c))
-            {
-                candidateCells.append(cellI);
-            }
-        }
-    }
-
-    candidateCells.shrink();
-
-    label cellsInBeam = 0, cellsInFilm = 0, cellsInGas = 0;
-    scalar maxSourceValue = 0.0;
-    scalar totalSourceIntegral = 0.0;
-    scalar totalBeamVolume = 0.0;
-    scalar totalFilmSourceIntegral = 0.0;
-    scalar totalGasSourceIntegral  = 0.0;
-    label limitedCells = 0;
-
-    const scalar maxSourceCap = maxVolumetricSource_.value();
-    const bool limitLaserSource = maxSourceCap > SMALL;
     if (transmission_ >= 0)
     {
         WarningInFunction
             << "transmission overrides reflectivity" << endl;
     }
 
-    forAll(candidateCells, candidateI)
+    forAll(mesh_.C(), cellI)
     {
-        const label cellI = candidateCells[candidateI];
         const point& c = mesh_.C()[cellI];
 
-        const bool inFilm = (c.y() >= filmYMin_ && c.y() <= filmYMax_);
-        if (!isInBeam(c)) continue;
-        if (inFilm) ++cellsInFilm;
-        else        ++cellsInGas;
+        if (!searchBox.contains(c))
+        {
+            continue;
+        }
 
-        ++cellsInBeam;
-        totalBeamVolume += mesh_.V()[cellI];
+        const bool inFilm = (c.y() >= filmYMin_ && c.y() <= filmYMax_);
+
+        if (!isInBeam(c))
+        {
+            continue;
+        }
+
+        if (inFilm) ++metrics.cellsInFilm;
+        else        ++metrics.cellsInGas;
+
+        ++metrics.cellsInBeam;
+        metrics.totalBeamVolume += mesh_.V()[cellI];
 
         vector r = c - focus_;
         scalar z = (r & direction_);
@@ -670,7 +638,10 @@ void femtosecondLaserModel::calculateSource() const
           : 1.0;
 
         scalar transmissionFactor = 1.0 - reflectivity_;
-        if (transmission_ >= 0) transmissionFactor = transmission_;
+        if (transmission_ >= 0)
+        {
+            transmissionFactor = transmission_;
+        }
         else if (incidenceAngle_ > VSMALL)
         {
             const scalar n1 = 1.0;
@@ -706,45 +677,137 @@ void femtosecondLaserModel::calculateSource() const
         {
             scalar limitedValue = volIntensity;
 
-            if (limitLaserSource && limitedValue > maxSourceCap)
+            if (metrics.limitSource && limitedValue > metrics.maxSourceCap)
             {
-                limitedValue = maxSourceCap;
-                ++limitedCells;
+                limitedValue = metrics.maxSourceCap;
+                ++metrics.limitedCells;
             }
 
             limitedValue = Foam::max(limitedValue, scalar(0));
 
             source[cellI] = limitedValue;
 
-
             const scalar cellPower = source[cellI] * mesh_.V()[cellI];
 
-            maxSourceValue       = max(maxSourceValue, source[cellI]);
-            totalSourceIntegral += cellPower;
+            metrics.maxSourceValue =
+                max(metrics.maxSourceValue, source[cellI]);
+            metrics.totalSourceIntegral += cellPower;
 
-            if (inFilm) totalFilmSourceIntegral += cellPower;
-            else        totalGasSourceIntegral  += cellPower;
+            if (inFilm) metrics.totalFilmSourceIntegral += cellPower;
+            else        metrics.totalGasSourceIntegral  += cellPower;
         }
     }
 
-    // parallel reductions
-    reduce(cellsInBeam, sumOp<label>());
-    reduce(cellsInFilm, sumOp<label>());
-    reduce(cellsInGas,  sumOp<label>());
-    reduce(maxSourceValue, maxOp<scalar>());
-    reduce(totalSourceIntegral, sumOp<scalar>());
-    reduce(totalBeamVolume, sumOp<scalar>());
-    reduce(totalFilmSourceIntegral, sumOp<scalar>());
-    reduce(totalGasSourceIntegral, sumOp<scalar>());
-    reduce(limitedCells, sumOp<label>());
+    reduce(metrics.cellsInBeam, sumOp<label>());
+    reduce(metrics.cellsInFilm, sumOp<label>());
+    reduce(metrics.cellsInGas,  sumOp<label>());
+    reduce(metrics.maxSourceValue, maxOp<scalar>());
+    reduce(metrics.totalSourceIntegral, sumOp<scalar>());
+    reduce(metrics.totalBeamVolume, sumOp<scalar>());
+    reduce(metrics.totalFilmSourceIntegral, sumOp<scalar>());
+    reduce(metrics.totalGasSourceIntegral, sumOp<scalar>());
+    reduce(metrics.limitedCells, sumOp<label>());
 
-    if (limitLaserSource && limitedCells > 0 && verbose)
+    return metrics;
+}
+
+//------------------------------------------------------------------------------
+void femtosecondLaserModel::emitDiagnostics
+(
+    const EnvelopeResult& envelope,
+    const SpatialMetrics& metrics,
+    const dimensionedScalar& dtDim,
+    const dimensionedScalar& energyThisStep,
+    const scalar filmEnergyThisStep,
+    const scalar gasEnergyThisStep,
+    const scalar currentTime,
+    const label timeIndex,
+    const bool laserActive
+) const
+{
+    if (!verbose)
     {
-        Info<< "Laser source limited to " << maxSourceCap
-            << " W/m^3 in " << limitedCells << " cells" << endl;
+        return;
     }
+
+    if (metrics.limitSource && metrics.limitedCells > 0)
+    {
+        Info<< "Laser source limited to " << metrics.maxSourceCap
+            << " W/m^3 in " << metrics.limitedCells << " cells" << endl;
+    }
+
     const scalar avgIntensityInBeam =
-        (totalBeamVolume > 0) ? totalSourceIntegral/totalBeamVolume : 0.0;
+        (metrics.totalBeamVolume > 0)
+      ? metrics.totalSourceIntegral/metrics.totalBeamVolume
+      : 0.0;
+
+    Info<< "LASER DIAGNOSTICS:" << nl
+        << "  Input peak intensity: " << peakIntensity_.value() << " W/m^2" << nl
+        << "  Average volumetric intensity in beam: " << avgIntensityInBeam << " W/m^3" << nl
+        << "  Absorption coefficient (film): " << absorptionCoeff_.value() << " 1/m" << nl
+        << "  Absorption coefficient (gas):  " << gasAbsorptionCoeff_.value() << " 1/m" << nl
+        << "  Spot radius: " << spotSize_.value()/2.0*1e6 << " µm" << nl
+        << "  Beam area: "
+        << constant::mathematical::pi*sqr(spotSize_.value()/2.0)*1e12
+        << " µm^2" << endl;
+
+    if (laserActive && (timeIndex % 10 == 0))
+    {
+        const scalar dt = dtDim.value();
+
+        Info<< "LASER ENERGY DEPOSITION:" << nl
+            << "  Time: " << currentTime*1e12 << " ps" << nl
+            << "  Temporal factor: " << envelope.temporalAverage << nl
+            << "  Cells in beam: " << metrics.cellsInBeam << nl
+            << "  Cells in metal film: " << metrics.cellsInFilm << nl
+            << "  Cells in gas: " << metrics.cellsInGas << nl
+            << "  Max intensity: " << metrics.maxSourceValue/1e12 << " TW/m^3" << nl
+            << "  Total power: " << metrics.totalSourceIntegral/1e12 << " TW" << nl
+            << "    Film power: " << metrics.totalFilmSourceIntegral/1e12 << " TW" << nl
+            << "    Gas power:  " << metrics.totalGasSourceIntegral/1e12 << " TW" << nl
+            << "  dt: " << dt << " s" << nl
+            << "  Energy this step: " << energyThisStep.value() << " J" << nl
+            << "    Film energy this step: " << filmEnergyThisStep << " J" << nl
+            << "    Gas energy this step:  " << gasEnergyThisStep  << " J" << nl
+            << "  Cumulative energy: " << cumulativeEnergy_ << " J" << nl
+            << "    Cumulative film: " << cumulativeFilmEnergy_ << " J" << nl
+            << "    Cumulative gas:  " << cumulativeGasEnergy_  << " J" << endl;
+
+        if (metrics.cellsInBeam == 0)
+        {
+            WarningInFunction
+                << "No cells in laser beam!"
+                << " Focus: " << focus_
+                << " Bounds: " << mesh_.bounds() << endl;
+        }
+        if (metrics.cellsInFilm == 0 && metrics.cellsInBeam > 0)
+        {
+            WarningInFunction
+                << "Beam hits " << metrics.cellsInBeam
+                << " cells but none in metal film region" << endl;
+        }
+        else if (metrics.cellsInGas > 0 && gasAbsorptionCoeff_.value() <= VSMALL)
+        {
+            Info<< "    Gas absorption disabled (gasAbsorptionCoeff ≈ 0);"
+                << " no direct heating deposited off-film." << endl;
+        }
+    }
+}
+
+//------------------------------------------------------------------------------
+void femtosecondLaserModel::updateEnergyTracking
+(
+    const volScalarField& source,
+    const dimensionedScalar& dtDim,
+    const EnvelopeResult& envelope,
+    const SpatialMetrics& metrics,
+    const scalar overlapStart,
+    const scalar currentTime,
+    const bool laserActive,
+    const label timeIndex
+) const
+{
+    const scalar dt = dtDim.value();
 
     const dimensionedScalar energyThisStep =
         fvc::domainIntegrate(source * dtDim);
@@ -764,11 +827,12 @@ void femtosecondLaserModel::calculateSource() const
             }
 
             pulseEnergyAccumulator_ += stepEnergy;
-            pulseExpectedAccumulator_ += expectedEnergyThisStep;
+            pulseExpectedAccumulator_ += envelope.expectedEnergy;
         }
     }
-    const scalar filmEnergyThisStep = totalFilmSourceIntegral * dt;
-    const scalar gasEnergyThisStep  = totalGasSourceIntegral  * dt;
+
+    const scalar filmEnergyThisStep = metrics.totalFilmSourceIntegral * dt;
+    const scalar gasEnergyThisStep  = metrics.totalGasSourceIntegral  * dt;
 
     cumulativeFilmEnergy_ += filmEnergyThisStep;
     cumulativeGasEnergy_  += gasEnergyThisStep;
@@ -780,58 +844,83 @@ void femtosecondLaserModel::calculateSource() const
             << " (E=" << energyThisStep.value() << " J)" << endl;
     }
 
-    if (verbose)
+    emitDiagnostics
+    (
+        envelope,
+        metrics,
+        dtDim,
+        energyThisStep,
+        filmEnergyThisStep,
+        gasEnergyThisStep,
+        currentTime,
+        timeIndex,
+        laserActive
+    );
+}
+//------------------------------------------------------------------------------
+// source compute (temporal envelope + spatial weighting)
+//------------------------------------------------------------------------------
+void femtosecondLaserModel::calculateSource() const
+{
+    if (sourceValid_)
     {
-        Info<< "LASER DIAGNOSTICS:" << nl
-            << "  Input peak intensity: " << peakIntensity_.value() << " W/m^2" << nl
-            << "  Average volumetric intensity in beam: " << avgIntensityInBeam << " W/m^3" << nl
-            << "  Absorption coefficient (film): " << absorptionCoeff_.value() << " 1/m" << nl
-            << "  Absorption coefficient (gas):  " << gasAbsorptionCoeff_.value() << " 1/m" << nl
-            << "  Spot radius: " << spotSize_.value()/2.0*1e6 << " µm" << nl
-            << "  Beam area: "
-            << constant::mathematical::pi*sqr(spotSize_.value()/2.0)*1e12
-            << " µm^2" << endl;
-
-        if (laserActive && (timeIndex % 10 == 0))
-        {
-            Info<< "LASER ENERGY DEPOSITION:" << nl
-                << "  Time: " << t*1e12 << " ps" << nl
-                << "  Temporal factor: " << temporalAverage << nl
-                << "  Cells in beam: " << cellsInBeam << nl
-                << "  Cells in metal film: " << cellsInFilm << nl
-                << "  Cells in gas: " << cellsInGas << nl
-                << "  Max intensity: " << maxSourceValue/1e12 << " TW/m^3" << nl
-                << "  Total power: " << totalSourceIntegral/1e12 << " TW" << nl
-                << "    Film power: " << totalFilmSourceIntegral/1e12 << " TW" << nl
-                << "    Gas power:  " << totalGasSourceIntegral/1e12 << " TW" << nl
-                << "  dt: " << dt << " s" << nl
-                << "  Energy this step: " << energyThisStep.value() << " J" << nl
-                << "    Film energy this step: " << filmEnergyThisStep << " J" << nl
-                << "    Gas energy this step:  " << gasEnergyThisStep  << " J" << nl
-                << "  Cumulative energy: " << cumulativeEnergy_ << " J" << nl
-                << "    Cumulative film: " << cumulativeFilmEnergy_ << " J" << nl
-                << "    Cumulative gas:  " << cumulativeGasEnergy_  << " J" << endl;
-
-            if (cellsInBeam == 0)
-            {
-                WarningInFunction
-                    << "No cells in laser beam!"
-                    << " Focus: " << focus_
-                    << " Bounds: " << mesh_.bounds() << endl;
-            }
-            if (cellsInFilm == 0 && cellsInBeam > 0)
-            {
-                WarningInFunction
-                    << "Beam hits " << cellsInBeam
-                    << " cells but none in metal film region" << endl;
-            }
-            else if (cellsInGas > 0 && gasAbsorptionCoeff_.value() <= VSMALL)
-            {
-                Info<< "    Gas absorption disabled (gasAbsorptionCoeff ≈ 0);"
-                    << " no direct heating deposited off-film." << endl;
-            }            
-        }
+        return;
     }
+
+    volScalarField& source = resetSourceField();
+
+    const scalar t = mesh_.time().value();
+    const dimensionedScalar dtDim = mesh_.time().deltaT();
+    const scalar dt = dtDim.value();
+    const scalar tStart = t - dt;
+    const label timeIndex = mesh_.time().timeIndex();
+
+    if (timeIndex < lastTimeIndex_)
+    {
+        cumulativeEnergy_ = 0.0;
+        cumulativeFilmEnergy_ = 0.0;
+        cumulativeGasEnergy_  = 0.0;
+        trackingPulse_ = false;
+        pulseEnergyAccumulator_ = 0.0;
+        pulseExpectedAccumulator_ = 0.0;
+        currentPulseStartTime_ = 0.0;
+        pulseCounter_ = 0;
+    }
+    lastTimeIndex_ = timeIndex;
+
+    const scalar overlapStart = max(tStart, laserStartTime_);
+    const scalar overlapEnd   = min(t, laserEndTime_);
+
+    if ((overlapEnd - overlapStart) <= VSMALL)
+    {
+        finalizePulseEnergyCheck("inactive window", t);
+        sourceValid_ = true;
+        return;
+    }
+
+    const EnvelopeResult envelope =
+        evaluateTemporalEnvelope(overlapStart, overlapEnd, dt);
+
+    if (!envelope.active || envelope.temporalAverage <= VSMALL)
+    {
+        finalizePulseEnergyCheck("pulse window complete", t);
+        sourceValid_ = true;
+        return;
+    }
+
+    SpatialMetrics metrics = applySpatialWeighting(source, envelope.temporalAverage);
+
+    updateEnergyTracking
+    (
+        source,
+        dtDim,
+        envelope,
+        metrics,
+        overlapStart,
+        t,
+        envelope.active,
+        timeIndex
+    );
 
     sourceValid_ = true;
 }
