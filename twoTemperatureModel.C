@@ -110,7 +110,8 @@ twoTemperatureModel::twoTemperatureModel
         dimEnergy,
         0.0
     ),
-    energyInitialized_(false)
+    energyInitialized_(false),
+    lastElectronSubCycles_(1)
 {
 if (dict.found("Ce"))
     {
@@ -634,7 +635,82 @@ void twoTemperatureModel::updateEnergyTracking
     energyInitialized_ = true;
 }
 
+label twoTemperatureModel::electronSubCycleCount
+(
+    const dimensionedScalar& dt
+) const
+{
+    label planned = dict_.lookupOrDefault<label>("electronSubCycles", 1);
 
+    const scalar dtValue = Foam::max(dt.value(), VSMALL);
+
+    if (dict_.found("maxElectronDeltaT"))
+    {
+        scalar maxElectronDt = dtValue;
+
+        if (dict_.isDict("maxElectronDeltaT"))
+        {
+            maxElectronDt =
+                dict_.lookupOrDefault<dimensionedScalar>
+                (
+                    "maxElectronDeltaT",
+                    dimensionedScalar
+                    (
+                        "maxElectronDeltaT",
+                        dimTime,
+                        dtValue
+                    )
+                ).value();
+        }
+        else
+        {
+            maxElectronDt =
+                dict_.lookupOrDefault<scalar>("maxElectronDeltaT", dtValue);
+        }
+
+        if (maxElectronDt > SMALL)
+        {
+            const scalar ratio = dtValue/maxElectronDt;
+            planned = Foam::max
+            (
+                planned,
+                label(std::ceil(ratio))
+            );
+        }
+    }
+
+    const label minCycles =
+        dict_.lookupOrDefault<label>("minElectronSubCycles", 1);
+    planned = Foam::max(planned, Foam::max(minCycles, label(1)));
+
+    const label maxCycles =
+        dict_.lookupOrDefault<label>("maxElectronSubCycles", 0);
+
+    if (maxCycles > 0)
+    {
+        planned = Foam::min(planned, maxCycles);
+    }
+
+    return Foam::max(planned, label(1));
+}
+
+label twoTemperatureModel::activeElectronSubCycles
+(
+    const dimensionedScalar& dt
+)
+{
+    const label planned = electronSubCycleCount(dt);
+    lastElectronSubCycles_ = planned;
+    return planned;
+}
+
+label twoTemperatureModel::plannedElectronSubCycles
+(
+    const dimensionedScalar& dt
+) const
+{
+    return electronSubCycleCount(dt);
+}
 void twoTemperatureModel::solve
 (
     const volScalarField& laserSource,
@@ -725,6 +801,9 @@ void twoTemperatureModel::solve
     const volScalarField& gasMetalHeatFluxMasked = tGasMetalHeatFluxMasked();
 
     const dimensionedScalar dtDim = mesh_.time().deltaT();
+    // Cache the micro-step count for diagnostics; callers can query the
+    // const plannedElectronSubCycles() helper without altering this record.
+    activeElectronSubCycles(dtDim);    
     const dimensionedScalar laserEnergy =
         fvc::domainIntegrate(metalEff*laserSource)*dtDim;
     const dimensionedScalar phaseChangeEnergy =

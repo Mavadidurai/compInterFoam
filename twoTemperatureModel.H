@@ -82,6 +82,8 @@ private:
         //- Energy Conservation Tracking
         mutable dimensionedScalar lastTotalEnergy_;  //- Previous total energy [J]
         mutable bool energyInitialized_;             //- Energy tracking flag
+        //- Number of electron micro-steps executed in the previous solve
+        label lastElectronSubCycles_;        
     // Private Member Functions
         //- Validate model parameters and dimensions
         bool validateParameters() const;
@@ -167,6 +169,10 @@ private:
         void updateEnergyTracking() const;
         //- Update energy tracking with externally computed energy
         void updateEnergyTracking(const dimensionedScalar& currentEnergy) const;
+        //- Determine the electron micro-step plan for a provided time-step
+        label electronSubCycleCount(const dimensionedScalar& dt) const;
+        //- Apply the micro-step plan and record diagnostics
+        label activeElectronSubCycles(const dimensionedScalar& dt);        
 public:
     // Constructors
         //- Construct from mesh and dictionary
@@ -222,6 +228,10 @@ public:
         const dimensionedScalar& G() const { return G_; }
         //- Return electron thermal diffusivity (uniform unless overridden)
         const dimensionedScalar& De() const { return De_; }
+        //- Return the executed electron micro-steps from the previous solve
+        label lastElectronSubCycles() const { return lastElectronSubCycles_; }
+        //- Planned electron micro-steps for a supplied global time-step
+        label plannedElectronSubCycles(const dimensionedScalar& dt) const;        
 };
 } // End namespace Foam
 #endif

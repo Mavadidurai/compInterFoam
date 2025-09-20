@@ -3,11 +3,17 @@ alpha1.correctBoundaryConditions();
 alpha2 = scalar(1) - alpha1;
 alpha2.correctBoundaryConditions();
 
+const label electronSubCyclesForAlpha =
+    // Use the const helper so we base the guard on the pending global step
+    ttm.plannedElectronSubCycles(runTime.deltaT());
+const label nAlphaSubCyclesForStep =
+    Foam::max(nAlphaSubCycles, electronSubCyclesForAlpha);
+
 if (useAdvancedCapturing && pInterfaceCapturing.valid())
 {
     tmp<surfaceScalarField> talphaPhi1(alphaPhi10);
 
-    if (nAlphaSubCycles > 1)
+    if (nAlphaSubCyclesForStep > 1)
     {
         const dimensionedScalar totalDeltaT(runTime.deltaT());
 
@@ -44,7 +50,7 @@ if (useAdvancedCapturing && pInterfaceCapturing.valid())
 
         for
         (
-            subCycle<volScalarField> alphaSubCycle(alpha1, nAlphaSubCycles);
+            subCycle<volScalarField> alphaSubCycle(alpha1, nAlphaSubCyclesForStep);
             !(++alphaSubCycle).end();
         )
         {
@@ -89,7 +95,7 @@ if (useAdvancedCapturing && pInterfaceCapturing.valid())
 
     rho = alpha1*rho1 + alpha2*rho2;
 
-    if (nAlphaSubCycles <= 1)
+    if (nAlphaSubCyclesForStep <= 1)
     {
         tmp<surfaceScalarField> trho1 = fvc::interpolate(rho1);
         tmp<surfaceScalarField> trho2 = fvc::interpolate(rho2);
@@ -108,7 +114,7 @@ else
 {
     tmp<surfaceScalarField> talphaPhi1(alphaPhi10);
 
-    if (nAlphaSubCycles > 1)
+    if (nAlphaSubCyclesForStep > 1)
     {
         const dimensionedScalar totalDeltaT(runTime.deltaT());
 
@@ -145,7 +151,7 @@ else
 
         for
         (
-            subCycle<volScalarField> alphaSubCycle(alpha1, nAlphaSubCycles);
+            subCycle<volScalarField> alphaSubCycle(alpha1, nAlphaSubCyclesForStep);
             !(++alphaSubCycle).end();
         )
         {
