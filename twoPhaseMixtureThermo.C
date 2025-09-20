@@ -332,6 +332,40 @@ void Foam::twoPhaseMixtureThermo::computePhaseChange()
         }
     }
     const bool limitSource = (maxSource > 0 && maxSource < GREAT);
+    scalar metalCutoff = -1.0;
+    if (pc.found("phaseChangeMetalCutoff"))
+    {
+        metalCutoff = pc.lookupOrDefault<scalar>("phaseChangeMetalCutoff", metalCutoff);
+    }
+    else if (transportDict.found("phaseChangeMetalCutoff"))
+    {
+        metalCutoff = transportDict.lookupOrDefault<scalar>
+        (
+            "phaseChangeMetalCutoff",
+            metalCutoff
+        );
+    }
+    if (metalCutoff < 0)
+    {
+        const Time& time = T_.mesh().time();
+        if (time.controlDict().found("twoTemperatureProperties"))
+        {
+            const dictionary& twoTempDict =
+                time.controlDict().subDict("twoTemperatureProperties");
+            const scalar metalFloor =
+                twoTempDict.lookupOrDefault<scalar>("metalFractionFloor", 1e-6);
+            metalCutoff = twoTempDict.lookupOrDefault<scalar>
+            (
+                "metalFractionCutoff",
+                metalFloor
+            );
+        }
+        else
+        {
+            metalCutoff = 1e-6;
+        }
+    }
+    metalCutoff = Foam::max(metalCutoff, 0.0);    
     const Switch onlyAboveVapor
     (
         pc.lookupOrDefault<Switch>("onlyAboveVapor", false)
@@ -353,6 +387,7 @@ void Foam::twoPhaseMixtureThermo::computePhaseChange()
             << "    relaxationTime "
             << (relaxationRate > SMALL ? 1.0/relaxationRate : GREAT) << nl
             << "    maxSource     " << maxSource << nl
+            << "    metalCutoff   " << metalCutoff << nl            
             << "    onlyAboveVapor " << onlyAboveVapor << nl;
         if (actTimes.size())
         {
@@ -398,14 +433,18 @@ void Foam::twoPhaseMixtureThermo::computePhaseChange()
     {
         const scalar a1 = Foam::min(Foam::max(alpha1()[cellI], minAlpha), maxAlpha);
         const scalar Tcell = T_[cellI];
+        const bool metalActive = (a1 > metalCutoff);
         scalar available = 0.0;
-        if (Tcell > Tvapor)
+        if (metalActive)
         {
-            available = a1;
-        }
-        else if (Tcell < Tvapor)
-        {
-            available = 1.0 - a1;
+            if (Tcell > Tvapor)
+            {
+                available = a1;
+            }
+            else if (Tcell < Tvapor)
+            {
+                available = 1.0 - a1;
+            }
         }
         scalar localRate = relaxationRate*available;
         if (windowWidth > SMALL)
@@ -431,6 +470,11 @@ void Foam::twoPhaseMixtureThermo::computePhaseChange()
             localRate = 0.0;
             sourceVal = 0.0;
         }
+        if (!metalActive)
+        {
+            localRate = 0.0;
+            sourceVal = 0.0;
+        }        
         phaseChangeRelaxCoeff_[cellI] = localRate;
         phaseChangeSource_[cellI] = sourceVal;
     }
@@ -536,8 +580,14 @@ Foam::twoPhaseMixtureThermo::computeMassTransfer() const
     const scalar rho1Min = Foam::max(1e-6*rho1Ref, SMALL);
     forAll(dgdt, cellI)
     {
+        const scalar source = phaseChangeSource_[cellI];
+        if (Foam::mag(source) <= SMALL)
+        {
+            dgdt[cellI] = 0.0;
+            continue;
+        }
         scalar localRate =
-            -(ClVal*phaseChangeSource_[cellI])
+            -(ClVal*source)
             /(LVal*max(rho1Field[cellI], rho1Min));
         if (rateMax > 0)
         {
