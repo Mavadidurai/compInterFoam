@@ -2,6 +2,7 @@ extern Foam::Switch verbose;
 verbose = runTime.controlDict().lookupOrDefault<Foam::Switch>("verbose", false);
 bool LTS = fv::localEulerDdt::enabled(mesh);
 tmp<volScalarField> trDeltaT;
+tmp<volScalarField> trSubDeltaT;
 if (LTS)
 {
     if (verbose)
@@ -25,6 +26,24 @@ if (LTS)
             extrapolatedCalculatedFvPatchScalarField::typeName
         )
     );
+    trSubDeltaT = tmp<volScalarField>
+    (
+        new volScalarField
+        (
+            IOobject
+            (
+                fv::localEulerDdt::rSubDeltaTName,
+                runTime.timeName(),
+                mesh,
+                IOobject::READ_IF_PRESENT,
+                IOobject::AUTO_WRITE
+            ),
+            mesh,
+            dimensionedScalar(dimless/dimTime, 1),
+            extrapolatedCalculatedFvPatchScalarField::typeName
+        )
+    );
+    
 }
 
 if (verbose)

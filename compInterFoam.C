@@ -152,9 +152,10 @@ int main(int argc, char *argv[])
         {
             // Traditional inline LTS implementation
             volScalarField& rDeltaT = trDeltaT.ref();
-            
+            volScalarField& rSubDeltaT = trSubDeltaT.ref();
+
             const dictionary& pimpleDict = mesh.solutionDict().subDict("PIMPLE");
-            
+
             scalar maxCo = pimpleDict.getOrDefault<scalar>("maxCo", 0.9);
             scalar maxAlphaCo = pimpleDict.getOrDefault<scalar>("maxAlphaCo", 0.2);
             
@@ -179,8 +180,10 @@ int main(int argc, char *argv[])
                    /((2*maxAlphaCo)*mesh.V())
                 );
             }
-            
+
             rDeltaT.correctBoundaryConditions();
+            rSubDeltaT = rDeltaT;
+            rSubDeltaT.correctBoundaryConditions();
             
             if (verbose)
             {
