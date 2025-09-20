@@ -723,7 +723,7 @@ void twoTemperatureModel::solve
         maskGasMetalHeatFlux(gasMetalHeatFlux, metalFractionFloor);
     const volScalarField& gasMetalHeatFluxMasked = tGasMetalHeatFluxMasked();
 
-    const scalar dt = mesh_.time().deltaTValue();
+    const dimensionedScalar dt = mesh_.time().deltaT();
     const dimensionedScalar laserEnergy =
         fvc::domainIntegrate(metal*laserSource)*dt;
     const dimensionedScalar phaseChangeEnergy =
