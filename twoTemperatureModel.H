@@ -89,28 +89,16 @@ private:
         scalar metalValidationThreshold() const;        
         //- Validate temperature field values
         bool validateFields() const;
-        //- Abort if Te/Tl develop invalid values during the solve
-        void guardTemperatureFields
-        (
-            const char* context,
-            label sweep
-        ) const;
         //- Active-metal mask used for bounds and coupling
         tmp<volScalarField> metalActiveMask(scalar cutoff) const;
-        //- Clamp Te/Tl within physical limits and reset non-metal cells
-        void clampTemperatureFields
+        //- Apply temperature bounds using algebraic masking
+        void applyTemperatureBounds
         (
             const volScalarField& activeMask,
             const dimensionedScalar& minTemp,
             const dimensionedScalar& maxTemp,
-            scalar ambient
+            const dimensionedScalar& ambient
         );
-        //- Mask gas-metal heat flux using the metal indicator
-        tmp<volScalarField> maskGasMetalHeatFlux
-        (
-            const volScalarField& gasMetalHeatFlux,
-            scalar metalFloor
-        ) const;
         //- Assemble, relax, solve, and correct the lattice equation
         void solveLatticeEquation
         (
@@ -120,9 +108,7 @@ private:
             const volScalarField& phaseChangeRelaxCoeff,
             const volScalarField& phaseChangeSource,
             const volScalarField& TlOld,
-            const volScalarField& gasMetalHeatFluxMasked,
-            scalar relaxFactor,
-            label sweep
+            const volScalarField& gasMetalHeatFlux
         );
         //- Assemble, relax, solve, and correct the electron equation
         void solveElectronEquation
@@ -131,14 +117,15 @@ private:
             const volScalarField& Ce,
             const volScalarField& ke,
             const volScalarField& G,
-            const volScalarField& laserSource,
-            label sweep
+            const volScalarField& laserSource
         );
         //- Integrated gas-metal coupling energy for this time-step
         dimensionedScalar couplingEnergy
         (
             const volScalarField& gasMetalHeatFluxMasked
         ) const;
+        //- Compute current total metal energy
+        dimensionedScalar currentTotalEnergy() const;
         //- Emit optional energy diagnostics and tracking information
         void writeEnergyDiagnostics
         (
@@ -150,14 +137,33 @@ private:
             const Switch& energyDiagnostics
         ) const;
         //- Report temperature statistics when requested
-        void writeSolveStatistics() const;        
+        void writeSolveStatistics
+        (
+            const scalar residual,
+            const Switch& statsSwitch
+        ) const;
         //- Check energy conservation with expected energy change
         bool checkEnergyConservation
         (
-            const dimensionedScalar& expectedEnergyChange
+            const dimensionedScalar& previousEnergy,
+            const dimensionedScalar& expectedEnergyChange,
+            const dimensionedScalar& currentEnergy,
+            scalar& relativeError
+        ) const;
+        //- Detailed energy audit when requested
+        void reportEnergyViolation
+        (
+            const dimensionedScalar& previousEnergy,
+            const dimensionedScalar& totalEnergyInput,
+            const dimensionedScalar& currentEnergy,
+            scalar relativeError,
+            scalar dt,
+            const Switch& auditSwitch
         ) const;
         //- Update energy tracking variables
         void updateEnergyTracking() const;
+        //- Update energy tracking with externally computed energy
+        void updateEnergyTracking(const dimensionedScalar& currentEnergy) const;
 public:
     // Constructors
         //- Construct from mesh and dictionary
