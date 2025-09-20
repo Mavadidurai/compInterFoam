@@ -72,29 +72,51 @@ solvers
     // Gas T (if present)
     T
     {
-        solver          PBiCGStab;
-        preconditioner  DILU;
-        tolerance       1e-09;
-        relTol          0;
+        solver          smoothSolver;
+        smoother        symGaussSeidel;
+        nSweeps         4;
         maxIter         200;
+        tolerance       5e-11;
+        relTol          0;
+    }
+    TFinal
+    {
+        $T;
+        nSweeps         6;
+        tolerance       1e-11;
     }
 
     // Two-temperature fields
     Te
     {
-        solver          PBiCGStab;
-        preconditioner  DILU;
-        tolerance       1e-09;
+        solver          smoothSolver;
+        smoother        symGaussSeidel;
+        nSweeps         4;
+        maxIter         300;
+        tolerance       5e-11;
         relTol          0;
-        maxIter         200;
+    }
+    TeFinal
+    {
+        $Te;
+        nSweeps         6;
+        tolerance       1e-11;
     }
     Tl
     {
-        solver          PBiCGStab;
-        preconditioner  DILU;
-        tolerance       1e-09;
+        solver          smoothSolver;
+        smoother        symGaussSeidel;
+        nSweeps         4;
+        maxIter         300;
+        tolerance       5e-11;
         relTol          0;
-        maxIter         200;
+    }
+    TlFinal
+    {
+        $Tl;
+        nSweeps         6;
+        tolerance       1e-11;
+
     }
 }
 
