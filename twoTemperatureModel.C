@@ -352,10 +352,25 @@ bool twoTemperatureModel::validateFields() const
     };
     return fieldValid(Te_) && fieldValid(Tl_);
 }
+
 tmp<volScalarField> twoTemperatureModel::metalActiveMask(scalar cutoff) const
 {
     const dimensionedScalar cutoffDim("metalCutoff", dimless, cutoff);
     return pos(metalFraction_ - cutoffDim);
+}
+tmp<volScalarField> twoTemperatureModel::clampedMetalFraction() const
+{
+    const scalar metalFractionFloor =
+        dict_.lookupOrDefault<scalar>("metalFractionFloor", 1e-6);
+    const dimensionedScalar metalFloor
+    (
+        "metalFractionFloor",
+        dimless,
+        Foam::max(metalFractionFloor, VSMALL)
+    );
+    const dimensionedScalar metalCeiling("metalFractionCeiling", dimless, 1.0);
+
+    return Foam::min(Foam::max(metalFraction_, metalFloor), metalCeiling);
 }
 
 void twoTemperatureModel::applyTemperatureBounds
@@ -437,17 +452,20 @@ void twoTemperatureModel::solveElectronEquation
 
 dimensionedScalar twoTemperatureModel::couplingEnergy
 (
-    const volScalarField& gasMetalHeatFluxMasked
+    const volScalarField& gasMetalHeatFluxMasked,
+    const dimensionedScalar& dtDim
 ) const
 {
-    return fvc::domainIntegrate(gasMetalHeatFluxMasked)*mesh_.time().deltaT();
+    return fvc::domainIntegrate(gasMetalHeatFluxMasked)*dtDim;
 }
 
 dimensionedScalar twoTemperatureModel::currentTotalEnergy() const
 {
     tmp<volScalarField> tCe = electronHeatCapacity();
     const volScalarField& CeField = tCe();
-    return fvc::domainIntegrate(metalFraction_*(CeField*Te_ + Cl_*Tl_));
+   tmp<volScalarField> tMetal = clampedMetalFraction();
+    const volScalarField& metalEff = tMetal();
+    return fvc::domainIntegrate(metalEff*(CeField*Te_ + Cl_*Tl_));
 }
 
 void twoTemperatureModel::writeEnergyDiagnostics
@@ -467,11 +485,12 @@ void twoTemperatureModel::writeEnergyDiagnostics
 
     tmp<volScalarField> tCeAfter = electronHeatCapacity();
     const volScalarField& CeAfter = tCeAfter();
-
+    tmp<volScalarField> tMetal = clampedMetalFraction();
+    const volScalarField& metalEff = tMetal();
     const dimensionedScalar electronEnergyAfter =
-        fvc::domainIntegrate(metalFraction_*(CeAfter*Te_));
+        fvc::domainIntegrate(metalEff*(CeAfter*Te_));
     const dimensionedScalar latticeEnergyAfter =
-        fvc::domainIntegrate(metalFraction_*(Cl_*Tl_));
+        fvc::domainIntegrate(metalEff*(Cl_*Tl_));
 
     static dimensionedScalar cumulativeLaserEnergy
     (
@@ -654,7 +673,9 @@ void twoTemperatureModel::solve
         dimless,
         Foam::max(metalFractionFloor, VSMALL)
     );
-    tmp<volScalarField> tMetalEff = Foam::max(metal, metalFloor);
+    const dimensionedScalar metalCeiling("metalFractionCeiling", dimless, 1.0);
+    tmp<volScalarField> tMetalEff =
+        Foam::min(Foam::max(metal, metalFloor), metalCeiling);
     const volScalarField& metalEff = tMetalEff();
 
     const dimensionedScalar minTemp
@@ -703,13 +724,13 @@ void twoTemperatureModel::solve
     tmp<volScalarField> tGasMetalHeatFluxMasked = couplingMask*gasMetalHeatFlux;
     const volScalarField& gasMetalHeatFluxMasked = tGasMetalHeatFluxMasked();
 
-    const scalar dt = mesh_.time().deltaTValue();
+    const dimensionedScalar dtDim = mesh_.time().deltaT();
     const dimensionedScalar laserEnergy =
-        fvc::domainIntegrate(metal*laserSource)*dt;
+        fvc::domainIntegrate(metalEff*laserSource)*dtDim;
     const dimensionedScalar phaseChangeEnergy =
-        fvc::domainIntegrate(metal*(Cl_*phaseChangeSource))*dt;
+        fvc::domainIntegrate(metalEff*(Cl_*phaseChangeSource))*dtDim;
     const dimensionedScalar couplingEnergyValue =
-        couplingEnergy(gasMetalHeatFluxMasked);
+        couplingEnergy(gasMetalHeatFluxMasked, dtDim);
     const dimensionedScalar totalEnergyInput =
         laserEnergy + phaseChangeEnergy + couplingEnergyValue;
 
@@ -721,9 +742,9 @@ void twoTemperatureModel::solve
         tmp<volScalarField> tCeInitial = electronHeatCapacity();
         const volScalarField& CeInitial = tCeInitial();
         electronEnergyBefore =
-            fvc::domainIntegrate(metal*(CeInitial*Te_));
+            fvc::domainIntegrate(metalEff*(CeInitial*Te_));
         latticeEnergyBefore =
-            fvc::domainIntegrate(metal*(Cl_*Tl_));
+            fvc::domainIntegrate(metalEff*(Cl_*Tl_));
     }
 
     const label nInnerSweeps =
@@ -804,7 +825,7 @@ void twoTemperatureModel::solve
     tmp<volScalarField> tCeFinal = electronHeatCapacity();
     const volScalarField& CeFinal = tCeFinal();
     const dimensionedScalar currentEnergy =
-        fvc::domainIntegrate(metal*(CeFinal*Te_ + Cl_*Tl_));
+        fvc::domainIntegrate(metalEff*(CeFinal*Te_ + Cl_*Tl_));
 
     scalar energyError = 0.0;
     if
@@ -824,7 +845,7 @@ void twoTemperatureModel::solve
             totalEnergyInput,
             currentEnergy,
             energyError,
-            dt,
+            dtDim.value(),
             energyAudit
         );
     }
@@ -1015,8 +1036,10 @@ void twoTemperatureModel::write() const
     {
         tmp<volScalarField> tCeW = electronHeatCapacity();
         const volScalarField& CeW = tCeW();
+        tmp<volScalarField> tMetal = clampedMetalFraction();
+        const volScalarField& metalEff = tMetal();        
         dimensionedScalar currentEnergy =
-            fvc::domainIntegrate(metalFraction_*(CeW*Te_ + Cl_*Tl_));
+            fvc::domainIntegrate(metalEff*(CeW*Te_ + Cl_*Tl_));
         scalar energyError = mag
         (
             (currentEnergy.value() - lastTotalEnergy_.value())/

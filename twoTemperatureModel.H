@@ -91,6 +91,8 @@ private:
         bool validateFields() const;
         //- Active-metal mask used for bounds and coupling
         tmp<volScalarField> metalActiveMask(scalar cutoff) const;
+        //- Metal indicator clamped for energy weighting
+        tmp<volScalarField> clampedMetalFraction() const;        
         //- Apply temperature bounds using algebraic masking
         void applyTemperatureBounds
         (
@@ -122,7 +124,8 @@ private:
         //- Integrated gas-metal coupling energy for this time-step
         dimensionedScalar couplingEnergy
         (
-            const volScalarField& gasMetalHeatFluxMasked
+            const volScalarField& gasMetalHeatFluxMasked,
+            const dimensionedScalar& dtDim
         ) const;
         //- Compute current total metal energy
         dimensionedScalar currentTotalEnergy() const;

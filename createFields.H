@@ -245,13 +245,13 @@ dimensionedScalar hRef
     mesh.solutionDict().subDict("PIMPLE").lookupOrDefault("hRef", scalar(0))
 );
 
-// ✅ FIXED: Proper dimensional calculation for ghRef
+// ✅ FIXED: Proper dimensional calculation for ghRef preserving gravity direction
 dimensionedScalar ghRef
 (
     "ghRef",
     g.dimensions()*dimLength,
     mag(g.value()) > SMALL
-  ? mag(g.value()) * hRef.value()
+  ? (g.value() & Foam::vector(0, 0, hRef.value()))
   : 0.0
 );
 

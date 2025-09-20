@@ -189,6 +189,9 @@ extern Foam::Switch verbose;
 
         SolverPerformance<scalar> solverPerf = alpha1Eqn.solve(alpha1.name());
 
+        alpha1 = Foam::max(Foam::min(alpha1, scalar(1)), scalar(0));
+        alpha1.correctBoundaryConditions();
+        
         if (verbose)
         {
             Info<< "alpha1 solve: initial residual = "
@@ -201,6 +204,8 @@ extern Foam::Switch verbose;
         alphaPhi10 = talphaPhi1UD();
 
         alpha2 = 1.0 - alpha1;
+        alpha2.correctBoundaryConditions();
+        
         mixture.correct();
     }
 
@@ -290,7 +295,12 @@ extern Foam::Switch verbose;
             }
         }
 
+        alpha1 = Foam::max(Foam::min(alpha1, scalar(1)), scalar(0));
+        alpha1.correctBoundaryConditions();
+
         alpha2 = 1.0 - alpha1;
+        alpha2.correctBoundaryConditions();
+        
         mixture.correct();
     }
 
