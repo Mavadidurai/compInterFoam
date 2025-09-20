@@ -21,18 +21,19 @@ application     compInterFoam;
 startFrom       startTime;
 startTime       0;              // Begin at start of heating pulse
 stopAt          endTime;
-endTime         3e-10;          // Cover full heating pulse (300 ps)
+endTime         5e-12;          // MODIFIED: Shorter run time for debugging
 
-// --- ULTRA-CONSERVATIVE TIME STEPPING ---
-// 0.2 * min(Ce/G, Cl/G) = 6e-13 s -> keep time steps safely below this
-deltaT          6e-13;          // 0.005 ps (1/4 of characteristic time)
-maxDeltaT        1e-12;
-adjustTimeStep  yes;
-maxCo           0.1;          // Ultra-conservative
-maxAlphaCo      0.05;         // Even more conservative
+// --- DEBUG TIME STEPPING ---
+// Use a fixed time step to ensure the laser pulse is resolved.
+deltaT          2e-14;          // MODIFIED: 20 fs to resolve the 214 fs pulse
+adjustTimeStep  no;             // MODIFIED: Turn OFF adaptive time stepping
+maxCo           10;             // MODIFIED: Set high to not interfere
+maxAlphaCo      10;             // MODIFIED: Set high to not interfere
 
 verbose         true;
-
+maxGasMetalHeatFlux 1e15;   // [W/m^3] limiter for gas-metal flux coupling
+maxGasMetalExchangeCoeff 1e18; // [W/m^3/K] limiter for interface exchange
+minGasMetalExchangeCoeff 0;
 // --- More frequent writing for debugging ---
 writeControl    runTime;
 writeInterval   5e-12;          // 0.5 ps intervals
@@ -64,8 +65,8 @@ advancedInterfaceCapturing
 
 // --- TEMPERATURE CLAMPING ---
 enableTClamp    true;
-minT            300;
-maxT            5000;
+minT            250;
+maxT            4000;
 
 // --- TWO-TEMPERATURE COUPLING ---
 twoTemperatureProperties
@@ -76,9 +77,11 @@ twoTemperatureProperties
     energyTol 0.01;
     energyTolerance 0.01;
     minTe 300;
-    maxTe 6000;
+    maxTe 4000;
     minTl 300;
-    maxTl 6000;
+    maxTl 4000;
+    maxGasMetalExchangeCoeff 1e18;
+    minGasMetalExchangeCoeff 0;
 }
 libs ("libutilityFunctionObjects.so");
 

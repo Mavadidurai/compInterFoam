@@ -47,7 +47,7 @@ gasAbsorptionCoeff 0;     // [1/m] gas absorption (0 disables direct gas heating
 pulseEnergy     7.77e-10;          // [J] total energy
 pulseWidth      2.14e-13;        // [s] 214 fs pulse width
 laserStartTime  0;        // [s] trigger immediately at simulation start
-laserEndTime    1e-10;    // [s] 100 ps pulse duration within controlDict end time
+laserEndTime    5e-12;    // [s] 100 ps pulse duration within controlDict end time
 pulseFrequency  1e12;     // [1/s] 1 ps period between pulses
 pulseDutyCycle  0.214;    // [-] 21% on-time matching 214 fs pulse
 // --- Spatial Gaussian (match the box center and film depth) ---
@@ -70,5 +70,6 @@ gaussianProfile     true;
 // Optional intensity entry (consistent with pulseEnergy & pulseWidth)
 //peakIntensity       1e15;      // [W/m^2] from pulseEnergy
 continuousLaser     false;
+maxVolumetricSource 1e18;   // [W/m^3] limiter for volumetric laser source
 
 // ************************************************************************* //
