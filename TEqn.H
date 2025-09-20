@@ -85,9 +85,13 @@ extern Foam::Switch verbose;
 
     TEqn += fvm::Sp(interfaceExchange, T);
     TEqn.source() += interfaceExchange*Tl;
-    // Ensure laser energy is deposited where metal is present (alpha.metal)
+    // Laser absorption couples to the gas energy equation via the gas volume
+    // fraction; metal absorption is handled by the two-temperature solver
     const volScalarField& alphaMetal = mixture.alpha1();
-    TEqn.source() += alphaMetal*mixture.Q_laser();
+    const volScalarField& alphaGas = mixture.alpha2();
+    TEqn.source() += alphaGas*mixture.Q_laser();
+    static_cast<void>(alphaMetal);
+
 
     TEqn.relax();
     fvOptions.constrain(TEqn);

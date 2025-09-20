@@ -93,13 +93,15 @@ extern Foam::Switch verbose;
         mixture.cAlpha()*mag(phi/mesh.magSf())
     );
     
+    tmp<surfaceScalarField> tMaxCompression;
+    const surfaceScalarField* maxCompressionPtr = nullptr;
+
     if (limitCompression)
     {
-        phic = Foam::min
-        (
-            phic,
-            compressionLimiter*mag(phi)/mesh.magSf()
-        );
+        tMaxCompression = compressionLimiter*mag(phi)/mesh.magSf();
+        maxCompressionPtr = &tMaxCompression();
+
+        phic = Foam::min(phic, *maxCompressionPtr);
 
         if (verbose)
         {
@@ -129,8 +131,6 @@ extern Foam::Switch verbose;
         alphaControls.lookupOrDefault<scalar>("thinFilmCoeff", 0.0)
     );
 
-    surfaceScalarField phir(phic*nHatf);
-
     if (sharpeningScheme == "enhancedLimiter")
     {
         surfaceScalarField limiter
@@ -147,7 +147,7 @@ extern Foam::Switch verbose;
         );
 
         limiter = Foam::max(Foam::min(limiter, scalar(1)), scalar(0));
-        phir = phic*limiter*nHatf;
+        phic *= limiter;
     }
     else if (sharpeningScheme != "standard")
     {
@@ -155,6 +155,13 @@ extern Foam::Switch verbose;
             << "Unknown sharpeningScheme '" << sharpeningScheme
             << "' - using standard interface compression" << endl;
     }
+
+    if (limitCompression)
+    {
+        phic = Foam::min(phic, *maxCompressionPtr);
+    }
+
+    surfaceScalarField phir(phic*nHatf);
 
     tmp<surfaceScalarField> phiAlpha(phiCN() + phir);
     const surfaceScalarField& phiAlphaRef = phiAlpha();

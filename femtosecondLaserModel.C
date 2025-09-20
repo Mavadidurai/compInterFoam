@@ -374,20 +374,51 @@ void femtosecondLaserModel::finalizePulseEnergyCheck
             << "  Diff vs expected:     " << diffExpected << " J" << nl
             << "  Diff vs configured:   " << diffConfigured << " J" << nl
             << "  Expected-config diff: " << expectedMismatch << " J" << nl
+            << "  Max deviation:        " << maxDeviation << " J" << nl            
             << "  Tolerance:            " << tolerance << " J" << endl;
     }
 
-    if (diff > tolerance)
+    const bool warnConfigured = diffConfigured > tolerance;
+    const bool warnExpected = diffExpected > tolerance;
+
+    if (warnConfigured)
     {
         WarningInFunction
             << "Laser pulse energy mismatch after pulse " << pulseCounter_
-            << ": deposited " << pulseEnergyAccumulator_ << " J vs requested "
-            << configured << " J (tolerance " << tolerance << ")" << endl;
+            << ": deposited " << pulseEnergyAccumulator_ << " J vs configured "
+            << configured << " J (difference " << diffConfigured
+            << " J exceeds tolerance " << tolerance << " J)" << endl;
     }
-    else if (expectedMismatch > tolerance && verbose)
+
+    if (warnExpected)
     {
-        Info<< "  Note: integrated expectation differs from configured energy by "
-            << expectedMismatch << " J" << endl;
+        WarningInFunction
+            << "Laser pulse energy mismatch after pulse " << pulseCounter_
+            << ": deposited " << pulseEnergyAccumulator_ << " J vs integrated"
+            << " expectation " << expected << " J (difference "
+            << diffExpected << " J exceeds tolerance " << tolerance << " J)"
+            << endl;
+    }
+
+    if (!warnConfigured && !warnExpected && verbose)
+    {
+        if (diffConfigured > VSMALL)
+        {
+            Info<< "  Note: deposited energy differs from configured pulse by "
+                << diffConfigured << " J (within tolerance)." << endl;
+        }
+
+        if (diffExpected > VSMALL)
+        {
+            Info<< "  Note: deposited energy differs from integrated expectation"
+                << " by " << diffExpected << " J (within tolerance)." << endl;
+        }
+
+        if (expectedMismatch > VSMALL && expectedMismatch <= tolerance)
+        {
+            Info<< "  Note: integrated expectation differs from configured energy"
+                << " by " << expectedMismatch << " J (within tolerance)." << endl;
+        }
     }
 
     trackingPulse_ = false;
