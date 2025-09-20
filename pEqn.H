@@ -1,386 +1,105 @@
-/*---------------------------------------------------------------------------*\
-  Robust pressure equation with effective numerical safeguards
-\*---------------------------------------------------------------------------*/
-#include <cmath>
+/*---------------------------------------------------------------------------*\\
+  Standard pressure equation adapted for LIFT extensions
+\\*---------------------------------------------------------------------------*/
+
 extern Foam::Switch verbose;
+
 {
     if (verbose)
     {
         Info<< "Solving pressure equation" << endl;
     }
-    
-    // Create robust interpolation of rAU
-    surfaceScalarField rAUf("rAUf", fvc::interpolate(rAU));
-// Apply a minimal bound to rAUf to prevent division by zero or
-    // infinities.  The threshold is primarily specified in
-    // fvSolution::compInterFoamCoeffs; controlDict entries act only as a
-    // fallback.
-    const dictionary& solverControls = mesh.solutionDict().subOrEmptyDict
-    ("compInterFoamCoeffs");
-    const dictionary& controlDict = mesh.time().controlDict();
-    scalar minRAUf = solverControls.lookupOrDefault<scalar>
+
+    surfaceScalarField rAUf
     (
-        "minRAUf",
-        controlDict.lookupOrDefault<scalar>("minRAUf", 1e-10)
-    );
-    const Switch enableRAUfClamp = solverControls.lookupOrDefault<Switch>
-    (
-        "enableRAUfClamp",
-        controlDict.lookupOrDefault<Switch>("enableRAUfClamp", true)
-    );
-    // Pressure rollback threshold primarily configured in
-    // fvSolution::compInterFoamCoeffs (controlDict acts as a legacy fallback).
-    scalar maxInitialResidual = solverControls.lookupOrDefault<scalar>
-    (
-        "maxInitialResidual",
-        controlDict.lookupOrDefault<scalar>("maxInitialResidual", 1e3)
-    );
-
-    if (!std::isfinite(maxInitialResidual) || maxInitialResidual <= 0)
-    {
-        maxInitialResidual = 1e3;
-    }
-
-    if (!std::isfinite(minRAUf))
-    {
-        minRAUf = 1e-10;
-    }
-
-    label minRAUfCount = 0;
-
-    const scalar fallbackValue = Foam::max(minRAUf, SMALL);
-
-    // Internal field
-    scalarField& rAUfIn = rAUf.primitiveFieldRef();
-    forAll(rAUfIn, faceI)
-    {
-        if
+        IOobject
         (
-            !std::isfinite(rAUfIn[faceI])
-         || rAUfIn[faceI] <= SMALL
-        )
-        {
-            rAUfIn[faceI] = fallbackValue;
-            minRAUfCount++;
-        }
-    }
+            "rAUf",
+            runTime.timeName(),
+            mesh,
+            IOobject::NO_READ,
+            IOobject::NO_WRITE
+        ),
+        fvc::interpolate(rAU)
+    );
 
-    // Boundary fields
-    forAll(rAUf.boundaryField(), patchI)
-    {
-        fvsPatchScalarField& pRauf = rAUf.boundaryFieldRef()[patchI];
-        forAll(pRauf, faceI)
-        {
-            if
-            (
-                !std::isfinite(pRauf[faceI])
-             || pRauf[faceI] <= SMALL
-            )
-            {
-                pRauf[faceI] = fallbackValue;
-                minRAUfCount++;
-            }
-        }
-    }
-
-    reduce(minRAUfCount, sumOp<label>());
-    if (minRAUfCount > 0)
-    {
-        if (verbose)
-        {
-            Info<< "rAUf clamping stats: " << minRAUfCount
-                << " faces to minRAUf (" << fallbackValue << ")";
-            if (!enableRAUfClamp)
-            {
-                Info<< " [clamp override disabled]";
-            }
-            Info<< endl;
-        }
-    }
-
- // Construct HbyA and corresponding flux
-    volVectorField HbyA(
-        IOobject("HbyA", runTime.timeName(), mesh, IOobject::NO_READ, IOobject::NO_WRITE),
+    volVectorField HbyA
+    (
+        IOobject
+        (
+            "HbyA",
+            runTime.timeName(),
+            mesh,
+            IOobject::NO_READ,
+            IOobject::NO_WRITE
+        ),
         constrainHbyA(rAU*UEqn.H(), U, p_rgh)
     );
 
-    surfaceScalarField phiHbyA(
-        IOobject("phiHbyA", runTime.timeName(), mesh, IOobject::NO_READ, IOobject::NO_WRITE),
-        (fvc::interpolate(HbyA) & mesh.Sf())
+    surfaceScalarField phiHbyA
+    (
+        IOobject
+        (
+            "phiHbyA",
+            runTime.timeName(),
+            mesh,
+            IOobject::NO_READ,
+            IOobject::NO_WRITE
+        ),
+        fvc::flux(HbyA)
     );
+
+    surfaceScalarField phig
+    (
+        IOobject
+        (
+            "phig",
+            runTime.timeName(),
+            mesh,
+            IOobject::NO_READ,
+            IOobject::NO_WRITE
+        ),
+        (
+            mixture.surfaceTensionForce()
+          - ghf*fvc::snGrad(rho)
+        )*rAUf*mesh.magSf()
+    );
+
+    phiHbyA += phig;
 
     constrainPressure(p_rgh, U, phiHbyA, rAUf);
-
-    static scalar relaxP
-    (
-        mesh.solutionDict().lookupOrDefault<scalar>("relaxP", 0.3)
-    );
-    const scalar targetResP = mesh.solutionDict().lookupOrDefault<scalar>(
-        "targetResP", 0.1);
-
-    // Create backups in case solver diverges
-    volScalarField p_rgh_old(p_rgh);
-    surfaceScalarField phi_old(phi);
-    surfaceScalarField rhoPhi_old(rhoPhi);
-    volVectorField U_old(U);
-
-    bool firstIteration = true;
 
     while (pimple.correctNonOrthogonal())
     {
         fvScalarMatrix pEqn
         (
-            fvm::laplacian(rAUf, p_rgh) == fvc::div(phiHbyA)
+            fvc::div(phiHbyA)
+          - fvm::laplacian(rAUf, p_rgh)
         );
 
-        // Set reference and apply adaptive under-relaxation (relaxP is set in fvSolution)
-        if (p_rgh.needReference())
-        {
-            pEqn.setReference(pRefCell, pRefValue);
-        }
-
-        pEqn.relax(relaxP);
-
-        SolverPerformance<scalar> solverPerf = pEqn.solve();
-
-        if (firstIteration)
-        {
-            scalar residual = solverPerf.initialResidual();
-            if (verbose)
-            {
-                Info<< "pEqn initial residual: " << residual << endl;
-            }
-
-            relaxP = max(min(relaxP * targetResP/(residual + SMALL), 0.7), 0.1);
-            if (verbose)
-            {
-                Info<< "  Updated relaxP: " << relaxP << endl;
-            }
-
-            if (residual >= maxInitialResidual)
-            {
-                Warning
-                    << "Pressure solve appears unstable - reverting to previous"
-                    << " solution" << endl;
-                p_rgh = p_rgh_old;
-                phi = phi_old;
-                rhoPhi = rhoPhi_old;
-                U = U_old;
-                break;
-            }
-
-            firstIteration = false;
-        }
-
-        phi = phiHbyA - pEqn.flux();
-        const dimensionedScalar rhoFloor
-        (
-            "rhoFloor",
-            dimDensity,
-            1e-12
-        );
-
-        const tmp<surfaceScalarField> trho = fvc::interpolate(rho);
-        const surfaceScalarField& rhoInterp = trho();
-
-        rhoPhi = rhoInterp*phi;
-
-        tmp<surfaceScalarField> tRhoPhiCorr = fvc::ddtCorr(rho, U, rhoPhi);
-        phi += mesh.time().deltaT()*tRhoPhiCorr()/max(rhoInterp, rhoFloor);
-
-        tRhoPhiCorr.clear();
-
-        rhoPhi = rhoInterp*phi;
-        fvc::makeRelative(rhoPhi, U);
+        pEqn.solve(mesh.solver(p_rgh.select(pimple.finalInnerIter())));
 
         if (pimple.finalNonOrthogonalIter())
         {
-            U = HbyA - rAU*fvc::grad(p_rgh);
+            phi = phiHbyA + pEqn.flux();
+
+            U = HbyA + rAU*fvc::reconstruct((phig + pEqn.flux())/rAUf);
             U.correctBoundaryConditions();
             fvOptions.correct(U);
         }
     }
 
-    // Check for invalid values after solve
-    bool hasInvalidValues = false;
-    forAll(p_rgh, cellI)
-    {
-        if (!std::isfinite(p_rgh[cellI]))
-        {
-            hasInvalidValues = true;
-            p_rgh[cellI] = p_rgh_old[cellI];
-        }
-    }
-    
-    if (hasInvalidValues)
-    {
-        Warning << "Invalid values detected in p_rgh after solve - fixed" << endl;
-    }
-    
-    // Add bounds to pressure to prevent divergence. These values are read
-    // from fvSolution::compInterFoamCoeffs, falling back to controlDict when
-    // absent for backward compatibility.
-    const Switch pressureClamp = solverControls.lookupOrDefault<Switch>
-    (
-        "pressureClamp",
-        controlDict.lookupOrDefault<Switch>("pressureClamp", true)
-    );
-
-    const scalar maxPressure = solverControls.lookupOrDefault<scalar>
-    (
-        "maxPressure",
-        controlDict.lookupOrDefault<scalar>("maxPressure", 1e9)
-    );
-
-    const scalar minPressure = solverControls.lookupOrDefault<scalar>
-    (
-        "minPressure",
-        controlDict.lookupOrDefault<scalar>("minPressure", 1e2)
-    );
-
-   // Apply pressure limits only when enabled and count clamped cells
-    label minPressureCount = 0;
-    label maxPressureCount = 0;
-    if (pressureClamp)
-    {
-        dimensionedScalar maxP("maxP", dimPressure, maxPressure);
-        dimensionedScalar minP("minP", dimPressure, minPressure);
-
-        scalar maxPVal = maxP.value();
-        scalar minPVal = minP.value();
-
-        // Internal field
-        scalarField& pRghIn = p_rgh.primitiveFieldRef();
-        forAll(pRghIn, cellI)
-        {
-            if (pRghIn[cellI] < minPVal)
-            {
-                pRghIn[cellI] = minPVal;
-                minPressureCount++;
-            }
-            else if (pRghIn[cellI] > maxPVal)
-            {
-                pRghIn[cellI] = maxPVal;
-                maxPressureCount++;
-            }
-        }
-
-        // Boundary fields
-        forAll(p_rgh.boundaryField(), patchI)
-        {
-            fvPatchScalarField& pPatch = p_rgh.boundaryFieldRef()[patchI];
-            forAll(pPatch, faceI)
-            {
-                if (pPatch[faceI] < minPVal)
-                {
-                    pPatch[faceI] = minPVal;
-                    minPressureCount++;
-                }
-                else if (pPatch[faceI] > maxPVal)
-                {
-                    pPatch[faceI] = maxPVal;
-                    maxPressureCount++;
-                }
-            }
-        }
-
-        reduce(minPressureCount, sumOp<label>());
-        reduce(maxPressureCount, sumOp<label>());
-
-        if (verbose)
-        {
-            Info<< "Pressure clamping stats: " << minPressureCount
-                << " cells to minPressure (" << minPressure << "), "
-                << maxPressureCount << " cells to maxPressure (" << maxPressure
-                << ")" << endl;
-        }
-    }
-
-    // Update pressure field
-    p = p_rgh + rho*gh;
-    
-    // Ensure boundary conditions
-    p_rgh.correctBoundaryConditions();
-    p.correctBoundaryConditions();
-    
-    // Update density
     rho = alpha1*rho1 + alpha2*rho2;
 
-    // Density limits should be configured in fvSolution::compInterFoamCoeffs.
-    // controlDict values are deprecated and retained only for backward compatibility.
-    const bool densityClamp = solverControls.lookupOrDefault<Switch>
-    (
-        "densityClamp",
-        controlDict.lookupOrDefault<Switch>("densityClamp", true)
-    );
+    rhoPhi = fvc::interpolate(rho)*phi;
+    fvc::makeRelative(rhoPhi, U);
 
-    const scalar maxDensity = solverControls.lookupOrDefault<scalar>
-    (
-        "maxDensity",
-        controlDict.lookupOrDefault<scalar>("maxDensity", 10000.0)
-    );
+    p = p_rgh + rho*gh;
+    p_rgh.correctBoundaryConditions();
+    p.correctBoundaryConditions();
 
-    const scalar minDensity = solverControls.lookupOrDefault<scalar>
-    (
-        "minDensity",
-        controlDict.lookupOrDefault<scalar>("minDensity", 1.0)
-    );
-
-    label minRhoCount = 0;
-    label maxRhoCount = 0;
-
-    if (densityClamp)
-    {
-        // Internal field
-        scalarField& rhoIn = rho.primitiveFieldRef();
-        forAll(rhoIn, cellI)
-        {
-            if (rhoIn[cellI] < minDensity)
-            {
-                rhoIn[cellI] = minDensity;
-                minRhoCount++;
-            }
-            else if (rhoIn[cellI] > maxDensity)
-            {
-                rhoIn[cellI] = maxDensity;
-                maxRhoCount++;
-            }
-        }
-
-        // Boundary fields
-        forAll(rho.boundaryField(), patchI)
-        {
-            fvPatchScalarField& rhoPatch = rho.boundaryFieldRef()[patchI];
-            forAll(rhoPatch, faceI)
-            {
-                if (rhoPatch[faceI] < minDensity)
-                {
-                    rhoPatch[faceI] = minDensity;
-                    minRhoCount++;
-                }
-                else if (rhoPatch[faceI] > maxDensity)
-                {
-                    rhoPatch[faceI] = maxDensity;
-                    maxRhoCount++;
-                }
-            }
-        }
-
-        reduce(minRhoCount, sumOp<label>());
-        reduce(maxRhoCount, sumOp<label>());
-
-        if (verbose)
-        {
-            Info<< "Density clamping stats: " << minRhoCount
-                << " cells to minDensity (" << minDensity << "), "
-                << maxRhoCount << " cells to maxDensity (" << maxDensity
-                << ")" << endl;
-        }
-    }
-
-    // Update kinetic energy
     K = 0.5*magSqr(U);
-    
+
     if (verbose)
     {
         Info<< "Pressure solve complete: max p = " << max(p).value()

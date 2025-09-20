@@ -275,7 +275,7 @@ int main(int argc, char *argv[])
 #include "TEqn.H"
             }
 
-            if (pInterfaceCapturing.valid())
+            if (useAdvancedCapturing && pInterfaceCapturing.valid())
             {
                 pInterfaceCapturing->calculateRecoilPressure();
 
@@ -344,7 +344,7 @@ int main(int argc, char *argv[])
         {
             laser.write();
             ttm.write();
-            if (pInterfaceCapturing.valid())
+            if (useAdvancedCapturing && pInterfaceCapturing.valid())
             {
                 pInterfaceCapturing->write();
             }
@@ -355,7 +355,7 @@ int main(int argc, char *argv[])
     }
     
     // Clean up dynamically allocated interface capturing object
-    if (pInterfaceCapturing.valid())
+    if (useAdvancedCapturing && pInterfaceCapturing.valid())
     {
         if (verbose)
         {

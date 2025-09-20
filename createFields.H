@@ -402,30 +402,55 @@ scalar scAlpha
 // Suppress unused variable warnings for fvOptions
 (void)fvOptions;
 
-// Always create the interface-capturing model so a recoil-pressure field exists
+// Conditionally create the interface-capturing model so legacy behaviour is preserved
 autoPtr<advancedInterfaceCapturing> pInterfaceCapturing;
-pInterfaceCapturing.reset
-(
-    new advancedInterfaceCapturing
-    (
-        mesh,
-        alpha1,
-        phi,
-        mixture,
-        T
-    )
-);
+autoPtr<volScalarField> legacyRecoilPressure;
 
-if (verbose)
+if (useAdvancedCapturing)
 {
-    if (useAdvancedCapturing)
+    if (verbose)
     {
         Info<< "Creating advanced interface capturing\n" << endl;
     }
-    else
+
+    pInterfaceCapturing.reset
+    (
+        new advancedInterfaceCapturing
+        (
+            mesh,
+            alpha1,
+            phi,
+            mixture,
+            T
+        )
+    );
+}
+else
+{
+    if (verbose)
     {
-        Info<< "Advanced interface capturing disabled; using basic recoil model\n" << endl;
+        Info<< "Advanced interface capturing disabled; using basic recoil model\n"
+            << endl;
     }
+
+    legacyRecoilPressure.reset
+    (
+        new volScalarField
+        (
+            IOobject
+            (
+                "recoilPressure",
+                runTime.timeName(),
+                mesh,
+                IOobject::NO_READ,
+                IOobject::AUTO_WRITE
+            ),
+            mesh,
+            dimensionedScalar("zero", dimPressure, 0.0)
+        )
+    );
+
+    legacyRecoilPressure->correctBoundaryConditions();
 }
 
 if (verbose)

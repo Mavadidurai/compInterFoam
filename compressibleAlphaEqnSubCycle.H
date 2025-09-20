@@ -3,7 +3,7 @@ alpha1.correctBoundaryConditions();
 alpha2 = scalar(1) - alpha1;
 alpha2.correctBoundaryConditions();
 
-if (pInterfaceCapturing.valid())
+if (useAdvancedCapturing && pInterfaceCapturing.valid())
 {
     tmp<surfaceScalarField> talphaPhi1(alphaPhi10);
 
