@@ -154,13 +154,20 @@ int main(int argc, char *argv[])
             volScalarField& rDeltaT = trDeltaT.ref();
             volScalarField& rSubDeltaT = trSubDeltaT.ref();
 
-            const dimensionedScalar maxDeltaT
+            const scalar maxDeltaTValue
             (
-                runTime.controlDict().lookupOrDefault<dimensionedScalar>
+                runTime.controlDict().lookupOrDefault<scalar>
                 (
                     "maxDeltaT",
-                    dimensionedScalar("maxDeltaT", dimTime, GREAT)
+                    GREAT
                 )
+            );
+
+            const dimensionedScalar maxDeltaT
+            (
+                "maxDeltaT",
+                dimTime,
+                maxDeltaTValue
             );
 
             const dimensionedScalar invMaxDeltaT(1/maxDeltaT);
