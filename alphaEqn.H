@@ -1,13 +1,16 @@
-/*---------------------------------------------------------------------------*\
-alphaEqn.H based on official OpenFOAM v2406 pattern
-\*---------------------------------------------------------------------------*/
-#include <cmath>
-extern Foam::Switch verbose;
-{
-    word scheme("div(phi,alpha)");
-    word schemer("div(phir,alpha)");
+/*---------------------------------------------------------------------------*\\
+  Simplified alpha equation following the upstream compressibleInterFoam
+  structure while keeping LIFT-specific hooks.
+\\*---------------------------------------------------------------------------*/
 
-    tmp<fv::ddtScheme<scalar>> ddtAlpha
+extern Foam::Switch verbose;
+
+{
+    const dictionary& alphaControls = mesh.solverDict(alpha1.name());
+
+    #include "alphaScheme.H"
+
+    tmp<fv::ddtScheme<scalar>> tDdtAlpha
     (
         fv::ddtScheme<scalar>::New
         (
@@ -15,24 +18,25 @@ extern Foam::Switch verbose;
             mesh.ddtScheme("ddt(alpha)")
         )
     );
+    const fv::ddtScheme<scalar>& ddtAlpha = tDdtAlpha();
 
-    // Set the off-centering coefficient according to ddt scheme
     scalar ocCoeff = 0;
+
     if
     (
-        isType<fv::EulerDdtScheme<scalar>>(ddtAlpha())
-     || isType<fv::localEulerDdtScheme<scalar>>(ddtAlpha())
+        isType<fv::EulerDdtScheme<scalar>>(ddtAlpha)
+     || isType<fv::localEulerDdtScheme<scalar>>(ddtAlpha)
     )
     {
         ocCoeff = 0;
     }
-    else if (isType<fv::CrankNicolsonDdtScheme<scalar>>(ddtAlpha()))
+    else if (isType<fv::CrankNicolsonDdtScheme<scalar>>(ddtAlpha))
     {
         if (nAlphaSubCycles > 1)
         {
             FatalErrorInFunction
-                << "Sub-cycling is not supported "
-                   "with the CrankNicolson ddt scheme"
+                << "Sub-cycling is not supported with the CrankNicolson ddt"
+                << " scheme"
                 << exit(FatalError);
         }
 
@@ -43,7 +47,7 @@ extern Foam::Switch verbose;
         )
         {
             ocCoeff =
-                refCast<const fv::CrankNicolsonDdtScheme<scalar>>(ddtAlpha())
+                refCast<const fv::CrankNicolsonDdtScheme<scalar>>(ddtAlpha)
                .ocCoeff();
         }
     }
@@ -54,62 +58,53 @@ extern Foam::Switch verbose;
             << exit(FatalError);
     }
 
-    // Set the time blending factor, 1 for Euler
     scalar cnCoeff = 1.0/(1.0 + ocCoeff);
-        // Runtime selection of interface sharpening scheme
-    const dictionary& alphaControls = mesh.solverDict(alpha1.name());
-    const word sharpeningScheme
-    (
-        alphaControls.lookupOrDefault<word>("sharpeningScheme", "standard")
-    );
-    const scalar thinFilmCoeff
-    (
-        alphaControls.lookupOrDefault<scalar>("thinFilmCoeff", 0.0)
-    );
-    const scalar sourceMaxMag
-    (
-        alphaControls.lookupOrDefault<scalar>("sourceMaxMag", GREAT)
-    );
-    // Standard face-flux compression coefficient
-    surfaceScalarField phic(mixture.cAlpha()*mag(phi/mesh.magSf()));
 
-    // Add the optional isotropic compression contribution
+    tmp<surfaceScalarField> phiCN(phi);
+
+    if (ocCoeff > 0 && phi.timeIndex() > 0)
+    {
+        phiCN = surfaceScalarField::New
+        (
+            "phiCN",
+            cnCoeff*phi + (1.0 - cnCoeff)*phi.oldTime()
+        );
+    }
+
+    surfaceScalarField phic
+    (
+        IOobject
+        (
+            "phic",
+            runTime.timeName(),
+            mesh,
+            IOobject::NO_READ,
+            IOobject::NO_WRITE
+        ),
+        mixture.cAlpha()*mag(phi/mesh.magSf())
+    );
+
     if (icAlpha > 0)
     {
         phic *= (1.0 - icAlpha);
         phic += (mixture.cAlpha()*icAlpha)*fvc::interpolate(mag(U));
     }
 
-    // Add the optional shear compression contribution
     if (scAlpha > 0)
     {
-        phic +=
-            scAlpha*mag(mesh.delta() & fvc::interpolate(symm(fvc::grad(U))));
+        phic += scAlpha*mag(mesh.delta() & fvc::interpolate(symm(fvc::grad(U))));
     }
 
-    surfaceScalarField::Boundary& phicBf =
-        phic.boundaryFieldRef();
+    const word sharpeningScheme
+    (
+        alphaControls.lookupOrDefault<word>("sharpeningScheme", "standard")
+    );
 
-    // Do not compress interface at non-coupled boundary faces
-    forAll(phicBf, patchi)
-    {
-        fvsPatchScalarField& phicp = phicBf[patchi];
-        if (!phicp.coupled())
-        {
-            phicp == 0;
-        }
-    }
+    const scalar thinFilmCoeff
+    (
+        alphaControls.lookupOrDefault<scalar>("thinFilmCoeff", 0.0)
+    );
 
-    // Use surfaceScalarField instead of tmp<>
-    surfaceScalarField phiCN(phi);
-
-    // Calculate the Crank-Nicolson off-centred volumetric flux
-    if (ocCoeff > 0 && phi.timeIndex() > 0)
-    {
-        phiCN = cnCoeff*phi + (1.0 - cnCoeff)*phi.oldTime();
-    }
-
-    // Construct interface compression flux with optional limiter
     surfaceScalarField phir(phic*nHatf);
 
     if (sharpeningScheme == "enhancedLimiter")
@@ -127,193 +122,23 @@ extern Foam::Switch verbose;
             1.0 - thinFilmCoeff*fvc::interpolate(min(alpha1, alpha2))
         );
 
-        limiter = max(min(limiter, scalar(1)), scalar(0));
+        limiter = Foam::max(Foam::min(limiter, scalar(1)), scalar(0));
         phir = phic*limiter*nHatf;
     }
-    else if (sharpeningScheme == "isoAdvector")
+    else if (sharpeningScheme != "standard")
     {
-        Info<< "isoAdvector selected but not available - using standard scheme" << endl;
+        WarningInFunction
+            << "Unknown sharpeningScheme '" << sharpeningScheme
+            << "' - using standard interface compression" << endl;
     }
 
-    for (int aCorr=0; aCorr<nAlphaCorr; aCorr++)
+    tmp<surfaceScalarField> phiAlpha(phiCN() + phir);
+    const surfaceScalarField& phiAlphaRef = phiAlpha();
+
+    #include "alphaSuSp.H"
+
+    if (MULESCorr)
     {
-        volScalarField alpha10(alpha1);
-
-        // Remove complex source terms for stability
-        volScalarField::Internal SpInternal
-        (
-            IOobject
-            (
-                "SpInternal",
-                runTime.timeName(),
-                mesh
-            ),
-            mesh,
-            dimensionedScalar(dgdt.dimensions(), Zero)
-        );
-
-        volScalarField::Internal SuInternal
-        (
-            IOobject
-            (
-                "SuInternal",
-                runTime.timeName(),
-                mesh
-            ),
-            mesh,
-            dimensionedScalar(dgdt.dimensions(), Zero)
-        );
-
-       // Construct bounded implicit/explicit source contributions
-        scalarField& SpInternalField = SpInternal.field();
-        scalarField& SuInternalField = SuInternal.field();
-        const dimensionedScalar sourceLimit
-        (
-            "sourceLimit",
-            dgdt.dimensions(),
-            sourceMaxMag
-        );
-
-        tmp<volScalarField> tdgdtLimited =
-            Foam::min
-            (
-                Foam::max(dgdt, -sourceLimit),
-                sourceLimit
-            );
-        const volScalarField& dgdtLimited = tdgdtLimited();
-
-        if (sourceMaxMag < GREAT)
-        {
-            tmp<volScalarField> tMagDgdt = mag(dgdt);
-            const volScalarField& magDgdt = tMagDgdt();
-            const scalar maxAbs = gMax(magDgdt.internalField());
-            if (maxAbs > sourceMaxMag + SMALL)
-            {
-                WarningInFunction
-                    << "Clamped mass-transfer source magnitude to "
-                    << sourceMaxMag << endl;
-            }
-        }
-
-        tmp<volScalarField> tAbsRate = mag(dgdtLimited);
-        tmp<volScalarField> tevapRate =
-            0.5*(dgdtLimited + tAbsRate());
-        tmp<volScalarField> tcondRate =
-            0.5*(tAbsRate() - dgdtLimited);
-
-        tmp<volScalarField> trhoMix = alpha1*rho1 + alpha2*rho2;
-        volScalarField& rhoMixField = trhoMix.ref();
-        rhoMixField = Foam::max
-        (
-            rhoMixField,
-            dimensionedScalar("rhoMin", rhoMixField.dimensions(), SMALL)
-        );
-
-        tmp<volScalarField> tevapWeight = (alpha2*rho2)/rhoMixField;
-        tmp<volScalarField> tcondWeight = (alpha1*rho1)/rhoMixField;
-
-        tmp<volScalarField> tDiag =
-            -(tevapRate()*tevapWeight() + tcondRate()*tcondWeight());
-        volScalarField& diagField = tDiag.ref();
-
-        tmp<volScalarField> tSource =
-            -dgdtLimited - diagField*alpha1;
-
-        SpInternalField = diagField.internalField();
-        SuInternalField = tSource().internalField();
-
-        label nonFiniteSources = 0;
-        forAll(SpInternal, celli)
-        {
-            if (!std::isfinite(SpInternal[celli]) || !std::isfinite(SuInternal[celli]))
-            {
-                SpInternal[celli] = 0.0;
-                SuInternal[celli] = 0.0;
-                nonFiniteSources++;
-            }
-        }
-        reduce(nonFiniteSources, sumOp<label>());
-        if (nonFiniteSources > 0)
-        {
-            WarningInFunction
-                << nonFiniteSources
-                << " non-finite source term values set to zero" << endl;
-        }
-        volScalarField spField
-        (
-            IOobject(
-                "spField",
-                runTime.timeName(),
-                mesh,
-                IOobject::NO_READ,
-                IOobject::NO_WRITE
-            ),
-            SpInternal,
-            alpha1.boundaryField()
-        );
-
-        volScalarField suField
-        (
-            IOobject(
-                "suField",
-                runTime.timeName(),
-                mesh,
-                IOobject::NO_READ,
-                IOobject::NO_WRITE
-            ),
-            SuInternal,
-            alpha1.boundaryField()
-        );
-        // Create proper volScalarField for divU
-        volScalarField divUField
-        (
-            IOobject
-            (
-                "divUField",
-                runTime.timeName(),
-                mesh,
-                IOobject::NO_READ,
-                IOobject::NO_WRITE
-            ),
-            mesh.moving()
-          ? fvc::div(phiCN + mesh.phi())
-          : fvc::div(phiCN)
-        );
-
-        // Create surface fields for MULES
-        surfaceScalarField Sp
-        (
-            IOobject
-            (
-                "Sp",
-                runTime.timeName(),
-                mesh
-            ),
-            mesh,
-            dimensionedScalar(dimless/dimTime, Zero)
-        );
-
-        surfaceScalarField Su
-        (
-            IOobject
-            (
-                "Su",
-                runTime.timeName(),
-                mesh
-            ),
-            mesh,
-            dimensionedScalar("zero", dimless/dimTime, 0.0)
-        );
-
-        Su = fvc::interpolate
-        (
-            divUField*min(alpha1, dimensionedScalar("one", dimless, 1.0))
-        );
-        
-        Sp += fvc::interpolate(spField);
-        Su += fvc::interpolate(suField);
-
-        // Basic alpha equation
         fvScalarMatrix alpha1Eqn
         (
             (
@@ -324,153 +149,158 @@ extern Foam::Switch verbose;
           + fv::gaussConvectionScheme<scalar>
             (
                 mesh,
-                phiCN,
-                upwind<scalar>(mesh, phiCN)
-            ).fvmDiv(phiCN, alpha1)
-        - fvm::div(phir, alpha1)
-        + fvm::Sp(SpInternal, alpha1) + SuInternal
-        );
-               alpha1Eqn += fvm::Sp
-        (
-            dimensionedScalar("diagStab", alpha1.dimensions()/dimTime, VSMALL),
-            alpha1
+                phiAlpha,
+                upwind<scalar>(mesh, phiAlpha)
+            ).fvmDiv(phiAlphaRef, alpha1)
         );
 
-        // Add small stabilization term to diagonal
-        alpha1Eqn += fvm::Sp(dimensionedScalar("stab", dimless/dimTime, 1e-9), alpha1);
-        
-        // Solve with residual checking
-        SolverPerformance<scalar> solverPerf = alpha1Eqn.solve(alpha1.name());
-        
-        if (solverPerf.initialResidual() > 1e-4 && !solverPerf.converged())
+        if (divU.valid())
         {
-            WarningInFunction
-                << "Alpha equation may not have converged"
-                << "  Initial residual: " << solverPerf.initialResidual()
-                << "  Final residual: " << solverPerf.finalResidual()
-                << "  Iterations: " << solverPerf.nIterations()
-                << endl;
-        }
-        
-        // Check for non-finite values before bounding
-        {
-            const scalarField& alpha1Field = alpha1.internalField();
-            bool hasNonFinite = false;
-            forAll(alpha1Field, i)
-            {
-                if (!std::isfinite(alpha1Field[i]))
-                {
-                    hasNonFinite = true;
-                    break;
-                }
-            }
-            if (hasNonFinite)
-            {
-                FatalErrorInFunction
-                    << "Non-finite values detected in alpha1 field after solve"
-                    << exit(FatalError);
-            }
-        }
-
-        // Bound and update fields with validation
-        alpha1 = min(max(alpha1, scalar(0)), scalar(1));
-        alpha2 = 1.0 - alpha1;
-
-        // Validate density fields
-        if (rho1.size() != mesh.nCells() || rho2.size() != mesh.nCells())
-        {
-            FatalErrorInFunction
-                << "Density field size mismatch: rho1:" << rho1.size()
-                << " rho2:" << rho2.size()
-                << " mesh:" << mesh.nCells()
-                << exit(FatalError);
-        }
-
-        // Check for non-finite density values
-        const scalarField& rho1Internal = rho1.internalField();
-        const scalarField& rho2Internal = rho2.internalField();
-        forAll(rho1Internal, cellI)
-        {
-            if (!std::isfinite(rho1Internal[cellI]) || !std::isfinite(rho2Internal[cellI]))
-            {
-                FatalErrorInFunction
-                    << "Non-finite density values detected at cell " << cellI
-                    << " rho1:" << rho1Internal[cellI]
-                    << " rho2:" << rho2Internal[cellI]
-                    << exit(FatalError);
-            }
-        }
-        
-        rho = alpha1*rho1 + alpha2*rho2;
-        alpha1.correctBoundaryConditions();
-        alpha2.correctBoundaryConditions();
-
-        // Get flux safely without tmp issues
-        alphaPhi10 = alpha1Eqn.flux();
-
-        if (MULESCorr)
-        {
-            // Optionally revert to previous iteration values
-            if (alphaApplyPrevCorr)
-            {
-                alpha1 = alpha10;
-            }
-
-            surfaceScalarField alphaPhiCorr(alphaPhi10);
-
-            MULES::correct
-            (
-                geometricOneField(),
-                alpha1,
-                phiCN + phir,
-                alphaPhiCorr,
-                Sp,
-                Su,
-                oneField(),
-                zeroField()
-            );
-
-            alphaPhi10 = alphaPhiCorr;
+            alpha1Eqn -= Su() + fvm::Sp(Sp() + divU(), alpha1);
         }
         else
         {
-            // Basic MULES explicit solve without correction
-            MULES::explicitSolve
-            (
-                geometricOneField(),
-                alpha1,
-                phiCN + phir,
-                alphaPhi10,
-                Sp,
-                Su,
-                oneField(),
-                zeroField()
-            );
+            alpha1Eqn += fvm::Sp(Sp(), alpha1) + Su();
         }
-        
-        alpha1 = min(max(alpha1, scalar(0)), scalar(1));
-        alpha2 = 1.0 - alpha1;
-        alpha1.correctBoundaryConditions();
-        alpha2.correctBoundaryConditions();
+
+        SolverPerformance<scalar> solverPerf = alpha1Eqn.solve(alpha1.name());
 
         if (verbose)
         {
-            Info<< "Phase-1 volume fraction = "
-                << alpha1.weightedAverage(mesh.Vsc()).value()
-                << "  Min(" << alpha1.name() << ") = " << min(alpha1).value()
-                << "  Max(" << alpha1.name() << ") = " << max(alpha1).value()
-                << endl;
+            Info<< "alpha1 solve: initial residual = "
+                << solverPerf.initialResidual()
+                << ", final residual = " << solverPerf.finalResidual()
+                << ", iterations = " << solverPerf.nIterations() << endl;
         }
+
+        tmp<surfaceScalarField> talphaPhi1UD(alpha1Eqn.flux());
+        alphaPhi10 = talphaPhi1UD();
+
+        alpha2 = 1.0 - alpha1;
+        mixture.correct();
     }
 
-    tmp<surfaceScalarField> trho1 = fvc::interpolate(rho1);
-    tmp<surfaceScalarField> trho2 = fvc::interpolate(rho2);
-    rhoPhi = alphaPhi10*(trho1() - trho2()) + phiCN*trho2();
-
-    if (ocCoeff > 0 && phi.timeIndex() > 0)
+    for (label aCorr = 0; aCorr < nAlphaCorr; ++aCorr)
     {
-        // Calculate the end-of-time-step alpha flux
-        alphaPhi10 = (phi - (1.0 - cnCoeff)*phi.oldTime())/cnCoeff;
+        tmp<surfaceScalarField> talphaPhi1Un
+        (
+            fvc::flux
+            (
+                phiAlphaRef,
+                (cnCoeff*alpha1 + (1.0 - cnCoeff)*alpha1.oldTime())(),
+                compressionScheme.rewind()
+            )
+        );
+
+        if (MULESCorr)
+        {
+            tmp<surfaceScalarField> talphaPhi1Corr(talphaPhi1Un() - alphaPhi10);
+            volScalarField alpha10("alpha10", alpha1);
+
+            if (divU.valid())
+            {
+                MULES::correct
+                (
+                    geometricOneField(),
+                    alpha1,
+                    talphaPhi1Un(),
+                    talphaPhi1Corr.ref(),
+                    Sp(),
+                    (-Sp()*alpha1)(),
+                    oneField(),
+                    zeroField()
+                );
+            }
+            else
+            {
+                MULES::correct
+                (
+                    geometricOneField(),
+                    alpha1,
+                    talphaPhi1Un(),
+                    talphaPhi1Corr.ref(),
+                    oneField(),
+                    zeroField()
+                );
+            }
+
+            if (aCorr == 0)
+            {
+                alphaPhi10 += talphaPhi1Corr();
+            }
+            else
+            {
+                alpha1 = 0.5*alpha1 + 0.5*alpha10;
+                alphaPhi10 += 0.5*talphaPhi1Corr();
+            }
+        }
+        else
+        {
+            alphaPhi10 = talphaPhi1Un();
+
+            if (divU.valid())
+            {
+                MULES::explicitSolve
+                (
+                    geometricOneField(),
+                    alpha1,
+                    phiAlphaRef,
+                    alphaPhi10,
+                    Sp(),
+                    (Su() + divU()*min(alpha1(), scalar(1)))(),
+                    oneField(),
+                    zeroField()
+                );
+            }
+            else
+            {
+                MULES::explicitSolve
+                (
+                    geometricOneField(),
+                    alpha1,
+                    phiAlphaRef,
+                    alphaPhi10,
+                    oneField(),
+                    zeroField()
+                );
+            }
+        }
+
+        alpha2 = 1.0 - alpha1;
+        mixture.correct();
+    }
+
+    #include "rhofs.H"
+
+    if
+    (
+        word(mesh.ddtScheme("ddt(rho,U)"))
+     == fv::EulerDdtScheme<vector>::typeName
+     || word(mesh.ddtScheme("ddt(rho,U)"))
+     == fv::localEulerDdtScheme<vector>::typeName
+    )
+    {
+        rhoPhi = alphaPhi10*(rho1f - rho2f) + phiCN()*rho2f;
+    }
+    else
+    {
+        if (ocCoeff > 0)
+        {
+            alphaPhi10 =
+                (alphaPhi10 - (1.0 - cnCoeff)*alphaPhi10.oldTime())/cnCoeff;
+        }
+
+        rhoPhi = alphaPhi10*(rho1f - rho2f) + phi*rho2f;
+    }
+
+    rho = alpha1*rho1 + alpha2*rho2;
+
+    if (verbose)
+    {
+        Info<< "Phase-1 volume fraction = "
+            << alpha1.weightedAverage(mesh.Vsc()).value()
+            << "  Min(" << alpha1.name() << ") = " << min(alpha1).value()
+            << "  Max(" << alpha1.name() << ") = " << max(alpha1).value()
+            << endl;
     }
 }
-
