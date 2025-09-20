@@ -51,6 +51,7 @@ solvers
         nCellsInCoarsestLevel 10;
         agglomerator    faceAreaPair;
         mergeLevels     2;
+        relaxationFactor 0.3;
     }
 
     p_rghFinal
