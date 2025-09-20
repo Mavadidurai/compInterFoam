@@ -165,7 +165,8 @@ extern Foam::Switch verbose;
             << "  mean(T) = " << gAverage(T) << endl;
         Info<< "    mean exchange coeff = "
             << gAverage(interfaceExchange)
-            << "  max |q_gm| = " << gMax(mag(gasMetalHeatFlux)) << endl;
+            << "  max |q_gm| = "
+            << gMax(mag(gasMetalHeatFlux)().internalField()) << endl;
     }
 }
 
