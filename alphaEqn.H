@@ -182,6 +182,8 @@ extern Foam::Switch verbose;
 
     for (label aCorr = 0; aCorr < nAlphaCorr; ++aCorr)
     {
+        // Reset the compression scheme stream before constructing the flux
+        // interpolation    
         compressionScheme.rewind();
 
         tmp<surfaceScalarField> talphaPhi1Un

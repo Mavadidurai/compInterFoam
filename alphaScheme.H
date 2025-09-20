@@ -17,10 +17,10 @@ static const word divAlphaName("div(phi,alpha)");
 const word alphaScheme(mesh.divScheme(divAlphaName)[1].wordToken());
 
 tokenList defaultCompressionScheme(4);
-defaultCompressionScheme[0] = word("Gauss");
-defaultCompressionScheme[1] = word("interfaceCompression");
-defaultCompressionScheme[2] = alphaScheme;
-defaultCompressionScheme[3] = alphaControls.lookup<scalar>("cAlpha");
+defaultCompressionScheme[0] = token(word("Gauss"));
+defaultCompressionScheme[1] = token(word("interfaceCompression"));
+defaultCompressionScheme[2] = token(alphaScheme);
+defaultCompressionScheme[3] = token(alphaControls.lookup<scalar>("cAlpha"));
 
 ITstream compressionScheme
 (
