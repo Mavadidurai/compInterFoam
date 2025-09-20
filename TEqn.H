@@ -66,7 +66,9 @@ extern Foam::Switch verbose;
 
     tmp<surfaceScalarField> tCvolPhi(fvc::interpolate(CvolGas)*phi);
     const surfaceScalarField& CvolPhi = tCvolPhi();
-    tmp<volScalarField> tContErr(fvc::div(CvolPhi));
+    tmp<volScalarField> tDivPhi(fvc::div(phi));
+    const volScalarField& divPhi = tDivPhi();
+    tmp<volScalarField> tContErr(CvolGas*divPhi);
     const volScalarField& contErr = tContErr();
 
     fvScalarMatrix TEqn
