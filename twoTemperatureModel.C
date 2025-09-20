@@ -1053,21 +1053,29 @@ tmp<volScalarField> twoTemperatureModel::gasMetalExchangeCoeffField() const
     }
     coeff *= metalFraction_;
     coeff *= (scalar(1) - metalFraction_);
-    const scalar maxExchange =
-        dict_.lookupOrDefault<scalar>("maxGasMetalExchangeCoeff", 1e18);
-    const scalar minExchange =
-        dict_.lookupOrDefault<scalar>("minGasMetalExchangeCoeff", 0.0);
-    const dimensionedScalar minExchangeDim
-    (
-        "minGasMetalExchangeCoeff",
-        coeff.dimensions(),
-        minExchange
+    const dimensionedScalar minExchangeDim(
+        dict_.lookupOrDefault<dimensionedScalar>
+        (
+            "minGasMetalExchangeCoeff",
+            dimensionedScalar
+            (
+                "minGasMetalExchangeCoeff",
+                coeff.dimensions(),
+                0.0
+            )
+        )
     );
-    const dimensionedScalar maxExchangeDim
-    (
-        "maxGasMetalExchangeCoeff",
-        coeff.dimensions(),
-        maxExchange
+    const dimensionedScalar maxExchangeDim(
+        dict_.lookupOrDefault<dimensionedScalar>
+        (
+            "maxGasMetalExchangeCoeff",
+            dimensionedScalar
+            (
+                "maxGasMetalExchangeCoeff",
+                coeff.dimensions(),
+                1e18
+            )
+        )
     );
     coeff = Foam::max(Foam::min(coeff, maxExchangeDim), minExchangeDim);
     coeff.correctBoundaryConditions();

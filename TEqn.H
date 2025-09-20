@@ -31,22 +31,29 @@ extern Foam::Switch verbose;
     tmp<volScalarField> tInterfaceExchange = ttm.gasMetalExchangeCoeffField();
     volScalarField& interfaceExchange = tInterfaceExchange.ref();
 
-    const scalar minInterfaceCoeff =
-        ctrl.lookupOrDefault<scalar>("minGasMetalExchangeCoeff", 0.0);
-    const scalar maxInterfaceCoeff =
-        ctrl.lookupOrDefault<scalar>("maxGasMetalExchangeCoeff", 1e18);
-
-    const dimensionedScalar minCoeff
-    (
-        "minGasMetalExchangeCoeff",
-        interfaceExchange.dimensions(),
-        minInterfaceCoeff
+    const dimensionedScalar minCoeff(
+        ctrl.lookupOrDefault<dimensionedScalar>
+        (
+            "minGasMetalExchangeCoeff",
+            dimensionedScalar
+            (
+                "minGasMetalExchangeCoeff",
+                interfaceExchange.dimensions(),
+                0.0
+            )
+        )
     );
-    const dimensionedScalar maxCoeff
-    (
-        "maxGasMetalExchangeCoeff",
-        interfaceExchange.dimensions(),
-        maxInterfaceCoeff
+    const dimensionedScalar maxCoeff(
+        ctrl.lookupOrDefault<dimensionedScalar>
+        (
+            "maxGasMetalExchangeCoeff",
+            dimensionedScalar
+            (
+                "maxGasMetalExchangeCoeff",
+                interfaceExchange.dimensions(),
+                1e18
+            )
+        )
     );
 
     interfaceExchange = Foam::min(Foam::max(interfaceExchange, minCoeff), maxCoeff);
