@@ -71,6 +71,6 @@ gaussianProfile     true;
 // Optional intensity entry (consistent with pulseEnergy & pulseWidth)
 //peakIntensity       1e15;      // [W/m^2] from pulseEnergy
 continuousLaser     false;
-maxVolumetricSource 1e18;   // [W/m^3] limiter for volumetric laser source
+maxVolumetricSource 0;   // [W/m^3] limiter for volumetric laser source
 
 // ************************************************************************* //
