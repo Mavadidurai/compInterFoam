@@ -1,0 +1,63 @@
+/*--------------------------------*- C++ -*----------------------------------*\\
+| =========                 |                                                 |
+| \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox           |
+|  \\    /   O peration     | Version:  v2406                                 |
+|   \\  /    A nd           | Website:  www.openfoam.com                      |
+|    \\/     M anipulation  |                                                 |
+\\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    location    "constant";
+    object      transportProperties;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+phases (metal air);
+
+metal
+{
+    transportModel  Newtonian;
+    nu              nu [ 0 2 -1 0 0 0 0 ] 5e-7;
+    rho             rho [ 1 -3 0 0 0 0 0 ] 4515;
+}
+
+air
+{
+    transportModel  Newtonian;
+    nu              nu [ 0 2 -1 0 0 0 0 ] 1.48e-5;
+    rho             rho [ 1 -3 0 0 0 0 0 ] 1.2;
+}
+// Surface tension of molten titanium in contact with air (~1.64 N/m)
+sigma           sigma [1 0 -2 0 0 0 0] 1.64;
+
+icAlpha         icAlpha [0 0 0 0 0 0 0] 0;
+scAlpha         scAlpha [0 0 0 0 0 0 0] 0;
+// Example latent-heat source term specification
+    phaseChangeCoeffs
+    {
+        model          temperatureWindow;
+        Tvapor         3560;      // or your value
+        windowWidth    300;       // smoothing band [K]
+        dtFloor        1e-12;     // floor for time-step regularisation
+        relaxationTime 5e-11;   // [s] Set to 50 ps for a faster, more physical response       
+        minCoefficient 1e7;      // optional cap on |phaseChangeSource| [K/s]
+        onlyAboveVapor false;     // allow both melt/condense logic
+        // Activation window for laser pulse (match 0–5 ps laser duration)
+        activationTime ((0 5e-12));
+    }
+massTransferCoeffs
+{
+    // Mass transfer derived from phase-change energy:
+    // dgdt = -(Cl*phaseChangeSource)/latentHeat
+    // Optional activation window
+    // Keep mass transfer active for the same window as the laser heating
+    tStart    (0);
+    tEnd      (5e-12);
+
+    // Optional upper bound on |dgdt| [1/s]
+    rateMax   1e8;
+}
+// ************************************************************************* //
