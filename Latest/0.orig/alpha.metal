@@ -27,8 +27,8 @@ boundaryField
       front   		{        type        symmetryPlane;     }
       left  		{        type        symmetryPlane;     }
       right    		{        type        symmetryPlane;     }
-      donor	        {	 type        zeroGradient;      }
-      substrate
+      substrate	        {	 type        zeroGradient;      }
+      donor
       {
           type    fixedValue;
           value   uniform 1;   // metal wetting at the substrate side

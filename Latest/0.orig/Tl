@@ -22,23 +22,29 @@ internalField   uniform 300;
 
 boundaryField
 {
-  left     { type symmetryPlane; }
-  right     { type symmetryPlane; }
-  front     { type symmetryPlane; }
-  back     { type symmetryPlane; }
+    left     { type symmetryPlane; }
+    right    { type symmetryPlane; }
+    front    { type symmetryPlane; }
+    back     { type symmetryPlane; }
 
+    // BOTTOM - substrate (receiver) - strong heat sink
     substrate
     {
-        // Ambient-temperature solid boundary acts as a heat sink
         type            fixedValue;
-        value           uniform 300;
+        value           uniform 300;  // Heat sink effect
     }
+    
+    // TOP - donor (transparent glass) - weaker thermal effect
     donor
     {
-        // Ambient-temperature solid boundary acts as a heat sink
-        type            fixedValue;
-        value           uniform 300;
+        type            zeroGradient;  // OR fixedValue with higher temp
+        // Alternative: type fixedValue; value uniform 320;
     }
 }
 
+// REASONING:
+// - Substrate (bottom): Strong heat sink - removes excess energy
+// - Donor (top): Glass substrate - minimal thermal interference
+// - This allows proper temperature buildup in metal film
+// - Prevents over-cooling from both sides
 // ************************************************************************* //
