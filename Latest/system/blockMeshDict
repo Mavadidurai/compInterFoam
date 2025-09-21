@@ -1,0 +1,70 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+| =========                 |                                                 |
+| \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox           |
+|  \\    /   O peration     | Version:  v2406                                 |
+|   \\  /    A nd           | Website:  www.openfoam.com                      |
+|    \\/     M anipulation  |                                                 |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    object      blockMeshDict;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+scale 1e-6; // coordinates in micrometers
+
+// CORRECTED LIFT GEOMETRY (bottom to top):
+// y0 = 0.0000     - Substrate (receiver) bottom
+// y1 = 8.0000     - Substrate top / Air gap bottom  
+// y2 = 20.0000    - Air gap top / Ti film bottom
+// y3 = 20.0714    - Ti film top (71.4 nm thick)
+// y4 = 32.0714    - Donor glass top
+
+vertices
+(
+    // y0 = 0.0000 (substrate/receiver bottom)
+    (0   0.0000  0)  (50  0.0000  0)  (50  0.0000 10)  (0   0.0000 10)
+    
+    // y1 = 8.0000 (substrate top / air gap bottom)
+    (0   8.0000  0)  (50  8.0000  0)  (50  8.0000 10)  (0   8.0000 10)
+    
+    // y2 = 20.0000 (air gap top / Ti film bottom)
+    (0  20.0000  0)  (50 20.0000  0)  (50 20.0000 10)  (0  20.0000 10)
+    
+    // y3 = 20.0714 (Ti film top) - 71.4 nm thick film
+    (0  20.0714  0)  (50 20.0714  0)  (50 20.0714 10)  (0  20.0714 10)
+    
+    // y4 = 32.0714 (donor glass top)
+    (0  32.0714  0)  (50 32.0714  0)  (50 32.0714 10)  (0  32.0714 10)
+);
+
+blocks
+(
+    //                y-low face       y-high face        Nx   Ny   Nz   grading
+    hex ( 0  1  2  3   4  5  6  7)   (240  80  20)  simpleGrading (1 1 1)  // Substrate (receiver)
+    hex ( 4  5  6  7   8  9 10 11)   (240 120  20)  simpleGrading (1 1 1)  // Air gap (12 µm)
+    hex ( 8  9 10 11  12 13 14 15)   (240  20  20)  simpleGrading (1 1 1)  // Ti film (71.4 nm, 20 cells)
+    hex (12 13 14 15  16 17 18 19)   (240 120  20)  simpleGrading (1 1 1)  // Donor glass (12 µm)
+);
+
+edges ();
+
+boundary
+(
+    // Symmetry planes (same as before)
+    left          { type symmetryPlane; faces ((0 4 5 1)(4 8 9 5)(8 12 13 9)(12 16 17 13)); }
+    right         { type symmetryPlane; faces ((3 7 6 2)(7 11 10 6)(11 15 14 10)(15 19 18 14)); }
+    front         { type symmetryPlane; faces ((0 1 2 3)(4 5 6 7)(8 9 10 11)(12 13 14 15)); }
+    back          { type symmetryPlane; faces ((1 5 9 13)(2 6 10 14)(3 7 11 15)(16 17 18 19)); }
+    
+    // CORRECTED: Substrate at bottom, donor at top
+    substrate     { type wall;  faces ((0 3 2 1)); }      // BOTTOM - receiver substrate
+    donor         { type wall;  faces ((16 17 18 19)); }   // TOP - transparent donor substrate
+);
+
+mergePatchPairs();
+
+// ************************************************************************* //

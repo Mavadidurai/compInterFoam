@@ -1,0 +1,75 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+| =========                 |                                                 |
+| \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox           |
+|  \\    /   O peration     | Version:  v2406                                 |
+|   \\  /    A nd           | Website:  www.openfoam.com                      |
+|    \\/     M anipulation  |                                                 |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    location    "constant";
+    object      laserProperties;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+// Accepted keys for femtosecondLaserModel:
+//   peakIntensity       [W/m^2]
+//   pulseWidth          [s]
+//   wavelength          [m]
+//   absorptionCoeff     [1/m]
+//   spotSize            [m]
+//   pulseEnergy         [J]
+//   direction           (vector)
+//   focus               (point)
+//   scanVelocity        (vector, optional)
+//   pulseFrequency      [1/s, optional]
+//   pulseDutyCycle      [-, optional]
+//   reflectivity        [-]
+//   gaussianProfile     [bool]
+//   continuousLaser     [bool]
+//   laserStartTime      [s]
+//   laserEndTime        [s]
+//   gasAbsorptionCoeff  [1/m, optional, default 0]
+// Parameter checks enforce pulseWidth 10fs–10ps, wavelength 100nm–2µm
+// and peakIntensity ≤1e16 W/m^2.
+// Gaussian pulse focused in the 71.4 nm donor film (y=8.0–8.0714 µm)
+// Domain: x∈[0,50e-6], y∈[0,20e-6], z∈[0,10e-6]
+
+// geometry coupling
+// Center donor film around laser focus so focus y lies within film bounds
+// Updated film bounds for corrected geometry
+filmYMin        20.0000e-6;    // Ti film bottom (was 8.0000e-6)
+filmYMax        20.0714e-6;    // Ti film top (was 8.0714e-6)
+gasAbsorptionCoeff 0;     // [1/m] gas absorption (0 disables direct gas heating)
+// --- Energy & timing ---
+// Tune energy to exceed the Ti melt+vapor energy (~2.6e-8 J absorbed)
+// while keeping the peak intensity below the 1e16 W/m^2 safety cap.
+pulseEnergy     6.0e-8;          // [J] total energy (0.094 J/cm^2 incident fluence)
+pulseWidth      2.14e-13;        // [s] 214 fs pulse width
+laserStartTime  0;        // [s] trigger immediately at simulation start
+laserEndTime    5e-12;    // [s] 100 ps pulse duration within controlDict end time
+
+// --- Spatial Gaussian (match the box center and film depth) ---
+spotSize        9.0e-6;         // [m] beam diameter (4.5 µm 1/e^2 radius)
+
+// Put the beam center inside the domain (mid x,z; inside donor film at y≈8.0357 µm)
+focus            (25e-6 20.0357e-6 5e-6);
+direction       (0 -1 0);
+
+// --- Wavelength / interaction ---
+wavelength          3.43e-7;  // [m]
+
+// Absorption
+absorptionCoeff     6.0e7;    // [1/m] ≈17 nm optical depth in Ti at 343 nm
+
+// Reflectivity / profile
+reflectivity        0.55;
+gaussianProfile     true;
+
+// Optional intensity entry (consistent with pulseEnergy & pulseWidth)
+continuousLaser     false;
+maxVolumetricSource 5e23;   // [W/m^3] raise cap above intensity*absorption (~5e23)
+
+// ************************************************************************* //

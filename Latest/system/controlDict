@@ -1,0 +1,134 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+| =========                 |                                                 |
+| \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox           |
+|  \\    /   O peration     | Version:  v2406                                 |
+|   \\  /    A nd           | Website:  www.openfoam.com                      |
+|    \\/     M anipulation  |                                                 |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    location    "system";
+    object      controlDict;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+application     compInterFoam;
+
+// --- HEATING STAGE SETUP ---
+startFrom       startTime;
+startTime       0;              // Begin at start of heating pulse
+stopAt          endTime;
+endTime         5e-12;          // MODIFIED: Shorter run time for debugging
+
+// --- DEBUG TIME STEPPING ---
+// Use an adaptive time step to resolve the laser pulse without excessive iterations.
+deltaT          1e-14;          // Start with 10 fs base step (≈1/20 of the 214 fs pulse)
+adjustTimeStep  yes;            // Re-enable adaptive stepping for stability and efficiency
+maxCo           0.5;            // Keep Courant number in a physically stable range
+maxAlphaCo      0.5;            // Restrict interface Courant number similarly
+maxDeltaT       5e-14;          // Limit growth to keep pulse well-resolved (<25% of pulse)
+minDeltaT       5e-15;          // Allow reduction to capture sharp transients
+
+verbose         true;
+maxGasMetalHeatFlux 1e22;   // [W/m^3] limiter for gas-metal flux coupling
+maxGasMetalExchangeCoeff  1e18; // [W/m^3/K] limiter for interface exchange
+minGasMetalExchangeCoeff  0;
+// --- More frequent writing for debugging ---
+writeControl    runTime;
+writeInterval   1e-12;
+purgeWrite      20;             
+writeFormat     ascii;
+writePrecision  12;
+writeCompression off;           
+timeFormat      general;
+timePrecision   6;             // Higher precision for small time steps
+fileHandler     uncollated;
+
+runTimeModifiable yes;
+
+// --- ADVANCED INTERFACE CAPTURING ---
+useAdvancedInterfaceCapturing  true;
+advancedInterfaceCapturing
+{
+    pressureScale        2e4;           // Recommended scaling
+    recoilMax            5e6;           // Allow physical recoil build-up
+    clampRecoil          true;
+    scaleRecoilMax       false;
+
+    recoilTempOffset     [0 0 0 1 0 0 0] 0;
+    phaseChangeTempOffset [0 0 0 1 0 0 0] 0;
+    relaxFactor          0.2;
+    alphaMin             0.001;
+    alphaMax             0.999;
+}
+
+// --- TEMPERATURE CLAMPING ---
+enableTClamp    true;
+minT            250;
+maxT            4000;
+
+// --- TWO-TEMPERATURE COUPLING ---
+twoTemperatureProperties
+{
+    Ce   [1 -1 -2 -1 0 0 0] 1.5e6;
+    Cl   [1 -1 -2 -1 0 0 0] 2.3e6;
+    G    [1 -1 -3 -1 0 0 0] 5e17;
+    energyTol 0.01;
+    energyTolerance 0.01;
+    minTe 300;
+    maxTe 4000;
+    minTl 300;
+    maxTl 4000;
+    maxGasMetalExchangeCoeff [1 -1 -3 -1 0 0 0] 1e18;
+    minGasMetalExchangeCoeff [1 -1 -3 -1 0 0 0] 0;
+}
+libs ("libutilityFunctionObjects.so");
+
+// --- MINIMAL DIAGNOSTICS ONLY ---
+functions
+{
+    // Critical monitoring only
+    minmax_critical
+    {
+        type            fieldMinMax;
+        libs            ("libfieldFunctionObjects.so");
+        fields          (T Te Tl alpha.metal p_rgh);
+        writeControl    timeStep;
+        writeInterval   10;
+        log             true;       // Print to console
+    }
+    
+    // Energy conservation monitoring
+    energy_monitor
+    {
+        type            coded;
+        libs            ("libutilityFunctionObjects.so");
+        name            energyCheck;
+        writeControl    timeStep;
+        writeInterval   50;
+        
+        codeWrite
+        #{
+            Info<< "Energy diagnostics at time " << mesh().time().value() << endl;
+            
+            const volScalarField& T = mesh().lookupObject<volScalarField>("T");
+            const volScalarField& alpha = mesh().lookupObject<volScalarField>("alpha.metal");
+            
+            scalar maxT = gMax(T);
+            scalar minT = gMin(T);
+            scalar maxAlpha = gMax(alpha);
+            
+            Info<< "    Max T: " << maxT << " K" << endl;
+            Info<< "    Min T: " << minT << " K" << endl;
+            Info<< "    Max alpha: " << maxAlpha << endl;
+            
+            if (maxT > 5000 || minT < 200 || maxAlpha > 0.95)
+            {
+                WarningIn("energyCheck") << "Critical values detected!" << endl;
+            }
+        #};
+    }
+}

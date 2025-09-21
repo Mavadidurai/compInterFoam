@@ -1,0 +1,55 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+| =========                 |                                                 |
+| \\      /  F ield         | OpenFOAM: setFields dictionary                 |
+|  \\    /   O peration     | Detailed init for LIFT test run                |
+|   \\  /    A nd           |                                                 |
+|    \\/     M anipulation  |                                                 |
+\*---------------------------------------------------------------------------*/
+// Only numbers adjusted; no factors/models changed.
+// Update the BOX LIMITS below to match your mesh (in meters).
+// Coordinate convention: X,Z lateral, Y vertical (gravity in -Y).
+
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    object      setFieldsDict;
+}
+defaultFieldValues
+(
+  volScalarFieldValue alpha.metal 0
+  volScalarFieldValue alpha.air   1
+  volScalarFieldValue Tl          300
+  volScalarFieldValue Te          300
+  volScalarFieldValue T           300
+);
+
+regions
+(
+    boxToCell
+    {
+        box (0        20.0000e-06  0)        // Film bottom
+            (50.0e-06 20.0714e-06  10.0e-06); // Film top
+
+        fieldValues
+        (
+            volScalarFieldValue alpha.metal 1
+            volScalarFieldValue alpha.air   0
+        );
+    }
+        // Initialize the film as molten (above Tliq=1941 K, below Tvap=3560 K)
+    boxToCell
+    {
+        box (0        20.0000e-06  0)        // Same Ti film region
+            (50.0e-06 20.0714e-06  10.0e-06);
+
+        fieldValues
+        (
+           volScalarFieldValue Tl 300  // Return to ambient; laser will heat from this baseline
+           volScalarFieldValue Te 300  // Keep electronic temperature at ambient preheat level
+            // optional but tidy: initialise scalar T too, even though TTM will overwrite it
+           volScalarFieldValue T 300   // Maintain consistency with ambient solid/liquid temperature
+        );
+    }
+);
