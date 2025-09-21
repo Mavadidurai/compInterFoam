@@ -38,11 +38,8 @@ FoamFile
 // Domain: x∈[0,50e-6], y∈[0,20e-6], z∈[0,10e-6]
 
 // geometry coupling
-// Center donor film around laser focus so focus y lies within film bounds
-// Updated film bounds for corrected geometry
-filmYMin        20.0000e-6;    // Ti film bottom (was 8.0000e-6)
-filmYMax        20.0714e-6;    // Ti film top (was 8.0714e-6)
 gasAbsorptionCoeff 0;     // [1/m] gas absorption (0 disables direct gas heating)
+
 // --- Energy & timing ---
 // Tune energy to exceed the Ti melt+vapor energy (~2.6e-8 J absorbed)
 // while keeping the peak intensity below the 1e16 W/m^2 safety cap.
