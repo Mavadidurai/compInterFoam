@@ -14,33 +14,29 @@ FoamFile
     object      refineMeshDict;
 }
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
-set                 focusBox;        // made by topoSet (non-empty)
-coordinateSystem    global;          // use global x,y,z axes
+// Keep the focusBox cellSet for debugging, but all refinement is now handled
+// directly in blockMesh.  refineMesh therefore behaves as a pass-through copy.
+set                 focusBox;
+coordinateSystem    global;
 globalCoeffs
 {
     tan1   (1 0 0);   // x-direction
     tan2   (0 0 1);   // z-direction
-    normal (0 1 0);   // y-direction (film thickness)  <-- do NOT refine
-} 
-// Split x and z only (leave y intact)
-directions           (tan1 tan2);
+    normal (0 1 0);   // y-direction (film thickness)
+}
 
-useHexTopology      yes;
-geometricCut        yes;             // preserves nicer splits on hexes
+// No directions are refined; the list is retained for completeness only.
+directions           ();
+
+useHexTopology      no;
+geometricCut        no;              // ensure no geometric splitting occurs
 writeMesh           no;
 
-nBufferLayers        1;
+nBufferLayers        0;
 maxGlobalCells       30000000;
 maxLocalCells        30000000;
 minRefinementCells   0;
 
 refinementRegions
-{
-  focusBox
-  {
-    mode    inside;
-    levels  ((1e15 1));              // one split in each listed direction
-  }
-}
-
+{}
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //

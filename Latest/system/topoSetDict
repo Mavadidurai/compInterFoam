@@ -26,11 +26,11 @@ actions
         sourceInfo
         {
             // Refined region around laser focus and expected jet trajectory
-            // x: [16.7, 33.3] µm (centered around x=25 µm focus)
+            // x: [16.6667, 33.3333] µm (aligned to blockMesh cell planes)
             // y: [18.0, 24.0] µm (covers Ti film + some air gap below)  
             // z: [2.5, 7.5] µm (centered around z=5 µm focus)
-            box (16.7e-06 18.0e-06 2.5e-06)
-                (33.3e-06 24.0e-06 7.5e-06);
+            box (16.6666667e-06 18.0e-06 2.5e-06)
+                (33.3333333e-06 24.0e-06 7.5e-06);
         }
     }
 
