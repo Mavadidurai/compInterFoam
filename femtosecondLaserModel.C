@@ -68,8 +68,8 @@ femtosecondLaserModel::femtosecondLaserModel
     continuousLaser_(dict.getOrDefault<bool>("continuousLaser", false)),
     laserStartTime_(dict.getOrDefault<scalar>("laserStartTime", 0.0)),
     laserEndTime_(dict.getOrDefault<scalar>("laserEndTime", 2e-12)),
-    filmYMin_(dict.getOrDefault<scalar>("filmYMin", 8e-6)),
-    filmYMax_(dict.getOrDefault<scalar>("filmYMax", 10e-6)),
+    filmYMin_(0.0),
+    filmYMax_(0.0),
     tSource_(),
     sourceValid_(false),
     cumulativeEnergy_(0.0),
@@ -83,6 +83,40 @@ femtosecondLaserModel::femtosecondLaserModel
     trackingPulse_(false),
     activeThisStep_(false)
 {
+    const bool filmYMinProvided = dict.found("filmYMin");
+    const bool filmYMaxProvided = dict.found("filmYMax");
+
+    if (filmYMinProvided)
+    {
+        filmYMin_ = dict.get<scalar>("filmYMin");
+    }
+
+    if (filmYMaxProvided)
+    {
+        filmYMax_ = dict.get<scalar>("filmYMax");
+    }
+
+    if (!filmYMinProvided || !filmYMaxProvided)
+    {
+        const scalar filmThicknessExpected =
+            dict.getOrDefault<scalar>("filmThicknessExpected", 7.14e-8);
+        const scalar halfThickness = 0.5*filmThicknessExpected;
+        const scalar centerY = initialFocus_.y();
+
+        if (!filmYMinProvided)
+        {
+            filmYMin_ = centerY - halfThickness;
+        }
+
+        if (!filmYMaxProvided)
+        {
+            filmYMax_ = centerY + halfThickness;
+        }
+
+        Info<< "Derived film bounds from focus.y=" << centerY
+            << " m using expected thickness " << filmThicknessExpected
+            << ": [" << filmYMin_ << ", " << filmYMax_ << "] m" << endl;
+    }
     // normalize direction
     direction_ /= mag(direction_) + SMALL;
     if (pulseDutyCycle_ < 0.0 || pulseDutyCycle_ > 1.0)
