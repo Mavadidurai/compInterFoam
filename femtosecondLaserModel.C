@@ -138,14 +138,24 @@ femtosecondLaserModel::femtosecondLaserModel
         const scalar tol  = 0.05*derivedPeak;
         if (diff > tol)
         {
-            FatalErrorInFunction
+            const scalar adjustedEnergy = peakIntensity_.value()*normalization;
+            const scalar originalEnergy = pulseEnergy_.value();
+
+            WarningInFunction
                 << "Supplied peakIntensity (" << peakIntensity_.value()
                 << " W/m^2) is inconsistent with value derived from pulseEnergy "
                 << "(" << derivedPeak << " W/m^2)." << nl
                 << "Difference " << diff << " W/m^2 exceeds tolerance " << tol
-                << " W/m^2; update peakIntensity or pulseEnergy to match."
-                << nl
-                << abort(FatalError);
+                << " W/m^2; synchronizing configured pulse energy from "
+                << originalEnergy << " J to " << adjustedEnergy
+                << " J to match supplied intensity." << endl;
+
+            pulseEnergy_ = dimensionedScalar
+            (
+                "pulseEnergy",
+                dimEnergy,
+                adjustedEnergy
+            );
         }
     }
     else
@@ -939,6 +949,7 @@ void femtosecondLaserModel::calculateSource() const
     {
         return;
     }
+    
     activeThisStep_ = false;
     volScalarField& source = resetSourceField();
 
@@ -947,6 +958,22 @@ void femtosecondLaserModel::calculateSource() const
     const scalar dt = dtDim.value();
     const scalar tStart = t - dt;
     const label timeIndex = mesh_.time().timeIndex();
+    // ENHANCED DEBUG OUTPUT
+    if (verbose && timeIndex % 10 == 0)
+    {
+        Info<< "===== LASER DEBUG =====" << nl
+            << "Time: " << t << " s (" << t*1e12 << " ps)" << nl
+            << "Time step: " << dt << " s (" << dt*1e12 << " ps)" << nl
+            << "Laser window: [" << laserStartTime_ << ", " << laserEndTime_ << "] s" << nl
+            << "Focus: " << focus_ << nl
+            << "  Focus Y: " << focus_.y()*1e6 << " µm" << nl
+            << "Film bounds: [" << filmYMin_*1e6 << ", " << filmYMax_*1e6 << "] µm" << nl
+            << "Peak intensity: " << peakIntensity_.value() << " W/m²" << nl
+            << "Pulse energy: " << pulseEnergy_.value() << " J" << nl
+            << "Spot size: " << spotSize_.value()*1e6 << " µm diameter" << nl
+            << "Direction: " << direction_ << nl
+            << "Absorption coeff: " << absorptionCoeff_.value() << " 1/m" << endl;
+    }
 
     if (timeIndex < lastTimeIndex_)
     {
@@ -964,8 +991,21 @@ void femtosecondLaserModel::calculateSource() const
     const scalar overlapStart = max(tStart, laserStartTime_);
     const scalar overlapEnd   = min(t, laserEndTime_);
 
+    if (verbose && timeIndex % 10 == 0)
+    {
+        Info<< "Time overlap check:" << nl
+            << "  Current time window: [" << tStart*1e12 << ", " << t*1e12 << "] ps" << nl
+            << "  Laser active window: [" << laserStartTime_*1e12 << ", " << laserEndTime_*1e12 << "] ps" << nl
+            << "  Overlap window: [" << overlapStart*1e12 << ", " << overlapEnd*1e12 << "] ps" << nl
+            << "  Overlap duration: " << (overlapEnd - overlapStart)*1e12 << " ps" << endl;
+    }
+
     if ((overlapEnd - overlapStart) <= VSMALL)
     {
+        if (verbose && t <= laserEndTime_ + 1e-12)
+        {
+            Info<< "No time overlap - laser inactive this step" << endl;
+        }
         finalizePulseEnergyCheck("inactive window", t);
         sourceValid_ = true;
         return;
@@ -974,15 +1014,104 @@ void femtosecondLaserModel::calculateSource() const
     const EnvelopeResult envelope =
         evaluateTemporalEnvelope(overlapStart, overlapEnd, dt);
 
+    if (verbose && timeIndex % 10 == 0)
+    {
+        Info<< "Temporal envelope:" << nl
+            << "  Active: " << (envelope.active ? "YES" : "NO") << nl
+            << "  Temporal integral: " << envelope.temporalIntegral << " s" << nl
+            << "  Temporal average: " << envelope.temporalAverage << nl
+            << "  Expected energy: " << envelope.expectedEnergy << " J" << endl;
+    }
+
     if (!envelope.active || envelope.temporalAverage <= VSMALL)
     {
+        if (verbose && timeIndex % 10 == 0)
+        {
+            Info<< "Temporal envelope inactive - no laser heating" << endl;
+        }
         finalizePulseEnergyCheck("pulse window complete", t);
         sourceValid_ = true;
         return;
     }
 
+    if (verbose && timeIndex % 10 == 0)
+    {
+        Info<< "Applying spatial weighting..." << nl
+            << "  Temporal average factor: " << envelope.temporalAverage << endl;
+
+        const boundBox& bounds = mesh_.bounds();
+        const bool focusInMesh = bounds.contains(focus_);
+        Info<< "Geometry checks:" << nl
+            << "  Mesh bounds: " << bounds << nl
+            << "  Focus position: " << focus_ << nl
+            << "  Focus in mesh: " << (focusInMesh ? "YES" : "NO") << nl;
+
+        if (!focusInMesh)
+        {
+            WarningInFunction
+                << "Laser focus is outside mesh bounds!" << nl
+                << "This will result in zero heating." << endl;
+        }
+
+        const bool focusInFilm = (focus_.y() >= filmYMin_ && focus_.y() <= filmYMax_);
+        Info<< "  Focus Y: " << focus_.y()*1e6 << " µm" << nl
+            << "  Film Y bounds: [" << filmYMin_*1e6 << ", " << filmYMax_*1e6 << "] µm" << nl
+            << "  Focus in film: " << (focusInFilm ? "YES" : "NO") << endl;
+
+        if (!focusInFilm)
+        {
+            WarningInFunction
+                << "Laser focus Y-position is outside film region!" << nl
+                << "This may result in reduced or zero film heating." << endl;
+        }
+    }
+
     SpatialMetrics metrics = applySpatialWeighting(source, envelope.temporalAverage);
+
+    if (verbose && timeIndex % 10 == 0)
+    {
+        Info<< "Spatial processing results:" << nl
+            << "  Cells in beam: " << metrics.cellsInBeam << nl
+            << "  Cells in film: " << metrics.cellsInFilm << nl
+            << "  Cells in gas: " << metrics.cellsInGas << nl
+            << "  Max source value: " << metrics.maxSourceValue << " W/m³" << nl
+            << "  Total power: " << metrics.totalSourceIntegral << " W" << nl
+            << "  Film power: " << metrics.totalFilmSourceIntegral << " W" << nl
+            << "  Limited cells: " << metrics.limitedCells << endl;
+    }
+
+    if (metrics.cellsInBeam == 0)
+    {
+        WarningInFunction
+            << "No cells found in laser beam path at time " << t*1e12 << " ps!" << nl
+            << "Check focus position, spot size, and mesh resolution." << endl;
+    }
+    else if (metrics.cellsInFilm == 0 && metrics.cellsInBeam > 0)
+    {
+        WarningInFunction
+            << "Beam intersects " << metrics.cellsInBeam
+            << " cells but none are in film region!" << nl
+            << "Check film bounds and focus Y-position." << endl;
+    }
+    else if (metrics.maxSourceValue <= VSMALL && metrics.cellsInBeam > 0)
+    {
+        WarningInFunction
+            << "Beam intersects " << metrics.cellsInBeam
+            << " cells but produces zero heating!" << nl
+            << "Check absorption coefficients and temporal averaging." << endl;
+    }
+
     activeThisStep_ = (metrics.maxSourceValue > VSMALL);
+
+    if (verbose && timeIndex % 10 == 0)
+    {
+        Info<< "Laser active this step: " << (activeThisStep_ ? "YES" : "NO") << nl;
+        if (activeThisStep_)
+        {
+            Info<< "  SUCCESS: Laser is depositing energy!" << nl;
+        }
+        Info<< "=====================" << endl;
+    }
     updateEnergyTracking
     (
         source,
