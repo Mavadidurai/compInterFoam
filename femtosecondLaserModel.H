@@ -134,7 +134,7 @@ private:
         const SpatialMetrics& metrics,
         const scalar overlapStart,
         const scalar currentTime,
-        const bool laserActive,
+        const bool depositionActive,
         const label timeIndex
     ) const;
     void emitDiagnostics
@@ -147,7 +147,7 @@ private:
         const scalar gasEnergyThisStep,
         const scalar currentTime,
         const label timeIndex,
-        const bool laserActive
+        const bool depositionActive
     ) const;
 
     // disallow copy

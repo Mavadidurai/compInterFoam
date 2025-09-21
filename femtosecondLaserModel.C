@@ -138,10 +138,14 @@ femtosecondLaserModel::femtosecondLaserModel
         const scalar tol  = 0.05*derivedPeak;
         if (diff > tol)
         {
-            WarningInFunction
+            FatalErrorInFunction
                 << "Supplied peakIntensity (" << peakIntensity_.value()
-                << " W/m^2) differs from value derived from pulseEnergy "
-                << derivedPeak << " W/m^2" << endl;
+                << " W/m^2) is inconsistent with value derived from pulseEnergy "
+                << "(" << derivedPeak << " W/m^2)." << nl
+                << "Difference " << diff << " W/m^2 exceeds tolerance " << tol
+                << " W/m^2; update peakIntensity or pulseEnergy to match."
+                << nl
+                << abort(FatalError);
         }
     }
     else
@@ -666,9 +670,12 @@ femtosecondLaserModel::applySpatialWeighting
             << "transmission overrides reflectivity" << endl;
     }
 
-    forAll(mesh_.C(), cellI)
+ const pointField& cellCentres = mesh_.C();
+    const scalarField& cellVolumes = mesh_.V();
+
+    forAll(cellCentres, cellI)
     {
-        const point& c = mesh_.C()[cellI];
+        const point& c = cellCentres[cellI];
 
         if (!searchBox.contains(c))
         {
@@ -686,7 +693,7 @@ femtosecondLaserModel::applySpatialWeighting
         else        ++metrics.cellsInGas;
 
         ++metrics.cellsInBeam;
-        metrics.totalBeamVolume += mesh_.V()[cellI];
+        metrics.totalBeamVolume += cellVolumes[cellI];
 
         vector r = c - focus_;
         scalar z = (r & direction_);
@@ -753,7 +760,7 @@ femtosecondLaserModel::applySpatialWeighting
 
             source[cellI] = limitedValue;
 
-            const scalar cellPower = source[cellI] * mesh_.V()[cellI];
+            const scalar cellPower = source[cellI] * cellVolumes[cellI];
 
             metrics.maxSourceValue =
                 max(metrics.maxSourceValue, source[cellI]);
@@ -788,7 +795,7 @@ void femtosecondLaserModel::emitDiagnostics
     const scalar gasEnergyThisStep,
     const scalar currentTime,
     const label timeIndex,
-    const bool laserActive
+    const bool depositionActive
 ) const
 {
     if (!verbose)
@@ -817,7 +824,7 @@ void femtosecondLaserModel::emitDiagnostics
         << constant::mathematical::pi*sqr(spotSize_.value()/2.0)*1e12
         << " µm^2" << endl;
 
-    if (laserActive && (timeIndex % 10 == 0))
+    if (depositionActive && (timeIndex % 10 == 0))
     {
         const scalar dt = dtDim.value();
 
@@ -869,7 +876,7 @@ void femtosecondLaserModel::updateEnergyTracking
     const SpatialMetrics& metrics,
     const scalar overlapStart,
     const scalar currentTime,
-    const bool laserActive,
+    const bool depositionActive,
     const label timeIndex
 ) const
 {
@@ -882,7 +889,7 @@ void femtosecondLaserModel::updateEnergyTracking
 
     if (!continuousLaser_)
     {
-        if (laserActive || trackingPulse_)
+        if (depositionActive || trackingPulse_)
         {
             if (!trackingPulse_)
             {
@@ -920,7 +927,7 @@ void femtosecondLaserModel::updateEnergyTracking
         gasEnergyThisStep,
         currentTime,
         timeIndex,
-        laserActive
+        depositionActive
     );
 }
 //------------------------------------------------------------------------------
@@ -975,7 +982,7 @@ void femtosecondLaserModel::calculateSource() const
     }
 
     SpatialMetrics metrics = applySpatialWeighting(source, envelope.temporalAverage);
-    activeThisStep_ = true;
+    activeThisStep_ = (metrics.maxSourceValue > VSMALL);
     updateEnergyTracking
     (
         source,
@@ -984,7 +991,7 @@ void femtosecondLaserModel::calculateSource() const
         metrics,
         overlapStart,
         t,
-        envelope.active,
+        activeThisStep_,
         timeIndex
     );
 
