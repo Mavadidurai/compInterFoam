@@ -77,10 +77,11 @@ femtosecondLaserModel::femtosecondLaserModel
     cumulativeGasEnergy_(0.0),
     lastTimeIndex_(mesh.time().timeIndex()),
     pulseEnergyAccumulator_(0.0),
-    pulseExpectedAccumulator_(0.0),    
+    pulseExpectedAccumulator_(0.0),
     currentPulseStartTime_(0.0),
     pulseCounter_(0),
-    trackingPulse_(false)
+    trackingPulse_(false),
+    activeThisStep_(false)
 {
     // normalize direction
     direction_ /= mag(direction_) + SMALL;
@@ -897,7 +898,7 @@ void femtosecondLaserModel::calculateSource() const
     {
         return;
     }
-
+    activeThisStep_ = false;
     volScalarField& source = resetSourceField();
 
     const scalar t = mesh_.time().value();
@@ -940,7 +941,7 @@ void femtosecondLaserModel::calculateSource() const
     }
 
     SpatialMetrics metrics = applySpatialWeighting(source, envelope.temporalAverage);
-
+    activeThisStep_ = true;
     updateEnergyTracking
     (
         source,
@@ -961,6 +962,12 @@ tmp<volScalarField> femtosecondLaserModel::source() const
 {
     calculateSource();
     return tSource_;
+}
+//------------------------------------------------------------------------------
+bool femtosecondLaserModel::activeThisStep() const
+{
+    calculateSource();
+    return activeThisStep_;
 }
 
 //------------------------------------------------------------------------------

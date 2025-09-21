@@ -67,10 +67,11 @@ private:
     mutable scalar       cumulativeGasEnergy_;
     mutable label        lastTimeIndex_;
     mutable scalar       pulseEnergyAccumulator_;
-    mutable scalar       pulseExpectedAccumulator_;    
+    mutable scalar       pulseExpectedAccumulator_;
     mutable scalar       currentPulseStartTime_;
     mutable label        pulseCounter_;
     mutable bool         trackingPulse_;
+    mutable bool         activeThisStep_;    
 
     // Temporal envelope summary for the current time-step
     struct EnvelopeResult
@@ -171,7 +172,7 @@ public:
 
     // access
     tmp<volScalarField> source() const;
-
+    bool activeThisStep() const;
     const dimensionedScalar& peakIntensity() const { return peakIntensity_; }
     const dimensionedScalar& pulseWidth()    const { return pulseWidth_; }
     const dimensionedScalar& wavelength()    const { return wavelength_; }

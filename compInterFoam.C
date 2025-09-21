@@ -271,7 +271,7 @@ int main(int argc, char *argv[])
             if (tnow >= laser.laserStartTime() && tnow <= laser.laserEndTime())
             {
                 const dimensionedScalar maxQL = max(laserSrc());
-                if (maxQL.value() < 1e-6)
+                if (laser.activeThisStep() && maxQL.value() < 1e-6)
                 {
                     WarningInFunction
                         << "Maximum Q_laser (" << maxQL.value()
