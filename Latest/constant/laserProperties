@@ -47,7 +47,7 @@ gasAbsorptionCoeff 0;     // [1/m] gas absorption (0 disables direct gas heating
 // while keeping the peak intensity below the 1e16 W/m^2 safety cap.
 pulseEnergy     6.0e-8;          // [J] total energy (0.094 J/cm^2 incident fluence)
 pulseWidth      2.14e-13;        // [s] 214 fs pulse width
-laserStartTime  1e-12;    // [s] delay pulse until after the fluid preconditioning period
+laserStartTime  0;    // [s] delay pulse until after the fluid preconditioning period
 laserEndTime    6e-12;    // [s] keep a 5 ps active window inside the run time
 // --- Spatial Gaussian (match the box center and film depth) ---
 spotSize        9.0e-6;         // [m] beam diameter (4.5 µm 1/e^2 radius)
@@ -64,6 +64,8 @@ absorptionCoeff     6.0e7;    // [1/m] ≈17 nm optical depth in Ti at 343 nm
 
 // Reflectivity / profile
 reflectivity        0.55;
+transmission    -1;   // disable override; use reflectivity=0.55
+
 gaussianProfile     true;
 
 // Optional intensity entry (consistent with pulseEnergy & pulseWidth)
