@@ -19,9 +19,9 @@ application     compInterFoam;
 
 // --- HEATING STAGE SETUP ---
 startFrom       startTime;
-startTime       0;              // Begin at start of heating pulse
+startTime       0;              // Begin 1 ps before laser trigger for preconditioning
 stopAt          endTime;
-endTime         5e-12;          // MODIFIED: Shorter run time for debugging
+endTime         8e-12;          // Run 2 ps beyond the laser pulse to capture the cool-down
 
 // --- DEBUG TIME STEPPING ---
 // Use an adaptive time step to resolve the laser pulse without excessive iterations.
@@ -33,12 +33,15 @@ maxDeltaT       5e-14;          // Limit growth to keep pulse well-resolved (<25
 minDeltaT       5e-15;          // Allow reduction to capture sharp transients
 
 verbose         true;
-maxGasMetalHeatFlux 1e22;   // [W/m^3] limiter for gas-metal flux coupling
+// Limit the interfacial heat flux to the physically meaningful range used by
+// the solver (see TEqn.H). Larger values led to runaway temperatures in the
+// log once the pulse energy was absorbed, so clamp it to the validated limit.
+maxGasMetalHeatFlux 1e15;   // [W/m^3] limiter for gas-metal flux coupling
 maxGasMetalExchangeCoeff  1e18; // [W/m^3/K] limiter for interface exchange
 minGasMetalExchangeCoeff  0;
 // --- More frequent writing for debugging ---
 writeControl    runTime;
-writeInterval   1e-12;
+writeInterval   1e-9;           // Output every 1 ns to keep file count reasonable over 100 ns
 purgeWrite      20;             
 writeFormat     ascii;
 writePrecision  12;
