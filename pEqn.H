@@ -60,7 +60,8 @@ extern Foam::Switch verbose;
             IOobject::NO_WRITE
         ),
         (
-            mixture.surfaceTensionForce()
+            fvc::interpolate(mixture.sigmaK())
+          * fvc::snGrad(alpha1)
           - ghf*fvc::snGrad(rho)
         )*rAUf*mesh.magSf()
     );
