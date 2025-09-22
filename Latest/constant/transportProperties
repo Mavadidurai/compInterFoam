@@ -46,7 +46,7 @@ scAlpha         scAlpha [0 0 0 0 0 0 0] 0;
         minCoefficient 1e7;      // optional cap on |phaseChangeSource| [K/s]
         onlyAboveVapor false;     // allow both melt/condense logic
         // Activation window for laser pulse (match 0–5 ps laser duration)
-        activationTime ((0 5e-12));
+        activationTime ((0 8e-12));
     }
 massTransferCoeffs
 {
@@ -55,7 +55,7 @@ massTransferCoeffs
     // Optional activation window
     // Keep mass transfer active for the same window as the laser heating
     tStart    (0);
-    tEnd      (5e-12);
+    tEnd      (8e-12);
 
     // Optional upper bound on |dgdt| [1/s]
     rateMax   1e8;
