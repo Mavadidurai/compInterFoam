@@ -113,6 +113,24 @@ volScalarField T
     mesh,
     dimensionedScalar("T", dimTemperature, 300.0)
 );
+volScalarField gasMetalHeatFlux
+(
+    IOobject
+    (
+        "gasMetalHeatFlux",
+        runTime.timeName(),
+        mesh,
+        IOobject::READ_IF_PRESENT,
+        IOobject::AUTO_WRITE
+    ),
+    mesh,
+    dimensionedScalar
+    (
+        "zeroGasMetalHeatFlux",
+        dimPower/dimVolume,
+        0.0
+    )
+);
 // Create the thermo system - this will create alpha.metal and alpha.air fields
 if (verbose)
 {

@@ -15,7 +15,8 @@ extern Foam::Switch verbose;
     const Switch enableTClamp = ctrl.lookupOrDefault<Switch>("enableTClamp", true);
     const scalar minPhysicalTemp = ctrl.lookupOrDefault<scalar>("minT", 250.0);
     const scalar maxPhysicalTemp = ctrl.lookupOrDefault<scalar>("maxT", 15000.0);
-
+    const scalar thermalFluxRelax =
+        ctrl.lookupOrDefault<scalar>("thermalFluxRelax", 1.0);
     if (enableTClamp)
     {
         const dimensionedScalar minTDim("minT", dimTemperature, minPhysicalTemp);
