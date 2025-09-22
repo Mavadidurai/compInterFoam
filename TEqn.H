@@ -68,7 +68,12 @@ extern Foam::Switch verbose;
     tmp<volScalarField> tCv2 = mixture.thermo2().Cv();
     tmp<volScalarField> tRho2 = mixture.thermo2().rho();
 
-    const dimensionedScalar cvFloor("cvFloor", dimSpecificHeat, 1e-12);
+   const dimensionedScalar cvFloor
+    (
+        "cvFloor",
+        dimEnergy/dimMass/dimTemperature,
+        1e-12
+    );
     const dimensionedScalar rhoFloor("rhoFloor", dimDensity, 1e-12);
 
     tmp<volScalarField> tCvGas(Foam::max(tCv2(), cvFloor));

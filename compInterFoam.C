@@ -58,7 +58,6 @@ Description
 #include "fvOptions.H"
 #include "autoPtr.H"
 
-#include "dimensionSets.H"
 #include "fvcSmooth.H"
 #include "twoPhaseMixtureThermo.H"
 #include "extrapolatedCalculatedFvPatchFields.H"

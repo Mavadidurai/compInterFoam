@@ -26,7 +26,7 @@ License
 #include "gradientEnergyFvPatchScalarField.H"
 #include "mixedEnergyFvPatchScalarField.H"
 #include "collatedFileOperation.H"
-#include "dimensionSets.H"
+
 #include "IOdictionary.H"
 #include "Switch.H"
 #include "Tuple2.H"
@@ -240,7 +240,7 @@ Foam::dimensionedScalar Foam::twoPhaseMixtureThermo::latentHeat() const
     return Foam::dimensionedScalar
     (
         "latentHeat",
-        Foam::dimLatentHeat,
+        dimEnergy/dimMass,
         latentHeat_
     );
 }

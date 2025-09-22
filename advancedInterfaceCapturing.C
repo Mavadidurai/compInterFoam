@@ -3,7 +3,7 @@
 #include "fvm.H"
 #include "wallFvPatch.H"
 #include "fvPatchField.H"
-#include <dimensionSets.H>
+
 
 namespace Foam
 {
