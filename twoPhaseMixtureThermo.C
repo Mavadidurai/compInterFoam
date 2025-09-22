@@ -98,10 +98,7 @@ Foam::twoPhaseMixtureThermo::twoPhaseMixtureThermo
 
         if (writePhaseTemperatures)
         {
-            volScalarField T1(IOobject::groupName("T", phase1Name()), T_);
-            volScalarField T2(IOobject::groupName("T", phase2Name()), T_);
-            T1.write();
-            T2.write();
+            T_.write();
             fileHandler().flush();
         }
     }
@@ -137,8 +134,8 @@ Foam::twoPhaseMixtureThermo::twoPhaseMixtureThermo
             << ", rho=" << rho2_.value() << endl;
     }
     updateTwoTemperatureCache();
-    thermo1_ = rhoThermo::New(U.mesh(), phase1Name());
-    thermo2_ = rhoThermo::New(U.mesh(), phase2Name());
+    thermo1_ = rhoThermo::New(U.mesh());
+    thermo2_ = rhoThermo::New(U.mesh());
     correct();
 }
 // * * * * * * * * * * * * * * * * Destructor  * * * * * * * * * * * * * * * //
