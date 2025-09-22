@@ -271,8 +271,6 @@ int main(int argc, char *argv[])
             const dictionary& thermalCouplingDict = runTime.controlDict();
             const label nThermalCouplingIter =
                 thermalCouplingDict.lookupOrDefault<label>("nThermalCouplingIter", 1);
-            scalar thermalFluxRelax =
-                thermalCouplingDict.lookupOrDefault<scalar>("thermalFluxRelax", 1.0);
 
             for (label thermalIter = 0; thermalIter < nThermalCouplingIter; ++thermalIter)
             {
