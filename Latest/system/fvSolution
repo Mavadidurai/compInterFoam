@@ -32,7 +32,7 @@ solvers
         scAlpha         0;
         compressionLimiter 0.5;         // Caps phic relative to |phi|
         MULESCorr       true;
-        nLimiterIter    2;
+        nLimiterIter    3;
         alphaApplyPrevCorr false;
         sharpeningScheme standard;
         thinFilmCoeff   0.0;
@@ -41,14 +41,14 @@ solvers
     p_rgh
     {
         solver          GAMG;
-        smoother        DIC;
+        smoother        DICGaussSeidel;
         tolerance       1e-8;
         relTol          0;
         maxIter         100;
         nPreSweeps      0;
         nPostSweeps     2;
         cacheAgglomeration true;
-        nCellsInCoarsestLevel 10;
+        nCellsInCoarsestLevel 20;
         agglomerator    faceAreaPair;
         mergeLevels     2;
         relaxationFactor 0.3;
@@ -102,6 +102,7 @@ solvers
         $Te;
         nSweeps         6;
         tolerance       1e-11;
+        relTol          0;
     }
     Tl
     {
@@ -117,6 +118,7 @@ solvers
         $Tl;
         nSweeps         6;
         tolerance       1e-11;
+        relTol          0;
 
     }
 }
@@ -133,6 +135,9 @@ PIMPLE
         "alpha.*" { tolerance 1e-5;  relTol 0.01; }
         p_rgh     { tolerance 1e-5;  relTol 0.01; }
         U         { tolerance 1e-6;  relTol 0.01; }
+        Te        { tolerance 5e-9;  relTol 0.0;  }   // thermal is stiff; be stricter
+        Tl        { tolerance 5e-9;  relTol 0.0;  }
+        T         { tolerance 1e-8;  relTol 0.0;  }   // if gas T exists
     }
     
     p_rghRefCell                0;
@@ -149,7 +154,6 @@ relaxationFactors
     equations
     {
         U               0.1;
-        UFinal          0.8;
         T               0.4;
         Te              0.4;
         Tl              0.4;

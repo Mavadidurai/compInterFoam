@@ -18,7 +18,7 @@ FoamFile
 application     compInterFoam;
 
 // --- HEATING STAGE SETUP ---
-startFrom       startTime;
+startFrom       latestTime;
 startTime       0;              // Begin 1 ps before laser trigger for preconditioning
 stopAt          endTime;
 endTime         6e-12;          // Run 2 ps beyond the laser pulse to capture the cool-down
@@ -40,11 +40,11 @@ maxGasMetalHeatFlux 1e15;   // [W/m^3] limiter for gas-metal flux coupling
 
 // --- More frequent writing for debugging ---
 writeControl    runTime;
-writeInterval   1e-9;           // Output every 1 ns to keep file count reasonable over 100 ns
-purgeWrite      20;             
+writeInterval   1e-12;
+purgeWrite      20;
 writeFormat     ascii;
 writePrecision  12;
-writeCompression off;           
+writeCompression off;
 timeFormat      general;
 timePrecision   6;             // Higher precision for small time steps
 fileHandler     uncollated;
@@ -55,14 +55,14 @@ runTimeModifiable yes;
 useAdvancedInterfaceCapturing  true;
 advancedInterfaceCapturing
 {
-    pressureScale        2e4;           // Recommended scaling
+    pressureScale        2e4;           // [Pa*s] Recommended scaling
     recoilMax            5e6;           // Allow physical recoil build-up
     clampRecoil          true;
     scaleRecoilMax       false;
 
     recoilTempOffset     [0 0 0 1 0 0 0] 0;
     phaseChangeTempOffset [0 0 0 1 0 0 0] 0;
-    relaxFactor          0.2;
+    recoilRelax          0.2;
     alphaMin             0.001;
     alphaMax             0.999;
 }
@@ -102,34 +102,229 @@ functions
         log             true;       // Print to console
     }
     
-    // Energy conservation monitoring
-    energy_monitor
+    // --- Critical physics monitoring ---
+    lift_progress
+    {
+        type            coded;
+        libs            ("libutilityFunctionObjects.so");
+        name            liftProgress;
+        writeControl    timeStep;
+        writeInterval   20;
+
+        codeWrite
+        #{
+            const Time& t = mesh().time();
+            const scalar timePs = t.value()*1e12; // ps
+
+            // Fields (types matter!)
+            const volScalarField& Te    = mesh().lookupObject<volScalarField>("Te");
+            const volScalarField& Tl    = mesh().lookupObject<volScalarField>("Tl");
+            const volScalarField& Tgas  = mesh().foundObject<volScalarField>("T")
+                                            ? mesh().lookupObject<volScalarField>("T")
+                                            : Te; // fallback
+            const volScalarField& alpha = mesh().lookupObject<volScalarField>("alpha.metal");
+            const volScalarField& Q     = mesh().foundObject<volScalarField>("Q_laser")
+                                            ? mesh().lookupObject<volScalarField>("Q_laser")
+                                            : Tl; // harmless fallback
+
+            // Ranges and averages
+            const dimensionedScalar dMaxTe = gMax(Te);
+            const dimensionedScalar dMaxTl = gMax(Tl);
+            const dimensionedScalar dMaxT  = gMax(Tgas);
+            const dimensionedScalar dMaxQ  = gMax(Q);
+
+            const dimensionedScalar dAvgTe =
+                fvc::domainIntegrate(Te)/dimensionedScalar("V", dimVolume, gSum(mesh().V()));
+            const dimensionedScalar dAvgTl =
+                fvc::domainIntegrate(Tl)/dimensionedScalar("V", dimVolume, gSum(mesh().V()));
+
+            // Metal volume and fraction
+            const dimensionedScalar metalVol = fvc::domainIntegrate(alpha); // [m3]
+            const dimensionedScalar totVol   = dimensionedScalar("V", dimVolume, gSum(mesh().V()));
+            const scalar metalFrac = (metalVol/totVol).value();
+
+            // Count phase states in metal-rich cells
+            const scalar Tmelt = 1941.0;
+            const scalar Tvap  = 3560.0;
+            label solidCells = 0, liquidCells = 0, vaporCells = 0;
+
+            const scalarField& TlIF = Tl.internalField();
+            const scalarField& aIF  = alpha.internalField();
+            forAll(TlIF, cellI)
+            {
+                if (aIF[cellI] > 0.1)
+                {
+                    const scalar v = TlIF[cellI];
+                    if (v < Tmelt) ++solidCells;
+                    else if (v < Tvap) ++liquidCells;
+                    else ++vaporCells;
+                }
+            }
+
+            // Phase tag
+            word phase = "INACTIVE";
+            if (dMaxQ.value() > 1e6) phase = "HEATING";
+            else if (dMaxTe.value() > 2000) phase = "HOT-COOLING";
+            else if (dMaxTe.value() > 500)  phase = "WARM-COOLING";
+            else phase = "COLD";
+
+            Info<< "\n=== LIFT PROGRESS t=" << timePs << " ps [" << phase << "] ===" << nl
+                << "  Te[max/avg]= " << dMaxTe.value() << " / " << dAvgTe.value() << " K" << nl
+                << "  Tl[max/avg]= " << dMaxTl.value() << " / " << dAvgTl.value() << " K" << nl
+                << "  Tgas[max]  = " << dMaxT.value()  << " K" << nl
+                << "  Q_laser[max]= " << dMaxQ.value()/1e12 << " TW/m^3" << nl
+                << "  Metal Vol  = " << (metalVol.value()*1e18) << " µm^3 ("
+                << (metalFrac*100.0) << " %)" << nl
+                << "  Cells: solid=" << solidCells
+                << " liquid=" << liquidCells
+                << " vapor=" << vaporCells << nl;
+
+            if (dMaxTe.value() > Tvap || dMaxTl.value() > Tvap)
+                Info<< "  >>> VAPORIZATION ACTIVE <<<" << nl;
+            else if (dMaxTe.value() > Tmelt || dMaxTl.value() > Tmelt)
+                Info<< "  >>> MELTING ACTIVE <<<" << nl;
+
+            Info<< "======================================" << endl;
+        #};
+    }
+
+    // --- Energy conservation (lean, robust) ---
+    energy_conservation
     {
         type            coded;
         libs            ("libutilityFunctionObjects.so");
         name            energyCheck;
         writeControl    timeStep;
         writeInterval   50;
-        
+
         codeWrite
         #{
-            Info<< "Energy diagnostics at time " << mesh().time().value() << endl;
-            
-            const volScalarField& T = mesh().lookupObject<volScalarField>("T");
+            const volScalarField& Te    = mesh().lookupObject<volScalarField>("Te");
+            const volScalarField& Tl    = mesh().lookupObject<volScalarField>("Tl");
             const volScalarField& alpha = mesh().lookupObject<volScalarField>("alpha.metal");
-            
-            scalar maxT = gMax(T);
-            scalar minT = gMin(T);
-            scalar maxAlpha = gMax(alpha);
-            
-            Info<< "    Max T: " << maxT << " K" << endl;
-            Info<< "    Min T: " << minT << " K" << endl;
-            Info<< "    Max alpha: " << maxAlpha << endl;
-            
-            if (maxT > 5000 || minT < 200 || maxAlpha > 0.95)
+            const volVectorField& U     = mesh().lookupObject<volVectorField>("U");
+            const volScalarField& rho   = mesh().lookupObject<volScalarField>("rho");
+
+            // If you have variable Ce/Cl, replace these with fields from your TTM
+            const scalar Ce = 1.5e6; // J/m^3/K
+            const scalar Cl = 2.3e6; // J/m^3/K
+
+            const dimensionedScalar Ek = fvc::domainIntegrate(0.5*rho*magSqr(U));
+            const dimensionedScalar Ee = fvc::domainIntegrate(alpha*Ce*Te);
+            const dimensionedScalar El = fvc::domainIntegrate(alpha*Cl*Tl);
+            const dimensionedScalar Et = Ek + Ee + El;
+
+            static scalar lastE = Et.value();
+            static bool first  = true;
+
+            if (!first)
             {
-                WarningIn("energyCheck") << "Critical values detected!" << endl;
+                const scalar rel = mag(Et.value() - lastE)/max(mag(lastE), SMALL);
+                if (rel > 0.10)
+                {
+                    WarningIn("energyCheck")<< "Energy jump: " << rel*100 << " %"<< nl;
+                }
+                Info<< "Energy: K=" << Ek.value()/1e-6 << " µJ, "
+                    << "Ee=" << Ee.value()/1e-6 << " µJ, "
+                    << "El=" << El.value()/1e-6 << " µJ, "
+                    << "Δ="  << rel*100 << " %" << nl;
             }
+            lastE = Et.value();
+            first = false;
         #};
     }
+
+    // --- “Am I converging?” ---
+    solver_convergence
+    {
+        type            coded;
+        libs            ("libutilityFunctionObjects.so");
+        name            convergenceCheck;
+        writeControl    timeStep;
+        writeInterval   10;
+
+        codeWrite
+        #{
+            const scalar dtPs = mesh().time().deltaTValue()*1e12; // ps
+            Info<< "Solver Status: Δt = " << dtPs << " ps" << nl;
+        #};
+    }
+
+    // --- Milestones with forced writes ---
+    milestone_detector
+    {
+        type            coded;
+        libs            ("libutilityFunctionObjects.so");
+        name            milestones;
+        writeControl    timeStep;
+        writeInterval   1;
+
+        codeWrite
+        #{
+            const Time& t = mesh().time();
+            const scalar tPs = t.value()*1e12;
+
+            const volScalarField& Te = mesh().lookupObject<volScalarField>("Te");
+            const volScalarField& Tl = mesh().lookupObject<volScalarField>("Tl");
+            const scalar maxTe = gMax(Te).value();
+            const scalar maxTl = gMax(Tl).value();
+
+            static bool meltHit  = false;
+            static bool vapHit   = false;
+            static bool peakHit  = false;
+            static scalar prevMaxTe = maxTe;
+
+            if (!meltHit && (maxTl > 1941.0 || maxTe > 1941.0))
+            {
+                const_cast<Time&>(t).writeNow();
+                Info<< "\n*** MILESTONE: MELTING (Te=" << maxTe
+                    << ", Tl=" << maxTl << " K) at " << tPs << " ps ***\n" << endl;
+                meltHit = true;
+            }
+
+            if (!vapHit && (maxTl > 3560.0 || maxTe > 3560.0))
+            {
+                const_cast<Time&>(t).writeNow();
+                Info<< "\n*** MILESTONE: VAPORIZATION (Te=" << maxTe
+                    << ", Tl=" << maxTl << " K) at " << tPs << " ps ***\n" << endl;
+                vapHit = true;
+            }
+
+            // Peak detection: detect sign change in d(maxTe)/dt (simple)
+            if (!peakHit && maxTe < prevMaxTe && maxTe > 4000.0)
+            {
+                const_cast<Time&>(t).writeNow();
+                Info<< "\n*** MILESTONE: PEAK Te passed (Te=" << maxTe
+                    << " K) at " << tPs << " ps — cooling begins ***\n" << endl;
+                peakHit = true;
+            }
+            prevMaxTe = maxTe;
+        #};
+    }
+midPlaneVTK
+{
+    type        sampledSurface;
+    libs        ("libsampling.so");
+    surfaceType cuttingPlane;
+    planeType   pointAndNormal;
+    pointAndNormalDict { point (25e-6 0 5e-6); normal (0 1 0); }
+    fields      (alpha.metal Tl Te T recoilPressure p_rgh U);
+    interpolate true;
+    format      vtk;
+    writeControl timeStep;
+    writeInterval 10;
 }
+
+    // --- Occasional field extrema dump (grep-friendly) ---
+    detailed_fields
+    {
+        type            fieldMinMax;
+        libs            ("libfieldFunctionObjects.so");
+        fields          (Te Tl T alpha.metal p_rgh Q_laser recoilPressure);
+        writeControl    timeStep;
+        writeInterval   100;
+        log             true;
+    }
+}
+
+

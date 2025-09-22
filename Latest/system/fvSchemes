@@ -39,11 +39,11 @@ divSchemes
     default                          Gauss linear;
 
     // Interface transport - GOOD improvements made
-    div(phi,alpha)                   Gauss vanLeer01;        // ✓ GOOD change from vanLeer
+    div(phi,alpha)                   Gauss vanLeer;        // ✓ GOOD change from vanLeer
     div(phir,alpha)                  Gauss interfaceCompression; // REQUIRED: specialised scheme for compression flux
-    div(phi,alpha.metal)             Gauss vanLeer01;        // ✓ GOOD
+    div(phi,alpha.metal)             Gauss vanLeer;        // ✓ GOOD
     div(phir,alpha.metal)            Gauss interfaceCompression; // REQUIRED: specialised scheme for compression flux
-    div(phi,alpha.air)               Gauss vanLeer01;        // ✓ GOOD
+    div(phi,alpha.air)               Gauss vanLeer;        // ✓ GOOD
 
     // Momentum - could be more conservative
     div(rhoPhi,U)                    Gauss linearUpwind grad(U); // IMPROVE: Add gradient limiting

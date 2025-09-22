@@ -38,18 +38,4 @@ regions
             volScalarFieldValue alpha.air   0
         );
     }
-        // Initialize the film as molten (above Tliq=1941 K, below Tvap=3560 K)
-    boxToCell
-    {
-        box (0        20.0000e-06  0)        // Same Ti film region
-            (50.0e-06 20.0714e-06  10.0e-06);
-
-        fieldValues
-        (
-           volScalarFieldValue Tl 300  // Return to ambient; laser will heat from this baseline
-           volScalarFieldValue Te 300  // Keep electronic temperature at ambient preheat level
-            // optional but tidy: initialise scalar T too, even though TTM will overwrite it
-           volScalarFieldValue T 300   // Maintain consistency with ambient solid/liquid temperature
-        );
-    }
 );
