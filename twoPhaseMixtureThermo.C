@@ -28,6 +28,7 @@ License
 #include "collatedFileOperation.H"
 
 #include "IOdictionary.H"
+#include "Pstream.H"
 #include "Switch.H"
 #include "Tuple2.H"
 #include "Time.H"
@@ -86,15 +87,20 @@ Foam::twoPhaseMixtureThermo::twoPhaseMixtureThermo
     latentHeat_ = metalDict.lookupOrDefault<scalar>("hf", 435e3);
     T_melt_ = metalDict.lookupOrDefault<scalar>("Tsol", 1941.0);
     T_vapor_ = metalDict.lookupOrDefault<scalar>("Tvap", 3000.0);
+    const Switch writePhaseTemperatures =
+        U.mesh().time().controlDict().lookupOrDefault<Switch>
+        (
+            "writePhaseTemperatures",
+            false
+        );
+    if (writePhaseTemperatures)
     {
         volScalarField T1(IOobject::groupName("T", phase1Name()), T_);
-        T1.write();
-    }
-    {
         volScalarField T2(IOobject::groupName("T", phase2Name()), T_);
+        T1.write();
         T2.write();
+        fileHandler().flush();
     }
-    fileHandler().flush();
     const dictionary& transportDict = U.mesh().lookupObject<dictionary>("transportProperties");
     const dictionary& phase1Dict = transportDict.subDict(phase1Name());
     const dictionary& phase2Dict = transportDict.subDict(phase2Name());
@@ -118,11 +124,14 @@ Foam::twoPhaseMixtureThermo::twoPhaseMixtureThermo
         "rho",
         dimensionedScalar("rho", dimDensity, 0)
     );
-    Info<< "Transport properties:" << nl
-        << "    " << phase1Name() << ": nu=" << nu1_.value()
-        << ", rho=" << rho1_.value() << nl
-        << "    " << phase2Name() << ": nu=" << nu2_.value()
-        << ", rho=" << rho2_.value() << endl;
+    if (Pstream::master())
+    {
+        Info<< "Transport properties:" << nl
+            << "    " << phase1Name() << ": nu=" << nu1_.value()
+            << ", rho=" << rho1_.value() << nl
+            << "    " << phase2Name() << ": nu=" << nu2_.value()
+            << ", rho=" << rho2_.value() << endl;
+    }
     updateTwoTemperatureCache();
     thermo1_ = rhoThermo::New(U.mesh(), phase1Name());
     thermo2_ = rhoThermo::New(U.mesh(), phase2Name());
@@ -207,6 +216,7 @@ void Foam::twoPhaseMixtureThermo::setQLaser(const volScalarField& src)
 void Foam::twoPhaseMixtureThermo::updateTwoTemperatureCache()
 {
     const Time& time = T_.mesh().time();
+    const bool master = Pstream::master();
     if (time.controlDict().found("twoTemperatureProperties"))
     {
         const dictionary& twoTempDict =
@@ -219,10 +229,13 @@ void Foam::twoPhaseMixtureThermo::updateTwoTemperatureCache()
         const scalar fallbackCl = 2.5e6;
         if (!warnedMissingTwoTemp)
         {
-            WarningInFunction
-                << "twoTemperatureProperties not found in controlDict; using"
-                << " fallback lattice heat capacity ClTTM=" << fallbackCl
-                << " J/m^3/K." << endl;
+            if (master)
+            {
+                WarningInFunction
+                    << "twoTemperatureProperties not found in controlDict; using"
+                    << " fallback lattice heat capacity ClTTM=" << fallbackCl
+                    << " J/m^3/K." << endl;
+            }
             warnedMissingTwoTemp = true;
         }
         ClTTM_ = dimensionedScalar
@@ -280,6 +293,7 @@ void Foam::twoPhaseMixtureThermo::computePhaseChange()
     phaseChangeSource_ = dimensionedScalar("source", dimTemperature/dimTime, 0.0);
     // Reset the implicit relaxation coefficient
     phaseChangeRelaxCoeff_ = dimensionedScalar("relax", dimless/dimTime, 0.0);
+    const bool master = Pstream::master();    
     // Access coefficients from transportProperties
     const dictionary& transportDict = T_.mesh().lookupObject<dictionary>("transportProperties");
     if (!transportDict.found("phaseChangeCoeffs"))
@@ -288,7 +302,7 @@ void Foam::twoPhaseMixtureThermo::computePhaseChange()
             << "phaseChangeCoeffs not found in transportProperties" << nl
             << "Supply a phaseChangeCoeffs sub-dictionary or disable phase change." << nl
             << exit(FatalError);
-        return;
+
     }
     const dictionary& pc = transportDict.subDict("phaseChangeCoeffs");
     const scalar Tvapor = pc.lookupOrDefault<scalar>("Tvapor", T_vapor_);
@@ -332,12 +346,15 @@ void Foam::twoPhaseMixtureThermo::computePhaseChange()
         static bool defaultMaxSourceWarned = false;
         if (!defaultMaxSourceWarned)
         {
-            WarningInFunction
-                << "phaseChangeCoeffs:maxSource not specified; using "
-                << (hasTransportDefault
-                    ? "transportProperties entry 'phaseChangeMaxSourceDefault'"
-                    : "internal fallback")
-                << " = " << maxSource << " [K/s]" << endl;
+            if (master)
+            {
+                WarningInFunction
+                    << "phaseChangeCoeffs:maxSource not specified; using "
+                    << (hasTransportDefault
+                        ? "transportProperties entry 'phaseChangeMaxSourceDefault'"
+                        : "internal fallback")
+                    << " = " << maxSource << " [K/s]" << endl;
+            }
             defaultMaxSourceWarned = true;
         }
     }
@@ -389,28 +406,31 @@ void Foam::twoPhaseMixtureThermo::computePhaseChange()
     static bool loggedPhaseChange = false;
     if (!loggedPhaseChange)
     {
-        Info<< "phaseChangeCoeffs:" << nl
-            << "    Tvapor        " << Tvapor << nl
-            << "    windowWidth   " << windowWidth << nl
-            << "    dtFloor       " << dtFloor_ << nl
-            << "    relaxationRate " << relaxationRate << nl
-            << "    relaxationTime "
-            << (relaxationRate > SMALL ? 1.0/relaxationRate : GREAT) << nl
-            << "    maxSource     " << maxSource << nl
-            << "    metalCutoff   " << metalCutoff << nl            
-            << "    onlyAboveVapor " << onlyAboveVapor << nl;
-        if (actTimes.size())
+        if (master)
         {
-            Info<< "    activationTime";
-            forAll(actTimes, i)
+            Info<< "phaseChangeCoeffs:" << nl
+                << "    Tvapor        " << Tvapor << nl
+                << "    windowWidth   " << windowWidth << nl
+                << "    dtFloor       " << dtFloor_ << nl
+                << "    relaxationRate " << relaxationRate << nl
+                << "    relaxationTime "
+                << (relaxationRate > SMALL ? 1.0/relaxationRate : GREAT) << nl
+                << "    maxSource     " << maxSource << nl
+                << "    metalCutoff   " << metalCutoff << nl
+                << "    onlyAboveVapor " << onlyAboveVapor << nl;
+            if (actTimes.size())
             {
-                Info<< " (" << actTimes[i].first() << ' ' << actTimes[i].second() << ')';
+                Info<< "    activationTime";
+                forAll(actTimes, i)
+                {
+                    Info<< " (" << actTimes[i].first() << ' ' << actTimes[i].second() << ')';
+                }
+                Info<< nl;
             }
-            Info<< nl;
-        }
-        else
-        {
-            Info<< "    activationTime none" << nl;
+            else
+            {
+                Info<< "    activationTime none" << nl;
+            }
         }
         loggedPhaseChange = true;
     }
@@ -433,7 +453,10 @@ void Foam::twoPhaseMixtureThermo::computePhaseChange()
         }
         if (!active)
         {
-            Info<< "phaseChangeCoeffs inactive at time " << timeVal << nl;
+            if (master)
+            {
+                Info<< "phaseChangeCoeffs inactive at time " << timeVal << nl;
+            }
             return;
         }
     }
@@ -512,9 +535,13 @@ Foam::twoPhaseMixtureThermo::computeMassTransfer() const
     volScalarField& dgdt = tDgdt.ref();
     const dictionary& transportDict =
         T_.mesh().lookupObject<dictionary>("transportProperties");
+    const bool master = Pstream::master();
     if (!transportDict.found("massTransferCoeffs"))
     {
-        Info<< "massTransferCoeffs not found - skipping mass transfer" << nl;
+        if (master)
+        {
+            Info<< "massTransferCoeffs not found - skipping mass transfer" << nl;
+        }
         return tDgdt;
     }
     const dictionary& mt = transportDict.subDict("massTransferCoeffs");
@@ -534,39 +561,45 @@ Foam::twoPhaseMixtureThermo::computeMassTransfer() const
     static bool loggedMassTransfer = false;
     if (!loggedMassTransfer)
     {
-        Info<< "massTransferCoeffs:" << nl;
-        if (rateMax > 0)
+        if (master)
         {
-            Info<< "    rateMax   " << rateMax << nl;
-        }
-        else
-        {
-            Info<< "    rateMax   none" << nl;
-        }
-        if (tStart.size() && tEnd.size())
-        {
-            Info<< "    activationTime";
-            const label nWin = min(tStart.size(), tEnd.size());
-            for (label i = 0; i < nWin; ++i)
+            Info<< "massTransferCoeffs:" << nl;
+            if (rateMax > 0)
             {
-                Info<< " (" << tStart[i] << ' ' << tEnd[i] << ')';
+                Info<< "    rateMax   " << rateMax << nl;
             }
-            Info<< nl;
-        }
-        else
-        {
-            Info<< "    activationTime none" << nl;
+            else
+            {
+                Info<< "    rateMax   none" << nl;
+            }
+            if (tStart.size() && tEnd.size())
+            {
+                Info<< "    activationTime";
+                const label nWin = min(tStart.size(), tEnd.size());
+                for (label i = 0; i < nWin; ++i)
+                {
+                    Info<< " (" << tStart[i] << ' ' << tEnd[i] << ')';
+                }
+                Info<< nl;
+            }
+            else
+            {
+                Info<< "    activationTime none" << nl;
+            }
         }
         loggedMassTransfer = true;
     }
     if (ClVal <= SMALL)
     {
-        WarningInFunction
-            << "Cached lattice heat capacity ClTTM=" << ClVal
-            << " J/m^3/K is non-positive; skipping mass transfer computation."
-            << endl;
+        if (master)
+        {
+            WarningInFunction
+                << "Cached lattice heat capacity ClTTM=" << ClVal
+                << " J/m^3/K is non-positive; skipping mass transfer computation."
+                << endl;
+        }
         return tDgdt;
-    }    
+    }
     bool active = true;
     if (tStart.size() && tEnd.size())
     {
@@ -583,7 +616,10 @@ Foam::twoPhaseMixtureThermo::computeMassTransfer() const
         }
         if (!active)
         {
-            Info<< "massTransferCoeffs inactive at time " << timeVal << nl;
+            if (master)
+            {
+                Info<< "massTransferCoeffs inactive at time " << timeVal << nl;
+            }
             return tDgdt;
         }
     }
