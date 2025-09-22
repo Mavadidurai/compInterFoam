@@ -104,8 +104,7 @@ int main(int argc, char *argv[])
     #include "createFields.H"
     #define CREATE_FIELDS_DONE
     #endif
-    volScalarField& gasMetalHeatFlux =
-        mesh.lookupObjectRef<volScalarField>("gasMetalHeatFlux");
+    
     // Reference to psi fields (needed for compressibility)
     #ifndef NDEBUG
     const volScalarField& psi1 = mixture.thermo1().psi();
