@@ -27,7 +27,7 @@ Foam::compressibleInterPhaseTransportModel::compressibleInterPhaseTransportModel
     const volScalarField& rho,
     const volVectorField& U,
     const surfaceScalarField& phi,
-    const twoPhaseMixtureThermo& mixture
+    twoPhaseMixtureThermo& mixture
 )
 :
     mixture_(mixture),
