@@ -472,7 +472,7 @@ if (verbose && Foam::Pstream::master())
             alpha1,
             phi,
             mixture,
-            T
+            ttm.Tl()
         )
     );
     recoilPressurePtr = &pInterfaceCapturing->recoilPressure();    

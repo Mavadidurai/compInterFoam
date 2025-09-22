@@ -231,8 +231,13 @@ int main(int argc, char *argv[])
         // Update laser model
         laser.update();
         laser.correct(runTime.value());
-        tmp<volScalarField> laserSrc = laser.source();
-        mixture.setQLaser(laserSrc());
+        const tmp<volScalarField> tLaserSource = laser.source();
+        mixture.setQLaser(tLaserSource());
+        const volScalarField& QLaser = mixture.Q_laser();
+        if (verbose && master)
+        {
+            Info<< "debug: max(Q_laser) now = " << gMax(QLaser) << nl;
+        }
         // Refresh cached two-temperature properties in case the model updated
         mixture.setClTTM(ttm.Cl());
 
@@ -253,7 +258,7 @@ int main(int argc, char *argv[])
             const scalar tnow = runTime.value();
             if (tnow >= laser.laserStartTime() && tnow <= laser.laserEndTime())
             {
-                const dimensionedScalar maxQL = max(laserSrc());
+                const dimensionedScalar maxQL = gMax(QLaser);
                 if (laser.activeThisStep() && maxQL.value() < 1e-6)
                 {
                     WarningInFunction
@@ -282,13 +287,21 @@ int main(int argc, char *argv[])
 
                 ttm.solve
                 (
-                    laserSrc(),
+                    QLaser,
                     phaseChangeSource,
                     phaseChangeRelaxCoeff,
                     gasMetalHeatFlux
                 );
 
 #include "TEqn.H"
+
+                if (verbose && master)
+                {
+                    const dimensionedScalar TlMin = gMin(ttm.Tl());
+                    const dimensionedScalar TlMax = gMax(ttm.Tl());
+                    Info<< "debug: Tl range = [" << TlMin.value()
+                        << ", " << TlMax.value() << "]" << nl;
+                }
             }
 
             if (useAdvancedCapturing && pInterfaceCapturing.valid())

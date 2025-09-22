@@ -709,9 +709,26 @@ femtosecondLaserModel::evaluateTemporalEnvelope
     }
     else
     {
-        // Single Gaussian across the entire active window
-        const scalar sigma  = pulseWidth_.value()/(2.0*sqrt(2.0*log(2.0)));
-        const scalar center = 0.5*(laserStartTime_ + laserEndTime_);
+        // Single Gaussian pulse.  Users often keep laserEndTime well beyond the
+        // actual pulse duration so that other physics (e.g. phase change) remain
+        // enabled.  The previous implementation centred the Gaussian at the
+        // midpoint between laserStartTime and laserEndTime, which can shift the
+        // peak several picoseconds after the intended trigger and effectively
+        // delay the heat source.  Constrain the peak to remain close to the
+        // configured start time while preserving backward compatibility when the
+        // time window is narrow.
+
+        const scalar sigma =
+            pulseWidth_.value()/(2.0*sqrt(2.0*log(2.0)));  // std dev from FWHM
+        const scalar windowWidth = max(laserEndTime_ - laserStartTime_, SMALL);
+
+        // Limit how far the peak can move away from the trigger time.  Using
+        // ±3σ retains >99% of the Gaussian energy while avoiding large delays
+        // when laserEndTime is set long after the pulse.
+        const scalar maxCenterOffset = 3.0*sigma;
+        const scalar halfWindow = 0.5*windowWidth;
+        const scalar centerOffset = min(halfWindow, maxCenterOffset);
+        const scalar center = laserStartTime_ + centerOffset;
 
         result.temporalIntegral =
             gaussianWindowIntegral(overlapStart, overlapEnd, center, sigma);
