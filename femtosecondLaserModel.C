@@ -83,6 +83,19 @@ femtosecondLaserModel::femtosecondLaserModel
     trackingPulse_(false),
     activeThisStep_(false)
 {
+    const scalar originalReflectivity = reflectivity_;
+    const scalar clampedReflectivity =
+        Foam::min(Foam::max(originalReflectivity, scalar(0)), scalar(1));
+
+    if (clampedReflectivity != originalReflectivity)
+    {
+        WarningInFunction
+            << "reflectivity " << originalReflectivity
+            << " outside [0, 1]; clamping to " << clampedReflectivity
+            << endl;
+    }
+
+    reflectivity_ = clampedReflectivity;
     const bool filmYMinProvided = dict.found("filmYMin");
     const bool filmYMaxProvided = dict.found("filmYMax");
 

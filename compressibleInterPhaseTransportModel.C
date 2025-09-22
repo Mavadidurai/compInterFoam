@@ -42,7 +42,7 @@ Foam::compressibleInterPhaseTransportModel::compressibleInterPhaseTransportModel
         (
             rho,
             U,
-            rhoPhi,
+            phi,
             mixture
         )
     )
