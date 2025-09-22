@@ -245,13 +245,16 @@ dimensionedScalar hRef
     mesh.solutionDict().subDict("PIMPLE").lookupOrDefault("hRef", scalar(0))
 );
 
+const Foam::vector gValue = g.value();
+const Foam::scalar gMag = mag(gValue);
+
 // ✅ FIXED: Proper dimensional calculation for ghRef preserving gravity direction
 dimensionedScalar ghRef
 (
     "ghRef",
     g.dimensions()*dimLength,
-    mag(g.value()) > SMALL
-  ? (g.value() & Foam::vector(0, 0, hRef.value()))
+    gMag > SMALL
+  ? (gValue & ((gValue/gMag)*hRef.value()))
   : 0.0
 );
 
