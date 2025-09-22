@@ -104,7 +104,7 @@ private:
     bool   validateParameters() const;
     bool   checkPhysicalBounds() const;
     scalar calculateGaussianIntensity(const scalar R) const;
-    bool   isInBeam(const point& p) const;
+    bool   isInBeam(const point& p, const scalar axialHalfLength) const;
     bool   checkEnergyConservation() const;
     void   finalizePulseEnergyCheck(const char* context, const scalar currentTime) const;
     volScalarField& resetSourceField() const;  // ensure Q_laser exists and is zeroed

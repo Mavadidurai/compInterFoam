@@ -35,34 +35,33 @@ extern Foam::Switch verbose;
     const dictionary twoTemperatureDict =
         ctrl.subOrEmptyDict("twoTemperatureProperties");
 
-    dimensionedScalar minCoeff
+    const dimensionedScalar minCoeffDefault
     (
         "minGasMetalExchangeCoeff",
         interfaceExchange.dimensions(),
         ctrl.lookupOrDefault<scalar>("minGasMetalExchangeCoeff", 0.0)
     );
-    if (twoTemperatureDict.found("minGasMetalExchangeCoeff"))
-    {
-        minCoeff = dimensionedScalar
-        (
-            twoTemperatureDict.lookup("minGasMetalExchangeCoeff")
-        );
-    }
 
-    dimensionedScalar maxCoeff
+    const dimensionedScalar maxCoeffDefault
     (
         "maxGasMetalExchangeCoeff",
         interfaceExchange.dimensions(),
         ctrl.lookupOrDefault<scalar>("maxGasMetalExchangeCoeff", 1e18)
     );
-    if (twoTemperatureDict.found("maxGasMetalExchangeCoeff"))
-    {
-        maxCoeff = dimensionedScalar
-        (
-            twoTemperatureDict.lookup("maxGasMetalExchangeCoeff")
-        );
-    }
 
+    const dimensionedScalar minCoeff =
+        twoTemperatureDict.lookupOrDefault<dimensionedScalar>
+        (
+            "minGasMetalExchangeCoeff",
+            minCoeffDefault
+        );
+
+    const dimensionedScalar maxCoeff =
+        twoTemperatureDict.lookupOrDefault<dimensionedScalar>
+        (
+            "maxGasMetalExchangeCoeff",
+            maxCoeffDefault
+        );
     interfaceExchange = Foam::min(Foam::max(interfaceExchange, minCoeff), maxCoeff);
     interfaceExchange.correctBoundaryConditions();
 

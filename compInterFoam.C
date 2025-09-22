@@ -338,9 +338,18 @@ int main(int argc, char *argv[])
         dimensionedScalar Etot = Ek + Ee + Elattice + El + Egas;
 
         static scalar prevEtot = Etot.value();
-        scalar relChange = mag(Etot.value() - prevEtot)/max(mag(prevEtot), VSMALL);
+        const scalar minEnergyForCheck =
+            runTime.controlDict().lookupOrDefault<scalar>
+            (
+                "energyCheckMinEnergy",
+                1e-6
+            );
 
-        if (relChange > energyTolerance)
+        const scalar prevEtotMag = mag(prevEtot);
+        const scalar denom = max(prevEtotMag, minEnergyForCheck);
+        const scalar relChange = mag(Etot.value() - prevEtot)/denom;
+
+        if (prevEtotMag > minEnergyForCheck && relChange > energyTolerance)
         {
             WarningInFunction
                 << "Relative energy change " << relChange

@@ -351,7 +351,11 @@ scalar femtosecondLaserModel::calculateGaussianIntensity(const scalar R) const
 }
 
 //------------------------------------------------------------------------------
-bool femtosecondLaserModel::isInBeam(const point& p) const
+bool femtosecondLaserModel::isInBeam
+(
+    const point& p,
+    const scalar axialHalfLength
+) const
 {
     vector r = p - focus_;
     scalar z = (r & direction_);
@@ -360,7 +364,7 @@ bool femtosecondLaserModel::isInBeam(const point& p) const
 
     const scalar beamRadius = spotSize_.value()/2.0;
     const scalar maxRadius  = 3.0*beamRadius;         // ~3-sigma
-    const scalar maxZ       = max(spotSize_.value(), 2e-6);
+    const scalar maxZ       = max(axialHalfLength, 0.0);
 
     return (R <= maxRadius) && (z >= -maxZ) && (z <= maxZ);
 }
@@ -694,7 +698,7 @@ femtosecondLaserModel::applySpatialWeighting
 
         const bool inFilm = (c.y() >= filmYMin_ && c.y() <= filmYMax_);
 
-        if (!isInBeam(c))
+        if (!isInBeam(c, axialHalfLength))
         {
             continue;
         }
