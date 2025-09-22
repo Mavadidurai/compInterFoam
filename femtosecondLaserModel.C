@@ -67,6 +67,14 @@ femtosecondLaserModel::femtosecondLaserModel
     incidenceAngle_(dict.getOrDefault<scalar>("incidenceAngle", 0.0)),
     gaussianProfile_(dict.getOrDefault<bool>("gaussianProfile", true)),
     continuousLaser_(dict.getOrDefault<bool>("continuousLaser", false)),
+    pulseEnergyToleranceRel_
+    (
+        dict.getOrDefault<scalar>("pulseEnergyToleranceRel", 0.01)
+    ),
+    pulseEnergyToleranceAbs_
+    (
+        dict.getOrDefault<scalar>("pulseEnergyToleranceAbs", 1e-12)
+    ),    
     laserStartTime_(dict.getOrDefault<scalar>("laserStartTime", 0.0)),
     laserEndTime_(dict.getOrDefault<scalar>("laserEndTime", 2e-12)),
     filmYMin_(0.0),
@@ -97,6 +105,41 @@ femtosecondLaserModel::femtosecondLaserModel
     }
 
     reflectivity_ = clampedReflectivity;
+    if (transmission_ >= 0)
+    {
+        const scalar originalTransmission = transmission_;
+        const scalar clampedTransmission =
+            Foam::min(Foam::max(originalTransmission, scalar(0)), scalar(1));
+
+        if (clampedTransmission != originalTransmission)
+        {
+            WarningInFunction
+                << "transmission " << originalTransmission
+                << " outside [0, 1]; clamping to " << clampedTransmission
+                << endl;
+        }
+
+        transmission_ = clampedTransmission;
+
+        Info<< "Transmission override active: using transmission = "
+            << transmission_ << "; reflectivity entry ignored" << endl;
+    }
+
+    if (pulseEnergyToleranceRel_ < 0)
+    {
+        WarningInFunction
+            << "pulseEnergyToleranceRel " << pulseEnergyToleranceRel_
+            << " is negative; clamping to 0" << endl;
+        pulseEnergyToleranceRel_ = 0.0;
+    }
+
+    if (pulseEnergyToleranceAbs_ < 0)
+    {
+        WarningInFunction
+            << "pulseEnergyToleranceAbs " << pulseEnergyToleranceAbs_
+            << " is negative; clamping to 0" << endl;
+        pulseEnergyToleranceAbs_ = 0.0;
+    }    
     const bool filmYMinProvided = dict.found("filmYMin");
     const bool filmYMaxProvided = dict.found("filmYMax");
 
@@ -430,7 +473,8 @@ void femtosecondLaserModel::finalizePulseEnergyCheck
     const scalar expected = pulseExpectedAccumulator_;
     const scalar configured = pulseEnergy_.value();
     const scalar reference = max(max(expected, configured), scalar(1e-12));
-    const scalar tolerance = max(scalar(1e-12), 0.01*reference);
+    const scalar tolerance =
+        max(pulseEnergyToleranceAbs_, pulseEnergyToleranceRel_*reference);
     const scalar diffExpected = mag(pulseEnergyAccumulator_ - expected);
     const scalar diffConfigured = mag(pulseEnergyAccumulator_ - configured);
     const scalar expectedMismatch = mag(expected - configured);
@@ -452,7 +496,10 @@ void femtosecondLaserModel::finalizePulseEnergyCheck
             << "  Diff vs configured:   " << diffConfigured << " J" << nl
             << "  Expected-config diff: " << expectedMismatch << " J" << nl
             << "  Max deviation:        " << maxDeviation << " J" << nl
-            << "  Tolerance:            " << tolerance << " J" << endl;
+            << "  Tolerance(abs):       " << pulseEnergyToleranceAbs_ << " J" << nl
+            << "  Tolerance(rel*ref):   "
+            << pulseEnergyToleranceRel_*reference << " J" << nl
+            << "  Applied tolerance:    " << tolerance << " J" << endl;
     }
 
     const bool warnConfigured = diffConfigured > tolerance;
@@ -701,12 +748,6 @@ femtosecondLaserModel::applySpatialWeighting
       + axialContribution;
 
     const treeBoundBox searchBox(focus_ - halfWidths, focus_ + halfWidths);
-
-    if (transmission_ >= 0)
-    {
-        WarningInFunction
-            << "transmission overrides reflectivity" << endl;
-    }
 
     const pointField& cellCentres = mesh_.C();
     const scalarField& cellVolumes = mesh_.V();

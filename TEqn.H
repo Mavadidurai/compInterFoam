@@ -6,7 +6,7 @@
 extern Foam::Switch verbose;
 
 {
-    if (verbose)
+    if (verbose && master)
     {
         Info<< "Solving temperature equation" << endl;
     }
@@ -177,7 +177,7 @@ extern Foam::Switch verbose;
 
     gasMetalHeatFlux.correctBoundaryConditions();
 
-    if (verbose)
+    if (verbose && master)
     {
         Info<< "    min(T) = " << min(T).value()
             << "  max(T) = " << max(T).value()

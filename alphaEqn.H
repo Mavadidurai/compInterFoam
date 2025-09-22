@@ -103,7 +103,7 @@ extern Foam::Switch verbose;
 
         phic = Foam::min(phic, *maxCompressionPtr);
 
-        if (verbose)
+        if (verbose && master)
         {
             Info<< "alphaEqn: limiting interface compression with "
                 << "compressionLimiter=" << compressionLimiter << endl;
@@ -199,7 +199,7 @@ extern Foam::Switch verbose;
         alpha1 = Foam::max(Foam::min(alpha1, scalar(1)), scalar(0));
         alpha1.correctBoundaryConditions();
         
-        if (verbose)
+        if (verbose && master)
         {
             Info<< "alpha1 solve: initial residual = "
                 << solverPerf.initialResidual()
@@ -336,7 +336,7 @@ extern Foam::Switch verbose;
 
     rho = alpha1*rho1 + alpha2*rho2;
 
-    if (verbose)
+    if (verbose && master)
     {
         Info<< "Phase-1 volume fraction = "
             << alpha1.weightedAverage(mesh.V()).value()

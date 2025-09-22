@@ -50,7 +50,7 @@ namespace Foam
 class compressibleInterPhaseTransportModel
 {
     // Private data
-    twoPhaseMixtureThermo& mixture
+    twoPhaseMixtureThermo& mixture_;
     const surfaceScalarField& phi_;
     // Single turbulence model for the mixture
     autoPtr<compressible::turbulenceModel> turbulence_;
@@ -61,7 +61,7 @@ public:
         const volScalarField& rho,
         const volVectorField& U,
         const surfaceScalarField& phi,
-    twoPhaseMixtureThermo& mixture
+        const twoPhaseMixtureThermo& mixture
     );
     // Member Functions
     tmp<volScalarField> alphaEff() const;

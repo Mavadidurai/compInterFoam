@@ -1,3 +1,33 @@
+/*---------------------------------------------------------------------------*\
+  =========                 |
+  \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
+   \\    /   O peration     |
+    \\  /    A nd           | www.openfoam.com
+     \\/     M anipulation  |
+-------------------------------------------------------------------------------
+    Copyright (C) 2024
+-------------------------------------------------------------------------------
+License
+    This file is part of OpenFOAM.
+
+    OpenFOAM is free software: you can redistribute it and/or modify it
+    under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    OpenFOAM is distributed in the hope that it will be useful, but WITHOUT
+    ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+    FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+    for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with OpenFOAM.  If not, see <http://www.gnu.org/licenses/>.
+
+Description
+    Implementation of the advanced interface capturing helper for LIFT
+    simulations. Provides recoil pressure calculation, optional clamping, and
+    diagnostic output controlled via controlDict switches.
+\*---------------------------------------------------------------------------*/
 #include "advancedInterfaceCapturing.H"
 #include "fvc.H"
 #include "fvm.H"
@@ -314,8 +344,9 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
             "logRecoilSuppression",
             false
         );
+    const scalar invAlphaWindow = 1.0/(alphaMax_ - alphaMin_);
     label suppressedCondensationCells = 0;
-    
+
     // Compute recoil pressure based on evaporation rate
     forAll(TField, cellI)
     {
@@ -325,7 +356,13 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
         }
 
         const scalar alpha = alpha1Field[cellI];
-        if (alpha < alphaMin_ || alpha > alphaMax_)
+        const scalar alphaMask =
+            Foam::min
+            (
+                Foam::max((alpha - alphaMin_)*invAlphaWindow, scalar(0)),
+                scalar(1)
+            );
+        if (alphaMask <= SMALL || alphaMask >= (1.0 - SMALL))
         {
             if (massRateField[cellI] < -massRateEps)
             {
@@ -334,9 +371,8 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
             continue;
         }
 
-        const scalar clampedAlpha = Foam::max(scalar(0), Foam::min(alpha, scalar(1)));
-        const scalar alphaDamp = 4.0 * clampedAlpha * (1.0 - clampedAlpha);
-        if (alphaDamp <= SMALL)
+        const scalar interfaceWeight = 4.0 * alphaMask * (1.0 - alphaMask);
+        if (interfaceWeight <= SMALL)
         {
             continue;
         }
@@ -353,9 +389,9 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
         }
         const scalar pressureValue = pressureScale * phaseChangeVal;
         const scalar localRecoilMax = scaleRecoilMax
-            ? recoilMax_ * alphaDamp
+            ? recoilMax_ * interfaceWeight
             : recoilMax_;
-        const scalar unclamped = pressureValue * alphaDamp;
+        const scalar unclamped = pressureValue * interfaceWeight;
         recoilField[cellI] = clampRecoil
             ? Foam::min(unclamped, localRecoilMax)
             : unclamped;

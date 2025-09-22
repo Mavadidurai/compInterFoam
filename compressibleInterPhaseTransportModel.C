@@ -39,7 +39,7 @@ Foam::compressibleInterPhaseTransportModel::compressibleInterPhaseTransportModel
             rho,
             U,
             phi,
-            mixture
+            const_cast<twoPhaseMixtureThermo&>(mixture)
         )
     )
 {

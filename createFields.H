@@ -357,8 +357,14 @@ IOMRFZoneList MRF(mesh);
 
 fv::options& fvOptions(fv::options::New(mesh));
 
-bool useAdvancedCapturing =
-    runTime.controlDict().lookupOrDefault<bool>("useAdvancedInterfaceCapturing", true);
+Switch useAdvancedCapturing
+(
+    runTime.controlDict().lookupOrDefault<Switch>
+    (
+        "useAdvancedInterfaceCapturing",
+        true
+    )
+);
     
 // Create LIFT-specific models
 if (verbose)
@@ -387,11 +393,18 @@ dictionary twoTemperatureDict
     runTime.controlDict().subDict("twoTemperatureProperties")
 );
 
-scalar energyTolerance =
+scalar energyToleranceValue =
     twoTemperatureDict.lookupOrDefault<scalar>("energyTolerance", 0.1);
-energyTolerance =
-    twoTemperatureDict.lookupOrDefault<scalar>("energyTol", energyTolerance);
-twoTemperatureDict.set("energyTolerance", energyTolerance);
+energyToleranceValue =
+    twoTemperatureDict.lookupOrDefault<scalar>("energyTol", energyToleranceValue);
+twoTemperatureDict.set("energyTolerance", energyToleranceValue);
+
+dimensionedScalar energyTolerance
+(
+    "energyTolerance",
+    dimless,
+    energyToleranceValue
+);
 
 twoTemperatureModel ttm
 (

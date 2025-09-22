@@ -87,19 +87,23 @@ Foam::twoPhaseMixtureThermo::twoPhaseMixtureThermo
     latentHeat_ = metalDict.lookupOrDefault<scalar>("hf", 435e3);
     T_melt_ = metalDict.lookupOrDefault<scalar>("Tsol", 1941.0);
     T_vapor_ = metalDict.lookupOrDefault<scalar>("Tvap", 3000.0);
-    const Switch writePhaseTemperatures =
-        U.mesh().time().controlDict().lookupOrDefault<Switch>
-        (
-            "writePhaseTemperatures",
-            false
-        );
-    if (writePhaseTemperatures)
+    if (debug)
     {
-        volScalarField T1(IOobject::groupName("T", phase1Name()), T_);
-        volScalarField T2(IOobject::groupName("T", phase2Name()), T_);
-        T1.write();
-        T2.write();
-        fileHandler().flush();
+        const Switch writePhaseTemperatures =
+            U.mesh().time().controlDict().lookupOrDefault<Switch>
+            (
+                "writePhaseTemperatures",
+                false
+            );
+
+        if (writePhaseTemperatures)
+        {
+            volScalarField T1(IOobject::groupName("T", phase1Name()), T_);
+            volScalarField T2(IOobject::groupName("T", phase2Name()), T_);
+            T1.write();
+            T2.write();
+            fileHandler().flush();
+        }
     }
     const dictionary& transportDict = U.mesh().lookupObject<dictionary>("transportProperties");
     const dictionary& phase1Dict = transportDict.subDict(phase1Name());

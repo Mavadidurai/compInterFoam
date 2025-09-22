@@ -51,7 +51,11 @@ private:
     scalar              incidenceAngle_;    // [rad]
     bool                gaussianProfile_;
     bool                continuousLaser_;
-
+    
+    // Pulse energy consistency tolerances
+    scalar              pulseEnergyToleranceRel_;
+    scalar              pulseEnergyToleranceAbs_;
+    
     scalar              laserStartTime_;    // [s]
     scalar              laserEndTime_;      // [s]
 

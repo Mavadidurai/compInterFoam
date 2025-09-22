@@ -57,7 +57,7 @@ Description
 #include "pimpleControl.H"
 #include "fvOptions.H"
 #include "autoPtr.H"
-
+#include "Pstream.H"
 #include "fvcSmooth.H"
 #include "twoPhaseMixtureThermo.H"
 #include "extrapolatedCalculatedFvPatchFields.H"
@@ -99,6 +99,7 @@ int main(int argc, char *argv[])
     #include "createTime.H"
     #include "createMesh.H"
     #include "createTimeControls.H"
+    const bool master = Pstream::master();    
     #ifndef CREATE_FIELDS_DONE
     #include "createFields.H"
     #define CREATE_FIELDS_DONE
@@ -186,7 +187,7 @@ int main(int argc, char *argv[])
             rSubDeltaT = max(invMaxDeltaT, rSubDeltaT);
             rSubDeltaT.correctBoundaryConditions();
             
-            if (verbose)
+            if (verbose && master)
             {
                 Info<< "Flow time scale min/max = "
                     << gMin(1/rDeltaT.primitiveField())
@@ -213,7 +214,7 @@ int main(int argc, char *argv[])
                 meanAlphaCoNum = 0.5*(gSum(sumPhi)/gSum(mesh.V().field()))*runTime.deltaTValue();
             }
             
-            if (verbose)
+            if (verbose && master)
             {
                 Info<< "Interface Courant Number mean: " << meanAlphaCoNum
                     << " max: " << alphaCoNum << endl;
@@ -260,7 +261,7 @@ int main(int argc, char *argv[])
                         << ") below threshold 1e-6" << endl;
                 }
 
-                if (verbose)
+            if (verbose && master)
                 {
                     Info<< "max(Q_laser) = " << maxQL.value()
                         << ", max(Tl) = " << max(ttm.Tl()).value() << endl;
@@ -273,7 +274,7 @@ int main(int argc, char *argv[])
 
             for (label thermalIter = 0; thermalIter < nThermalCouplingIter; ++thermalIter)
             {
-                if (verbose && nThermalCouplingIter > 1)
+                if (master && verbose && nThermalCouplingIter > 1)
                 {
                     Info<< "  Thermal coupling iteration " << thermalIter + 1
                         << " / " << nThermalCouplingIter << endl;
@@ -300,7 +301,7 @@ int main(int argc, char *argv[])
                 refreshLegacyRecoilPressure(legacyRecoilPressure.ptr());
             }
 
-            if (verbose && recoilPressurePtr)
+            if (master && verbose && recoilPressurePtr)
             {
                 Info<< "max recoilPressure = "
                     << max(*recoilPressurePtr).value()
@@ -348,14 +349,19 @@ int main(int argc, char *argv[])
         const scalar denom = max(prevEtotMag, minEnergyForCheck);
         const scalar relChange = mag(Etot.value() - prevEtot)/denom;
 
-        if (prevEtotMag > minEnergyForCheck && relChange > energyTolerance)
+        if
+        (
+            prevEtotMag > minEnergyForCheck
+         && relChange > energyTolerance.value()
+        )
         {
             WarningInFunction
                 << "Relative energy change " << relChange
-                << " exceeds energyTolerance (" << energyTolerance << ")" << endl;
+                << " exceeds energyTolerance (" << energyTolerance.value()
+                << ")" << endl;
         }
 
-        if (verbose)
+            if (verbose && master)
         {
             Info<< "Energy totals [J]: Ek=" << Ek.value()
                 << " Ee=" << Ee.value()
@@ -390,7 +396,7 @@ int main(int argc, char *argv[])
     // Clean up dynamically allocated interface capturing object
     if (useAdvancedCapturing && pInterfaceCapturing.valid())
     {
-        if (verbose)
+            if (verbose && master)
         {
             Info<< "Interface capturing object will be automatically cleaned up" << endl;
         }
