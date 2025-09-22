@@ -12,7 +12,8 @@
 #include "fvm.H"
 #include "mathematicalConstants.H"
 #include "treeBoundBox.H"
-
+#include "Pstream.H"
+#include "PstreamReduceOps.H"
 #include <cmath>
 
 extern Foam::Switch verbose;
@@ -131,7 +132,17 @@ femtosecondLaserModel::femtosecondLaserModel
             << ": [" << filmYMin_ << ", " << filmYMax_ << "] m" << endl;
     }
     // normalize direction
-    direction_ /= mag(direction_) + SMALL;
+    const scalar dirMag = mag(direction_);
+
+    if (dirMag <= VSMALL)
+    {
+        FatalErrorInFunction
+            << "Laser direction vector must be non-zero" << nl
+            << "Supplied direction: " << direction_ << nl
+            << abort(FatalError);
+    }
+
+    direction_ /= dirMag;
     if (pulseDutyCycle_ < 0.0 || pulseDutyCycle_ > 1.0)
     {
         const scalar originalDuty = pulseDutyCycle_;

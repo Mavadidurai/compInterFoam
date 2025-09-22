@@ -18,7 +18,7 @@
 #include "dimensionedScalar.H"
 #include "mathematicalConstants.H"
 #include "tmp.H"
-
+#include "typeInfo.H"
 namespace Foam
 {
 
