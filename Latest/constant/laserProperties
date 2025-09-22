@@ -36,6 +36,8 @@ FoamFile
 // and peakIntensity ≤1e16 W/m^2.
 // Gaussian pulse focused in the 71.4 nm donor film (y=8.0–8.0714 µm)
 // Domain: x∈[0,50e-6], y∈[0,20e-6], z∈[0,10e-6]
+// CORRECTED: Specify exact film thickness to match blockMeshDict geometry
+filmThicknessExpected    7.14e-8;    // 71.4 nm (matches y3 - y2 = 20.0714 - 20.0000)
 
 // geometry coupling
 gasAbsorptionCoeff 0;     // [1/m] gas absorption (0 disables direct gas heating)
@@ -45,9 +47,8 @@ gasAbsorptionCoeff 0;     // [1/m] gas absorption (0 disables direct gas heating
 // while keeping the peak intensity below the 1e16 W/m^2 safety cap.
 pulseEnergy     6.0e-8;          // [J] total energy (0.094 J/cm^2 incident fluence)
 pulseWidth      2.14e-13;        // [s] 214 fs pulse width
-laserStartTime  0;        // [s] trigger immediately at simulation start
-laserEndTime    5e-12;    // [s] 100 ps pulse duration within controlDict end time
-
+laserStartTime  1e-12;    // [s] delay pulse until after the fluid preconditioning period
+laserEndTime    6e-12;    // [s] keep a 5 ps active window inside the run time
 // --- Spatial Gaussian (match the box center and film depth) ---
 spotSize        9.0e-6;         // [m] beam diameter (4.5 µm 1/e^2 radius)
 
@@ -68,5 +69,6 @@ gaussianProfile     true;
 // Optional intensity entry (consistent with pulseEnergy & pulseWidth)
 continuousLaser     false;
 maxVolumetricSource 5e23;   // [W/m^3] raise cap above intensity*absorption (~5e23)
-
+// NOTE: If peakIntensity is specified, it must match the derived value within 5% or
+// the solver now aborts, so omit it to accept the computed value when iterating setups.
 // ************************************************************************* //
