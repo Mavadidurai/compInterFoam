@@ -697,7 +697,7 @@ femtosecondLaserModel::applySpatialWeighting
             << "transmission overrides reflectivity" << endl;
     }
 
- const pointField& cellCentres = mesh_.C();
+    const pointField& cellCentres = mesh_.C();
     const scalarField& cellVolumes = mesh_.V();
 
     forAll(cellCentres, cellI)
@@ -737,7 +737,8 @@ femtosecondLaserModel::applySpatialWeighting
           ? exp(-cellAbsorptionCoeff*max(z, 0.0))
           : 1.0;
 
-        scalar transmissionFactor = 1.0 - reflectivity_;
+        const scalar effectiveReflectivity = reflectivity_;
+        scalar transmissionFactor = 1.0 - effectiveReflectivity;
         if (transmission_ >= 0)
         {
             transmissionFactor = transmission_;
@@ -745,7 +746,7 @@ femtosecondLaserModel::applySpatialWeighting
         else if (incidenceAngle_ > VSMALL)
         {
             const scalar n1 = 1.0;
-            const scalar sqrtR = sqrt(max(0.0, reflectivity_));
+            const scalar sqrtR = sqrt(effectiveReflectivity);
             const scalar n2 = (1.0 + sqrtR)/max(VSMALL, (1.0 - sqrtR));
             const scalar sinThetaT = n1/n2 * sin(incidenceAngle_);
             if (mag(sinThetaT) < 1.0)

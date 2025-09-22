@@ -348,8 +348,6 @@ compressibleInterPhaseTransportModel transportModel
     rho,
     U,
     phi,
-    rhoPhi,
-    alphaPhi10,
     mixture
 );
 

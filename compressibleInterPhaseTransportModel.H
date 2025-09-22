@@ -52,8 +52,6 @@ class compressibleInterPhaseTransportModel
     // Private data
     const twoPhaseMixtureThermo& mixture_;
     const surfaceScalarField& phi_;
-    const surfaceScalarField& rhoPhi_;
-    const surfaceScalarField& alphaPhi10_;
     // Single turbulence model for the mixture
     autoPtr<compressible::turbulenceModel> turbulence_;
 public:
@@ -63,8 +61,6 @@ public:
         const volScalarField& rho,
         const volVectorField& U,
         const surfaceScalarField& phi,
-        const surfaceScalarField& rhoPhi,
-        const surfaceScalarField& alphaPhi10,
         const twoPhaseMixtureThermo& mixture
     );
     // Member Functions
