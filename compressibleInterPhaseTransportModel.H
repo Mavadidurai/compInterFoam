@@ -61,7 +61,7 @@ public:
         const volScalarField& rho,
         const volVectorField& U,
         const surfaceScalarField& phi,
-        const twoPhaseMixtureThermo& mixture
+        twoPhaseMixtureThermo& mixture
     );
     // Member Functions
     tmp<volScalarField> alphaEff() const;

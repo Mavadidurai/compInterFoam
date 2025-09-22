@@ -5,19 +5,34 @@
     \\  /    A nd          | www.openfoam.com
      \\/     M anipulation |
 -------------------------------------------------------------------------------
-    Description
+    Copyright (C) 2024
+-------------------------------------------------------------------------------
+License
+    This file is part of OpenFOAM.
+
+    OpenFOAM is free software: you can redistribute it and/or modify it
+    under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    OpenFOAM is distributed in the hope that it will be useful, but WITHOUT
+    ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+    FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+    for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with OpenFOAM.  If not, see <http://www.gnu.org/licenses/>.
+
+Description
     Implementation of the two-temperature model for femtosecond laser-material
-    interaction in LIFT process. Handles:
-    - Temperature field initialization and evolution
-    - Material property calculations
-    - Energy conservation tracking
-    - Coupled electron-lattice temperature solution
-    The model uses temperature-dependent material properties and includes
-    electron-phonon coupling for accurate simulation of ultrafast laser heating.
+    interaction in LIFT processes, providing coupled electron-lattice
+    temperature evolution, property management, and diagnostics for LIFT
+    simulations.
 \*---------------------------------------------------------------------------*/
 #include "twoTemperatureModel.H"
 #include "fvc.H"
 #include "fvm.H"
+#include "Pstream.H"
 #include <cmath>
 extern Foam::Switch verbose;
 namespace Foam
@@ -183,7 +198,8 @@ if (dict.found("Ce"))
     }
     // Initialize energy tracking
     updateEnergyTracking();
-    if (verbose)
+     const bool master = Pstream::master();
+    if (verbose && master)
     {
         Info<< "Two-temperature model initialized:" << nl
             << "  Ce = " << Ce_.value() << " J/m³/K" << nl
@@ -1214,7 +1230,8 @@ bool twoTemperatureModel::valid() const
 }
 void twoTemperatureModel::write() const
 {
-    if (verbose)
+    const bool master = Pstream::master();
+    if (verbose && master)
     {
         Info<< "Two-temperature model:" << nl
             << "Parameters:" << nl
@@ -1240,7 +1257,7 @@ void twoTemperatureModel::write() const
             (currentEnergy.value() - lastTotalEnergy_.value())/
             (mag(lastTotalEnergy_.value()) + SMALL)
         );
-        if (verbose)
+        if (verbose && master)
         {
             Info<< "Energy conservation:" << nl
                 << "  Current total energy: " << currentEnergy.value() << " J" << nl

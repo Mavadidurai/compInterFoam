@@ -102,7 +102,7 @@ if (useAdvancedCapturing && pInterfaceCapturing.valid())
         rhoPhi = alphaPhi10*trho1() + (phi - alphaPhi10)*trho2();
     }
 
-    if (verbose)
+if (verbose && master)
     {
         Info<< "Phase-1 volume fraction = "
             << alpha1.weightedAverage(mesh.V()).value()

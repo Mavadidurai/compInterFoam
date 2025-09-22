@@ -5,42 +5,55 @@
     \\  /    A nd          | www.openfoam.com
      \\/     M anipulation |
 -------------------------------------------------------------------------------
-    Description
-    Two-temperature model for femtosecond laser-material interaction in LIFT process.
-    Models separate electron and lattice temperatures, including:
-    - Electron-phonon coupling
-    - Temperature-dependent thermal properties
-    - Energy conservation tracking
-    - Laser energy absorption
-    The model solves coupled equations for:
-    - Electron temperature (Te)
-    - Lattice temperature (Tl)
-    With temperature-dependent properties:
-    - Electron thermal conductivity (ke)
-    - Lattice thermal conductivity (kl)
-    - Electron-phonon coupling coefficient (G)   
+    Copyright (C) 2024
+-------------------------------------------------------------------------------
+License
+    This file is part of OpenFOAM.
+
+    OpenFOAM is free software: you can redistribute it and/or modify it
+    under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    OpenFOAM is distributed in the hope that it will be useful, but WITHOUT
+    ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+    FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+    for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with OpenFOAM.  If not, see <http://www.gnu.org/licenses/>.
+
+Class
+    Foam::twoTemperatureModel
+
+Description
+    Two-temperature model for femtosecond laser-material interaction in LIFT
+    processes. The model evolves separate electron and lattice temperatures,
+    handles temperature-dependent properties, and tracks energy conservation.
+
 SourceFiles
     twoTemperatureModel.C
-        Dictionary entries:
-        energyTolerance   Relative energy conservation tolerance
-                          used by checkEnergyConservation
+
+    Dictionary entries:
+        energyTolerance   Relative energy conservation tolerance used by
+                          checkEnergyConservation
         minTe             Minimum temperature bound for Te and Tl [K]
         maxTe             Maximum temperature bound for Te and Tl [K]
         metalAmbientBlendWidth
-                          Width of the metal/ambient blending layer used
-                          when applying temperature bounds to avoid
-                          discontinuities (optional, default 1e-3)        
+                          Width of the metal/ambient blending layer used when
+                          applying temperature bounds (optional, default 1e-3)
         klHighTThreshold  Lattice temperature [K] above which the high-
                           temperature conductivity correction activates
                           (optional, default 1000)
         klExponent        Exponent applied to (klHighTThreshold/Tl) when
                           reducing kl at high temperature (optional,
                           default 0.5, set to 0 to disable)
-        gasMetalExchangeCoeff  Interfacial gas-metal coupling coefficient
-                          [W/m³/K]. Values in the 1e12-1e15 range provide
-                          moderate coupling, while coefficients above 1e16
-                          W/m³/K enforce near-equilibrium interface
-                          temperatures and can lead to stiff coupling.                          
+        gasMetalExchangeCoeff
+                          Interfacial gas-metal coupling coefficient [W/m³/K].
+                          Values in the 1e12-1e15 range provide moderate
+                          coupling, while coefficients above 1e16 W/m³/K
+                          enforce near-equilibrium interface temperatures and
+                          can lead to stiff coupling.                     
 \*---------------------------------------------------------------------------*/
 #ifndef twoTemperatureModel_H
 #define twoTemperatureModel_H

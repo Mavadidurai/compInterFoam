@@ -1,11 +1,32 @@
 /*---------------------------------------------------------------------------*\
   =========                 |
-  \\      /  F ield         | OpenFOAM
+  \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     |
     \\  /    A nd           | www.openfoam.com
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
-    Femtosecond laser model for LIFT (implementation)
+    Copyright (C) 2024
+-------------------------------------------------------------------------------
+License
+    This file is part of OpenFOAM.
+
+    OpenFOAM is free software: you can redistribute it and/or modify it
+    under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    OpenFOAM is distributed in the hope that it will be useful, but WITHOUT
+    ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+    FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+    for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with OpenFOAM.  If not, see <http://www.gnu.org/licenses/>.
+
+Description
+    Implementation of the femtosecond laser source model used for
+    Laser-Induced Forward Transfer (LIFT) simulations, including detailed
+    diagnostics and optional temporal/spatial weighting controls.
 \*---------------------------------------------------------------------------*/
 #include "femtosecondLaserModel.H"
 #include "fvc.H"
@@ -245,7 +266,8 @@ femtosecondLaserModel::femtosecondLaserModel
             << abort(FatalError);
     }
 
-    if (verbose)
+    const bool master = Pstream::master();
+    if (verbose && master)
     {
         Info<< "Femtosecond laser model initialized:" << nl
             << "  Mode: " << (continuousLaser_ ? "Continuous" : "Pulsed") << nl
@@ -482,7 +504,8 @@ void femtosecondLaserModel::finalizePulseEnergyCheck
 
     ++pulseCounter_;
 
-    if (verbose)
+    const bool master = Pstream::master();
+    if (verbose && master)
     {
         Info<< "LASER PULSE ENERGY CHECK:" << nl
             << "  Pulse index:      " << pulseCounter_ << nl
@@ -524,7 +547,7 @@ void femtosecondLaserModel::finalizePulseEnergyCheck
             << endl;
     }
 
-    if (!warnConfigured && !warnExpected && verbose)
+    if (!warnConfigured && !warnExpected && verbose && master)
     {
         if (diffConfigured > VSMALL)
         {
@@ -1019,7 +1042,7 @@ void femtosecondLaserModel::calculateSource() const
     {
         return;
     }
-    
+
     activeThisStep_ = false;
     volScalarField& source = resetSourceField();
 
@@ -1028,8 +1051,9 @@ void femtosecondLaserModel::calculateSource() const
     const scalar dt = dtDim.value();
     const scalar tStart = t - dt;
     const label timeIndex = mesh_.time().timeIndex();
+    const bool master = Pstream::master();
     // ENHANCED DEBUG OUTPUT
-    if (verbose && timeIndex % 10 == 0)
+    if (verbose && master && timeIndex % 10 == 0)
     {
         Info<< "===== LASER DEBUG =====" << nl
             << "Time: " << t << " s (" << t*1e12 << " ps)" << nl
@@ -1061,7 +1085,7 @@ void femtosecondLaserModel::calculateSource() const
     const scalar overlapStart = max(tStart, laserStartTime_);
     const scalar overlapEnd   = min(t, laserEndTime_);
 
-    if (verbose && timeIndex % 10 == 0)
+    if (verbose && master && timeIndex % 10 == 0)
     {
         Info<< "Time overlap check:" << nl
             << "  Current time window: [" << tStart*1e12 << ", " << t*1e12 << "] ps" << nl
@@ -1072,7 +1096,7 @@ void femtosecondLaserModel::calculateSource() const
 
     if ((overlapEnd - overlapStart) <= VSMALL)
     {
-        if (verbose && t <= laserEndTime_ + 1e-12)
+        if (verbose && master && t <= laserEndTime_ + 1e-12)
         {
             Info<< "No time overlap - laser inactive this step" << endl;
         }
@@ -1084,7 +1108,7 @@ void femtosecondLaserModel::calculateSource() const
     const EnvelopeResult envelope =
         evaluateTemporalEnvelope(overlapStart, overlapEnd, dt);
 
-    if (verbose && timeIndex % 10 == 0)
+    if (verbose && master && timeIndex % 10 == 0)
     {
         Info<< "Temporal envelope:" << nl
             << "  Active: " << (envelope.active ? "YES" : "NO") << nl
@@ -1095,7 +1119,7 @@ void femtosecondLaserModel::calculateSource() const
 
     if (!envelope.active || envelope.temporalAverage <= VSMALL)
     {
-        if (verbose && timeIndex % 10 == 0)
+    if (verbose && master && timeIndex % 10 == 0)
         {
             Info<< "Temporal envelope inactive - no laser heating" << endl;
         }
@@ -1104,7 +1128,7 @@ void femtosecondLaserModel::calculateSource() const
         return;
     }
 
-    if (verbose && timeIndex % 10 == 0)
+    if (verbose && master && timeIndex % 10 == 0)
     {
         Info<< "Applying spatial weighting..." << nl
             << "  Temporal average factor: " << envelope.temporalAverage << endl;
@@ -1138,7 +1162,7 @@ void femtosecondLaserModel::calculateSource() const
 
     SpatialMetrics metrics = applySpatialWeighting(source, envelope.temporalAverage);
 
-    if (verbose && timeIndex % 10 == 0)
+    if (verbose && master && timeIndex % 10 == 0)
     {
         Info<< "Spatial processing results:" << nl
             << "  Cells in beam: " << metrics.cellsInBeam << nl
@@ -1173,7 +1197,7 @@ void femtosecondLaserModel::calculateSource() const
 
     activeThisStep_ = (metrics.maxSourceValue > VSMALL);
 
-    if (verbose && timeIndex % 10 == 0)
+    if (verbose && master && timeIndex % 10 == 0)
     {
         Info<< "Laser active this step: " << (activeThisStep_ ? "YES" : "NO") << nl;
         if (activeThisStep_)
@@ -1219,7 +1243,8 @@ bool femtosecondLaserModel::valid() const
 //------------------------------------------------------------------------------
 void femtosecondLaserModel::write() const
 {
-    if (verbose)
+    const bool master = Pstream::master();
+    if (verbose && master)
     {
         Info<< "Femtosecond laser model status:" << nl
             << "  Mode: " << (continuousLaser_ ? "Continuous" : "Pulsed") << nl
@@ -1257,4 +1282,3 @@ void femtosecondLaserModel::write() const
 }
 
 } // namespace Foam
-

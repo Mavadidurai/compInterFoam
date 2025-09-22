@@ -5,7 +5,7 @@
 extern Foam::Switch verbose;
 
 {
-    if (verbose)
+    if (verbose && master)
     {
         Info<< "Solving pressure equation" << endl;
     }
@@ -101,7 +101,7 @@ extern Foam::Switch verbose;
 
     K = 0.5*magSqr(U);
 
-    if (verbose)
+    if (verbose && master)
     {
         Info<< "Pressure solve complete: max p = " << max(p).value()
             << " Pa, min p = " << min(p).value() << " Pa" << endl;

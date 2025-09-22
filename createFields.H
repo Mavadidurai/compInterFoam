@@ -5,7 +5,7 @@ tmp<volScalarField> trDeltaT;
 tmp<volScalarField> trSubDeltaT;
 if (LTS)
 {
-    if (verbose)
+    if (verbose && master)
     {
         Info<< "Using LTS" << endl;
     }
@@ -46,7 +46,7 @@ if (LTS)
     
 }
 
-if (verbose)
+    if (verbose && master)
 {
     Info<< "Reading field p_rgh\n" << endl;
 }
@@ -63,7 +63,7 @@ volScalarField p_rgh
     mesh
 );
 
-if (verbose)
+    if (verbose && master)
 {
     Info<< "Reading field U\n" << endl;
 }
@@ -80,7 +80,7 @@ volVectorField U
     mesh
 );
 
-if (verbose)
+    if (verbose && master)
 {
     Info<< "Reading/calculating face flux field phi\n" << endl;
 }
@@ -96,7 +96,7 @@ surfaceScalarField phi
     ),
     fvc::flux(U)
 );
-if (verbose)
+    if (verbose && master)
 {
     Info<< "Reading field T\n" << endl;
 }
@@ -132,7 +132,7 @@ volScalarField gasMetalHeatFlux
     )
 );
 // Create the thermo system - this will create alpha.metal and alpha.air fields
-if (verbose)
+    if (verbose && master)
 {
     Info<< "Constructing twoPhaseMixtureThermo\n" << endl;
 }
@@ -204,7 +204,7 @@ if (alpha1.timeIndex() > 0)
     alpha2.oldTime();
 }
 
-if (verbose)
+    if (verbose && master)
 {
     Info<< "Phase fractions - alpha.metal: min = " << min(alpha1).value()
         << ", max = " << max(alpha1).value() << endl;
@@ -216,7 +216,7 @@ if (verbose)
         << ", air: " << mixture.phase2Name() << endl;
 }
 
-if (verbose)
+    if (verbose && master)
 {
     Info<< "Reading thermophysical properties\n" << endl;
 }
@@ -240,7 +240,7 @@ volScalarField rho
 mesh.setFluxRequired(p_rgh.name());
 mesh.setFluxRequired(alpha1.name());
 
-if (verbose)
+    if (verbose && master)
 {
     Info<< "Reading g\n" << endl;
 }
@@ -311,7 +311,7 @@ surfaceScalarField rhoPhi
 
 // Mass-transfer rate provided by twoPhaseMixtureThermo
 const volScalarField& dgdt = mixture.dgdt();
-if (verbose)
+    if (verbose && master)
 {
     Info<< "Mass-transfer rate - dgdt: min = " << min(dgdt).value()
         << ", max = " << max(dgdt).value() << endl;
@@ -327,7 +327,7 @@ IOobject alphaPhi10Header
 
 const bool alphaRestart = alphaPhi10Header.typeHeaderOk<surfaceScalarField>();
 
-if (alphaRestart && verbose)
+if (alphaRestart && verbose && master)
 {
     Info << "Restarting alpha flux field" << endl;
 }
@@ -367,7 +367,7 @@ Switch useAdvancedCapturing
 );
     
 // Create LIFT-specific models
-if (verbose)
+if (verbose && master)
 {
     Info<< "Creating femtosecond laser model\n" << endl;
 }
@@ -384,7 +384,7 @@ IOdictionary laserPropertiesDict
     )
 );
 femtosecondLaserModel laser(mesh, laserPropertiesDict);
-if (verbose)
+if (verbose && master)
 {
     Info<< "Creating two-temperature model\n" << endl;
 }
@@ -459,7 +459,7 @@ autoPtr<volScalarField> legacyRecoilPressure;
 const volScalarField* recoilPressurePtr = nullptr;
 if (useAdvancedCapturing)
 {
-    if (verbose)
+if (verbose && master)
     {
         Info<< "Creating advanced interface capturing\n" << endl;
     }
@@ -479,7 +479,7 @@ if (useAdvancedCapturing)
 }
 else
 {
-    if (verbose)
+if (verbose && master)
     {
         Info<< "Advanced interface capturing disabled; using basic recoil model\n"
             << endl;
@@ -507,7 +507,7 @@ else
 }
 (void)recoilPressurePtr;
 
-if (verbose)
+if (verbose && master)
 {
     // ✅ CLEAR: Field validation with intuitive naming
     const dimensionedScalar totalMetalVOF = fvc::domainIntegrate(alpha1);
