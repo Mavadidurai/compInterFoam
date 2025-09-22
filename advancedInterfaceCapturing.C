@@ -3,7 +3,7 @@
 #include "fvm.H"
 #include "wallFvPatch.H"
 #include "fvPatchField.H"
-
+#include <cmath>
 
 namespace Foam
 {
@@ -175,6 +175,13 @@ advancedInterfaceCapturing::advancedInterfaceCapturing
     recoilRelax_ = Foam::min(Foam::max(recoilRelax_, scalar(0)), scalar(1));    
     alphaMin_ = aicDict.lookupOrDefault<scalar>("alphaMin", alphaMin_);
     alphaMax_ = aicDict.lookupOrDefault<scalar>("alphaMax", alphaMax_);
+    
+    if (alphaMin_ >= alphaMax_)
+    {
+        FatalErrorInFunction
+            << "alphaMin (" << alphaMin_ << ") must be less than alphaMax ("
+            << alphaMax_ << ")" << abort(FatalError);
+    }
     // Simple initialization, no calculations in constructor to avoid MPI issues
     if (verbose)
     {
@@ -268,15 +275,22 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
     }
 
     const volScalarField& massRate = mixture_.dgdt();        // [1/s]
-    
-    if (massRate.size() != mesh_.nCells())
+
+    if
+    (
+        massRate.size() != mesh_.nCells()
+     || massRate.size() != TField.size()
+     || massRate.size() != alpha1Field.size()
+    )
     {
         FatalErrorIn("advancedInterfaceCapturing::calculateRecoilPressure()")
-            << "Invalid mass transfer rate field size: " << massRate.size()
-            << " expected: " << mesh_.nCells()
+            << "Field size mismatch detected. massRate: " << massRate.size()
+            << " T: " << TField.size()
+            << " alpha1: " << alpha1Field.size()
+            << " mesh: " << mesh_.nCells()
             << abort(FatalError);
     }
-    
+
     const scalarField& massRateField = massRate.primitiveField();
     scalarField& recoilField = recoilPressure_.primitiveFieldRef();
     
@@ -288,36 +302,17 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
         );
     label suppressedCondensationCells = 0;
     
-    // Utility: smooth step for alpha ramping
-    auto smoothStep = [](const scalar x, const scalar x1, const scalar x2)
-    {
-        if (x <= x1) return scalar(0);
-        if (x >= x2) return scalar(1);
-        const scalar y = (x - x1)/(x2 - x1);
-        return y*y*(3.0 - 2.0*y);
-    };
-
     // Compute recoil pressure based on evaporation rate
     forAll(TField, cellI)
     {
-        if (cellI >= TField.size() || cellI >= alpha1Field.size() || cellI >= massRateField.size())
-        {
-            FatalError << "Cell index out of bounds in calculateRecoilPressure()" << abort(FatalError);
-        }
-        
         if (TField[cellI] < evaporationOnTemp) continue;
 
         const scalar alpha = alpha1Field[cellI];
-        scalar ramp = 1.0;
-        if (alpha < alphaMin_)
+        if (alpha < alphaMin_ || alpha > alphaMax_)
         {
-            ramp = smoothStep(alpha, 0.0, alphaMin_);
+            continue;
         }
-        else if (alpha > alphaMax_)
-        {
-            ramp = 1.0 - smoothStep(alpha, alphaMax_, 1.0);
-        }
-        const scalar alphaDamp = 4.0 * alpha * (1.0 - alpha) * ramp;
+        const scalar alphaDamp = 4.0 * alpha * (1.0 - alpha);
 
         scalar phaseChangeVal = 0.0;
         if (TField[cellI] >= evaporationOnTemp)
@@ -337,7 +332,9 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
             ? recoilMax_ * alphaDamp
             : recoilMax_;
         const scalar unclamped = pressureValue * alphaDamp;
-        recoilField[cellI] = clampRecoil ? min(unclamped, localRecoilMax) : unclamped;
+        recoilField[cellI] = clampRecoil
+            ? Foam::min(unclamped, localRecoilMax)
+            : unclamped;
     }
      if (applyRelaxation)
     {
