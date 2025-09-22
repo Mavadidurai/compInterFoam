@@ -26,6 +26,10 @@ SourceFiles
                           used by checkEnergyConservation
         minTe             Minimum temperature bound for Te and Tl [K]
         maxTe             Maximum temperature bound for Te and Tl [K]
+        metalAmbientBlendWidth
+                          Width of the metal/ambient blending layer used
+                          when applying temperature bounds to avoid
+                          discontinuities (optional, default 1e-3)        
         klHighTThreshold  Lattice temperature [K] above which the high-
                           temperature conductivity correction activates
                           (optional, default 1000)
@@ -112,7 +116,9 @@ private:
             const volScalarField& phaseChangeRelaxCoeff,
             const volScalarField& phaseChangeSource,
             const volScalarField& TlOld,
-            const volScalarField& gasMetalHeatFlux
+            const volScalarField& gasMetalHeatFlux,
+            const dimensionedScalar& dtSub,
+            const volScalarField& TlPrev
         );
         //- Assemble, relax, solve, and correct the electron equation
         void solveElectronEquation
@@ -121,7 +127,9 @@ private:
             const volScalarField& Ce,
             const volScalarField& ke,
             const volScalarField& G,
-            const volScalarField& laserSource
+            const volScalarField& laserSource,
+            const dimensionedScalar& dtSub,
+            const volScalarField& TePrev
         );
         //- Integrated gas-metal coupling energy for this time-step
         dimensionedScalar couplingEnergy

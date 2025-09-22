@@ -215,11 +215,21 @@ void Foam::twoPhaseMixtureThermo::updateTwoTemperatureCache()
     }
     else
     {
+        static bool warnedMissingTwoTemp = false;
+        const scalar fallbackCl = 2.5e6;
+        if (!warnedMissingTwoTemp)
+        {
+            WarningInFunction
+                << "twoTemperatureProperties not found in controlDict; using"
+                << " fallback lattice heat capacity ClTTM=" << fallbackCl
+                << " J/m^3/K." << endl;
+            warnedMissingTwoTemp = true;
+        }
         ClTTM_ = dimensionedScalar
         (
             "ClTTM",
             dimEnergy/dimVolume/dimTemperature,
-            0.0
+            fallbackCl
         );
     }
 }
@@ -492,7 +502,8 @@ Foam::twoPhaseMixtureThermo::computeMassTransfer() const
                 T_.time().timeName(),
                 T_.mesh(),
                 IOobject::NO_READ,
-                IOobject::NO_WRITE
+                IOobject::NO_WRITE,
+                false
             ),
             T_.mesh(),
             dimensionedScalar("dgdt", dimless/dimTime, 0.0)
@@ -548,6 +559,14 @@ Foam::twoPhaseMixtureThermo::computeMassTransfer() const
         }
         loggedMassTransfer = true;
     }
+    if (ClVal <= SMALL)
+    {
+        WarningInFunction
+            << "Cached lattice heat capacity ClTTM=" << ClVal
+            << " J/m^3/K is non-positive; skipping mass transfer computation."
+            << endl;
+        return tDgdt;
+    }    
     bool active = true;
     if (tStart.size() && tEnd.size())
     {

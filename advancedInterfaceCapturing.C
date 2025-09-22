@@ -38,7 +38,15 @@ advancedInterfaceCapturing::advancedInterfaceCapturing
             mixture.T_vapor()
         )
     ),
-    pressureScale_(20000.0),
+    pressureScale_
+    (
+        dimensionedScalar
+        (
+            "pressureScale",
+            dimPressure*dimTime,
+            20000.0
+        )
+    ),
     recoilMax_(5e6),
     recoilTempOffset_
     (
@@ -50,6 +58,7 @@ advancedInterfaceCapturing::advancedInterfaceCapturing
     ),
     clampRecoil_(true),
     scaleRecoilMax_(false),
+    recoilRelax_(1.0),
     // Relaxed default bounds to reduce clipping of interface values
     alphaMin_(0.001),
     alphaMax_(0.999),
@@ -65,7 +74,9 @@ advancedInterfaceCapturing::advancedInterfaceCapturing
         ),
         mesh,
         dimensionedScalar("zero", dimPressure, 0.0)
-    )
+    ),
+    previousRecoilPressure_(mesh.nCells(), 0.0),
+    havePreviousRecoil_(false)
 {
     (void)phi;
     const dictionary& aicDict =
@@ -107,10 +118,15 @@ advancedInterfaceCapturing::advancedInterfaceCapturing
         phaseChangeTempOffset_
     );
 
-    pressureScale_ = aicDict.lookupOrDefault<scalar>
+    pressureScale_ = dimensionedScalar
     (
         "pressureScale",
-        pressureScale_
+        dimPressure*dimTime,
+        aicDict.lookupOrDefault<scalar>
+        (
+            "pressureScale",
+            pressureScale_.value()
+        )
     );
     recoilMax_ = aicDict.lookupOrDefault<scalar>("recoilMax", recoilMax_);
 
@@ -145,6 +161,18 @@ advancedInterfaceCapturing::advancedInterfaceCapturing
         "scaleRecoilMax",
         scaleRecoilMax_
     );
+    if (aicDict.found("recoilRelax"))
+    {
+        recoilRelax_ = aicDict.lookupOrDefault<scalar>("recoilRelax", recoilRelax_);
+    }
+    else if (aicDict.found("relaxFactor"))
+    {
+        recoilRelax_ = aicDict.lookupOrDefault<scalar>("relaxFactor", recoilRelax_);
+        WarningInFunction
+            << "Entry 'relaxFactor' in advancedInterfaceCapturing is deprecated. "
+            << "Please use 'recoilRelax' instead." << endl;
+    }
+    recoilRelax_ = Foam::min(Foam::max(recoilRelax_, scalar(0)), scalar(1));    
     alphaMin_ = aicDict.lookupOrDefault<scalar>("alphaMin", alphaMin_);
     alphaMax_ = aicDict.lookupOrDefault<scalar>("alphaMax", alphaMax_);
     // Simple initialization, no calculations in constructor to avoid MPI issues
@@ -165,21 +193,31 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
             << abort(FatalError);
     }
 
+    // Ensure cached storage matches current mesh size
+    if (previousRecoilPressure_.size() != mesh_.nCells())
+    {
+        previousRecoilPressure_.setSize(mesh_.nCells());
+        previousRecoilPressure_ = 0.0;
+        havePreviousRecoil_ = false;
+    }
+
     // OPTIMIZED: Calculate once, reuse multiple times
     const scalar currentTime = mesh_.time().value();
     // Filter the maximum temperature to metal cells using the alpha threshold
     tmp<volScalarField> maskedT = T_*pos0(alpha1_ - alphaMin_);
     const scalar maxTemp = gMax(maskedT());
-    const dimensionedScalar minTempThreshold = vaporTemp_ - recoilTempOffset_;
+    const scalar recoilOnTemp = vaporTemp_.value() - recoilTempOffset_.value();
+    const scalar evaporationOnTemp = vaporTemp_.value() + phaseChangeTempOffset_.value();
     const bool verbose = mesh_.time().controlDict().lookupOrDefault<Switch>("verbose", false);
     if (verbose)
     {
         Info<< "Calculating recoil pressure at t = " << currentTime
             << "s, max T = " << maxTemp
-            << "K, vapor temp = " << vaporTemp_.value() << "K" << endl;
+            << "K, recoil activation T = " << recoilOnTemp << "K"
+            << ", evaporation T = " << evaporationOnTemp << "K" << endl;
     }
     // OPTIMIZED: Early exit using cached values
-    if (maxTemp < minTempThreshold.value())
+    if (maxTemp < recoilOnTemp)
     {
         // OPTIMIZED: Use cached zero value instead of creating new one
         recoilPressure_ = dimensionedScalar("zero", dimPressure, 0.0);
@@ -187,15 +225,20 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
         {
             Info<< "Temperature too low for recoil pressure" << endl;
         }
+        previousRecoilPressure_ = recoilPressure_.primitiveField();
+        havePreviousRecoil_ = true;
         recoilPressure_.correctBoundaryConditions();
         return;
     }
 // Initialize recoil pressure field
     recoilPressure_ = dimensionedScalar("zero", dimPressure, 0.0);
     // Constants for recoil pressure model sourced from dictionaries
-    const scalar pressureScale = pressureScale_;
+    const scalar pressureScale = pressureScale_.value();
     const bool clampRecoil = clampRecoil_;
     const bool scaleRecoilMax = scaleRecoilMax_;
+    const scalar recoilRelax = recoilRelax_;
+    const bool applyRelaxation = recoilRelax < (1.0 - Foam::SMALL);
+    const scalar massRateEps = 1e-12;
     // Access fields only once for efficiency and validate sizes
     if (T_.size() != alpha1_.size() || T_.size() != mesh_.nCells())
     {
@@ -262,7 +305,7 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
             FatalError << "Cell index out of bounds in calculateRecoilPressure()" << abort(FatalError);
         }
         
-        if (TField[cellI] < minTempThreshold.value()) continue;
+        if (TField[cellI] < evaporationOnTemp) continue;
 
         const scalar alpha = alpha1Field[cellI];
         scalar ramp = 1.0;
@@ -277,14 +320,17 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
         const scalar alphaDamp = 4.0 * alpha * (1.0 - alpha) * ramp;
 
         scalar phaseChangeVal = 0.0;
-        if (TField[cellI] >= (vaporTemp_.value() + phaseChangeTempOffset_.value()))
+        if (TField[cellI] >= evaporationOnTemp)
         {
-            const scalar evaporationRate = Foam::max(massRateField[cellI], scalar(0));
-            if (evaporationRate <= 0 && massRateField[cellI] < 0)
+            const scalar rawRate = massRateField[cellI];
+            if (rawRate > massRateEps)
+            {
+                phaseChangeVal = rawRate;
+            }
+            else if (rawRate < -massRateEps)
             {
                 ++suppressedCondensationCells;
             }
-            phaseChangeVal = evaporationRate;
         }
         const scalar pressureValue = pressureScale * phaseChangeVal;
         const scalar localRecoilMax = scaleRecoilMax
@@ -293,6 +339,29 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
         const scalar unclamped = pressureValue * alphaDamp;
         recoilField[cellI] = clampRecoil ? min(unclamped, localRecoilMax) : unclamped;
     }
+     if (applyRelaxation)
+    {
+        if (!havePreviousRecoil_)
+        {
+            previousRecoilPressure_ = recoilField;
+            havePreviousRecoil_ = true;
+        }
+        else
+        {
+            forAll(recoilField, cellI)
+            {
+                recoilField[cellI] =
+                    recoilRelax*recoilField[cellI]
+                  + (1.0 - recoilRelax)*previousRecoilPressure_[cellI];
+            }
+            previousRecoilPressure_ = recoilField;
+        }
+    }
+    else
+    {
+        previousRecoilPressure_ = recoilField;
+        havePreviousRecoil_ = true;
+    }   
     if (logRecoilSuppression && suppressedCondensationCells > 0)
     {
         Info<< "advancedInterfaceCapturing: suppressed recoil in "

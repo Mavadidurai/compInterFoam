@@ -63,6 +63,7 @@ class twoPhaseMixtureThermo
         dimensionedScalar rho1_;
         dimensionedScalar rho2_;
         //- Cached lattice heat capacity from the two-temperature model [J/m^3/K]
+        //  Defaults to 2.5e6 J/m^3/K if twoTemperatureProperties are absent        
         dimensionedScalar ClTTM_;
 
         //- Refresh cached two-temperature properties from the control dictionary

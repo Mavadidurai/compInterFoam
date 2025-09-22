@@ -164,7 +164,7 @@ int main(int argc, char *argv[])
             (
                 invMaxDeltaT,
                 fvc::surfaceSum(mag(rhoPhi))()
-               /((2*maxCo)*mesh.V()*rho())
+               /((2*maxCo)*mesh.V()*rho)
             );
 
             // Limit based on alpha Courant number

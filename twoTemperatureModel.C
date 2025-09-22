@@ -356,8 +356,41 @@ bool twoTemperatureModel::validateFields() const
 
 tmp<volScalarField> twoTemperatureModel::metalActiveMask(scalar cutoff) const
 {
+    const scalar blendWidth =
+        dict_.lookupOrDefault<scalar>("metalAmbientBlendWidth", 1e-3);
     const dimensionedScalar cutoffDim("metalCutoff", dimless, cutoff);
-    return pos(metalFraction_ - cutoffDim);
+
+    if (blendWidth <= SMALL)
+    {
+        return pos(metalFraction_ - cutoffDim);
+    }
+
+    const dimensionedScalar lowerBound
+    (
+        "metalLowerBound",
+        dimless,
+        cutoff - blendWidth
+    );
+
+    const dimensionedScalar blendDim
+    (
+        "metalBlendWidth",
+        dimless,
+        Foam::max(blendWidth, SMALL)
+    );
+
+    tmp<volScalarField> tMask =
+        Foam::min
+        (
+            dimensionedScalar("one", dimless, 1.0),
+            Foam::max
+            (
+                dimensionedScalar("zero", dimless, 0.0),
+                (metalFraction_ - lowerBound)/blendDim
+            )
+        );
+
+    return tMask;
 }
 tmp<volScalarField> twoTemperatureModel::clampedMetalFraction() const
 {
@@ -405,21 +438,25 @@ void twoTemperatureModel::solveLatticeEquation
     const volScalarField& phaseChangeRelaxCoeff,
     const volScalarField& phaseChangeSource,
     const volScalarField& TlOld,
-    const volScalarField& gasMetalHeatFlux
+    const volScalarField& gasMetalHeatFlux,
+    const dimensionedScalar& dtSub,
+    const volScalarField& TlPrev
 )
 {
+    tmp<volScalarField> tCap = metalEff*Cl_;
+    const volScalarField& capacity = tCap();
+
     fvScalarMatrix TlEqn
     (
-        fvm::ddt(metalEff*Cl_, Tl_)
+        fvm::Sp(capacity/dtSub, Tl_)
       - fvm::laplacian(metalEff*klField, Tl_)
       + fvm::Sp(metalEff*G, Tl_)
       + fvm::Sp(metalEff*Cl_*phaseChangeRelaxCoeff, Tl_)
      ==
-        metalFraction_*
-        (
-            G*Te_
-          + Cl_*(phaseChangeSource + phaseChangeRelaxCoeff*TlOld)
-        )
+        (capacity/dtSub)*TlPrev
+      + metalEff*(G*Te_)
+      + metalEff*(Cl_*phaseChangeSource)
+      + metalEff*(Cl_*phaseChangeRelaxCoeff*TlOld)
       + gasMetalHeatFlux
     );
 
@@ -434,16 +471,22 @@ void twoTemperatureModel::solveElectronEquation
     const volScalarField& Ce,
     const volScalarField& ke,
     const volScalarField& G,
-    const volScalarField& laserSource
+    const volScalarField& laserSource,
+    const dimensionedScalar& dtSub,
+    const volScalarField& TePrev
 )
 {
+    tmp<volScalarField> tCap = metalEff*Ce;
+    const volScalarField& capacity = tCap();
+
     fvScalarMatrix TeEqn
     (
-        fvm::ddt(metalEff*Ce, Te_)
+        fvm::Sp(capacity/dtSub, Te_)
       - fvm::laplacian(metalEff*ke, Te_)
       + fvm::Sp(metalEff*G, Te_)
      ==
-        metalFraction_*(laserSource + G*Tl_)
+        (capacity/dtSub)*TePrev
+      + metalEff*(laserSource + G*Tl_)
     );
 
     TeEqn.relax();
@@ -803,7 +846,47 @@ void twoTemperatureModel::solve
     const dimensionedScalar dtDim = mesh_.time().deltaT();
     // Cache the micro-step count for diagnostics; callers can query the
     // const plannedElectronSubCycles() helper without altering this record.
-    activeElectronSubCycles(dtDim);    
+    const label nElectronSubCycles =
+        Foam::max(activeElectronSubCycles(dtDim), label(1));
+    const dimensionedScalar dtSub = dtDim/scalar(nElectronSubCycles);
+
+    tmp<volScalarField> tTePrev
+    (
+        new volScalarField
+        (
+            IOobject
+            (
+                "TePrevSub",
+                mesh_.time().timeName(),
+                mesh_,
+                IOobject::NO_READ,
+                IOobject::NO_WRITE,
+                false
+            ),
+            mesh_,
+            dimensionedScalar("TePrevSub", dimTemperature, 0.0)
+        )
+    );
+    volScalarField& TePrev = tTePrev.ref();
+
+    tmp<volScalarField> tTlPrev
+    (
+        new volScalarField
+        (
+            IOobject
+            (
+                "TlPrevSub",
+                mesh_.time().timeName(),
+                mesh_,
+                IOobject::NO_READ,
+                IOobject::NO_WRITE,
+                false
+            ),
+            mesh_,
+            dimensionedScalar("TlPrevSub", dimTemperature, 0.0)
+        )
+    );
+    volScalarField& TlPrev = tTlPrev.ref();
     const dimensionedScalar laserEnergy =
         fvc::domainIntegrate(metalEff*laserSource)*dtDim;
     const dimensionedScalar phaseChangeEnergy =
@@ -852,37 +935,51 @@ void twoTemperatureModel::solve
 
     for (label sweep = 0; sweep < nInnerSweeps; ++sweep)
     {
-        tmp<volScalarField> tG = electronPhononCoupling();
-        const volScalarField& G = tG();
+        TePrev = Te_.oldTime();
+        TlPrev = TlOld;
 
-        tmp<volScalarField> tkl = kl();
-        const volScalarField& klField = tkl();
+        for (label sub = 0; sub < nElectronSubCycles; ++sub)
+        {
+            tmp<volScalarField> tG = electronPhononCoupling();
+            const volScalarField& G = tG();
 
-        solveLatticeEquation
-        (
-            metalEff,
-            G,
-            klField,
-            phaseChangeRelaxCoeff,
-            phaseChangeSource,
-            TlOld,
-            gasMetalHeatFluxMasked
-        );
+            tmp<volScalarField> tkl = kl();
+            const volScalarField& klField = tkl();
 
-        tmp<volScalarField> tke = electronThermalConductivity();
-        const volScalarField& keField = tke();
+            solveLatticeEquation
+            (
+                metalEff,
+                G,
+                klField,
+                phaseChangeRelaxCoeff,
+                phaseChangeSource,
+                TlOld,
+                gasMetalHeatFluxMasked,
+                dtSub,
+                TlPrev
+            );
 
-        tmp<volScalarField> tCe = electronHeatCapacity();
-        const volScalarField& CeField = tCe();
+            TlPrev = Tl_;
 
-        solveElectronEquation
-        (
-            metalEff,
-            CeField,
-            keField,
-            G,
-            laserSource
-        );
+            tmp<volScalarField> tke = electronThermalConductivity();
+            const volScalarField& keField = tke();
+
+            tmp<volScalarField> tCe = electronHeatCapacity();
+            const volScalarField& CeField = tCe();
+
+            solveElectronEquation
+            (
+                metalEff,
+                CeField,
+                keField,
+                G,
+                laserSource,
+                dtSub,
+                TePrev
+            );
+
+            TePrev = Te_;
+        }
 
         residual = gMax(mag(Te_ - Tl_)().internalField());
 
@@ -957,13 +1054,14 @@ tmp<volScalarField> twoTemperatureModel::electronThermalConductivity() const
                 mesh_.time().timeName(),
                 mesh_,
                 IOobject::NO_READ,
-                IOobject::NO_WRITE
+                IOobject::NO_WRITE,
+                false
             ),
             mesh_,
             dimensionedScalar("ke", dimPower/dimLength/dimTemperature, 1.0)
         )
     );
-       // Get reference to field for modification
+    // Get reference to field for modification
     volScalarField& ke = tke.ref(); // Calculate conductivity using cell-wise electron heat capacity
     // ke = CeField * De_, allowing spatially varying Ce
     tmp<volScalarField> tCe = electronHeatCapacity();
@@ -987,13 +1085,14 @@ tmp<volScalarField> twoTemperatureModel::electronHeatCapacity() const
                 mesh_.time().timeName(),
                 mesh_,
                 IOobject::NO_READ,
-                IOobject::NO_WRITE
+                 IOobject::NO_WRITE,
+                false
             ),
             mesh_,
             Ce_
         )
     );
-        volScalarField& CeField = tCe.ref();
+    volScalarField& CeField = tCe.ref();
     if (CeFunction_.valid())
     {
         forAll(CeField, cellI)
@@ -1016,7 +1115,8 @@ tmp<volScalarField> twoTemperatureModel::electronPhononCoupling() const
                 mesh_.time().timeName(),
                 mesh_,
                 IOobject::NO_READ,
-                IOobject::NO_WRITE
+                IOobject::NO_WRITE,
+                false
             ),
             mesh_,
             G_
@@ -1038,7 +1138,15 @@ tmp<volScalarField> twoTemperatureModel::gasMetalExchangeCoeffField() const
     (
         new volScalarField
         (
-            IOobject("gasMetalExchangeCoeffField", mesh_.time().timeName(), mesh_, IOobject::NO_READ, IOobject::NO_WRITE),
+            IOobject
+            (
+                "gasMetalExchangeCoeffField",
+                mesh_.time().timeName(),
+                mesh_,
+                IOobject::NO_READ,
+                IOobject::NO_WRITE,
+                false
+            ),
             mesh_,
             gasMetalExchangeCoeff_
         )
@@ -1154,7 +1262,15 @@ tmp<volScalarField> Foam::twoTemperatureModel::kl() const
     (
         new volScalarField
         (
-            IOobject("kl", mesh_.time().timeName(), mesh_, IOobject::NO_READ, IOobject::NO_WRITE),
+            IOobject
+            (
+                "kl",
+                mesh_.time().timeName(),
+                mesh_,
+                IOobject::NO_READ,
+                IOobject::NO_WRITE,
+                false
+            ),
             mesh_,
             dimensionedScalar
             (

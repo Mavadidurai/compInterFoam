@@ -19,17 +19,20 @@ private:
     dimensionedScalar meltingTemp_;             // Melting temperature (Tsol)
     dimensionedScalar vaporTemp_;               // Vaporization temperature (Tvap)
         // User-configurable recoil pressure parameters
-    scalar pressureScale_;           // Scaling factor for evaporation rate
+    dimensionedScalar pressureScale_; // Scaling factor for evaporation rate
     scalar recoilMax_;               // Base recoil pressure cap
     dimensionedScalar recoilTempOffset_;        // Temperature offset for recoil activation
     dimensionedScalar phaseChangeTempOffset_;   // Offset for phase-change threshold
     Switch clampRecoil_;             // Enable/disable recoil pressure clamping
     Switch scaleRecoilMax_;          // Scale recoilMax with interface weighting
+    scalar recoilRelax_;             // Temporal smoothing factor for recoil pressure
     // Valid alpha range (controlDict → advancedInterfaceCapturing)
     scalar alphaMin_;               // Minimum alpha for recoil activation
     scalar alphaMax_;               // Maximum alpha for recoil activation
     // Field for recoil pressure
     volScalarField recoilPressure_;  // Recoil pressure from vaporization
+    scalarField previousRecoilPressure_;        // Cached recoil pressure for smoothing
+    bool havePreviousRecoil_;                    // Flag indicating cache validity
 
 public:
     // Constructor
@@ -57,6 +60,9 @@ public:
 {
     // Reset internal fields to prevent memory issues
     recoilPressure_ = dimensionedScalar("zero", dimPressure, 0.0);
+    previousRecoilPressure_.setSize(mesh_.nCells());
+    previousRecoilPressure_ = 0.0;
+    havePreviousRecoil_ = false;   
 }
 };
 } // End namespace Foam

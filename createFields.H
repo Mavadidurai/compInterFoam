@@ -22,7 +22,7 @@ if (LTS)
                 IOobject::AUTO_WRITE
             ),
             mesh,
-            dimensionedScalar(dimless/dimTime, 1),
+            dimensionedScalar("oneOverTime", dimless/dimTime, 1),
             extrapolatedCalculatedFvPatchScalarField::typeName
         )
     );
@@ -39,7 +39,7 @@ if (LTS)
                 IOobject::AUTO_WRITE
             ),
             mesh,
-            dimensionedScalar(dimless/dimTime, 1),
+            dimensionedScalar("oneOverSubTime", dimless/dimTime, 1),
             extrapolatedCalculatedFvPatchScalarField::typeName
         )
     );
