@@ -42,11 +42,11 @@ scAlpha         scAlpha [0 0 0 0 0 0 0] 0;
         Tvapor         3560;      // or your value
         windowWidth    300;       // smoothing band [K]
         dtFloor        1e-12;     // floor for time-step regularisation
-        relaxationTime 5e-11;   // [s] Set to 50 ps for a faster, more physical response       
+        relaxationTime 5e-10;   // [s] Loosened to 0.5 ns to smooth the longer activation window
         minCoefficient 1e7;      // optional cap on |phaseChangeSource| [K/s]
         onlyAboveVapor false;     // allow both melt/condense logic
-        // Activation window for laser pulse (match 0–5 ps laser duration)
-        activationTime ((0 8e-12));
+        // Activation window extended to keep sources active for the 50 ns laser tail
+        activationTime ((0 5e-8));
     }
 massTransferCoeffs
 {
@@ -54,10 +54,11 @@ massTransferCoeffs
     // dgdt = -(Cl*phaseChangeSource)/latentHeat
     // If twoTemperatureProperties are missing, Cl defaults to 2.5e6 J/m^3/K    
     // Optional activation window
-    // Keep mass transfer active for the same window as the laser heating
-    activationTime (0 8e-12);
+    // Keep mass transfer aligned with the 50 ns laser heating horizon
+    activationTime (0 5e-8);
 
     // Optional upper bound on |dgdt| [1/s]
     rateMax   1e8;
+
 }
 // ************************************************************************* //
