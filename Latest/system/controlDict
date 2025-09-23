@@ -17,30 +17,28 @@ FoamFile
 
 application     compInterFoam;
 
-// --- HEATING STAGE SETUP ---
-startFrom       latestTime;
+startFrom       startTime;
 startTime       0;              // Begin 1 ps before laser trigger for preconditioning
 stopAt          endTime;
-endTime         6e-9;          // Run 2 ps beyond the laser pulse to capture the cool-down
+endTime         5e-8;          // Extend window to 50 ns to follow the full cooling tail
 
-// --- DEBUG TIME STEPPING ---
-// Use an adaptive time step to resolve the laser pulse without excessive iterations.
-deltaT          1e-14;          // Start with 10 fs base step (≈1/20 of the 214 fs pulse)
+// Allow adaptive stepping to march efficiently into the nanosecond cooling regime.
+deltaT          5e-12;          // Start with 5 ps base step; solver will cut back during the pulse
 adjustTimeStep  yes;            // Re-enable adaptive stepping for stability and efficiency
 maxCo           0.5;            // Keep Courant number in a physically stable range
 maxAlphaCo      0.5;            // Restrict interface Courant number similarly
-maxDeltaT       5e-14;          // Limit growth to keep pulse well-resolved (<25% of pulse)
+maxDeltaT       5e-11;          // Permit growth to 50 ps once the laser pulse has passed
 minDeltaT       5e-15;          // Allow reduction to capture sharp transients
 
 verbose         true;
-// Limit the interfacial heat flux to the physically meaningful range used by
-// the solver (see TEqn.H). Larger values led to runaway temperatures in the
-// log once the pulse energy was absorbed, so clamp it to the validated limit.
-maxGasMetalHeatFlux 1e15;   // [W/m^3] limiter for gas-metal flux coupling
 
-// --- More frequent writing for debugging ---
+// Adaptive thermal Courant limiter keeps the electron-lattice exchange stable
+// without imposing an artificially low cap on the interfacial heat flux.
+maxThermalCourant 0.9;
+
+// --- Output tailored for nanosecond evolution ---
 writeControl    runTime;
-writeInterval   2e-12;
+writeInterval   1e-9;
 purgeWrite      20;
 writeFormat     ascii;
 writePrecision  12;
@@ -55,7 +53,7 @@ runTimeModifiable yes;
 useAdvancedInterfaceCapturing  true;
 advancedInterfaceCapturing
 {
-    pressureScale        2e4;           // [Pa*s] Recommended scaling
+    pressureScale        1;           // Use unit scaling to match solver default
     recoilMax            5e6;           // Allow physical recoil build-up
     clampRecoil          true;
     scaleRecoilMax       false;
@@ -75,7 +73,12 @@ maxT            4000;
 // --- TWO-TEMPERATURE COUPLING ---
 twoTemperatureProperties
 {
-    Ce   [1 -1 -2 -1 0 0 0] 1.5e6;
+    Ce
+    {
+        type            polynomial;    // Ce(Te) = gamma * Te
+        coeffs          (0 3.2e2);     // gamma ≈ 3.2e2 J/m^3/K^2 for Ti electrons
+        referenceTemperature 300;      // Reference point for logging
+    }
     Cl   [1 -1 -2 -1 0 0 0] 2.3e6;
     G    [1 -1 -3 -1 0 0 0] 5e17;
     energyTolerance 0.01;
