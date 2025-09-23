@@ -791,6 +791,14 @@ femtosecondLaserModel::applySpatialWeighting
 
     const pointField& cellCentres = mesh_.C();
     const scalarField& cellVolumes = mesh_.V();
+    
+    point entryPoint = focus_;
+    const scalar dirY = direction_.y();
+    if (mag(dirY) > VSMALL)
+    {
+        const scalar s = (filmYMax_ - focus_.y())/dirY;
+        entryPoint = focus_ + s*direction_;
+    }
 
     forAll(cellCentres, cellI)
     {
@@ -824,10 +832,20 @@ femtosecondLaserModel::applySpatialWeighting
         const scalar cellAbsorptionCoeff =
             inFilm ? absorptionCoeff_.value() : gasAbsorptionCoeff_.value();
 
-        const scalar absorptionTerm =
-            (cellAbsorptionCoeff > VSMALL)
-          ? exp(-cellAbsorptionCoeff*max(z, 0.0))
-          : 1.0;
+        scalar absorptionTerm = 1.0;
+        if (cellAbsorptionCoeff > VSMALL)
+        {
+            if (inFilm)
+            {
+                const scalar distance =
+                    max(((c - entryPoint) & direction_), scalar(0.0));
+                absorptionTerm = exp(-cellAbsorptionCoeff*distance);
+            }
+            else
+            {
+                absorptionTerm = exp(-cellAbsorptionCoeff*max(z, 0.0));
+            }
+        }
 
         const scalar effectiveReflectivity = reflectivity_;
         scalar transmissionFactor = 1.0 - effectiveReflectivity;
