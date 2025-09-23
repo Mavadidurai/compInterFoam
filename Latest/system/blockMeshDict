@@ -46,7 +46,7 @@ blocks
     //                y-low face       y-high face        Nx   Ny   Nz   grading
     hex ( 0  3  2  1   4  7  6  5)   (20 240  80)  simpleGrading (1 1 1)  // Substrate (receiver)
     hex ( 4  7  6  5   8 11 10  9)   (20 240 120)  simpleGrading (1 1 1)  // Air gap (12 µm)
-    hex ( 8 11 10  9  12 15 14 13)   (20 240   1)  simpleGrading (1 1 1)  // Ti film (71.4 nm, single cell)
+    hex ( 8 11 10  9  12 15 14 13)   (20 240   8)  simpleGrading (1 1 1)  // Ti film (71.4 nm, refined)
     hex (12 15 14 13  16 19 18 17)   (20 240 120)  simpleGrading (1 1 1)  // Donor glass (12 µm)
 );
 

@@ -363,6 +363,32 @@ midPlaneVTK
     writeControl timeStep;
     writeInterval 10;
 }
+pulseTimeStepClamp
+{
+    type coded;
+    libs ("libutilityFunctionObjects.so");
+    name tsClamp;
+    writeControl timeStep;
+    writeInterval 1;
+    codeExecute
+    #{
+        Time& Tm = const_cast<Time&>(mesh().time());
+        scalar t = Tm.value();
+        dictionary& cd = const_cast<dictionary&>(Tm.controlDict());
+
+        if (t <= 6e-12)    // during pulse window
+        {
+            cd.add("maxDeltaT", 1e-14, true);  // ≤10 fs steps
+            cd.add("maxCo", 0.1, true);
+        }
+        else
+        {
+            cd.add("maxDeltaT", 5e-11, true);  // relax after pulse
+            cd.add("maxCo", 0.5, true);
+        }
+    #};
+}
+
     // integral metal volume (helpful to see if ejection happens)
     metalVolume
     {
