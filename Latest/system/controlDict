@@ -18,10 +18,10 @@ FoamFile
 application     compInterFoam;
 
 // --- HEATING STAGE SETUP ---
-startFrom       startTime;
+startFrom       latestTime;
 startTime       0;              // Begin 1 ps before laser trigger for preconditioning
 stopAt          endTime;
-endTime         6e-12;          // Run 2 ps beyond the laser pulse to capture the cool-down
+endTime         6e-9;          // Run 2 ps beyond the laser pulse to capture the cool-down
 
 // --- DEBUG TIME STEPPING ---
 // Use an adaptive time step to resolve the laser pulse without excessive iterations.
@@ -40,7 +40,7 @@ maxGasMetalHeatFlux 1e15;   // [W/m^3] limiter for gas-metal flux coupling
 
 // --- More frequent writing for debugging ---
 writeControl    runTime;
-writeInterval   1e-12;
+writeInterval   2e-12;
 purgeWrite      20;
 writeFormat     ascii;
 writePrecision  12;
@@ -86,7 +86,12 @@ twoTemperatureProperties
     maxGasMetalExchangeCoeff [1 -1 -3 -1 0 0 0] 1e18;
     minGasMetalExchangeCoeff [1 -1 -3 -1 0 0 0] 0;
 }
-libs ("libutilityFunctionObjects.so");
+libs
+(
+    "libutilityFunctionObjects.so"
+    "libfieldFunctionObjects.so"
+    "libsampling.so"
+);
 
 // --- MINIMAL DIAGNOSTICS ONLY ---
 functions
@@ -240,12 +245,22 @@ functions
             const volScalarField& rho   = mesh().lookupObject<volScalarField>("rho");
 
             // If you have variable Ce/Cl, replace these with fields from your TTM
-            const scalar Ce = 1.5e6; // J/m^3/K
-            const scalar Cl = 2.3e6; // J/m^3/K
+            const dimensionedScalar Ce
+            (
+                "Ce",
+                dimensionSet(1, -1, -2, -1, 0, 0, 0),
+                1.5e6
+            );
+            const dimensionedScalar Cl
+            (
+                "Cl",
+                dimensionSet(1, -1, -2, -1, 0, 0, 0),
+                2.3e6
+            );
 
             const dimensionedScalar Ek = fvc::domainIntegrate(0.5*rho*magSqr(U));
-            const dimensionedScalar Ee = fvc::domainIntegrate(alpha*Ce*Te);
-            const dimensionedScalar El = fvc::domainIntegrate(alpha*Cl*Tl);
+            const dimensionedScalar Ee = Ce * fvc::domainIntegrate(alpha*Te);
+            const dimensionedScalar El = Cl * fvc::domainIntegrate(alpha*Tl);
             const dimensionedScalar Et = Ek + Ee + El;
 
             static scalar lastE = Et.value();
@@ -347,7 +362,18 @@ midPlaneVTK
     writeControl timeStep;
     writeInterval 10;
 }
-
+    // integral metal volume (helpful to see if ejection happens)
+    metalVolume
+    {
+        type         volRegion;
+        libs         ("libfieldFunctionObjects.so");
+        regionType   all;
+        operation    integrate;
+        fields       (alpha.metal);
+        writeControl timeStep;
+        writeInterval 100;
+        log          true;
+    }
     // --- Occasional field extrema dump (grep-friendly) ---
     detailed_fields
     {
