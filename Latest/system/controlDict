@@ -73,12 +73,7 @@ maxT            4000;
 // --- TWO-TEMPERATURE COUPLING ---
 twoTemperatureProperties
 {
-    Ce
-    {
-        type            polynomial;    // Ce(Te) = gamma * Te
-        coeffs          (0 3.2e2);     // gamma ≈ 3.2e2 J/m^3/K^2 for Ti electrons
-        referenceTemperature 300;      // Reference point for logging
-    }
+    Ce   [1 -1 -2 -1 0 0 0] 1.5e6;
     Cl   [1 -1 -2 -1 0 0 0] 2.3e6;
     G    [1 -1 -3 -1 0 0 0] 5e17;
     energyTolerance 0.01;
