@@ -134,6 +134,7 @@ private:
     bool   checkEnergyConservation() const;
     void   finalizePulseEnergyCheck(const char* context, const scalar currentTime) const;
     volScalarField& resetSourceField() const;  // ensure Q_laser exists and is zeroed
+    scalar depositableEnergyFraction() const;    
     EnvelopeResult evaluateTemporalEnvelope
     (
         const scalar overlapStart,

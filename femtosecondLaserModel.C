@@ -625,7 +625,121 @@ scalar femtosecondLaserModel::gaussianWindowIntegral
         * (std::erf((b - center)*invSqrt2Sigma)
          - std::erf((a - center)*invSqrt2Sigma));
 }
+//------------------------------------------------------------------------------
+scalar femtosecondLaserModel::depositableEnergyFraction() const
+{
+    scalar transmissionFactor = 1.0 - reflectivity_;
 
+    if (transmission_ >= 0)
+    {
+        transmissionFactor = transmission_;
+    }
+    else if (incidenceAngle_ > VSMALL)
+    {
+        const scalar n1 = 1.0;
+        const scalar sqrtR = sqrt(max(reflectivity_, scalar(0)));
+        const scalar n2 = (1.0 + sqrtR)/max(VSMALL, (1.0 - sqrtR));
+        const scalar sinThetaT = n1/n2 * sin(incidenceAngle_);
+
+        if (mag(sinThetaT) < 1.0)
+        {
+            const scalar cosTheta  = cos(incidenceAngle_);
+            const scalar cosThetaT = sqrt(1.0 - sqr(sinThetaT));
+            const scalar Rs = sqr((n1*cosTheta - n2*cosThetaT)
+                                /(n1*cosTheta + n2*cosThetaT));
+            const scalar Rp = sqr((n1*cosThetaT - n2*cosTheta)
+                                /(n1*cosThetaT + n2*cosTheta));
+            transmissionFactor = 1.0 - 0.5*(Rs + Rp);
+        }
+        else
+        {
+            transmissionFactor = 0.0;
+        }
+    }
+
+    transmissionFactor = min(max(transmissionFactor, scalar(0)), scalar(1));
+
+    const scalar filmThickness = max(filmYMax_ - filmYMin_, scalar(0));
+    const scalar dirYMag = mag(direction_.y());
+    scalar filmPathLength = 0.0;
+
+    if (filmThickness > VSMALL)
+    {
+        if (dirYMag > VSMALL)
+        {
+            filmPathLength = filmThickness/dirYMag;
+        }
+        else
+        {
+            filmPathLength = filmThickness;
+        }
+    }
+
+    auto absorptionFraction = [](const scalar opticalDepth)
+    {
+        if (opticalDepth <= VSMALL)
+        {
+            return scalar(0.0);
+        }
+
+        if (opticalDepth < 1e-6)
+        {
+            return opticalDepth - 0.5*sqr(opticalDepth);
+        }
+
+        return scalar(1.0 - Foam::exp(-opticalDepth));
+    };
+
+    scalar filmFraction = absorptionFraction
+    (
+        absorptionCoeff_.value()*filmPathLength
+    );
+    filmFraction = min(max(filmFraction, scalar(0)), scalar(1));
+
+    scalar gasFraction = 0.0;
+    const scalar gasCoeff = gasAbsorptionCoeff_.value();
+
+    if (gasCoeff > VSMALL)
+    {
+        scalar gasDistance = 0.0;
+        const boundBox& bounds = mesh_.bounds();
+        const scalar dirY = direction_.y();
+
+        if (dirY < -VSMALL)
+        {
+            gasDistance = max(bounds.max().y() - filmYMax_, scalar(0));
+        }
+        else if (dirY > VSMALL)
+        {
+            gasDistance = max(filmYMin_ - bounds.min().y(), scalar(0));
+        }
+
+        if (gasDistance > VSMALL && dirYMag > VSMALL)
+        {
+            gasDistance /= dirYMag;
+        }
+        else
+        {
+            gasDistance = 0.0;
+        }
+
+        gasFraction = absorptionFraction(gasCoeff*gasDistance);
+        gasFraction = min(max(gasFraction, scalar(0)), scalar(1));
+    }
+
+    scalar netFraction = 0.0;
+
+    if (transmissionFactor > VSMALL)
+    {
+        const scalar gasDepositable = transmissionFactor*gasFraction;
+        const scalar filmDepositable =
+            transmissionFactor*(1.0 - gasFraction)*filmFraction;
+
+        netFraction = gasDepositable + filmDepositable;
+    }
+
+    return min(max(netFraction, scalar(0)), scalar(1));
+}
 //------------------------------------------------------------------------------
 femtosecondLaserModel::EnvelopeResult
 femtosecondLaserModel::evaluateTemporalEnvelope
@@ -636,7 +750,7 @@ femtosecondLaserModel::evaluateTemporalEnvelope
 ) const
 {
     EnvelopeResult result;
-
+    const scalar depositableFraction = depositableEnergyFraction();
     if (continuousLaser_)
     {
         result.temporalIntegral = overlapEnd - overlapStart;
@@ -704,6 +818,7 @@ femtosecondLaserModel::evaluateTemporalEnvelope
         {
             result.expectedEnergy =
                 pulseEnergy_.value()
+              * depositableFraction                
               * result.temporalIntegral/max(fullPulseIntegral, VSMALL);
         }
     }
@@ -738,6 +853,7 @@ femtosecondLaserModel::evaluateTemporalEnvelope
             const scalar fullIntegral = sigma*sqrt(2.0*constant::mathematical::pi);
             result.expectedEnergy =
                 pulseEnergy_.value()
+              * depositableFraction                
               * result.temporalIntegral/max(fullIntegral, VSMALL);
         }
     }
