@@ -128,11 +128,53 @@ twoTemperatureModel::twoTemperatureModel
     energyInitialized_(false),
     lastElectronSubCycles_(1)
 {
-if (dict.found("Ce"))
+    scalar CeLogTe = ambientTemperature_.value();
+
+    if (dict.found("Ce"))
     {
         if (dict.isDict("Ce"))
         {
-            CeFunction_.reset(Function1<scalar>::New("Ce", dict.subDict("Ce")).ptr());
+            const dictionary& CeDict = dict.subDict("Ce");
+            CeFunction_.reset(Function1<scalar>::New("Ce", CeDict).ptr());
+
+            const scalar minTe = dict.lookupOrDefault<scalar>("minTe", 300.0);
+            const scalar maxTe = dict.lookupOrDefault<scalar>("maxTe", 4000.0);
+            scalar refTe = CeDict.lookupOrDefault<scalar>
+            (
+                "referenceTemperature",
+                CeLogTe
+            );
+
+            refTe = Foam::max(minTe, Foam::min(maxTe, refTe));
+
+            const scalar CeAtMin = CeFunction_->value(minTe);
+            const scalar CeAtMax = CeFunction_->value(maxTe);
+            const scalar CeAtRef = CeFunction_->value(refTe);
+
+            if (CeAtMin <= Foam::small || CeAtMax <= Foam::small)
+            {
+                FatalIOErrorInFunction(CeDict)
+                    << "Ce Function1 must remain positive in the range ["
+                    << minTe << ", " << maxTe << "] K."
+                    << exit(FatalIOError);
+            }
+
+            if (CeAtRef <= Foam::small)
+            {
+                FatalIOErrorInFunction(CeDict)
+                    << "Ce Function1 reference value at Te=" << refTe
+                    << " K is non-positive"
+                    << exit(FatalIOError);
+            }
+
+            Ce_ = dimensionedScalar
+            (
+                Ce_.name(),
+                Ce_.dimensions(),
+                CeAtRef
+            );
+
+            CeLogTe = refTe;
         }
         else
         {
@@ -201,13 +243,24 @@ if (dict.found("Ce"))
      const bool master = Pstream::master();
     if (verbose && master)
     {
-        Info<< "Two-temperature model initialized:" << nl
-            << "  Ce = " << Ce_.value() << " J/m³/K" << nl
+        Info<< "Two-temperature model initialized:" << nl;
+
+        if (CeFunction_.valid())
+        {
+            Info<< "  Ce(T) reference @ Te=" << CeLogTe
+                << " K = " << Ce_.value() << " J/m³/K" << nl;
+        }
+        else
+        {
+            Info<< "  Ce = " << Ce_.value() << " J/m³/K" << nl;
+        }
+
+        Info
             << "  Cl = " << Cl_.value() << " J/m³/K" << nl
             << "  G = " << G_.value() << " W/m³/K" << nl
             << "  De = " << De_.value() << " m²/s" << nl
             << "  Gas-metal exchange coeff = "
-            << gasMetalExchangeCoeff_.value() << " W/m³/K" << nl            
+            << gasMetalExchangeCoeff_.value() << " W/m³/K" << nl   
             << "  Ambient temperature = " << ambientTemperature_.value() << " K" << nl
             << "  Metal fraction field = " << metalFraction_.name() << endl;
     }
@@ -853,9 +906,26 @@ void twoTemperatureModel::solve
         previousEnergy = currentTotalEnergy();
     }
 
+    tmp<volScalarField> tMetalContactClamp =
+        Foam::min
+        (
+            Foam::max(metalFraction_, scalar(0)),
+            scalar(1)
+        );
+    const volScalarField& metalContactClamp = tMetalContactClamp();
+    tmp<volScalarField> tContactMask
+    (
+        new volScalarField(fvc::average(metalFraction_))
+    );
+    volScalarField& contactMask = tContactMask.ref();
+    contactMask = Foam::min(Foam::max(contactMask, scalar(0)), scalar(1));
+    contactMask = Foam::max(contactMask, metalContactClamp);
+
     tmp<volScalarField> tCouplingMask =
         metalActiveMask(Foam::max(metalFractionFloor, VSMALL));
-    const volScalarField& couplingMask = tCouplingMask();
+    volScalarField& couplingMask = tCouplingMask.ref();
+    couplingMask *= contactMask;
+    
     tmp<volScalarField> tGasMetalHeatFluxMasked = couplingMask*gasMetalHeatFlux;
     const volScalarField& gasMetalHeatFluxMasked = tGasMetalHeatFluxMasked();
 
@@ -1175,15 +1245,19 @@ tmp<volScalarField> twoTemperatureModel::gasMetalExchangeCoeffField() const
             coeff[cellI] = gasMetalExchangeFunction_->value(Tl_[cellI]);
         }
     }
-    tmp<volScalarField> metalMaskTmp
+    const scalar metalFractionFloor =
+        dict_.lookupOrDefault<scalar>("metalFractionFloor", 1e-6);
+
+    tmp<volScalarField> tMetalMask =
+        metalActiveMask(Foam::max(metalFractionFloor, VSMALL));
+    volScalarField& metalMask = tMetalMask.ref();
+    metalMask = Foam::min
     (
-        Foam::min
-        (
-            Foam::max(metalFraction_, scalar(0)),
-            scalar(1)
-        )
+        Foam::max(metalMask, scalar(0)),
+        scalar(1)
     );
-    coeff *= metalMaskTmp;
+
+    coeff *= tMetalMask;
     const dimensionedScalar minExchangeDim(
         dict_.lookupOrDefault<dimensionedScalar>
         (

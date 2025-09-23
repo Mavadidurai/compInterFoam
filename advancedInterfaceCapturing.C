@@ -76,7 +76,7 @@ advancedInterfaceCapturing::advancedInterfaceCapturing
         (
             "pressureScale",
             dimPressure*dimTime,
-            20000.0
+            1.0
         )
     ),
     recoilMax_(5e6),

@@ -138,41 +138,76 @@ extern Foam::Switch verbose;
         Foam::max(scalar(0), Foam::min(scalar(1), thermalFluxRelax));
 
     tmp<volScalarField> tRawFlux(interfaceExchange*(T - Tl));
-    const volScalarField& rawFlux = tRawFlux();
+    volScalarField& rawFlux = tRawFlux.ref();
+
+    const scalar maxThermalCourant =
+        ctrl.lookupOrDefault<scalar>("maxThermalCourant", 0.9);
+
+    if (maxThermalCourant < 1.0 - SMALL)
+    {
+        const dimensionedScalar cvolFloor
+        (
+            "cvolFloor",
+            CvolGas.dimensions(),
+            SMALL
+        );
+
+        tmp<volScalarField> tCvolLimited
+        (
+            Foam::max(CvolGas, cvolFloor)
+        );
+        const volScalarField& CvolLimited = tCvolLimited();
+
+        tmp<volScalarField> tThermalCo
+        (
+            (interfaceExchange*runTime.deltaT())/CvolLimited
+        );
+        volScalarField& thermalCo = tThermalCo.ref();
+        thermalCo = Foam::max
+        (
+            thermalCo,
+            dimensionedScalar("zeroThermalCo", dimless, 0.0)
+        );
+
+        const dimensionedScalar maxThermalCourantDim
+        (
+            "maxThermalCourant",
+            dimless,
+            maxThermalCourant
+        );
+        const dimensionedScalar oneDim("one", dimless, 1.0);
+        const dimensionedScalar epsCo
+        (
+            "epsThermalCourant",
+            dimless,
+            SMALL
+        );
+
+        tmp<volScalarField> tLimiter
+        (
+            maxThermalCourantDim/(thermalCo + epsCo)
+        );
+        volScalarField& limiter = tLimiter.ref();
+        limiter = Foam::min(limiter, oneDim);
+        limiter = Foam::max
+        (
+            limiter,
+            dimensionedScalar("zeroLimiter", dimless, 0.0)
+        );
+
+        rawFlux *= limiter;
+    }
+
+    const volScalarField& limitedFlux = tRawFlux();
 
     if (fluxRelax < 1.0 - SMALL)
     {
         gasMetalHeatFlux =
-            fluxRelax*rawFlux + (1.0 - fluxRelax)*gasMetalHeatFlux;
+            fluxRelax*limitedFlux + (1.0 - fluxRelax)*gasMetalHeatFlux;
     }
     else
     {
-        gasMetalHeatFlux = rawFlux;
-    }
-
-    const scalar maxPhysicalFlux =
-        ctrl.lookupOrDefault<scalar>("maxGasMetalHeatFlux", 1e15);
-
-    if (maxPhysicalFlux > SMALL)
-    {
-        const dimensionedScalar fluxLim
-        (
-            "maxGasMetalHeatFlux",
-            gasMetalHeatFlux.dimensions(),
-            maxPhysicalFlux
-        );
-        const dimensionedScalar fluxLimNeg
-        (
-            "minGasMetalHeatFlux",
-            gasMetalHeatFlux.dimensions(),
-            -maxPhysicalFlux
-        );
-
-        gasMetalHeatFlux = Foam::min
-        (
-            Foam::max(gasMetalHeatFlux, fluxLimNeg),
-            fluxLim
-        );
+        gasMetalHeatFlux = limitedFlux;
     }
 
     gasMetalHeatFlux.correctBoundaryConditions();
