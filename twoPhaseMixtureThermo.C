@@ -134,25 +134,8 @@ Foam::twoPhaseMixtureThermo::twoPhaseMixtureThermo
             << ", rho=" << rho2_.value() << endl;
     }
     updateTwoTemperatureCache();
-    auto overridePhaseTemperature = [this](rhoThermo& thermo)
-    {
-        volScalarField& phaseT = thermo.T();
-
-        (void)phaseT.checkOut();
-        phaseT.registerObject() = false;
-        phaseT.rename(T_.name());
-        phaseT.readOpt() = IOobject::NO_READ;
-        phaseT.writeOpt() = IOobject::NO_WRITE;
-
-        phaseT = T_;
-        phaseT.correctBoundaryConditions();
-    };
-
-    thermo1_ = rhoThermo::New(U.mesh(), phase1Name());
-    overridePhaseTemperature(*thermo1_);
-
-    thermo2_ = rhoThermo::New(U.mesh(), phase2Name());
-    overridePhaseTemperature(*thermo2_);
+    thermo1_ = rhoThermo::New(U.mesh());
+    thermo2_ = rhoThermo::New(U.mesh());
     correct();
 }
 // * * * * * * * * * * * * * * * * Destructor  * * * * * * * * * * * * * * * //
@@ -161,11 +144,6 @@ Foam::twoPhaseMixtureThermo::~twoPhaseMixtureThermo()
 // * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * * //
 void Foam::twoPhaseMixtureThermo::correctThermo()
 {
-    thermo1_->T() = T_;
-    thermo1_->T().correctBoundaryConditions();
-    thermo2_->T() = T_;
-    thermo2_->T().correctBoundaryConditions();
-    
     thermo1_->he() = thermo1_->he(p_, T_);
     thermo1_->correct();
     thermo2_->he() = thermo2_->he(p_, T_);
