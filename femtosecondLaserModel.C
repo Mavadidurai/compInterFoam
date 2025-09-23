@@ -907,6 +907,7 @@ femtosecondLaserModel::applySpatialWeighting
 
     const pointField& cellCentres = mesh_.C();
     const scalarField& cellVolumes = mesh_.V();
+    const pointField& meshPoints = mesh_.points();
     
     point entryPoint = focus_;
     const scalar dirY = direction_.y();
@@ -948,19 +949,32 @@ femtosecondLaserModel::applySpatialWeighting
         const scalar cellAbsorptionCoeff =
             inFilm ? absorptionCoeff_.value() : gasAbsorptionCoeff_.value();
 
-        scalar absorptionTerm = 1.0;
-        if (cellAbsorptionCoeff > VSMALL)
+        const labelList& pointLabels = mesh_.cellPoints(cellI);
+
+        if (pointLabels.empty())
         {
-            if (inFilm)
-            {
-                const scalar distance =
-                    max(((c - entryPoint) & direction_), scalar(0.0));
-                absorptionTerm = exp(-cellAbsorptionCoeff*distance);
-            }
-            else
-            {
-                absorptionTerm = exp(-cellAbsorptionCoeff*max(z, 0.0));
-            }
+            continue;
+        }
+
+        scalar sMin = GREAT;
+        scalar sMax = -GREAT;
+
+        forAll(pointLabels, pointi)
+        {
+            const label ptI = pointLabels[pointi];
+            const scalar s = ((meshPoints[ptI] - entryPoint) & direction_);
+            sMin = Foam::min(sMin, s);
+            sMax = Foam::max(sMax, s);
+        }
+
+        scalar sIn = sMin;
+        scalar sOut = sMax;
+
+        if (sOut < sIn)
+        {
+            const scalar tmp = sIn;
+            sIn = sOut;
+            sOut = tmp;
         }
 
         const scalar effectiveReflectivity = reflectivity_;
@@ -991,18 +1005,29 @@ femtosecondLaserModel::applySpatialWeighting
             }
         }
 
-        const scalar intensity =
+        const scalar baseIntensity =
               peakIntensity_.value()
             * temporalAverage
             * spatialTerm
-            * absorptionTerm
             * transmissionFactor;
 
-        const scalar volIntensity = intensity * cellAbsorptionCoeff;
+        const scalar deltaS = Foam::max(sOut - sIn, VSMALL);
 
-        if (std::isfinite(volIntensity) && volIntensity > 0)
+        scalar Ein = baseIntensity;
+        scalar Eout = baseIntensity;
+
+        if (cellAbsorptionCoeff > VSMALL)
         {
-            scalar limitedValue = volIntensity;
+            Ein *= exp(-cellAbsorptionCoeff*sIn);
+            Eout *= exp(-cellAbsorptionCoeff*sOut);
+        }
+
+        scalar qVol = (Ein - Eout)/deltaS;
+        qVol = Foam::max(qVol, scalar(0));
+
+        if (std::isfinite(qVol) && qVol > 0)
+        {
+            scalar limitedValue = qVol;
 
             if (metrics.limitSource && limitedValue > metrics.maxSourceCap)
             {
