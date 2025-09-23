@@ -18,7 +18,7 @@ FoamFile
 application     compInterFoam;
 
 // --- HEATING STAGE SETUP ---
-startFrom       latestTime;
+startFrom       startTime;
 startTime       0;              // Begin 1 ps before laser trigger for preconditioning
 stopAt          endTime;
 endTime         6e-12;          // Run 2 ps beyond the laser pulse to capture the cool-down
@@ -101,7 +101,41 @@ functions
         writeInterval   10;
         log             true;       // Print to console
     }
-    
+        // Energy conservation monitoring
+    energy_monitor
+    {
+        type            coded;
+        libs            ("libutilityFunctionObjects.so");
+        name            energyMonitor;
+        writeControl    timeStep;
+        writeInterval   50;
+
+        codeWrite
+        #{
+            Info<< "Energy diagnostics at time " << mesh().time().value() << endl;
+
+            const volScalarField& T = mesh().lookupObject<volScalarField>("T");
+            const volScalarField& alpha = mesh().lookupObject<volScalarField>("alpha.metal");
+
+            const dimensionedScalar dMaxT = gMax(T);
+            const dimensionedScalar dMinT = gMin(T);
+            const dimensionedScalar dMaxAlpha = gMax(alpha);
+
+            const scalar maxT = dMaxT.value();
+            const scalar minT = dMinT.value();
+            const scalar maxAlpha = dMaxAlpha.value();
+
+            Info<< "    Max T: " << maxT << " K" << endl;
+            Info<< "    Min T: " << minT << " K" << endl;
+            Info<< "    Max alpha: " << maxAlpha << endl;
+
+            if (maxT > 5000 || minT < 200 || maxAlpha > 0.95)
+            {
+                WarningIn("energyMonitor") << "Critical values detected!" << endl;
+            }
+        #};
+    }
+
     // --- Critical physics monitoring ---
     lift_progress
     {
@@ -266,9 +300,8 @@ functions
 
             const volScalarField& Te = mesh().lookupObject<volScalarField>("Te");
             const volScalarField& Tl = mesh().lookupObject<volScalarField>("Tl");
-            const scalar maxTe = gMax(Te).value();
-            const scalar maxTl = gMax(Tl).value();
-
+            const scalar maxTe = gMax(Te);
+            const scalar maxTl = gMax(Tl);
             static bool meltHit  = false;
             static bool vapHit   = false;
             static bool peakHit  = false;
