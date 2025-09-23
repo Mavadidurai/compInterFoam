@@ -1175,8 +1175,15 @@ tmp<volScalarField> twoTemperatureModel::gasMetalExchangeCoeffField() const
             coeff[cellI] = gasMetalExchangeFunction_->value(Tl_[cellI]);
         }
     }
-    coeff *= metalFraction_;
-    coeff *= (scalar(1) - metalFraction_);
+    tmp<volScalarField> metalMaskTmp
+    (
+        Foam::min
+        (
+            Foam::max(metalFraction_, scalar(0)),
+            scalar(1)
+        )
+    );
+    coeff *= metalMaskTmp;
     const dimensionedScalar minExchangeDim(
         dict_.lookupOrDefault<dimensionedScalar>
         (
