@@ -62,8 +62,8 @@ regions
 
         fieldValues
         (
-            volScalarFieldValue alpha.metal 1
-            volScalarFieldValue alpha.air   0
+            volScalarFieldValue alpha.metal 1 // pure donor metal film
+            volScalarFieldValue alpha.air   0 // exclude air within the film
         );
     }
     // Donor glass above the thin film
