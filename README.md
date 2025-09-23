@@ -82,5 +82,8 @@ Optional bulk mass-transfer limiter for the gas phase.
 ## Notes
 * All diagnostics controlled by `verbose` are now emitted by the master MPI
   rank only to prevent duplicate messages in parallel runs.
+* The femtosecond-laser pulse-energy check scales its expectation by the
+  Gaussian beam area that intersects the mesh, so clipping the spot no longer
+  triggers spurious mismatch warnings.
 * Defaults above reflect the values compiled into the solver; supply explicit
   entries in your dictionaries to override them as needed.
