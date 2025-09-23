@@ -73,15 +73,7 @@ maxT            4000;
 // --- TWO-TEMPERATURE COUPLING ---
 twoTemperatureProperties
 {
-    Ce
-    {
-        type            polynomial;
-        coeffs
-        (
-            0          // constant term
-            3.2e2      // γ coefficient multiplying Te
-        );
-    }
+    Ce   [1 -1 -2 -1 0 0 0] 1.5e6;   // electron heat capacity, J/m3/K
     Cl   [1 -1 -2 -1 0 0 0] 2.3e6;
     G    [1 -1 -3 -1 0 0 0] 5e17;
     energyTolerance 0.01;
@@ -321,8 +313,11 @@ functions
 
             const volScalarField& Te = mesh().lookupObject<volScalarField>("Te");
             const volScalarField& Tl = mesh().lookupObject<volScalarField>("Tl");
-            const scalar maxTe = gMax(Te);
-            const scalar maxTl = gMax(Tl);
+	    const dimensionedScalar dMaxTe = max(Te);
+	    const dimensionedScalar dMaxTl = max(Tl);
+	    const scalar maxTe = dMaxTe.value();
+	    const scalar maxTl = dMaxTl.value();
+
             static bool meltHit  = false;
             static bool vapHit   = false;
             static bool peakHit  = false;
