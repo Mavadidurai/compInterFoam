@@ -500,6 +500,8 @@ void femtosecondLaserModel::finalizePulseEnergyCheck
     const scalar diffExpected = mag(pulseEnergyAccumulator_ - expected);
     const scalar diffConfigured = mag(pulseEnergyAccumulator_ - configured);
     const scalar expectedMismatch = mag(expected - configured);
+    const scalar configuredResidual =
+        max(diffConfigured - expectedMismatch, scalar(0));    
     const scalar maxDeviation = max(diffExpected, diffConfigured);
 
     ++pulseCounter_;
@@ -518,6 +520,7 @@ void femtosecondLaserModel::finalizePulseEnergyCheck
             << "  Diff vs expected:     " << diffExpected << " J" << nl
             << "  Diff vs configured:   " << diffConfigured << " J" << nl
             << "  Expected-config diff: " << expectedMismatch << " J" << nl
+            << "  Configured residual:  " << configuredResidual << " J" << nl            
             << "  Max deviation:        " << maxDeviation << " J" << nl
             << "  Tolerance(abs):       " << pulseEnergyToleranceAbs_ << " J" << nl
             << "  Tolerance(rel*ref):   "
@@ -525,7 +528,7 @@ void femtosecondLaserModel::finalizePulseEnergyCheck
             << "  Applied tolerance:    " << tolerance << " J" << endl;
     }
 
-    const bool warnConfigured = diffConfigured > tolerance;
+    const bool warnConfigured = configuredResidual > tolerance;
     const bool warnExpected = diffExpected > tolerance;
 
     if (warnConfigured)
@@ -533,7 +536,7 @@ void femtosecondLaserModel::finalizePulseEnergyCheck
         WarningInFunction
             << "Laser pulse energy mismatch after pulse " << pulseCounter_
             << ": deposited " << pulseEnergyAccumulator_ << " J vs configured "
-            << configured << " J (difference " << diffConfigured
+            << configured << " J (residual mismatch " << configuredResidual
             << " J exceeds tolerance " << tolerance << " J)" << endl;
     }
 
