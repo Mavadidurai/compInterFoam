@@ -493,13 +493,17 @@ void femtosecondLaserModel::finalizePulseEnergyCheck
     }
 
     const scalar expected = pulseExpectedAccumulator_;
-    const scalar configured = pulseEnergy_.value();
-    const scalar reference = max(max(expected, configured), scalar(1e-12));
+    const scalar configuredDepositable =
+        pulseEnergy_.value()*depositableEnergyFraction();
+    const scalar reference =
+        max(max(expected, configuredDepositable), scalar(1e-12));
     const scalar tolerance =
         max(pulseEnergyToleranceAbs_, pulseEnergyToleranceRel_*reference);
     const scalar diffExpected = mag(pulseEnergyAccumulator_ - expected);
-    const scalar diffConfigured = mag(pulseEnergyAccumulator_ - configured);
-    const scalar expectedMismatch = mag(expected - configured);
+    const scalar diffConfigured =
+        mag(pulseEnergyAccumulator_ - configuredDepositable);
+    const scalar expectedMismatch =
+        mag(expected - configuredDepositable);
     const scalar configuredResidual =
         max(diffConfigured - expectedMismatch, scalar(0));    
     const scalar maxDeviation = max(diffExpected, diffConfigured);
@@ -514,13 +518,18 @@ void femtosecondLaserModel::finalizePulseEnergyCheck
             << "  Context:          " << context << nl
             << "  Start time:       " << currentPulseStartTime_ << " s" << nl
             << "  End time:         " << currentTime << " s" << nl
-            << "  Deposited energy:      " << pulseEnergyAccumulator_ << " J" << nl
-            << "  Expected (integrated): " << expected << " J" << nl
-            << "  Configured pulse:     " << configured << " J" << nl
-            << "  Diff vs expected:     " << diffExpected << " J" << nl
-            << "  Diff vs configured:   " << diffConfigured << " J" << nl
-            << "  Expected-config diff: " << expectedMismatch << " J" << nl
-            << "  Configured residual:  " << configuredResidual << " J" << nl            
+            << "  Deposited energy:           " << pulseEnergyAccumulator_
+            << " J" << nl
+            << "  Expected (integrated):      " << expected << " J" << nl
+            << "  Configured depositable:     " << configuredDepositable << " J"
+            << nl
+            << "  Diff vs expected:          " << diffExpected << " J" << nl
+            << "  Diff vs configured depositable:   " << diffConfigured
+            << " J" << nl
+            << "  Expected-configured depositable diff: "
+            << expectedMismatch << " J" << nl
+            << "  Configured depositable residual:  " << configuredResidual
+            << " J" << nl
             << "  Max deviation:        " << maxDeviation << " J" << nl
             << "  Tolerance(abs):       " << pulseEnergyToleranceAbs_ << " J" << nl
             << "  Tolerance(rel*ref):   "
@@ -535,9 +544,11 @@ void femtosecondLaserModel::finalizePulseEnergyCheck
     {
         WarningInFunction
             << "Laser pulse energy mismatch after pulse " << pulseCounter_
-            << ": deposited " << pulseEnergyAccumulator_ << " J vs configured "
-            << configured << " J (residual mismatch " << configuredResidual
-            << " J exceeds tolerance " << tolerance << " J)" << endl;
+            << ": deposited " << pulseEnergyAccumulator_
+            << " J vs configured depositable energy " << configuredDepositable
+            << " J (reflective/transmissive losses excluded). Residual mismatch"
+            << " " << configuredResidual << " J exceeds tolerance "
+            << tolerance << " J" << endl;
     }
 
     if (warnExpected)
@@ -554,8 +565,9 @@ void femtosecondLaserModel::finalizePulseEnergyCheck
     {
         if (diffConfigured > VSMALL)
         {
-            Info<< "  Note: deposited energy differs from configured pulse by "
-                << diffConfigured << " J (within tolerance)." << endl;
+            Info<< "  Note: deposited energy differs from configured depositable"
+                << " energy by " << diffConfigured
+                << " J (within tolerance)." << endl;
         }
 
         if (diffExpected > VSMALL)
@@ -566,8 +578,9 @@ void femtosecondLaserModel::finalizePulseEnergyCheck
 
         if (expectedMismatch > VSMALL && expectedMismatch <= tolerance)
         {
-            Info<< "  Note: integrated expectation differs from configured energy"
-                << " by " << expectedMismatch << " J (within tolerance)." << endl;
+            Info<< "  Note: integrated expectation differs from configured"
+                << " depositable energy by " << expectedMismatch
+                << " J (within tolerance)." << endl;
         }
     }
 
