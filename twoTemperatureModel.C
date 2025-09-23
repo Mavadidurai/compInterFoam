@@ -151,7 +151,7 @@ twoTemperatureModel::twoTemperatureModel
             const scalar CeAtMax = CeFunction_->value(maxTe);
             const scalar CeAtRef = CeFunction_->value(refTe);
 
-            if (CeAtMin <= Foam::small || CeAtMax <= Foam::small)
+            if (CeAtMin <= SMALL || CeAtMax <= SMALL)
             {
                 FatalIOErrorInFunction(CeDict)
                     << "Ce Function1 must remain positive in the range ["
@@ -159,7 +159,7 @@ twoTemperatureModel::twoTemperatureModel
                     << exit(FatalIOError);
             }
 
-            if (CeAtRef <= Foam::small)
+            if (CeAtRef <= SMALL)
             {
                 FatalIOErrorInFunction(CeDict)
                     << "Ce Function1 reference value at Te=" << refTe
@@ -175,7 +175,7 @@ twoTemperatureModel::twoTemperatureModel
             );
 
             CeLogTe = refTe;
-        }
+            }
         else
         {
             Ce_ = dict.lookupOrDefault<dimensionedScalar>("Ce", Ce_);
@@ -260,7 +260,7 @@ twoTemperatureModel::twoTemperatureModel
             << "  G = " << G_.value() << " W/m³/K" << nl
             << "  De = " << De_.value() << " m²/s" << nl
             << "  Gas-metal exchange coeff = "
-            << gasMetalExchangeCoeff_.value() << " W/m³/K" << nl   
+            << gasMetalExchangeCoeff_.value() << " W/m³/K" << nl
             << "  Ambient temperature = " << ambientTemperature_.value() << " K" << nl
             << "  Metal fraction field = " << metalFraction_.name() << endl;
     }
