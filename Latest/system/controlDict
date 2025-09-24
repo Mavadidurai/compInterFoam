@@ -27,7 +27,7 @@ deltaT          5e-12;          // Start with 5 ps base step; solver will cut ba
 adjustTimeStep  yes;            // Re-enable adaptive stepping for stability and efficiency
 maxCo           0.5;            // Keep Courant number in a physically stable range
 maxAlphaCo      0.5;            // Restrict interface Courant number similarly
-maxDeltaT       5e-11;          // Permit growth to 50 ps once the laser pulse has passed
+maxDeltaT       6e-13;          // Permit growth to 50 ps once the laser pulse has passed
 minDeltaT       5e-15;          // Allow reduction to capture sharp transients
 
 verbose         true;
@@ -66,9 +66,9 @@ advancedInterfaceCapturing
 }
 
 // --- TEMPERATURE CLAMPING ---
-enableTClamp    true;
+enableTClamp    false;
 minT            250;
-maxT            4000;
+maxT            20000;        // Ceiling lifted well above physical peaks to avoid artificial pinning
 
 // --- TWO-TEMPERATURE COUPLING ---
 twoTemperatureProperties
