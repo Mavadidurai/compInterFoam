@@ -66,7 +66,7 @@ advancedInterfaceCapturing
 }
 
 // --- TEMPERATURE CLAMPING ---
-enableTClamp    false;
+enableTClamp    true;
 minT            250;
 maxT            20000;        // Ceiling lifted well above physical peaks to avoid artificial pinning
 
@@ -76,15 +76,12 @@ twoTemperatureProperties
     Ce   [1 -1 -2 -1 0 0 0] 1.5e6;   // electron heat capacity, J/m3/K
     Cl   [1 -1 -2 -1 0 0 0] 2.3e6;
     G    [1 -1 -3 -1 0 0 0] 5e17;
-    maxElectronDeltaT        6e-13;
-    minElectronSubCycles     9;
-    nInnerCouplingSweeps     2;
-    innerCouplingResidualTol 10;    
+    maxElectronDeltaT        6e-13;  
     energyTolerance 0.01;
     minTe 300;
-    maxTe 4000;
+    maxTe 15000;
     minTl 300;
-    maxTl 4000;
+    maxTl 15000;
     maxGasMetalExchangeCoeff [1 -1 -3 -1 0 0 0] 1e18;
     minGasMetalExchangeCoeff [1 -1 -3 -1 0 0 0] 0;
     electronSubCycles 10; // Ensure finer substepping when global step approaches stability cap
