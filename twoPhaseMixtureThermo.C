@@ -32,6 +32,7 @@ License
 #include "Switch.H"
 #include "Tuple2.H"
 #include "Time.H"
+#include <cmath>
 // * * * * * * * * * * * * * * Static Data Members * * * * * * * * * * * * * //
 namespace Foam { defineTypeNameAndDebug(twoPhaseMixtureThermo, 0); }
 // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
@@ -95,7 +96,7 @@ Foam::twoPhaseMixtureThermo::twoPhaseMixtureThermo
                     << exit(FatalIOError);
             }
 
-            const scalar value = metalDict.lookup<scalar>(entryName);
+            const scalar value = readScalar(metalDict.lookup(entryName));
 
             if (!std::isfinite(value))
             {

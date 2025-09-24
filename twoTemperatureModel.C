@@ -174,52 +174,75 @@ twoTemperatureModel::twoTemperatureModel
                 CeAtRef
             );
 
-    auto lookupRequiredScalar =
-        [&](const word& entryName) -> scalar
+            CeLogTe = refTe;
+        }
+        else
         {
-            if (!metalDict.found(entryName))
-            {
-                FatalIOErrorInFunction(metalDict)
-                    << "Missing required entry '" << entryName
-                    << "' in thermophysicalProperties.metal"
-                    << exit(FatalIOError);
-            }
-
-            const scalar value = metalDict.lookup<scalar>(entryName);
-
-            if (!std::isfinite(value))
-            {
-                FatalIOErrorInFunction(metalDict)
-                    << "Entry '" << entryName
-                    << "' in thermophysicalProperties.metal is not finite"
-                    << exit(FatalIOError);
-            }
-
-            return value;
-        };
-
-    latentHeat_ = lookupRequiredScalar("hf");
-    T_melt_ = lookupRequiredScalar("Tsol");
-    T_vapor_ = lookupRequiredScalar("Tvap");
-
-    if (latentHeat_ <= SMALL)
+            Ce_ = dict.lookup<dimensionedScalar>("Ce");
+        }
+    }
+    else
     {
-        FatalIOErrorInFunction(metalDict)
-            << "Latent heat 'hf' must be positive"
+        FatalIOErrorInFunction(dict)
+            << "Missing required entry 'Ce' in two-temperature properties"
             << exit(FatalIOError);
     }
 
-    if (T_melt_ <= 0 || T_vapor_ <= 0)
+    if (dict.found("Cl"))
     {
-        FatalIOErrorInFunction(metalDict)
-            << "Phase change temperatures 'Tsol' and 'Tvap' must be positive"
+        Cl_ = dict.lookupOrDefault<dimensionedScalar>("Cl", Cl_);
+    }
+
+    if (dict.found("G"))
+    {
+        if (dict.isDict("G"))
+        {
+            GFunction_.reset(Function1<scalar>::New("G", dict.subDict("G")).ptr());
+        }
+        else
+        {
+            G_ = dict.lookup<dimensionedScalar>("G");
+        }
+    }
+    else
+    {
+        FatalIOErrorInFunction(dict)
+            << "Missing required entry 'G' in two-temperature properties"
             << exit(FatalIOError);
     }
 
-    if (T_melt_ >= T_vapor_)
+    if (dict.found("De"))
     {
-        FatalIOErrorInFunction(metalDict)
-            << "Expected Tsol < Tvap in thermophysicalProperties.metal"
+        De_ = dict.lookupOrDefault<dimensionedScalar>("De", De_);
+    }
+
+    if (dict.found("gasMetalExchangeCoeff"))
+    {
+        if (dict.isDict("gasMetalExchangeCoeff"))
+        {
+            gasMetalExchangeFunction_.reset
+            (
+                Function1<scalar>::New
+                (
+                    "gasMetalExchangeCoeff",
+                    dict.subDict("gasMetalExchangeCoeff")
+                ).ptr()
+            );
+        }
+        else
+        {
+            gasMetalExchangeCoeff_ =
+                dict.lookup<dimensionedScalar>
+                (
+                    "gasMetalExchangeCoeff"
+                );
+        }
+    }
+    else
+    {
+        FatalIOErrorInFunction(dict)
+            << "Missing required entry 'gasMetalExchangeCoeff' in"
+            << " two-temperature properties"
             << exit(FatalIOError);
     }
     if (!validateParameters())
