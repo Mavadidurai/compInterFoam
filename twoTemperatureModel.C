@@ -178,7 +178,7 @@ twoTemperatureModel::twoTemperatureModel
         }
         else
         {
-            Ce_ = dimensionedScalar(dict.lookup("Ce"));
+            dict.lookup("Ce") >> Ce_;
         }
     }
     else
@@ -201,7 +201,7 @@ twoTemperatureModel::twoTemperatureModel
         }
         else
         {
-            G_ = dimensionedScalar(dict.lookup("G"));
+            dict.lookup("G") >> G_;
         }
     }
     else
@@ -231,11 +231,7 @@ twoTemperatureModel::twoTemperatureModel
         }
         else
         {
-            gasMetalExchangeCoeff_ =
-                dimensionedScalar
-                (
-                    dict.lookup("gasMetalExchangeCoeff")
-                );
+            dict.lookup("gasMetalExchangeCoeff") >> gasMetalExchangeCoeff_;
         }
     }
     else
@@ -915,10 +911,6 @@ void twoTemperatureModel::solve
         dict_.lookupOrDefault<Switch>("energyAudit", verbose)
     );
 
-    tmp<volScalarField> tActiveMask = metalActiveMask(metalCutoff);
-    const volScalarField& activeMask = tActiveMask();
-    applyTemperatureBounds(activeMask, minTemp, maxTemp, ambientDim);
-
     dimensionedScalar previousEnergy("previousEnergy", dimEnergy, 0.0);
     if (energyInitialized_)
     {
@@ -928,7 +920,14 @@ void twoTemperatureModel::solve
     {
         previousEnergy = currentTotalEnergy();
     }
+    tmp<volScalarField> tActiveMask = metalActiveMask(metalCutoff);
+    const volScalarField& activeMask = tActiveMask();
+    applyTemperatureBounds(activeMask, minTemp, maxTemp, ambientDim);
 
+    // Recompute the baseline energy after enforcing bounds so that
+    // redistribution caused by updated metal fractions does not appear
+    // as an artificial conservation error.
+    previousEnergy = currentTotalEnergy();
     tmp<volScalarField> tMetalContactClamp =
         Foam::min
         (
