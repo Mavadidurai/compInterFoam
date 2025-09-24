@@ -757,6 +757,95 @@ scalar femtosecondLaserModel::depositableEnergyFraction() const
     return min(max(netFraction, scalar(0)), scalar(1));
 }
 //------------------------------------------------------------------------------
+scalar femtosecondLaserModel::beamCoverageFraction() const
+{
+    if (!gaussianProfile_)
+    {
+        return 1.0;
+    }
+
+    const scalar beamRadius = spotSize_.value()/2.0;
+    if (beamRadius <= VSMALL)
+    {
+        return 0.0;
+    }
+
+    const boundBox bounds = mesh_.bounds();
+    if (!bounds.valid())
+    {
+        return 1.0;
+    }
+
+    vector refAxis(1, 0, 0);
+    if (mag(direction_ ^ refAxis) <= VSMALL)
+    {
+        refAxis = vector(0, 1, 0);
+    }
+    if (mag(direction_ ^ refAxis) <= VSMALL)
+    {
+        refAxis = vector(0, 0, 1);
+    }
+
+    vector e1 = direction_ ^ refAxis;
+    scalar e1Mag = mag(e1);
+    if (e1Mag <= VSMALL)
+    {
+        return 1.0;
+    }
+    e1 /= e1Mag;
+
+    vector e2 = direction_ ^ e1;
+    const scalar e2Mag = mag(e2);
+    if (e2Mag <= VSMALL)
+    {
+        return 1.0;
+    }
+    e2 /= e2Mag;
+
+    const point minCorner = bounds.min();
+    const point maxCorner = bounds.max();
+
+    scalar minU = GREAT;
+    scalar maxU = -GREAT;
+    scalar minV = GREAT;
+    scalar maxV = -GREAT;
+
+    for (label i = 0; i < 8; ++i)
+    {
+        const point corner
+        (
+            (i & 1) ? maxCorner.x() : minCorner.x(),
+            (i & 2) ? maxCorner.y() : minCorner.y(),
+            (i & 4) ? maxCorner.z() : minCorner.z()
+        );
+
+        const vector rel = corner - focus_;
+        const scalar u = rel & e1;
+        const scalar v = rel & e2;
+
+        minU = min(minU, u);
+        maxU = max(maxU, u);
+        minV = min(minV, v);
+        maxV = max(maxV, v);
+    }
+
+    if (maxU <= minU || maxV <= minV)
+    {
+        return 0.0;
+    }
+
+    const scalar sqrt2OverW = sqrt(2.0)/beamRadius;
+    const scalar fracU = 0.5
+        * (std::erf(sqrt2OverW*maxU) - std::erf(sqrt2OverW*minU));
+    const scalar fracV = 0.5
+        * (std::erf(sqrt2OverW*maxV) - std::erf(sqrt2OverW*minV));
+
+    scalar coverage = fracU*fracV;
+    coverage = min(max(coverage, scalar(0)), scalar(1));
+
+    return coverage;
+}
+//------------------------------------------------------------------------------
 femtosecondLaserModel::EnvelopeResult
 femtosecondLaserModel::evaluateTemporalEnvelope
 (
@@ -767,6 +856,7 @@ femtosecondLaserModel::evaluateTemporalEnvelope
 {
     EnvelopeResult result;
     const scalar depositableFraction = depositableEnergyFraction();
+    const scalar coverageFraction = beamCoverageFraction();    
     if (continuousLaser_)
     {
         result.temporalIntegral = overlapEnd - overlapStart;
@@ -834,7 +924,8 @@ femtosecondLaserModel::evaluateTemporalEnvelope
         {
             result.expectedEnergy =
                 pulseEnergy_.value()
-              * depositableFraction                
+              * depositableFraction
+              * coverageFraction    
               * result.temporalIntegral/max(fullPulseIntegral, VSMALL);
         }
     }
@@ -869,7 +960,8 @@ femtosecondLaserModel::evaluateTemporalEnvelope
             const scalar fullIntegral = sigma*sqrt(2.0*constant::mathematical::pi);
             result.expectedEnergy =
                 pulseEnergy_.value()
-              * depositableFraction                
+              * depositableFraction
+              * coverageFraction               
               * result.temporalIntegral/max(fullIntegral, VSMALL);
         }
     }
