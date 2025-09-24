@@ -1249,16 +1249,6 @@ tmp<volScalarField> twoTemperatureModel::gasMetalExchangeCoeffField() const
     const scalar metalFractionFloor =
         dict_.lookupOrDefault<scalar>("metalFractionFloor", 1e-6);
 
-    tmp<volScalarField> tMetalMask =
-        metalActiveMask(Foam::max(metalFractionFloor, VSMALL));
-    volScalarField& metalMask = tMetalMask.ref();
-    metalMask = Foam::min
-    (
-        Foam::max(metalMask, scalar(0)),
-        scalar(1)
-    );
-
-    coeff *= tMetalMask;
     const dimensionedScalar minExchangeDim(
         dict_.lookupOrDefault<dimensionedScalar>
         (
@@ -1284,6 +1274,17 @@ tmp<volScalarField> twoTemperatureModel::gasMetalExchangeCoeffField() const
         )
     );
     coeff = Foam::max(Foam::min(coeff, maxExchangeDim), minExchangeDim);
+
+    tmp<volScalarField> tMetalMask =
+        metalActiveMask(Foam::max(metalFractionFloor, VSMALL));
+    volScalarField& metalMask = tMetalMask.ref();
+    metalMask = Foam::min
+    (
+        Foam::max(metalMask, scalar(0)),
+        scalar(1)
+    );
+
+    coeff *= metalMask;  
     coeff.correctBoundaryConditions();
     return tCoeff;
 }
