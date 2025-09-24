@@ -434,11 +434,12 @@ tmp<volScalarField> twoTemperatureModel::metalActiveMask(scalar cutoff) const
         return pos(metalFraction_ - cutoffDim);
     }
 
+    const scalar lowerBoundValue = Foam::max(cutoff - blendWidth, scalar(0));
     const dimensionedScalar lowerBound
     (
         "metalLowerBound",
         dimless,
-        cutoff - blendWidth
+        lowerBoundValue
     );
 
     const dimensionedScalar blendDim

@@ -93,7 +93,7 @@ extern Foam::Switch verbose;
     (
         fvm::ddt(CvolGas, T)
       + fvm::div(CvolPhi, T)
-      - fvm::Sp(contErr, T)
+      + fvm::Sp(contErr, T)
       - fvm::laplacian(transportModel.kappaEff(), T)
      ==
         fvOptions(CvolGas, T)
