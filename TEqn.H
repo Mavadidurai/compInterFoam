@@ -145,9 +145,9 @@ extern Foam::Switch verbose;
     volScalarField& rawFlux = tRawFlux.ref();
 
     const scalar maxThermalCourant =
-        ctrl.lookupOrDefault<scalar>("maxThermalCourant", 0.9);
+        ctrl.lookupOrDefault<scalar>("maxThermalCourant", 1.0);
 
-    if (maxThermalCourant < 1.0 - SMALL)
+    if (maxThermalCourant > SMALL && maxThermalCourant < 1.0 - SMALL)
     {
         const scalar limiterAlphaMin =
             Foam::max
@@ -163,13 +163,7 @@ extern Foam::Switch verbose;
             limiterAlphaMin
         );
 
-        tmp<volScalarField> tAlphaLimited
-        (
-            Foam::max(alpha2, alphaLimiterFloor)
-        );
-        const volScalarField& alphaLimited = tAlphaLimited();
-
-        tmp<volScalarField> tCvolLimited(alphaLimited*rhoGasCore*CvGas);
+        tmp<volScalarField> tCvolLimited(rhoGasCore*CvGas);
         const volScalarField& CvolLimited = tCvolLimited();
 
         tmp<volScalarField> tThermalCo
@@ -208,10 +202,10 @@ extern Foam::Switch verbose;
             limiter,
             dimensionedScalar("zeroLimiter", dimless, 0.0)
         );
-        tmp<volScalarField> tLowGas(Foam::pos(alphaLimiterFloor - alpha2));
-        const volScalarField& lowGas = tLowGas();
+        tmp<volScalarField> tLimiterActive(Foam::pos(alpha2 - alphaLimiterFloor));
+        const volScalarField& limiterActive = tLimiterActive();
 
-        limiter = (oneDim - lowGas)*limiter + lowGas*oneDim;
+        limiter = limiterActive*limiter + (oneDim - limiterActive)*oneDim;
         rawFlux *= limiter;
     }
 
