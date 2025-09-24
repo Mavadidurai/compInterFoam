@@ -84,9 +84,54 @@ Foam::twoPhaseMixtureThermo::twoPhaseMixtureThermo
     (
         IOobject("thermophysicalProperties.metal", U.mesh().time().constant(), U.mesh(), IOobject::MUST_READ, IOobject::NO_WRITE)
     );
-    latentHeat_ = metalDict.lookupOrDefault<scalar>("hf", 435e3);
-    T_melt_ = metalDict.lookupOrDefault<scalar>("Tsol", 1941.0);
-    T_vapor_ = metalDict.lookupOrDefault<scalar>("Tvap", 3000.0);
+    auto lookupRequiredScalar =
+        [&](const word& entryName) -> scalar
+        {
+            if (!metalDict.found(entryName))
+            {
+                FatalIOErrorInFunction(metalDict)
+                    << "Missing required entry '" << entryName
+                    << "' in thermophysicalProperties.metal"
+                    << exit(FatalIOError);
+            }
+
+            const scalar value = metalDict.lookup<scalar>(entryName);
+
+            if (!std::isfinite(value))
+            {
+                FatalIOErrorInFunction(metalDict)
+                    << "Entry '" << entryName
+                    << "' in thermophysicalProperties.metal is not finite"
+                    << exit(FatalIOError);
+            }
+
+            return value;
+        };
+
+    latentHeat_ = lookupRequiredScalar("hf");
+    T_melt_ = lookupRequiredScalar("Tsol");
+    T_vapor_ = lookupRequiredScalar("Tvap");
+
+    if (latentHeat_ <= SMALL)
+    {
+        FatalIOErrorInFunction(metalDict)
+            << "Latent heat 'hf' must be positive"
+            << exit(FatalIOError);
+    }
+
+    if (T_melt_ <= 0 || T_vapor_ <= 0)
+    {
+        FatalIOErrorInFunction(metalDict)
+            << "Phase change temperatures 'Tsol' and 'Tvap' must be positive"
+            << exit(FatalIOError);
+    }
+
+    if (T_melt_ >= T_vapor_)
+    {
+        FatalIOErrorInFunction(metalDict)
+            << "Expected Tsol < Tvap in thermophysicalProperties.metal"
+            << exit(FatalIOError);
+    }
     if (debug)
     {
         const Switch writePhaseTemperatures =

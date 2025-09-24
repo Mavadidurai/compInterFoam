@@ -74,9 +74,9 @@ femtosecondLaserModel::femtosecondLaserModel
         Foam::max
         (
             scalar(0),
-            dict.getOrDefault<scalar>("maxVolumetricSource", 1e18)
+            dict.getOrDefault<scalar>("maxVolumetricSource", 0.0)
         )
-    ),    
+    ),
     direction_(dict.get<vector>("direction")),
     focus_(dict.get<point>("focus")),
     initialFocus_(focus_),
@@ -97,7 +97,7 @@ femtosecondLaserModel::femtosecondLaserModel
         dict.getOrDefault<scalar>("pulseEnergyToleranceAbs", 1e-12)
     ),    
     laserStartTime_(dict.getOrDefault<scalar>("laserStartTime", 0.0)),
-    laserEndTime_(dict.getOrDefault<scalar>("laserEndTime", 2e-12)),
+    laserEndTime_(dict.get<scalar>("laserEndTime")),
     filmYMin_(0.0),
     filmYMax_(0.0),
     tSource_(),
@@ -174,26 +174,59 @@ femtosecondLaserModel::femtosecondLaserModel
         filmYMax_ = dict.get<scalar>("filmYMax");
     }
 
-    if (!filmYMinProvided || !filmYMaxProvided)
+    if (filmYMinProvided != filmYMaxProvided)
     {
-        const scalar filmThicknessExpected =
-            dict.getOrDefault<scalar>("filmThicknessExpected", 7.14e-8);
-        const scalar halfThickness = 0.5*filmThicknessExpected;
-        const scalar centerY = initialFocus_.y();
+        FatalIOErrorInFunction(dict)
+            << "Both 'filmYMin' and 'filmYMax' must be provided together"
+            << " or omitted"
+            << exit(FatalIOError);
+    }
 
-        if (!filmYMinProvided)
+    if (!filmYMinProvided && !filmYMaxProvided)
+    {
+        scalar filmThickness = -1.0;
+        word thicknessKey;
+
+        if (dict.found("filmThickness"))
         {
-            filmYMin_ = centerY - halfThickness;
+            thicknessKey = "filmThickness";
+            filmThickness = dict.get<scalar>(thicknessKey);
+        }
+        else if (dict.found("filmThicknessExpected"))
+        {
+            thicknessKey = "filmThicknessExpected";
+            filmThickness = dict.get<scalar>(thicknessKey);
         }
 
-        if (!filmYMaxProvided)
+        if (filmThickness <= 0)
         {
-            filmYMax_ = centerY + halfThickness;
+            FatalIOErrorInFunction(dict)
+                << "Specify positive film thickness via 'filmThickness'"
+                << " (preferred) or 'filmThicknessExpected', or provide"
+                << " explicit 'filmYMin'/'filmYMax' bounds"
+                << exit(FatalIOError);
         }
 
-        Info<< "Derived film bounds from focus.y=" << centerY
-            << " m using expected thickness " << filmThicknessExpected
-            << ": [" << filmYMin_ << ", " << filmYMax_ << "] m" << endl;
+        const scalar centerY = dict.lookupOrDefault<scalar>
+        (
+            "filmCenterY",
+            initialFocus_.y()
+        );
+        const scalar halfThickness = 0.5*filmThickness;
+
+        filmYMin_ = centerY - halfThickness;
+        filmYMax_ = centerY + halfThickness;
+
+        Info<< "Derived film bounds from center y=" << centerY
+            << " m using " << thicknessKey << " = " << filmThickness
+            << " m: [" << filmYMin_ << ", " << filmYMax_ << "] m" << endl;
+    }
+    else if (filmYMin_ >= filmYMax_)
+    {
+        FatalIOErrorInFunction(dict)
+            << "Expected filmYMin < filmYMax; received "
+            << filmYMin_ << " >= " << filmYMax_
+            << exit(FatalIOError);
     }
     // normalize direction
     const scalar dirMag = mag(direction_);
@@ -355,17 +388,36 @@ bool femtosecondLaserModel::validateParameters() const
 
     // film thickness sanity
     const scalar filmThickness = filmYMax_ - filmYMin_;
-    const scalar expected =
-        dict_.getOrDefault<scalar>("filmThicknessExpected", 7.14e-8);
+    scalar expected = filmThickness;
+
+    if (dict_.found("filmThickness"))
+    {
+        expected = dict_.get<scalar>("filmThickness");
+    }
+    else if (dict_.found("filmThicknessExpected"))
+    {
+        expected = dict_.get<scalar>("filmThicknessExpected");
+    }
+
     const scalar tol =
-        dict_.getOrDefault<scalar>("filmThicknessTolerance", 0.1*expected);
+        dict_.lookupOrDefault<scalar>
+        (
+            "filmThicknessTolerance",
+            0.1*Foam::max(expected, scalar(SMALL))
+        );
     if (filmThickness <= 0)
     {
         WarningInFunction
             << "Non-positive film thickness: " << filmThickness
             << " (check filmYMin, filmYMax)" << endl;
     }
-    if (mag(filmThickness - expected) > tol)
+    if (expected <= SMALL)
+    {
+        WarningInFunction
+            << "Configured film thickness expectation " << expected
+            << " m is non-positive" << endl;
+    }
+    else if (mag(filmThickness - expected) > tol)
     {
         WarningInFunction
             << "Donor film thickness (" << filmThickness
@@ -993,12 +1045,18 @@ femtosecondLaserModel::applySpatialWeighting
     const scalar beamRadius = spotSize_.value()/2.0;
     const scalar radialHalfWidth = 3.0*beamRadius; // ~3-sigma laterally
 
-    scalar axialHalfLength = max(spotSize_.value(), 2e-6);
+    const scalar filmHalfThickness =
+        0.5*Foam::max(filmYMax_ - filmYMin_, scalar(0));
+
+    scalar axialHalfLength = Foam::max(filmHalfThickness, beamRadius);
+
     if (absorptionCoeff_.value() > VSMALL)
     {
         const scalar absorptionDepth = 1.0/absorptionCoeff_.value();
-        axialHalfLength = max(axialHalfLength, 3.0*absorptionDepth);
+        axialHalfLength = Foam::max(axialHalfLength, 3.0*absorptionDepth);
     }
+
+    axialHalfLength = Foam::max(axialHalfLength, SMALL);
 
     const vector axialContribution
     (

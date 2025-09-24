@@ -79,7 +79,7 @@ advancedInterfaceCapturing::advancedInterfaceCapturing
             1.0
         )
     ),
-    recoilMax_(5e6),
+    recoilMax_(0.0),
     recoilTempOffset_
     (
         dimensionedScalar("recoilTempOffset", dimTemperature, 0.0)
@@ -88,7 +88,7 @@ advancedInterfaceCapturing::advancedInterfaceCapturing
     (
         dimensionedScalar("phaseChangeTempOffset", dimTemperature, 0.0)
     ),
-    clampRecoil_(true),
+    clampRecoil_(false),
     scaleRecoilMax_(false),
     recoilRelax_(1.0),
     // Relaxed default bounds to reduce clipping of interface values
@@ -194,6 +194,12 @@ advancedInterfaceCapturing::advancedInterfaceCapturing
         "scaleRecoilMax",
         scaleRecoilMax_
     );
+    if (clampRecoil_ && recoilMax_ <= SMALL)
+    {
+        FatalIOErrorInFunction(aicDict)
+            << "recoilMax must be positive when clampRecoil is enabled"
+            << exit(FatalIOError);
+    }    
     if (aicDict.found("recoilRelax"))
     {
         recoilRelax_ = aicDict.lookupOrDefault<scalar>("recoilRelax", recoilRelax_);

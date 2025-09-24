@@ -12,18 +12,54 @@ extern Foam::Switch verbose;
     }
 
     const dictionary& ctrl = runTime.controlDict();
-    const Switch enableTClamp = ctrl.lookupOrDefault<Switch>("enableTClamp", true);
-    const scalar minPhysicalTemp = ctrl.lookupOrDefault<scalar>("minT", 250.0);
-    const scalar maxPhysicalTemp = ctrl.lookupOrDefault<scalar>("maxT", 15000.0);
+    const Switch enableTClamp = ctrl.lookupOrDefault<Switch>("enableTClamp", false);
+    const scalar minPhysicalTemp = ctrl.lookupOrDefault<scalar>("minT", 0.0);
+    const scalar maxPhysicalTemp = ctrl.lookupOrDefault<scalar>
+    (
+        "maxT",
+        Foam::great
+    );
+
+    if (enableTClamp && maxPhysicalTemp <= minPhysicalTemp)
+    {
+        FatalErrorInFunction
+            << "Temperature clamp bounds invalid: minT=" << minPhysicalTemp
+            << " must be less than maxT=" << maxPhysicalTemp
+            << abort(FatalError);
+    }
     const scalar thermalFluxRelax =
         ctrl.lookupOrDefault<scalar>("thermalFluxRelax", 1.0);
+    auto clampTemperature =
+        [&](const word& stage)
+        {
+            const scalar oldMin = gMin(T.internalField());
+            const scalar oldMax = gMax(T.internalField());
+
+            const dimensionedScalar minTDim("minT", dimTemperature, minPhysicalTemp);
+            const dimensionedScalar maxTDim("maxT", dimTemperature, maxPhysicalTemp);
+
+            T = Foam::max(Foam::min(T, maxTDim), minTDim);
+            T.correctBoundaryConditions();
+
+            if
+            (
+                (oldMin < minPhysicalTemp - SMALL)
+             || (oldMax > maxPhysicalTemp + SMALL)
+            )
+            {
+                if (Pstream::master())
+                {
+                    WarningInFunction
+                        << "Temperature clamp activated during " << stage
+                        << ": enforcing [" << minPhysicalTemp << ", "
+                        << maxPhysicalTemp << "] K" << endl;
+                }
+            }
+        };
+
     if (enableTClamp)
     {
-        const dimensionedScalar minTDim("minT", dimTemperature, minPhysicalTemp);
-        const dimensionedScalar maxTDim("maxT", dimTemperature, maxPhysicalTemp);
-
-        T = Foam::max(Foam::min(T, maxTDim), minTDim);
-        T.correctBoundaryConditions();
+        clampTemperature("pre-solve");
     }
 
     volScalarField& gasMetalHeatFlux =
@@ -46,7 +82,7 @@ extern Foam::Switch verbose;
     (
         "maxGasMetalExchangeCoeff",
         interfaceExchange.dimensions(),
-        ctrl.lookupOrDefault<scalar>("maxGasMetalExchangeCoeff", 1e18)
+        ctrl.lookupOrDefault<scalar>("maxGasMetalExchangeCoeff", Foam::great)
     );
 
     const dimensionedScalar minCoeff =
@@ -128,12 +164,12 @@ extern Foam::Switch verbose;
 
     if (enableTClamp)
     {
-        const dimensionedScalar minTDim("minT", dimTemperature, minPhysicalTemp);
-        const dimensionedScalar maxTDim("maxT", dimTemperature, maxPhysicalTemp);
-        T = Foam::max(Foam::min(T, maxTDim), minTDim);
+        clampTemperature("post-solve");
     }
-
-    T.correctBoundaryConditions();
+    else
+    {
+        T.correctBoundaryConditions();
+    }
 
     mixture.correctThermo();
     mixture.correct();
