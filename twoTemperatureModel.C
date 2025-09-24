@@ -178,7 +178,7 @@ twoTemperatureModel::twoTemperatureModel
         }
         else
         {
-            Ce_ = dict.lookup<dimensionedScalar>("Ce");
+            Ce_ = dimensionedScalar(dict.lookup("Ce"));
         }
     }
     else
@@ -201,7 +201,7 @@ twoTemperatureModel::twoTemperatureModel
         }
         else
         {
-            G_ = dict.lookup<dimensionedScalar>("G");
+            G_ = dimensionedScalar(dict.lookup("G"));
         }
     }
     else
@@ -232,9 +232,9 @@ twoTemperatureModel::twoTemperatureModel
         else
         {
             gasMetalExchangeCoeff_ =
-                dict.lookup<dimensionedScalar>
+                dimensionedScalar
                 (
-                    "gasMetalExchangeCoeff"
+                    dict.lookup("gasMetalExchangeCoeff")
                 );
         }
     }

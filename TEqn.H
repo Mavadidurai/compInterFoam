@@ -17,7 +17,7 @@ extern Foam::Switch verbose;
     const scalar maxPhysicalTemp = ctrl.lookupOrDefault<scalar>
     (
         "maxT",
-        Foam::great
+        Foam::GREAT
     );
 
     if (enableTClamp && maxPhysicalTemp <= minPhysicalTemp)
@@ -82,7 +82,7 @@ extern Foam::Switch verbose;
     (
         "maxGasMetalExchangeCoeff",
         interfaceExchange.dimensions(),
-        ctrl.lookupOrDefault<scalar>("maxGasMetalExchangeCoeff", Foam::great)
+        ctrl.lookupOrDefault<scalar>("maxGasMetalExchangeCoeff", Foam::GREAT)
     );
 
     const dimensionedScalar minCoeff =
@@ -244,6 +244,82 @@ extern Foam::Switch verbose;
         limiter = limiterActive*limiter + (oneDim - limiterActive)*oneDim;
         rawFlux *= limiter;
     }
+    {
+        const scalar metalFractionFloor =
+            twoTemperatureDict.lookupOrDefault<scalar>
+            (
+                "metalFractionFloor",
+                1e-6
+            );
+        const scalar blendWidth =
+            twoTemperatureDict.lookupOrDefault<scalar>
+            (
+                "metalAmbientBlendWidth",
+                1e-3
+            );
+
+        const scalar activeCutoff = Foam::max(metalFractionFloor, VSMALL);
+        const dimensionedScalar cutoffDim("metalCutoff", dimless, activeCutoff);
+
+        const volScalarField& metalFraction = mixture.alpha1();
+
+        tmp<volScalarField> tActiveMask;
+        if (blendWidth <= SMALL)
+        {
+            tActiveMask = Foam::pos(metalFraction - cutoffDim);
+        }
+        else
+        {
+            const scalar lowerBoundValue =
+                Foam::max(metalFractionFloor - blendWidth, scalar(0));
+            const dimensionedScalar lowerBound
+            (
+                "metalLowerBound",
+                dimless,
+                lowerBoundValue
+            );
+            const dimensionedScalar blendDim
+            (
+                "metalBlendWidth",
+                dimless,
+                Foam::max(blendWidth, SMALL)
+            );
+
+            tActiveMask =
+                Foam::min
+                (
+                    dimensionedScalar("one", dimless, 1.0),
+                    Foam::max
+                    (
+                        dimensionedScalar("zero", dimless, 0.0),
+                        (metalFraction - lowerBound)/blendDim
+                    )
+                );
+        }
+
+        volScalarField& activeMask = tActiveMask.ref();
+        activeMask = Foam::min(Foam::max(activeMask, scalar(0)), scalar(1));
+
+        tmp<volScalarField> tMetalClamp
+        (
+            Foam::min(Foam::max(metalFraction, scalar(0)), scalar(1))
+        );
+        const volScalarField& metalClamp = tMetalClamp();
+
+        tmp<volScalarField> tContactMask
+        (
+            new volScalarField(fvc::average(metalFraction))
+        );
+        volScalarField& contactMask = tContactMask.ref();
+        contactMask = Foam::min(Foam::max(contactMask, scalar(0)), scalar(1));
+        contactMask = Foam::max(contactMask, metalClamp);
+
+        activeMask *= contactMask;
+        activeMask.correctBoundaryConditions();
+
+        rawFlux *= activeMask;
+    }
+
 
     const volScalarField& limitedFlux = tRawFlux();
 
