@@ -45,6 +45,9 @@ gasAbsorptionCoeff 0;     // [1/m] gas absorption (0 disables direct gas heating
 // --- Energy & timing ---
 // Tune energy to exceed the Ti melt+vapor energy (~2.6e-8 J absorbed)
 // while staying within the solver's 6e16 W/m^2 guard band.
+// The solver now scales the pulse-energy check by the fraction of the Gaussian
+// spot that falls inside the mesh bounds, so partially clipped beams no longer
+// raise false energy mismatch warnings.
 pulseEnergy     2.0e-7;          // [J] total energy (≈0.31 J/cm^2 incident fluence)
 pulseWidth      2.14e-13;        // [s] 214 fs pulse width
 laserStartTime  0;    // [s] delay pulse until after the fluid preconditioning period
