@@ -119,7 +119,6 @@ solvers
         nSweeps         6;
         tolerance       1e-11;
         relTol          0;
-
     }
 }
 
