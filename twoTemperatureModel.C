@@ -1367,8 +1367,8 @@ void twoTemperatureModel::write() const
             << "Field statistics:" << nl
             << "  Te range: " << min(Te_).value() << " - " << max(Te_).value() << " K" << nl
             << "  Tl range: " << min(Tl_).value() << " - " << max(Tl_).value() << " K" << nl
-            << "  Mean Te: " << gAverage(Te_).value() << " K" << nl
-            << "  Mean Tl: " << gAverage(Tl_).value() << " K" << nl;
+            << "  Mean Te: " << gAverage(Te_) << " K" << nl
+            << "  Mean Tl: " << gAverage(Tl_) << " K" << nl;
     }
     if (energyInitialized_)
     {

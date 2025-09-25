@@ -104,11 +104,14 @@ extern Foam::Switch verbose;
     tmp<volScalarField> tCv2 = mixture.thermo2().Cv();
     tmp<volScalarField> tRho2 = mixture.thermo2().rho();
 
-   const dimensionedScalar cvFloor
+    const scalar cvFloorValue =
+        twoTemperatureDict.lookupOrDefault<scalar>("CvGasFloor", 100.0);
+
+    const dimensionedScalar cvFloor
     (
         "cvFloor",
         dimEnergy/dimMass/dimTemperature,
-        1e-12
+        cvFloorValue
     );
     const dimensionedScalar rhoFloor("rhoFloor", dimDensity, 1e-12);
 
@@ -181,7 +184,15 @@ extern Foam::Switch verbose;
     volScalarField& rawFlux = tRawFlux.ref();
 
     const scalar maxThermalCourant =
-        ctrl.lookupOrDefault<scalar>("maxThermalCourant", 1.0);
+        Foam::max
+        (
+            scalar(0),
+            Foam::min
+            (
+                ctrl.lookupOrDefault<scalar>("maxThermalCourant", 1.0),
+                scalar(1)
+            )
+        );
 
     if (maxThermalCourant > SMALL && maxThermalCourant < 1.0 - SMALL)
     {
@@ -199,8 +210,7 @@ extern Foam::Switch verbose;
             limiterAlphaMin
         );
 
-        tmp<volScalarField> tCvolLimited(rhoGasCore*CvGas);
-        const volScalarField& CvolLimited = tCvolLimited();
+        const volScalarField& CvolLimited = CvolGas;
 
         tmp<volScalarField> tThermalCo
         (
@@ -319,7 +329,24 @@ extern Foam::Switch verbose;
 
         rawFlux *= activeMask;
     }
-
+    {
+        const scalar qCap =
+            twoTemperatureDict.lookupOrDefault<scalar>
+            (
+                "maxGasMetalHeatFlux",
+                -1.0
+            );
+        if (qCap > 0)
+        {
+            const dimensionedScalar qCapDim
+            (
+                "maxGasMetalHeatFlux",
+                rawFlux.dimensions(),
+                qCap
+            );
+            rawFlux = Foam::min(Foam::max(rawFlux, -qCapDim), qCapDim);
+        }
+    }
 
     const volScalarField& limitedFlux = tRawFlux();
 
@@ -344,6 +371,35 @@ extern Foam::Switch verbose;
             << gAverage(interfaceExchange)
             << "  max |q_gm| = "
             << gMax(mag(gasMetalHeatFlux)().internalField()) << endl;
+        if (enableTClamp)
+        {
+            const scalarField& Tint = T.internalField();
+            label nLow = 0;
+            label nHigh = 0;
+            forAll(Tint, cellI)
+            {
+                const scalar val = Tint[cellI];
+                if (val < minPhysicalTemp)
+                {
+                    ++nLow;
+                }
+                else if (val > maxPhysicalTemp)
+                {
+                    ++nHigh;
+                }
+            }
+
+            scalar totalLow = scalar(nLow);
+            scalar totalHigh = scalar(nHigh);
+            scalar totalCells = scalar(Tint.size());
+            Pstream::sum(totalLow);
+            Pstream::sum(totalHigh);
+            Pstream::sum(totalCells);
+            const scalar denom = Foam::max(scalar(1), totalCells);
+
+            Info<< "    clamp fractions: low=" << totalLow/denom
+                << "  high=" << totalHigh/denom << endl;
+        }            
     }
 }
 
