@@ -90,7 +90,7 @@ twoTemperatureModel::twoTemperatureModel
     (
         "Ce",
         dimEnergy/dimVolume/dimTemperature,
-        0.0
+        1.5e6
     ),
     Cl_
     (
@@ -1178,6 +1178,7 @@ tmp<volScalarField> twoTemperatureModel::electronThermalConductivity() const
     {
         ke[cellI] = (CeField[cellI] * De_).value();
     }
+    ke.correctBoundaryConditions();    
     return tke;
 }
 tmp<volScalarField> twoTemperatureModel::electronHeatCapacity() const
@@ -1305,7 +1306,28 @@ tmp<volScalarField> twoTemperatureModel::gasMetalExchangeCoeffField() const
         scalar(1)
     );
 
-    coeff *= metalMask;  
+    coeff *= metalMask;
+
+    // Suppress coupling when either phase fraction vanishes by
+    // weighting the exchange coefficient with an interface indicator.
+    const dimensionedScalar zero("zero", dimless, 0.0);
+    const dimensionedScalar one("one", dimless, 1.0);
+
+    tmp<volScalarField> tMetalClamp
+    (
+        Foam::min(Foam::max(metalFraction_, zero), one)
+    );
+    const volScalarField& metalClamp = tMetalClamp();
+
+    tmp<volScalarField> tGasClamp(one - metalClamp);
+    const volScalarField& gasClamp = tGasClamp();
+
+    tmp<volScalarField> tInterfaceWeight(Foam::min(metalClamp, gasClamp));
+    volScalarField& interfaceWeight = tInterfaceWeight.ref();
+    interfaceWeight *= scalar(2);
+    interfaceWeight = Foam::min(interfaceWeight, scalar(1));
+
+    coeff *= interfaceWeight;
     coeff.correctBoundaryConditions();
     return tCoeff;
 }
@@ -1345,8 +1367,8 @@ void twoTemperatureModel::write() const
             << "Field statistics:" << nl
             << "  Te range: " << min(Te_).value() << " - " << max(Te_).value() << " K" << nl
             << "  Tl range: " << min(Tl_).value() << " - " << max(Tl_).value() << " K" << nl
-            << "  Mean Te: " << average(Te_).value() << " K" << nl
-            << "  Mean Tl: " << average(Tl_).value() << " K" << nl;
+            << "  Mean Te: " << gAverage(Te_).value() << " K" << nl
+            << "  Mean Tl: " << gAverage(Tl_).value() << " K" << nl;
     }
     if (energyInitialized_)
     {
