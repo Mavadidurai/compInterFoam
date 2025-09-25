@@ -4,7 +4,7 @@
 \\*---------------------------------------------------------------------------*/
 
 extern Foam::Switch verbose;
-
+extern const bool master;
 {
     const dictionary& alphaControls = mesh.solverDict(alpha1.name());
     

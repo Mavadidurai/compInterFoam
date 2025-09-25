@@ -3,7 +3,7 @@
 \\*---------------------------------------------------------------------------*/
 
 extern Foam::Switch verbose;
-
+extern const bool master;
 {
     if (verbose && master)
     {

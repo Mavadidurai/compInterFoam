@@ -67,6 +67,7 @@ Description
 #include "twoTemperatureModel.H"
 #include "advancedInterfaceCapturing.H"
 
+extern const bool master = Foam::Pstream::master();
 Foam::Switch verbose(false);
 namespace
 {
@@ -99,8 +100,7 @@ int main(int argc, char *argv[])
     #include "setRootCaseLists.H"
     #include "createTime.H"
     #include "createMesh.H"
-    #include "createTimeControls.H"
-    const bool master = Pstream::master();    
+    #include "createTimeControls.H" 
     #ifndef CREATE_FIELDS_DONE
     #include "createFields.H"
     #define CREATE_FIELDS_DONE
@@ -293,6 +293,7 @@ int main(int argc, char *argv[])
                     phaseChangeRelaxCoeff,
                     gasMetalHeatFlux
                 );
+                mixture.setClTTM(ttm.Cl());
 
 #include "TEqn.H"
 

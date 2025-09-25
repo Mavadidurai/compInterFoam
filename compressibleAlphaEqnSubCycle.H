@@ -1,3 +1,6 @@
+extern Foam::Switch verbose;
+extern const bool master;
+
 alpha1 = max(min(alpha1, scalar(1)), scalar(0));
 alpha1.correctBoundaryConditions();
 alpha2 = scalar(1) - alpha1;

@@ -211,9 +211,6 @@ if (alpha1.timeIndex() > 0)
     Info<< "Phase fractions - alpha.air: min = " << min(alpha2).value()
         << ", max = " << max(alpha2).value() << endl;
 
-    // Verify phase naming consistency
-    Info<< "Phase names - metal: " << mixture.phase1Name()
-        << ", air: " << mixture.phase2Name() << endl;
 }
 
     if (verbose && Foam::Pstream::master())
@@ -293,9 +290,6 @@ volScalarField p
 label pRefCell = 0;
 scalar pRefValue = 0.0;
 setRefCell(p_rgh, mesh.solutionDict().subDict("PIMPLE"), pRefCell, pRefValue);
-surfaceScalarField rho1f(fvc::interpolate(rho1));
-surfaceScalarField rho2f(fvc::interpolate(rho2));
-
 surfaceScalarField rhoPhi
 (
     IOobject

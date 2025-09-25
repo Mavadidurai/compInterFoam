@@ -4,7 +4,7 @@
 \*---------------------------------------------------------------------------*/
 
 extern Foam::Switch verbose;
-
+extern const bool master;
 {
     if (verbose && master)
     {
@@ -124,7 +124,22 @@ extern Foam::Switch verbose;
     tmp<volScalarField> tCvolGas(alpha2*rhoGasCore*CvGas);
 
     const volScalarField& CvolGas = tCvolGas();
+    const scalar cvolFloorValue =
+        twoTemperatureDict.lookupOrDefault<scalar>
+        (
+            "CvolGasFloor",
+            1e-12
+        );
 
+    const dimensionedScalar cvolFloor
+    (
+        "CvolGasFloor",
+        dimEnergy/dimVolume/dimTemperature,
+        cvolFloorValue
+    );
+
+    tmp<volScalarField> tCvolLimited(Foam::max(CvolGas, cvolFloor));
+    const volScalarField& CvolLimited = tCvolLimited();
     tmp<surfaceScalarField> tCvolPhi(fvc::interpolate(CvolGas)*phi);
     const surfaceScalarField& CvolPhi = tCvolPhi();
     tmp<volScalarField> tDivPhi(fvc::div(phi));
@@ -209,8 +224,6 @@ extern Foam::Switch verbose;
             dimless,
             limiterAlphaMin
         );
-
-        const volScalarField& CvolLimited = CvolGas;
 
         tmp<volScalarField> tThermalCo
         (
