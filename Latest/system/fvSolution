@@ -21,8 +21,8 @@ solvers
     {
         solver          PBiCGStab;
         preconditioner  DILU;
-        tolerance       1e-08;
-        relTol          0;
+        tolerance       1e-06;
+        relTol          0.0;
         maxIter         50;
 
         nAlphaCorr      1;              // Keep at 1
@@ -77,8 +77,8 @@ solvers
         smoother        symGaussSeidel;
         nSweeps         4;
         maxIter         200;
-        tolerance       5e-11;
-        relTol          0;
+        tolerance       1e-6; 
+        relTol          0.1;
     }
     TFinal
     {
