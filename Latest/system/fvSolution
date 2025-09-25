@@ -178,9 +178,9 @@ compInterFoamCoeffs
     maxAlpha          0.999;
 
     // Pressure clamp settings
-    pressureClamp      false;
-    maxPressure        5e7;
-    minPressure        -1e6;
+    pressureClamp      true;
+    maxPressure        1e8;
+    minPressure       -1e7;
 
     // Density clamp settings
     densityClamp       false;
