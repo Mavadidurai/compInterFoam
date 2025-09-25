@@ -53,12 +53,12 @@ massTransferCoeffs
     // Mass transfer derived from phase-change energy:
     // dgdt = -(Cl*phaseChangeSource)/latentHeat
     // If twoTemperatureProperties are missing, Cl defaults to 2.5e6 J/m^3/K    
-    // Optional activation window
-    // Keep mass transfer aligned with the 50 ns laser heating horizon
-    activationTime (0 5e-8);
+    // Optional activation window (solver expects separate start/end lists)
+    tStart (0);
+    tEnd   (5e-8);
 
     // Optional upper bound on |dgdt| [1/s]
-    rateMax   1e8;
+    rateMax   1e6;
 
 }
 // ************************************************************************* //
