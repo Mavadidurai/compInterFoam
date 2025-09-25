@@ -392,14 +392,14 @@ extern Foam::Switch verbose;
             scalar totalLow = scalar(nLow);
             scalar totalHigh = scalar(nHigh);
             scalar totalCells = scalar(Tint.size());
-            Pstream::sum(totalLow);
-            Pstream::sum(totalHigh);
-            Pstream::sum(totalCells);
+            Foam::reduce(totalLow, sumOp<scalar>());
+            Foam::reduce(totalHigh, sumOp<scalar>());
+            Foam::reduce(totalCells, sumOp<scalar>());
             const scalar denom = Foam::max(scalar(1), totalCells);
 
             Info<< "    clamp fractions: low=" << totalLow/denom
                 << "  high=" << totalHigh/denom << endl;
-        }            
+        }
     }
 }
 

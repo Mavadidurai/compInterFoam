@@ -58,6 +58,7 @@ Description
 #include "fvOptions.H"
 #include "autoPtr.H"
 #include "Pstream.H"
+#include "PstreamReduceOps.H"
 #include "fvcSmooth.H"
 #include "twoPhaseMixtureThermo.H"
 #include "extrapolatedCalculatedFvPatchFields.H"
