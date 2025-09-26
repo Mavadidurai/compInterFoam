@@ -35,7 +35,7 @@ maxThermalCourant 0.9;
 
 // Output control
 writeControl    runTime;
-writeInterval   1e-9;          // Write every 1 ns
+writeInterval   1e-11;          // Write every 10 ns
 purgeWrite      10;            // Keep only last 10 time directories
 writeFormat     ascii;
 writePrecision  8;             // Reduced from 12
