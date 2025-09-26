@@ -54,7 +54,7 @@ laserStartTime  0;    // [s] delay pulse until after the fluid preconditioning p
 laserEndTime    8e-12;    // [s] extend window to capture trailing pulse tail
 // --- Spatial Gaussian (match the box center and film depth) ---
 spotSize        6.0e-6;         // [m] beam diameter (3 µm 1/e^2 radius)
-//peakIntensity   2.76019082275e16;  // W/m^2 (consistent with 200 nJ pulse)
+peakIntensity   2.76019082275e16;  // W/m^2 (consistent with 200 nJ pulse)
 // Put the beam center inside the domain (mid x,z; inside donor film at y≈8.0357 µm)
 focus            (25e-6 20.0357e-6 5e-6);
 direction       (0 -1 0);
