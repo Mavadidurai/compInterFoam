@@ -81,7 +81,7 @@ twoTemperatureProperties
     minTl 300;
     maxTl 15000;
     gasMetalExchangeCoeff [1 -1 -3 -1 0 0 0] 1e15;  // Reduced from 3.2e17
-    maxGasMetalExchangeCoeff [1 -1 -3 -1 0 0 0] 1e10;
+    maxGasMetalExchangeCoeff [1 -1 -3 -1 0 0 0] 1e17;
     minGasMetalExchangeCoeff [1 -1 -3 -1 0 0 0] 0;
     electronSubCycles 10;
 }
@@ -163,10 +163,20 @@ functions
             if (maxEjectionVel > 2000) velStatus = "HIGH";
             else if (maxEjectionVel < 0.1 && maxTl > 2000) velStatus = "LOW";
             
+            const scalar startT = mesh().time().startTime().value();
+            const scalar endT = mesh().time().endTime().value();
+            scalar progress = 0.0;
+            if (endT > startT)
+            {
+                progress = (t - startT)/(endT - startT);
+                progress = min(max(progress, 0.0), 1.0);
+            }
+
             // Clean output format with validation
             Info<< "LIFT: t=" << t*1e12 << "ps"
+                << " progress=" << progress*100 << "%"
                 << " Te=" << maxTe << "K[" << teStatus << "]"
-                << " Tl=" << maxTl << "K[" << tlStatus << "]" 
+                << " Tl=" << maxTl << "K[" << tlStatus << "]"
                 << " Tgas=" << maxTgas << "K"
                 << " MetalVol=" << metalVolUm3 << "μm³"
                 << " Pmax=" << maxPressure/1e6 << "MPa[" << pStatus << "]"
@@ -228,7 +238,14 @@ functions
             // Write CSV
             if (Pstream::master())
             {
-                OFstream csvFile("liftResults.csv", ios_base::app);
+                OFstream csvFile
+                (
+                    "liftResults.csv",
+                    IOstreamOption::ASCII,
+                    IOstreamOption::currentVersion,
+                    IOstreamOption::UNCOMPRESSED,
+                    IOstreamOption::APPEND
+                );
                 if (!headerWritten)
                 {
                     csvFile << "time_ps,Te_max_K,Tl_max_K,Tgas_max_K,metal_vol_um3,max_pressure_Pa,min_pressure_Pa,max_velocity_ms" << endl;
