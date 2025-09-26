@@ -96,7 +96,7 @@ libs
 // Clean monitoring functions
 functions
 {
-    // Main LIFT monitoring - clean output
+    // Main LIFT monitoring - clean output with validation ranges
     liftMonitor
     {
         type            coded;
@@ -146,15 +146,38 @@ functions
             // Reduce across processors
             reduce(maxEjectionVel, maxOp<scalar>());
             
-            // Clean output format
+            // Validation flags
+            word teStatus = "OK";
+            if (maxTe < 300) teStatus = "LOW";
+            else if (maxTe > 15000) teStatus = "HIGH";
+            
+            word tlStatus = "OK";
+            if (maxTl < 300) tlStatus = "LOW";
+            else if (maxTl > 8000) tlStatus = "HIGH";
+            
+            word pStatus = "OK";
+            if (maxPressure > 1e9) pStatus = "HIGH";
+            else if (maxPressure < 1e3) pStatus = "LOW";
+            
+            word velStatus = "OK";
+            if (maxEjectionVel > 2000) velStatus = "HIGH";
+            else if (maxEjectionVel < 0.1 && maxTl > 2000) velStatus = "LOW";
+            
+            // Clean output format with validation
             Info<< "LIFT: t=" << t*1e12 << "ps"
-                << " Te=" << maxTe << "K"
-                << " Tl=" << maxTl << "K" 
+                << " Te=" << maxTe << "K[" << teStatus << "]"
+                << " Tl=" << maxTl << "K[" << tlStatus << "]" 
                 << " Tgas=" << maxTgas << "K"
                 << " MetalVol=" << metalVolUm3 << "μm³"
-                << " Pmax=" << maxPressure/1e6 << "MPa"
+                << " Pmax=" << maxPressure/1e6 << "MPa[" << pStatus << "]"
                 << " Pmin=" << minPressure/1e6 << "MPa"
-                << " Vmax=" << maxEjectionVel << "m/s" << endl;
+                << " Vmax=" << maxEjectionVel << "m/s[" << velStatus << "]" << endl;
+                
+            // Detailed validation warnings
+            if (teStatus != "OK" || tlStatus != "OK" || pStatus != "OK" || velStatus != "OK")
+            {
+                Info<< "WARNING: Values outside typical LIFT ranges detected!" << endl;
+            }
         #};
     }
 
@@ -264,15 +287,84 @@ functions
         writeInterval 1;
     }
 
-    // Metal volume tracking (minimal)
-    metalVolume
+    // Comprehensive LIFT validation summary
+    liftValidation
     {
-        type         volRegion;
-        libs         ("libfieldFunctionObjects.so");
-        regionType   all;
-        operation    integrate;
-        fields       (alpha.metal);
-        writeControl writeTime;
-        log          false;
+        type            coded;
+        libs            ("libutilityFunctionObjects.so");
+        name            liftValidation;
+        writeControl    timeStep;
+        writeInterval   100;
+
+        codeWrite
+        #{
+            const scalar t = mesh().time().value();
+            const volScalarField& Te = mesh().lookupObject<volScalarField>("Te");
+            const volScalarField& Tl = mesh().lookupObject<volScalarField>("Tl");
+            const volScalarField& alpha = mesh().lookupObject<volScalarField>("alpha.metal");
+            const volScalarField& p = mesh().lookupObject<volScalarField>("p");
+            const volVectorField& U = mesh().lookupObject<volVectorField>("U");
+            
+            const scalar maxTe = gMax(Te);
+            const scalar maxTl = gMax(Tl);
+            const scalar maxP = gMax(p);
+            
+            // Calculate metal loss
+            const scalarField alphaVol = alpha.primitiveField() * mesh().V();
+            const scalar currentMetalVol = gSum(alphaVol) * 1e18; // μm³
+            static scalar initialMetalVol = currentMetalVol; // First call
+            const scalar metalLoss = (initialMetalVol - currentMetalVol) / initialMetalVol * 100;
+            
+            // Calculate ejection velocity
+            scalar maxVel = 0.0;
+            const scalarField& alphaInternal = alpha.primitiveField();
+            const vectorField& UInternal = U.primitiveField();
+            
+            forAll(alphaInternal, cellI)
+            {
+                if (alphaInternal[cellI] > 0.1)
+                {
+                    maxVel = max(maxVel, mag(UInternal[cellI]));
+                }
+            }
+            reduce(maxVel, maxOp<scalar>());
+            
+            Info<< "=== LIFT VALIDATION SUMMARY at t=" << t*1e12 << "ps ===" << endl;
+            Info<< "Temperature Assessment:" << endl;
+            Info<< "  Te_max: " << maxTe << "K (Expected: 300-15000K)" << endl;
+            Info<< "  Tl_max: " << maxTl << "K (Expected: 300-8000K)" << endl;
+            Info<< "  Phase: ";
+            if (maxTl < 1941) Info<< "SOLID";
+            else if (maxTl < 3560) Info<< "LIQUID"; 
+            else Info<< "VAPOR";
+            Info<< endl;
+            
+            Info<< "Pressure Assessment:" << endl;
+            Info<< "  P_max: " << maxP/1e6 << "MPa (Expected: 0.1-1000MPa)" << endl;
+            Info<< "  Status: ";
+            if (maxP < 1e5) Info<< "LOW - Check recoil pressure";
+            else if (maxP > 1e9) Info<< "HIGH - May indicate instability";
+            else Info<< "NORMAL";
+            Info<< endl;
+            
+            Info<< "Dynamics Assessment:" << endl;
+            Info<< "  Max velocity: " << maxVel << "m/s (Expected: 1-2000m/s)" << endl;
+            Info<< "  Metal loss: " << metalLoss << "% (Expected: 0.1-10%)" << endl;
+            Info<< "  Status: ";
+            if (maxVel < 1 && maxTl > 2000) Info<< "LOW - Check momentum transfer";
+            else if (maxVel > 2000) Info<< "HIGH - Check numerical stability";
+            else Info<< "NORMAL";
+            Info<< endl;
+            
+            Info<< "Overall Assessment: ";
+            bool isGood = (maxTe > 1000 && maxTe < 15000) && 
+                         (maxTl > 1000 && maxTl < 8000) &&
+                         (maxP > 1e5 && maxP < 1e9) &&
+                         (maxVel > 1 && maxVel < 2000);
+            if (isGood) Info<< "SIMULATION ON TRACK";
+            else Info<< "CHECK PARAMETERS";
+            Info<< endl;
+            Info<< "=============================================" << endl;
+        #};
     }
 }
