@@ -157,15 +157,15 @@ Foam::compressibleInterPhaseTransportModel::alphaEff() const
         return
             mixture_.alpha1()*mixture_.thermo1().alphaEff
             (
-                 turbulence1_->thermalDiffusivity()
+                turbulence1_->alphat()
             )
           + mixture_.alpha2()*mixture_.thermo2().alphaEff
             (
-                turbulence2_->thermalDiffusivity()
+                turbulence2_->alphat()
             );
     }
 
-    return mixture_.alphaEff(turbulence_->thermalDiffusivity());
+    return mixture_.alphaEff(turbulence_->alphat());
 }
 
 Foam::tmp<Foam::volScalarField>
@@ -176,15 +176,15 @@ Foam::compressibleInterPhaseTransportModel::kappaEff() const
         return
             mixture_.alpha1()*mixture_.thermo1().kappaEff
             (
-                turbulence1_->thermalDiffusivity()
+                turbulence1_->alphat()
             )
           + mixture_.alpha2()*mixture_.thermo2().kappaEff
             (
-                turbulence2_->thermalDiffusivity()
+                turbulence2_->alphat()
             );
     }
 
-    return mixture_.kappaEff(turbulence_->thermalDiffusivity());
+    return mixture_.kappaEff(turbulence_->alphat());
 }
 
 Foam::tmp<Foam::fvVectorMatrix>
