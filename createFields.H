@@ -331,6 +331,89 @@ surfaceScalarField alphaPhi10
     alphaPhi10Header,
     phi*fvc::interpolate(alpha1)
 );
+// Determine requested transport modelling approach and validate inputs
+word transportSimulationType("laminar");
+
+const auto readTransportSimulationType =
+    [&](const word& dictName) -> bool
+    {
+        IOobject io
+        (
+            dictName,
+            runTime.constant(),
+            mesh,
+            IOobject::READ_IF_PRESENT,
+            IOobject::NO_WRITE,
+            false
+        );
+
+        if (!io.headerOk())
+        {
+            return false;
+        }
+
+        IOdictionary dict(io);
+
+        if (dict.found("simulationType"))
+        {
+            dict.lookup("simulationType") >> transportSimulationType;
+            return true;
+        }
+
+        return false;
+    };
+
+if (!readTransportSimulationType("momentumTransport"))
+{
+    readTransportSimulationType("turbulenceProperties");
+}
+
+if (transportSimulationType == "twoPhaseTransport")
+{
+    const word phase1Name = alpha1.group();
+    const word phase2Name = alpha2.group();
+
+    const auto dictionaryExists =
+        [&](const word& objectName) -> bool
+        {
+            IOobject io
+            (
+                objectName,
+                runTime.constant(),
+                mesh,
+                IOobject::READ_IF_PRESENT,
+                IOobject::NO_WRITE,
+                false
+            );
+
+            return io.headerOk();
+        };
+
+    const bool phase1DictFound =
+        dictionaryExists(IOobject::groupName("momentumTransport", phase1Name))
+     || dictionaryExists("phase1RASProperties")
+     || dictionaryExists("phase1LESProperties")
+     || dictionaryExists("phase1LaminarProperties");
+
+    const bool phase2DictFound =
+        dictionaryExists(IOobject::groupName("momentumTransport", phase2Name))
+     || dictionaryExists("phase2RASProperties")
+     || dictionaryExists("phase2LESProperties")
+     || dictionaryExists("phase2LaminarProperties");
+
+    if (!phase1DictFound || !phase2DictFound)
+    {
+        FatalErrorInFunction
+            << "simulationType is set to twoPhaseTransport but the required phase"
+            << " turbulence dictionaries are missing in '" << runTime.constant()
+            << "'. Ensure that dictionaries such as 'momentumTransport." << phase1Name
+            << "' and 'momentumTransport." << phase2Name
+            << "' (or the corresponding phase1*/phase2* RAS/LES properties) are"
+            << " provided." << nl
+            << exit(FatalError);
+    }
+}
+
 // Interface normal calculations
 volVectorField n(fvc::grad(alpha1)/(mag(fvc::grad(alpha1)) + dimensionedScalar("small", dimless/dimLength, SMALL)));
 surfaceVectorField nf(fvc::interpolate(n));
@@ -342,6 +425,8 @@ compressibleInterPhaseTransportModel transportModel
     rho,
     U,
     phi,
+    rhoPhi,
+    alphaPhi10,    
     mixture
 );
 

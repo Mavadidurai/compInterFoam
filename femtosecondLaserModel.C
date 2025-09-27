@@ -1099,7 +1099,7 @@ femtosecondLaserModel::applySpatialWeighting
         scalar tMin = -GREAT;
         scalar tMax = GREAT;
 
-        for (direction cmpt = 0; cmpt < vector::nComponents; ++cmpt)
+        for (Foam::direction cmpt = 0; cmpt < vector::nComponents; ++cmpt)
         {
             const scalar dirComp = directionUnit[cmpt];
             const scalar focusComp = focus_[cmpt];

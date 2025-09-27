@@ -27,12 +27,13 @@ License
 #include "mixedEnergyFvPatchScalarField.H"
 #include "collatedFileOperation.H"
 #include "autoPtr.H"
-#include "IOdictionary.H"
+
 #include "Pstream.H"
 #include "Switch.H"
 #include "Tuple2.H"
 #include "Time.H"
 #include <cmath>
+#include <string>
 // * * * * * * * * * * * * * * Static Data Members * * * * * * * * * * * * * //
 namespace Foam { defineTypeNameAndDebug(twoPhaseMixtureThermo, 0); }
 // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
@@ -81,32 +82,113 @@ Foam::twoPhaseMixtureThermo::twoPhaseMixtureThermo
     rho2_("rho2", dimDensity, 0.0),
     ClTTM_("ClTTM", dimEnergy/dimVolume/dimTemperature, 0.0)
 {
-    IOdictionary metalDict  // Read metal phase thermophysical properties from dedicated dictionary
-    (
-        IOobject("thermophysicalProperties.metal", U.mesh().time().constant(), U.mesh(), IOobject::MUST_READ, IOobject::NO_WRITE)
-    );
-    auto lookupRequiredScalar =
-        [&](const word& entryName) -> scalar
+    const dictionary& transportDict =
+        U.mesh().lookupObject<dictionary>("transportProperties");
+
+    auto tryLookup =
+        [&](const dictionary& dict, const word& entryName, const char* location, scalar& value) -> bool
         {
-            if (!metalDict.found(entryName))
+            if (!dict.found(entryName))
             {
-                FatalIOErrorInFunction(metalDict)
-                    << "Missing required entry '" << entryName
-                    << "' in thermophysicalProperties.metal"
-                    << exit(FatalIOError);
+                return false;
             }
 
-            const scalar value = readScalar(metalDict.lookup(entryName));
+            value = readScalar(dict.lookup(entryName));
 
             if (!std::isfinite(value))
             {
-                FatalIOErrorInFunction(metalDict)
+                FatalIOErrorInFunction(dict)
                     << "Entry '" << entryName
-                    << "' in thermophysicalProperties.metal is not finite"
+                    << "' in " << location << " is not finite"
                     << exit(FatalIOError);
             }
 
-            return value;
+            return true;
+        };
+
+    auto lookupRequiredScalar =
+        [&](const word& entryName) -> scalar
+        {
+            scalar value = 0.0;
+
+            if (entryName == "Tvap")
+            {
+                if (transportDict.found("phaseChangeCoeffs"))
+                {
+                    const dictionary& pcDict =
+                        transportDict.subDict("phaseChangeCoeffs");
+
+                    if
+                    (
+                        tryLookup
+                        (
+                            pcDict,
+                            "Tvapor",
+                            "transportProperties.phaseChangeCoeffs",
+                            value
+                        )
+                     || tryLookup
+                        (
+                            pcDict,
+                            entryName,
+                            "transportProperties.phaseChangeCoeffs",
+                            value
+                        )
+                    )
+                    {
+                        return value;
+                    }
+                }
+
+                if
+                (
+                    tryLookup
+                    (
+                        transportDict,
+                        "Tvapor",
+                        "transportProperties",
+                        value
+                    )
+                )
+                {
+                    return value;
+                }
+            }
+
+            if
+            (
+                tryLookup(transportDict, entryName, "transportProperties", value)
+            )
+            {
+                return value;
+            }
+
+            if (transportDict.found("phaseChangeCoeffs"))
+            {
+                const dictionary& pcDict =
+                    transportDict.subDict("phaseChangeCoeffs");
+
+                if
+                (
+                    tryLookup
+                    (
+                        pcDict,
+                        entryName,
+                        "transportProperties.phaseChangeCoeffs",
+                        value
+                    )
+                )
+                {
+                    return value;
+                }
+            }
+
+            FatalIOErrorInFunction(transportDict)
+                << "Missing required entry '" << entryName
+                << "' in transportProperties"
+                << exit(FatalIOError);
+
+            return 0.0;
         };
 
     latentHeat_ = lookupRequiredScalar("hf");
@@ -115,22 +197,22 @@ Foam::twoPhaseMixtureThermo::twoPhaseMixtureThermo
 
     if (latentHeat_ <= SMALL)
     {
-        FatalIOErrorInFunction(metalDict)
-            << "Latent heat 'hf' must be positive"
+        FatalIOErrorInFunction(transportDict)
+            << "Latent heat 'hf' in transportProperties must be positive"
             << exit(FatalIOError);
     }
 
     if (T_melt_ <= 0 || T_vapor_ <= 0)
     {
-        FatalIOErrorInFunction(metalDict)
-            << "Phase change temperatures 'Tsol' and 'Tvap' must be positive"
+        FatalIOErrorInFunction(transportDict)
+            << "Phase change temperatures 'Tsol' and 'Tvap' in transportProperties must be positive"
             << exit(FatalIOError);
     }
 
     if (T_melt_ >= T_vapor_)
     {
-        FatalIOErrorInFunction(metalDict)
-            << "Expected Tsol < Tvap in thermophysicalProperties.metal"
+        FatalIOErrorInFunction(transportDict)
+            << "Expected Tsol < Tvap in transportProperties"
             << exit(FatalIOError);
     }
     if (debug)
@@ -148,7 +230,7 @@ Foam::twoPhaseMixtureThermo::twoPhaseMixtureThermo
             fileHandler().flush();
         }
     }
-    const dictionary& transportDict = U.mesh().lookupObject<dictionary>("transportProperties");
+
     const dictionary& phase1Dict = transportDict.subDict(phase1Name());
     const dictionary& phase2Dict = transportDict.subDict(phase2Name());
     nu1_ = phase1Dict.lookupOrDefault<dimensionedScalar>

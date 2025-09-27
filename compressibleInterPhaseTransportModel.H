@@ -38,9 +38,8 @@ SourceFiles
 #define compressibleInterPhaseTransportModel_H
 #include "twoPhaseMixture.H"
 #include "twoPhaseMixtureThermo.H"
-#include "turbulentFluidThermoModel.H"    
-#include "compressibleTurbulenceModel.H"   
-#include "fluidThermo.H"
+#include "dynamicMomentumTransportModel.H"
+#include "phaseDynamicMomentumTransportModel.H"
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 namespace Foam
 {
@@ -50,24 +49,55 @@ namespace Foam
 class compressibleInterPhaseTransportModel
 {
     // Private data
+
+    //- Flag for per-phase transport modelling
+    bool twoPhaseTransport_;
+
+    //- Two-phase mixture
     twoPhaseMixtureThermo& mixture_;
+
+    //- Mixture volumetric flux
     const surfaceScalarField& phi_;
-    // Single turbulence model for the mixture
-    autoPtr<compressible::turbulenceModel> turbulence_;
+
+    //- Mixture mass flux
+    const surfaceScalarField& rhoPhi_;
+
+    //- Phase-1 volumetric flux
+    const surfaceScalarField& alphaPhi10_;
+
+    //- Phase-1 mass flux (updated via correctPhasePhi)
+    tmp<surfaceScalarField> alphaRhoPhi1_;
+
+    //- Phase-2 mass flux (updated via correctPhasePhi)
+    tmp<surfaceScalarField> alphaRhoPhi2_;
+
+    //- Single turbulence model for the mixture
+    autoPtr<compressible::momentumTransportModel> turbulence_;
+
+    //- Phase-1 transport model when two-phase transport is enabled
+    autoPtr<phaseCompressible::momentumTransportModel> turbulence1_;
+
+    //- Phase-2 transport model when two-phase transport is enabled
+    autoPtr<phaseCompressible::momentumTransportModel> turbulence2_;
+
 public:
+
     // Constructors
     compressibleInterPhaseTransportModel
     (
         const volScalarField& rho,
         const volVectorField& U,
         const surfaceScalarField& phi,
+        const surfaceScalarField& rhoPhi,
+        const surfaceScalarField& alphaPhi10,
         twoPhaseMixtureThermo& mixture
     );
+
     // Member Functions
     tmp<volScalarField> alphaEff() const;
-    tmp<volScalarField> kappaEff() const;   
+    tmp<volScalarField> kappaEff() const;
     tmp<fvVectorMatrix> divDevRhoReff(volVectorField& U) const;
-    void correctPhasePhi() {}  // Empty for simplified model
+    void correctPhasePhi();
     void correct();
 };
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
