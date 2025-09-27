@@ -174,19 +174,10 @@ Foam::compressibleInterPhaseTransportModel::kappaEff() const
         return tmp<volScalarField>(nullptr);
     }
 
-    // Use mixture-based approach with turbulent thermal conductivity
-    const tmp<volScalarField> mutTmp = turbulence_->mut();
-    const volScalarField& mut = mutTmp();
+    // Use mixture-based approach with turbulent thermal diffusivity
+    const tmp<volScalarField> alphat = turbulence_->alphat();
 
-    const scalar Prt = 0.85; // Typical turbulent Prandtl number
-
-    // Convert turbulent dynamic viscosity to thermal conductivity: kappat = mut*Cp/Prt
-    const tmp<volScalarField> CpTmp = mixture_.Cp();
-    const volScalarField& Cp = CpTmp();
-
-    tmp<volScalarField> kappat(mut*Cp/Prt);
-
-    return mixture_.kappaEff(kappat());
+    return mixture_.kappaEff(alphat());
 }
 
 Foam::tmp<Foam::fvVectorMatrix>

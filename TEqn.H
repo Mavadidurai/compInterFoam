@@ -29,11 +29,40 @@ extern const bool master;
     }
     const scalar thermalFluxRelax =
         ctrl.lookupOrDefault<scalar>("thermalFluxRelax", 1.0);
+    scalar totalCellsClamped = 0.0;
+    scalar totalLowClamped = 0.0;
+    scalar totalHighClamped = 0.0;
     auto clampTemperature =
         [&](const word& stage)
         {
-            const scalar oldMin = gMin(T.internalField());
-            const scalar oldMax = gMax(T.internalField());
+            const scalarField TintPreClamp(T.internalField());
+            label nLow = 0;
+            label nHigh = 0;
+            forAll(TintPreClamp, cellI)
+            {
+                const scalar val = TintPreClamp[cellI];
+                if (val < minPhysicalTemp)
+                {
+                    ++nLow;
+                }
+                else if (val > maxPhysicalTemp)
+                {
+                    ++nHigh;
+                }
+            }
+
+            scalar localLow = scalar(nLow);
+            scalar localHigh = scalar(nHigh);
+            scalar localCells = scalar(TintPreClamp.size());
+            Foam::reduce(localLow, sumOp<scalar>());
+            Foam::reduce(localHigh, sumOp<scalar>());
+            Foam::reduce(localCells, sumOp<scalar>());
+            totalLowClamped = localLow;
+            totalHighClamped = localHigh;
+            totalCellsClamped = localCells;
+
+            const scalar oldMin = gMin(TintPreClamp);
+            const scalar oldMax = gMax(TintPreClamp);
 
             const dimensionedScalar minTDim("minT", dimTemperature, minPhysicalTemp);
             const dimensionedScalar maxTDim("maxT", dimTemperature, maxPhysicalTemp);
