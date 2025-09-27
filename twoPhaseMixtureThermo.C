@@ -106,113 +106,125 @@ Foam::twoPhaseMixtureThermo::twoPhaseMixtureThermo
             return true;
         };
 
-    auto lookupRequiredScalar =
-        [&](const word& entryName) -> scalar
+    const dictionary* phaseChangeDictPtr = nullptr;
+    if (transportDict.found("phaseChangeCoeffs"))
+    {
+        phaseChangeDictPtr = &transportDict.subDict("phaseChangeCoeffs");
+    }
+
+    auto lookupOptionalScalar =
+        [&](const word& entryName, scalar& value) -> bool
         {
-            scalar value = 0.0;
-
-            if (entryName == "Tvap")
-            {
-                if (transportDict.found("phaseChangeCoeffs"))
+            auto tryNameInAllLocations =
+                [&](const word& name) -> bool
                 {
-                    const dictionary& pcDict =
-                        transportDict.subDict("phaseChangeCoeffs");
-
                     if
                     (
-                        tryLookup
+                        phaseChangeDictPtr
+                     && tryLookup
                         (
-                            pcDict,
-                            "Tvapor",
-                            "transportProperties.phaseChangeCoeffs",
-                            value
-                        )
-                     || tryLookup
-                        (
-                            pcDict,
-                            entryName,
+                            *phaseChangeDictPtr,
+                            name,
                             "transportProperties.phaseChangeCoeffs",
                             value
                         )
                     )
                     {
-                        return value;
+                        return true;
                     }
-                }
 
-                if
-                (
-                    tryLookup
+                    if
                     (
-                        transportDict,
-                        "Tvapor",
-                        "transportProperties",
-                        value
+                        tryLookup
+                        (
+                            transportDict,
+                            name,
+                            "transportProperties",
+                            value
+                        )
                     )
-                )
-                {
-                    return value;
-                }
+                    {
+                        return true;
+                    }
+
+                    return false;
+                };
+
+            if (tryNameInAllLocations(entryName))
+            {
+                return true;
             }
 
             if
             (
-                tryLookup(transportDict, entryName, "transportProperties", value)
+                entryName == "T_vapor"
+             || entryName == "Tvapor"
+             || entryName == "Tvap"
             )
+            {
+                if (entryName != "Tvapor" && tryNameInAllLocations(word("Tvapor")))
+                {
+                    return true;
+                }
+                if (entryName != "T_vapor" && tryNameInAllLocations(word("T_vapor")))
+                {
+                    return true;
+                }
+                if (entryName != "Tvap" && tryNameInAllLocations(word("Tvap")))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        };
+
+    auto lookupRequiredScalar =
+        [&](const word& primaryName, const word& legacyName) -> scalar
+        {
+            scalar value = 0.0;
+
+            if (!primaryName.empty() && lookupOptionalScalar(primaryName, value))
             {
                 return value;
             }
 
-            if (transportDict.found("phaseChangeCoeffs"))
+            if (!legacyName.empty() && lookupOptionalScalar(legacyName, value))
             {
-                const dictionary& pcDict =
-                    transportDict.subDict("phaseChangeCoeffs");
-
-                if
-                (
-                    tryLookup
-                    (
-                        pcDict,
-                        entryName,
-                        "transportProperties.phaseChangeCoeffs",
-                        value
-                    )
-                )
-                {
-                    return value;
-                }
+                return value;
             }
 
             FatalIOErrorInFunction(transportDict)
-                << "Missing required entry '" << entryName
-                << "' in transportProperties"
+                << "Missing required entry '" << primaryName
+                << "' (or legacy '" << legacyName
+                << "') in transportProperties"
                 << exit(FatalIOError);
 
             return 0.0;
         };
 
-    latentHeat_ = lookupRequiredScalar("hf");
-    T_melt_ = lookupRequiredScalar("Tsol");
-    T_vapor_ = lookupRequiredScalar("Tvap");
+    latentHeat_ = lookupRequiredScalar("latentHeat", "hf");
+    T_melt_ = lookupRequiredScalar("T_melt", "Tsol");
+    T_vapor_ = lookupRequiredScalar("T_vapor", "Tvap");
 
     if (latentHeat_ <= SMALL)
     {
         FatalIOErrorInFunction(transportDict)
-            << "Latent heat 'hf' in transportProperties must be positive"
+            << "Latent heat ('latentHeat' or legacy 'hf') in transportProperties must be positive"
             << exit(FatalIOError);
     }
 
     if (T_melt_ <= 0 || T_vapor_ <= 0)
     {
         FatalIOErrorInFunction(transportDict)
-            << "Phase change temperatures 'Tsol' and 'Tvap' in transportProperties must be positive"
+            << "Phase change temperatures ('T_melt'/'T_vapor' or legacy 'Tsol'/'Tvap') in transportProperties must be positive"
             << exit(FatalIOError);
     }
 
     if (T_melt_ >= T_vapor_)
     {
         FatalIOErrorInFunction(transportDict)
-            << "Expected Tsol < Tvap in transportProperties"
+            << "Expected T_melt < T_vapor (legacy Tsol < Tvap) in transportProperties"
             << exit(FatalIOError);
     }
     if (debug)
@@ -244,7 +256,8 @@ Foam::twoPhaseMixtureThermo::twoPhaseMixtureThermo
                     << exit(FatalIOError);
             }
 
-            dimensionedScalar value(dict.lookup(entryName));
+            const entry& e = dict.lookupEntry(entryName, false, false);
+            dimensionedScalar value(e, dict);
             const scalar val = value.value();
 
             if (!std::isfinite(val) || val <= 0)

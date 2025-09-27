@@ -40,8 +40,8 @@ SourceFiles
 #include "twoPhaseMixtureThermo.H"
 #include "turbulentFluidThermoModel.H"
 #include "compressibleTurbulenceModel.H"
-#include "compressibleMomentumTransportModels.H"
-#include "phaseCompressibleMomentumTransportModel.H"
+//#include "dynamicMomentumTransportModel.H"
+//#include "phaseDynamicMomentumTransportModel.H"
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 namespace Foam
 {

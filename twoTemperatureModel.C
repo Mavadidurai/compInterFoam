@@ -1326,7 +1326,20 @@ tmp<volScalarField> twoTemperatureModel::gasMetalExchangeCoeffField() const
     volScalarField& interfaceWeight = tInterfaceWeight.ref();
     interfaceWeight *= scalar(2);
     interfaceWeight = Foam::min(interfaceWeight, scalar(1));
+    tmp<volScalarField> tNeighbourGas(fvc::average(gasClamp));
+    volScalarField& neighbourGas = tNeighbourGas.ref();
+    neighbourGas = Foam::min
+    (
+        Foam::max(neighbourGas, scalar(0)),
+        scalar(1)
+    );
 
+    interfaceWeight = Foam::max(interfaceWeight, neighbourGas);
+    interfaceWeight = Foam::min
+    (
+        Foam::max(interfaceWeight, scalar(0)),
+        scalar(1)
+    );
     coeff *= interfaceWeight;
     coeff.correctBoundaryConditions();
     return tCoeff;
