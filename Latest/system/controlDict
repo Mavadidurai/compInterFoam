@@ -17,10 +17,10 @@ FoamFile
 
 application     compInterFoam;
 
-startFrom       latestTime;
+startFrom       startTime;
 startTime       0;
 stopAt          endTime;
-endTime         5e-8;          // 50 ns simulation time
+endTime         2e-11;          // 50 ns simulation time
 
 deltaT          6e-13;         // Base time step
 adjustTimeStep  no;
@@ -35,7 +35,7 @@ maxThermalCourant 0.9;
 
 // Output control
 writeControl    runTime;
-writeInterval   1e-11;          // Write every 10 ns
+writeInterval   1e-12;          // Write every 10 ns
 purgeWrite      10;            // Keep only last 10 time directories
 writeFormat     ascii;
 writePrecision  8;             // Reduced from 12
@@ -54,7 +54,7 @@ advancedInterfaceCapturing
     recoilMax            5e6;           // Increased limit
     clampRecoil          true;
     scaleRecoilMax       true;          // Enable interface scaling
-    recoilTempOffset     [0 0 0 1 0 0 0] 0;
+    recoilTempOffset     [0 0 0 1 0 0 0] 300;
     phaseChangeTempOffset [0 0 0 1 0 0 0] 0;
     recoilRelax          0.2;
     alphaMin             0.001;
@@ -112,7 +112,11 @@ functions
             const volScalarField& Tl = mesh().lookupObject<volScalarField>("Tl");
             const volScalarField& T = mesh().lookupObject<volScalarField>("T");
             const volScalarField& alpha = mesh().lookupObject<volScalarField>("alpha.metal");
-            const volScalarField& p = mesh().lookupObject<volScalarField>("p");
+            const volScalarField& p_rgh = mesh().lookupObject<volScalarField>("p_rgh");
+            const volScalarField& rho = mesh().lookupObject<volScalarField>("rho");
+            const volScalarField& gh = mesh().lookupObject<volScalarField>("gh");
+            tmp<volScalarField> tp(p_rgh + rho*gh);
+            const volScalarField& p = tp();
             const volVectorField& U = mesh().lookupObject<volVectorField>("U");
             
             // Max temperatures - fix API calls
@@ -209,7 +213,11 @@ functions
             const volScalarField& Tl = mesh().lookupObject<volScalarField>("Tl");
             const volScalarField& T = mesh().lookupObject<volScalarField>("T");
             const volScalarField& alpha = mesh().lookupObject<volScalarField>("alpha.metal");
-            const volScalarField& p = mesh().lookupObject<volScalarField>("p");
+            const volScalarField& p_rgh = mesh().lookupObject<volScalarField>("p_rgh");
+            const volScalarField& rho = mesh().lookupObject<volScalarField>("rho");
+            const volScalarField& gh = mesh().lookupObject<volScalarField>("gh");
+            tmp<volScalarField> tp(p_rgh + rho*gh);
+            const volScalarField& p = tp();
             const volVectorField& U = mesh().lookupObject<volVectorField>("U");
             
             // Fix API calls
@@ -319,7 +327,11 @@ functions
             const volScalarField& Te = mesh().lookupObject<volScalarField>("Te");
             const volScalarField& Tl = mesh().lookupObject<volScalarField>("Tl");
             const volScalarField& alpha = mesh().lookupObject<volScalarField>("alpha.metal");
-            const volScalarField& p = mesh().lookupObject<volScalarField>("p");
+            const volScalarField& p_rgh = mesh().lookupObject<volScalarField>("p_rgh");
+            const volScalarField& rho = mesh().lookupObject<volScalarField>("rho");
+            const volScalarField& gh = mesh().lookupObject<volScalarField>("gh");
+            tmp<volScalarField> tp(p_rgh + rho*gh);
+            const volScalarField& p = tp();
             const volVectorField& U = mesh().lookupObject<volVectorField>("U");
             
             const scalar maxTe = gMax(Te);
