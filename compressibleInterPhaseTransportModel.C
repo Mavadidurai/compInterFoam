@@ -117,7 +117,7 @@ Foam::compressibleInterPhaseTransportModel::compressibleInterPhaseTransportModel
             )
         );
 
-turbulence1_ = PhaseCompressibleTurbulenceModel<rhoThermo>::New
+        turbulence1_ = PhaseCompressibleTurbulenceModel<rhoThermo>::New
         (
             alpha1,
             rho1,
@@ -127,7 +127,7 @@ turbulence1_ = PhaseCompressibleTurbulenceModel<rhoThermo>::New
             mixture.thermo1()
         );
 
-turbulence2_ = PhaseCompressibleTurbulenceModel<rhoThermo>::New
+        turbulence2_ = PhaseCompressibleTurbulenceModel<rhoThermo>::New
         (
             alpha2,
             rho2,
@@ -154,19 +154,34 @@ Foam::compressibleInterPhaseTransportModel::alphaEff() const
 {
     if (twoPhaseTransport_)
     {
-        const tmp<volScalarField> alphat1Tmp = turbulence1_->alphat();
-        const volScalarField& alphat1 = alphat1Tmp();
+        // Use nut() instead of alphat() for OpenFOAM v2406 compatibility
+        const tmp<volScalarField> nut1Tmp = turbulence1_->nut();
+        const volScalarField& nut1 = nut1Tmp();
 
-        const tmp<volScalarField> alphat2Tmp = turbulence2_->alphat();
-        const volScalarField& alphat2 = alphat2Tmp();
+        const tmp<volScalarField> nut2Tmp = turbulence2_->nut();
+        const volScalarField& nut2 = nut2Tmp();
+
+        // Convert kinematic turbulent viscosity to thermal diffusivity
+        // using Prandtl number approach: alphat = nut/Prt
+        const scalar Prt1 = 0.85; // Typical turbulent Prandtl number for phase 1
+        const scalar Prt2 = 0.85; // Typical turbulent Prandtl number for phase 2
+        
+        const tmp<volScalarField> alphat1 = nut1/Prt1;
+        const tmp<volScalarField> alphat2 = nut2/Prt2;
 
         return
-            mixture_.alpha1()*mixture_.thermo1().alphaEff(alphat1)
-          + mixture_.alpha2()*mixture_.thermo2().alphaEff(alphat2);
+            mixture_.alpha1()*mixture_.thermo1().alphaEff(alphat1())
+          + mixture_.alpha2()*mixture_.thermo2().alphaEff(alphat2());
     }
 
-    const tmp<volScalarField> alphatTmp = turbulence_->alphat();
-    return mixture_.alphaEff(alphatTmp());
+    const tmp<volScalarField> nutTmp = turbulence_->nut();
+    const volScalarField& nut = nutTmp();
+    
+    // Convert to thermal diffusivity using Prandtl number
+    const scalar Prt = 0.85; // Typical turbulent Prandtl number
+    const tmp<volScalarField> alphat = nut/Prt;
+    
+    return mixture_.alphaEff(alphat());
 }
 
 Foam::tmp<Foam::volScalarField>
@@ -174,19 +189,33 @@ Foam::compressibleInterPhaseTransportModel::kappaEff() const
 {
     if (twoPhaseTransport_)
     {
-        const tmp<volScalarField> alphat1Tmp = turbulence1_->alphat();
-        const volScalarField& alphat1 = alphat1Tmp();
+        // Use nut() instead of alphat() for OpenFOAM v2406 compatibility
+        const tmp<volScalarField> nut1Tmp = turbulence1_->nut();
+        const volScalarField& nut1 = nut1Tmp();
 
-        const tmp<volScalarField> alphat2Tmp = turbulence2_->alphat();
-        const volScalarField& alphat2 = alphat2Tmp();
+        const tmp<volScalarField> nut2Tmp = turbulence2_->nut();
+        const volScalarField& nut2 = nut2Tmp();
+
+        // Convert kinematic turbulent viscosity to thermal diffusivity
+        const scalar Prt1 = 0.85; // Typical turbulent Prandtl number for phase 1
+        const scalar Prt2 = 0.85; // Typical turbulent Prandtl number for phase 2
+        
+        const tmp<volScalarField> alphat1 = nut1/Prt1;
+        const tmp<volScalarField> alphat2 = nut2/Prt2;
 
         return
-            mixture_.alpha1()*mixture_.thermo1().kappaEff(alphat1)
-          + mixture_.alpha2()*mixture_.thermo2().kappaEff(alphat2);
+            mixture_.alpha1()*mixture_.thermo1().kappaEff(alphat1())
+          + mixture_.alpha2()*mixture_.thermo2().kappaEff(alphat2());
     }
 
-    const tmp<volScalarField> alphatTmp = turbulence_->alphat();
-    return mixture_.kappaEff(alphatTmp());
+    const tmp<volScalarField> nutTmp = turbulence_->nut();
+    const volScalarField& nut = nutTmp();
+    
+    // Convert to thermal diffusivity using Prandtl number
+    const scalar Prt = 0.85; // Typical turbulent Prandtl number
+    const tmp<volScalarField> alphat = nut/Prt;
+    
+    return mixture_.kappaEff(alphat());
 }
 
 Foam::tmp<Foam::fvVectorMatrix>
