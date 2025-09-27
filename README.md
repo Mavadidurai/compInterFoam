@@ -3,7 +3,32 @@
 The extended `compInterFoam` solver introduces several optional dictionaries and
 switches to control the laser, two-temperature, and phase-change models. The
 following tables summarize the key entries, their purpose, and in-code defaults.
+## Building the solver
 
+The code relies on OpenFOAM's `wmake` build system. To avoid the
+`bash: command not found: wmake` error, first source the OpenFOAM
+environment (replace the path with the one that matches your installation):
+
+```bash
+source /opt/openfoam/etc/bashrc
+```
+
+After sourcing the environment you can compile the solver with the usual
+command:
+
+```bash
+wmake
+```
+
+If you are unsure whether the environment is set up correctly you can also run
+the helper script in the repository root:
+
+```bash
+./wmake
+```
+
+It will delegate to the system `wmake` when available or print a clear
+instruction when the OpenFOAM environment is missing.
 ## `system/controlDict`
 
 ### `verbose`
