@@ -65,7 +65,7 @@ equationOfState
 Tsol                1941.0;             // K - Solidus temperature
 Tliq                1941.0;             // K - Liquidus temperature
 Tvap                3560.0;             // K - Vaporisation temperature
-hf                  3.65e5;              // J/kg - Latent heat of fusion
+hf    		    8.9e6;     		// ← vaporization latent heat (Ti), not fusion
 kappa               17.2;               // W/m·K - Thermal conductivity
 
 // ************************************************************************* //
