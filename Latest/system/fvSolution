@@ -94,14 +94,14 @@ solvers
         smoother        symGaussSeidel;
         nSweeps         4;
         maxIter         300;
-        tolerance       5e-11;
+        tolerance       1e-8;
         relTol          0;
     }
     TeFinal
     {
         $Te;
         nSweeps         6;
-        tolerance       1e-11;
+        tolerance       1e-8;
         relTol          0;
     }
     Tl
@@ -110,14 +110,14 @@ solvers
         smoother        symGaussSeidel;
         nSweeps         4;
         maxIter         300;
-        tolerance       5e-11;
+        tolerance       1e-8;
         relTol          0;
     }
     TlFinal
     {
         $Tl;
         nSweeps         6;
-        tolerance       1e-11;
+        tolerance       1e-8;
         relTol          0;
     }
 }
