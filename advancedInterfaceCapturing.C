@@ -45,13 +45,15 @@ advancedInterfaceCapturing::advancedInterfaceCapturing
     volScalarField& alpha1,
     const surfaceScalarField& phi,
     const twoPhaseMixtureThermo& mixture,
-    const volScalarField& T
+    const volScalarField& T,
+    const volScalarField* Tl
 )
 :
     mesh_(mesh),
     alpha1_(alpha1),
     mixture_(mixture),
     T_(T),
+    TlPtr_(Tl),
     meltingTemp_
     (
         dimensionedScalar
@@ -253,20 +255,33 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
     // OPTIMIZED: Calculate once, reuse multiple times
     const scalar currentTime = mesh_.time().value();
     const bool master = Pstream::master();
-    const scalarField& TField = T_.primitiveField();
+    const scalarField& gasTField = T_.primitiveField();
     const scalarField& alpha1Field = alpha1_.primitiveField();
     const volScalarField& massRate = mixture_.dgdt();
+    const scalarField* TlFieldPtr = nullptr;
+    if (TlPtr_)
+    {
+        TlFieldPtr = &TlPtr_->primitiveField();
+        if (TlFieldPtr->size() != gasTField.size())
+        {
+            FatalErrorIn("advancedInterfaceCapturing::calculateRecoilPressure()")
+                << "Lattice temperature field size (" << TlFieldPtr->size()
+                << ") does not match gas temperature size ("
+                << gasTField.size() << ")"
+                << abort(FatalError);
+        }
+    }
 
     if
     (
         massRate.size() != mesh_.nCells()
-     || massRate.size() != TField.size()
+     || massRate.size() != gasTField.size()
      || massRate.size() != alpha1Field.size()
     )
     {
         FatalErrorIn("advancedInterfaceCapturing::calculateRecoilPressure()")
             << "Field size mismatch detected. massRate: " << massRate.size()
-            << " T: " << TField.size()
+            << " T: " << gasTField.size()
             << " alpha1: " << alpha1Field.size()
             << " mesh: " << mesh_.nCells()
             << abort(FatalError);
@@ -274,21 +289,44 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
 
     const scalarField& massRateField = massRate.primitiveField();
 
+    auto effectiveTemperature =
+        [&](const label cellI, const scalar alpha) -> scalar
+        {
+            if (TlFieldPtr && alpha > alphaMin_)
+            {
+                return (*TlFieldPtr)[cellI];
+            }
+            return gasTField[cellI];
+        };
+
     bool haveMetalCell = false;
     scalar maxTemp = 0.0;
 
-    forAll(TField, cellI)
+    forAll(gasTField, cellI)
     {
-        const scalar Tval = TField[cellI];
         const scalar alpha = alpha1Field[cellI];
+        const scalar gasT = gasTField[cellI];
 
-        if (!std::isfinite(Tval))
+        if (!std::isfinite(gasT))
         {
             FatalErrorIn("advancedInterfaceCapturing::calculateRecoilPressure()")
-                << "Non-finite temperature value detected at cell " << cellI
-                << ". Value: " << Tval
+                << "Non-finite gas temperature value detected at cell " << cellI
+                << ". Value: " << gasT
                 << abort(FatalError);
         }
+
+        if (TlFieldPtr)
+        {
+            const scalar latticeT = (*TlFieldPtr)[cellI];
+            if (!std::isfinite(latticeT))
+            {
+                FatalErrorIn("advancedInterfaceCapturing::calculateRecoilPressure()")
+                    << "Non-finite lattice temperature value detected at cell "
+                    << cellI << ". Value: " << latticeT
+                    << abort(FatalError);
+            }
+        }
+
 
         if (!std::isfinite(alpha))
         {
@@ -354,14 +392,16 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
     label suppressedCondensationCells = 0;
 
     // Compute recoil pressure based on evaporation rate
-    forAll(TField, cellI)
+    forAll(gasTField, cellI)
     {
-        if (TField[cellI] < evaporationOnTemp)
+        const scalar alpha = alpha1Field[cellI];
+        const scalar localTemp = effectiveTemperature(cellI, alpha);
+
+        if (localTemp < evaporationOnTemp)
         {
             continue;
         }
 
-        const scalar alpha = alpha1Field[cellI];
         const scalar alphaMask =
             Foam::min
             (

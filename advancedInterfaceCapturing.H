@@ -46,7 +46,8 @@ private:
     const fvMesh& mesh_;
     volScalarField& alpha1_;         // Phase fraction
     const twoPhaseMixtureThermo& mixture_;
-    const volScalarField& T_;        // Temperature field for phase change
+    const volScalarField& T_;        // Gas temperature field (fallback)
+    const volScalarField* TlPtr_;    // Optional lattice temperature field
     // Phase-change parameters provided by twoPhaseMixtureThermo
     dimensionedScalar meltingTemp_;             // Melting temperature (Tsol)
     dimensionedScalar vaporTemp_;               // Vaporization temperature (Tvap)
@@ -74,7 +75,8 @@ public:
         volScalarField& alpha1,
         const surfaceScalarField& phi,
         const twoPhaseMixtureThermo& mixture,
-        const volScalarField& T
+        const volScalarField& T,
+        const volScalarField* Tl = nullptr
     );
     //- Delete default copy constructor and assignment operator
     advancedInterfaceCapturing(const advancedInterfaceCapturing&) = delete;
