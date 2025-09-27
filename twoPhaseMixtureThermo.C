@@ -340,9 +340,15 @@ void Foam::twoPhaseMixtureThermo::computePhaseChange()
     phaseChangeSource_ = dimensionedScalar("source", dimTemperature/dimTime, 0.0);
     // Reset the implicit relaxation coefficient
     phaseChangeRelaxCoeff_ = dimensionedScalar("relax", dimless/dimTime, 0.0);
-    const bool master = Pstream::master();    
+    const bool master = Pstream::master();
     // Access coefficients from transportProperties
     const dictionary& transportDict = T_.mesh().lookupObject<dictionary>("transportProperties");
+    const scalarField* latticeTemperaturePtr = nullptr;
+    if (T_.mesh().foundObject<volScalarField>("Tl"))
+    {
+        const volScalarField& TlField = T_.mesh().lookupObject<volScalarField>("Tl");
+        latticeTemperaturePtr = &TlField.internalField();
+    }
     if (!transportDict.found("phaseChangeCoeffs"))
     {
         FatalErrorInFunction
@@ -512,7 +518,8 @@ void Foam::twoPhaseMixtureThermo::computePhaseChange()
     forAll(T_, cellI)
     {
         const scalar a1 = Foam::min(Foam::max(alpha1()[cellI], minAlpha), maxAlpha);
-        const scalar Tcell = T_[cellI];
+        const scalar Tcell =
+            latticeTemperaturePtr ? (*latticeTemperaturePtr)[cellI] : T_[cellI];
         const bool metalActive = (a1 > metalCutoff);
         scalar available = 0.0;
         if (metalActive)
