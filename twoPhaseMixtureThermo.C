@@ -26,7 +26,7 @@ License
 #include "gradientEnergyFvPatchScalarField.H"
 #include "mixedEnergyFvPatchScalarField.H"
 #include "collatedFileOperation.H"
-
+#include "autoPtr.H"
 #include "IOdictionary.H"
 #include "Pstream.H"
 #include "Switch.H"
@@ -345,7 +345,32 @@ void Foam::twoPhaseMixtureThermo::computePhaseChange()
     // Access coefficients from transportProperties
     const dictionary& transportDict = mesh.lookupObject<dictionary>("transportProperties");
 
-    if (!mesh.foundObject<volScalarField>("Tl"))
+    const volScalarField* TlPtr = nullptr;
+    autoPtr<volScalarField> TlTmp;
+
+    if (mesh.foundObject<volScalarField>("Tl"))
+    {
+        TlPtr = &mesh.lookupObject<volScalarField>("Tl");
+    }
+    else
+    {
+        IOobject TlHeader
+        (
+            "Tl",
+            mesh.time().timeName(),
+            mesh,
+            IOobject::READ_IF_PRESENT,
+            IOobject::NO_REGISTER
+        );
+
+        if (TlHeader.headerOk())
+        {
+            TlTmp.reset(new volScalarField(TlHeader, mesh));
+            TlPtr = TlTmp.ptr();
+        }
+    }
+
+    if (!TlPtr)
     {
         static bool warnedMissingTl = false;
         if (!warnedMissingTl && master)
@@ -359,7 +384,7 @@ void Foam::twoPhaseMixtureThermo::computePhaseChange()
         return;
     }
 
-    const volScalarField& Tl = mesh.lookupObject<volScalarField>("Tl");
+    const volScalarField& Tl = *TlPtr;
     if (!transportDict.found("phaseChangeCoeffs"))
     {
         FatalErrorInFunction

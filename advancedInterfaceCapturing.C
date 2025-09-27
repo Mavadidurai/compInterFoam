@@ -77,7 +77,7 @@ advancedInterfaceCapturing::advancedInterfaceCapturing
         dimensionedScalar
         (
             "pressureScale",
-        dimPressure,
+            dimPressure*dimTime,
             1.0
         )
     ),
@@ -156,7 +156,7 @@ advancedInterfaceCapturing::advancedInterfaceCapturing
     pressureScale_ = dimensionedScalar
     (
         "pressureScale",
-        dimPressure,
+        dimPressure*dimTime,
         aicDict.lookupOrDefault<scalar>
         (
             "pressureScale",
@@ -178,14 +178,6 @@ advancedInterfaceCapturing::advancedInterfaceCapturing
             << abort(FatalError);
     }
 
-    if (recoilTempOffset_.value() >= vaporTemp_.value())
-    {
-        FatalErrorInFunction
-            << "recoilTempOffset (" << recoilTempOffset_.value()
-            << ") must be less than vaporTemperature ("
-            << vaporTemp_.value() << ")"
-            << abort(FatalError);
-    }
     clampRecoil_ = aicDict.lookupOrDefault<Switch>
     (
         "clampRecoil",
@@ -290,7 +282,7 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
     const scalarField& massRateField = massRate.primitiveField();
 
     const scalar alphaWindow = Foam::max(alphaMax_ - alphaMin_, Foam::SMALL);
-    const scalar recoilOnTemp = vaporTemp_.value() - recoilTempOffset_.value();
+    const scalar recoilOnTemp = vaporTemp_.value() + recoilTempOffset_.value();
     const scalar evaporationOnTemp = vaporTemp_.value() + phaseChangeTempOffset_.value();    
     bool haveMetalCell = false;
     scalar maxTemp = 0.0;
