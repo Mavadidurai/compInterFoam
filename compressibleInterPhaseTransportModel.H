@@ -38,8 +38,10 @@ SourceFiles
 #define compressibleInterPhaseTransportModel_H
 #include "twoPhaseMixture.H"
 #include "twoPhaseMixtureThermo.H"
-#include "dynamicMomentumTransportModel.H"
-#include "phaseDynamicMomentumTransportModel.H"
+#include "turbulentFluidThermoModel.H"
+#include "compressibleTurbulenceModel.H"
+#include "compressibleMomentumTransportModels.H"
+#include "phaseCompressibleMomentumTransportModel.H"
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 namespace Foam
 {

@@ -231,28 +231,96 @@ Foam::twoPhaseMixtureThermo::twoPhaseMixtureThermo
         }
     }
 
-    const dictionary& phase1Dict = transportDict.subDict(phase1Name());
-    const dictionary& phase2Dict = transportDict.subDict(phase2Name());
-    nu1_ = phase1Dict.lookupOrDefault<dimensionedScalar>
+    auto readDimensionedScalar =
+        [&](const dictionary& dict,
+            const word& entryName,
+            const std::string& location) -> dimensionedScalar
+        {
+            if (!dict.found(entryName))
+            {
+                FatalIOErrorInFunction(dict)
+                    << "Missing required entry '" << entryName
+                    << "' in " << location
+                    << exit(FatalIOError);
+            }
+
+            dimensionedScalar value(dict.lookup(entryName));
+            const scalar val = value.value();
+
+            if (!std::isfinite(val) || val <= 0)
+            {
+                FatalIOErrorInFunction(dict)
+                    << "Entry '" << entryName << "' in " << location
+                    << " must be finite and positive"
+                    << exit(FatalIOError);
+            }
+
+            return value;
+        };
+
+    if
     (
-        "nu",
-        dimensionedScalar("nu", dimViscosity, 0)
-    );
-    nu2_ = phase2Dict.lookupOrDefault<dimensionedScalar>
-    (
-        "nu",
-        dimensionedScalar("nu", dimViscosity, 0)
-    );
-    rho1_ = phase1Dict.lookupOrDefault<dimensionedScalar>
-    (
-        "rho",
-        dimensionedScalar("rho", dimDensity, 0)
-    );
-    rho2_ = phase2Dict.lookupOrDefault<dimensionedScalar>
-    (
-        "rho",
-        dimensionedScalar("rho", dimDensity, 0)
-    );
+        transportDict.found(phase1Name())
+     && transportDict.found(phase2Name())
+     && transportDict.isDict(phase1Name())
+     && transportDict.isDict(phase2Name())
+    )
+    {
+        const dictionary& phase1Dict = transportDict.subDict(phase1Name());
+        const dictionary& phase2Dict = transportDict.subDict(phase2Name());
+
+        nu1_ = readDimensionedScalar
+        (
+            phase1Dict,
+            "nu",
+            std::string("transportProperties.") + phase1Name()
+        );
+        nu2_ = readDimensionedScalar
+        (
+            phase2Dict,
+            "nu",
+            std::string("transportProperties.") + phase2Name()
+        );
+        rho1_ = readDimensionedScalar
+        (
+            phase1Dict,
+            "rho",
+            std::string("transportProperties.") + phase1Name()
+        );
+        rho2_ = readDimensionedScalar
+        (
+            phase2Dict,
+            "rho",
+            std::string("transportProperties.") + phase2Name()
+        );
+    }
+    else
+    {
+        nu1_ = readDimensionedScalar
+        (
+            transportDict,
+            "nu1",
+            "transportProperties"
+        );
+        nu2_ = readDimensionedScalar
+        (
+            transportDict,
+            "nu2",
+            "transportProperties"
+        );
+        rho1_ = readDimensionedScalar
+        (
+            transportDict,
+            "rho1",
+            "transportProperties"
+        );
+        rho2_ = readDimensionedScalar
+        (
+            transportDict,
+            "rho2",
+            "transportProperties"
+        );
+    }
     if (Pstream::master())
     {
         Info<< "Transport properties:" << nl
