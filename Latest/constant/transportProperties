@@ -40,19 +40,20 @@ phaseChangeCoeffs
 {
     model               temperatureWindow;
     Tvapor              3560;
-    windowWidth         300;
+    windowWidth         100;
     dtFloor             1e-12;
-    relaxationTime      2e-12;
+    relaxationTime      1e-10;
     maxSource           5e8;
+    minCoefficient      5e7;
     metalFractionCutoff 1e-6;
-    activationTime      ((0 2e-11));
+    activationTime      ((0 5e-11));
 }
 
 massTransferCoeffs
 {
     tStart  (0);
-    tEnd    (2e-11);
-    rateMax 2e12;
+    tEnd    (5e-11);
+    rateMax 5e6;
 }
 
 // ************************************************************************* //
