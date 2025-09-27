@@ -96,7 +96,7 @@ libs
 // Clean monitoring functions
 functions
 {
-    // Main LIFT monitoring - clean output with validation ranges
+    // Main LIFT monitoring
     liftMonitor
     {
         type            coded;
@@ -115,24 +115,26 @@ functions
             const volScalarField& p_rgh = mesh().lookupObject<volScalarField>("p_rgh");
             const volScalarField& rho = mesh().lookupObject<volScalarField>("rho");
             const volScalarField& gh = mesh().lookupObject<volScalarField>("gh");
+            const volScalarField& QLaser = mesh().lookupObject<volScalarField>("Q_laser");
             tmp<volScalarField> tp(p_rgh + rho*gh);
             const volScalarField& p = tp();
             const volVectorField& U = mesh().lookupObject<volVectorField>("U");
             
             const volScalarField& recoilP = mesh().lookupObject<volScalarField>("recoilPressure");
 
-            // Max temperatures - fix API calls
+            // Max values
             const scalar maxTe = gMax(Te);
             const scalar maxTl = gMax(Tl);
             const scalar maxTgas = gMax(T);
             const scalar maxRecoil = gMax(recoilP);
+            const scalar maxQLaser = gMax(QLaser);
             
-            // Metal volume - fix API calls
+            // Metal volume
             const scalarField alphaVol = alpha.primitiveField() * mesh().V();
             const scalar metalVol = gSum(alphaVol);
             const scalar metalVolUm3 = metalVol * 1e18; // Convert to μm³
             
-            // Pressure peaks - fix API calls
+            // Pressure peaks
             const scalar maxPressure = gMax(p);
             const scalar minPressure = gMin(p);
             
@@ -179,9 +181,10 @@ functions
                 progress = min(max(progress, 0.0), 1.0);
             }
 
-            // Clean output format with validation
+            // Enhanced output with laser status
             Info<< "LIFT: t=" << t*1e12 << "ps"
                 << " progress=" << progress*100 << "%"
+                << " QLaser=" << maxQLaser/1e12 << "TW/m³"
                 << " Te=" << maxTe << "K[" << teStatus << "]"
                 << " Tl=" << maxTl << "K[" << tlStatus << "]"
                 << " Tgas=" << maxTgas << "K"
@@ -195,6 +198,12 @@ functions
             if (teStatus != "OK" || tlStatus != "OK" || pStatus != "OK" || velStatus != "OK")
             {
                 Info<< "WARNING: Values outside typical LIFT ranges detected!" << endl;
+            }
+            
+            // Laser activity warning
+            if (t <= 4e-11 && maxQLaser < 1e6) // Should be active during pulse
+            {
+                Info<< "WARNING: Laser source very low during expected active period!" << endl;
             }
         #};
     }
@@ -220,6 +229,7 @@ functions
             const volScalarField& p_rgh = mesh().lookupObject<volScalarField>("p_rgh");
             const volScalarField& rho = mesh().lookupObject<volScalarField>("rho");
             const volScalarField& gh = mesh().lookupObject<volScalarField>("gh");
+            const volScalarField& QLaser = mesh().lookupObject<volScalarField>("Q_laser");
             tmp<volScalarField> tp(p_rgh + rho*gh);
             const volScalarField& p = tp();
             const volVectorField& U = mesh().lookupObject<volVectorField>("U");
@@ -228,6 +238,7 @@ functions
             const scalar maxTe = gMax(Te);
             const scalar maxTl = gMax(Tl);
             const scalar maxTgas = gMax(T);
+            const scalar maxQLaser = gMax(QLaser);
             const scalarField alphaVol = alpha.primitiveField() * mesh().V();
             const scalar metalVol = gSum(alphaVol) * 1e18;
             const scalar maxP = gMax(p);
@@ -260,11 +271,12 @@ functions
                 );
                 if (!headerWritten)
                 {
-                    csvFile << "time_ps,Te_max_K,Tl_max_K,Tgas_max_K,metal_vol_um3,max_pressure_Pa,min_pressure_Pa,max_velocity_ms" << endl;
+                    csvFile << "time_ps,Te_max_K,Tl_max_K,Tgas_max_K,metal_vol_um3,max_pressure_Pa,min_pressure_Pa,max_velocity_ms,laser_power_Wm3" << endl;
                     headerWritten = true;
                 }
                 csvFile << t*1e12 << "," << maxTe << "," << maxTl << "," << maxTgas 
-                        << "," << metalVol << "," << maxP << "," << minP << "," << maxVel << endl;
+                        << "," << metalVol << "," << maxP << "," << minP << "," << maxVel 
+                        << "," << maxQLaser << endl;
             }
         #};
     }
@@ -282,10 +294,19 @@ functions
         #{
             const scalar t = mesh().time().value();
             const volScalarField& Tl = mesh().lookupObject<volScalarField>("Tl");
+            const volScalarField& QLaser = mesh().lookupObject<volScalarField>("Q_laser");
             const scalar maxTl = gMax(Tl);
+            const scalar maxQLaser = gMax(QLaser);
             
             static bool meltHit = false;
             static bool vapHit = false;
+            static bool laserStarted = false;
+            
+            if (!laserStarted && maxQLaser > 1e6) // Laser activation
+            {
+                Info<< "*** LASER ACTIVATED at t=" << t*1e12 << "ps, Q=" << maxQLaser/1e12 << "TW/m³ ***" << endl;
+                laserStarted = true;
+            }
             
             if (!meltHit && maxTl > 1941.0) // Ti melting point
             {
@@ -300,6 +321,7 @@ functions
             }
         #};
     }
+
 
     // Mid-plane visualization (optional)
     midPlaneVTK
