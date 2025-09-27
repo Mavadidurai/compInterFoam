@@ -140,24 +140,24 @@ extern const bool master;
 
     tmp<volScalarField> tCvolLimited(Foam::max(CvolGas, cvolFloor));
     const volScalarField& CvolLimited = tCvolLimited();
-    tmp<surfaceScalarField> tCvolPhi(fvc::interpolate(CvolGas)*phi);
-    const surfaceScalarField& CvolPhi = tCvolPhi();
-    tmp<volScalarField> tContErr
-    (
-        fvc::ddt(CvolGas)
-      + fvc::div(CvolPhi)
-    );
-    const volScalarField& contErr = tContErr();
+     tmp<surfaceScalarField> tCvolPhi(fvc::interpolate(CvolLimited)*phi);
+     const surfaceScalarField& CvolPhi = tCvolPhi();
+     tmp<volScalarField> tContErr
+     (
+         fvc::ddt(CvolLimited)
+       + fvc::div(CvolPhi)
+     );
+     const volScalarField& contErr = tContErr();
 
-    fvScalarMatrix TEqn
-    (
-        fvm::ddt(CvolGas, T)
-      + fvm::div(CvolPhi, T)
-      - fvm::Sp(contErr, T)
-      - fvm::laplacian(transportModel.kappaEff(), T)
-     ==
-        fvOptions(CvolGas, T)
-    );
+     fvScalarMatrix TEqn
+     (
+         fvm::ddt(CvolLimited, T)
+       + fvm::div(CvolPhi, T)
+        - fvm::Sp(contErr, T)
+        - fvm::laplacian(transportModel.kappaEff(), T)
+      ==
+         fvOptions(CvolLimited, T)
+     );
 
     const volScalarField& Tl = ttm.Tl();
 

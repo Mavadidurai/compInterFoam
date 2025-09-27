@@ -335,7 +335,7 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
                 << ". Value: " << alpha
                 << abort(FatalError);
         }
-
+        const scalar Tval = effectiveTemperature(cellI, alpha);
         if (alpha > alphaMin_)
         {
             if (!haveMetalCell || Tval > maxTemp)
