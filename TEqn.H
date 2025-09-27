@@ -142,9 +142,11 @@ extern const bool master;
     const volScalarField& CvolLimited = tCvolLimited();
     tmp<surfaceScalarField> tCvolPhi(fvc::interpolate(CvolGas)*phi);
     const surfaceScalarField& CvolPhi = tCvolPhi();
-    tmp<volScalarField> tDivPhi(fvc::div(phi));
-    const volScalarField& divPhi = tDivPhi();
-    tmp<volScalarField> tContErr(CvolGas*divPhi);
+    tmp<volScalarField> tContErr
+    (
+        fvc::ddt(CvolGas)
+      + fvc::div(CvolPhi)
+    );
     const volScalarField& contErr = tContErr();
 
     fvScalarMatrix TEqn
