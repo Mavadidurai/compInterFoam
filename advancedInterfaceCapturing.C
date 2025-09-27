@@ -124,30 +124,26 @@ advancedInterfaceCapturing::advancedInterfaceCapturing
     auto readTemperature =
         [&](const word& key, const dimensionedScalar& defaultValue)
         {
-            dimensionedScalar value(defaultValue);
+            dimensionedScalar result(defaultValue);
 
             if (aicDict.found(key))
             {
-                ITstream& is = aicDict.lookup(key);
-                token firstToken(is);
-                is.putBack(firstToken);
+                const dimensionedScalar value =
+                    aicDict.lookupOrDefault<dimensionedScalar>(key, defaultValue);
 
-                if (firstToken.isPunctuation(token::BEGIN_SQR))
+                if (value.dimensions() != defaultValue.dimensions())
                 {
-                    dimensionSet dims(is);
-                    const scalar scalarValue = readScalar(is);
-                    value = dimensionedScalar(key, dims, scalarValue);
-                }
-                else
-                {
-                    const scalar scalarValue = readScalar(is);
-                    value = dimensionedScalar(key, dimTemperature, scalarValue);
+                    FatalIOErrorInFunction(aicDict)
+                        << "Entry '" << key << "' has dimensions "
+                        << value.dimensions()
+                        << ", expected " << defaultValue.dimensions()
+                        << exit(FatalIOError);
                 }
 
-                is.check("reading " + key);
+                result = value;
             }
 
-            return value;
+            return result;
         };
 
     meltingTemp_ = readTemperature("meltingTemperature", meltingTemp_);
