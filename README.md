@@ -88,7 +88,7 @@ model.
 | --- | --- | --- |
 | `Tvapor` | mixture `T_vapor` | Vaporization temperature. |
 | `windowWidth` | `0 K` | Half-width of smooth transition window around `Tvapor`. |
-| `dtFloor` | `1e-12 s` | Minimum implicit time-step used for source limiting. |
+| `dtFloor` | `1e-12 s` | Minimum implicit time-step; clamps implicit relaxation to `1/dtFloor`. |
 | `relaxationRate` | – | Required source relaxation rate `[1/s]`. |
 | `relaxationTime` | – | Alternative to `relaxationRate`; converted internally. |
 | `maxSource` (`minCoefficient`) | See note | Maximum allowable source term. Uses `transportProperties.phaseChangeMaxSourceDefault` if unspecified (fallback `1e7`). |
