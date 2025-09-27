@@ -305,7 +305,8 @@ int main(int argc, char *argv[])
                         << ", " << TlMax.value() << "]" << nl;
                 }
             }
-
+            // Refresh phase-change fields so dgdt reflects the latest Tl update
+            mixture.correct();
             if (useAdvancedCapturing && pInterfaceCapturing.valid())
             {
                 pInterfaceCapturing->calculateRecoilPressure();
