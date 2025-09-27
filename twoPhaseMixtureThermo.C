@@ -360,10 +360,11 @@ void Foam::twoPhaseMixtureThermo::computePhaseChange()
             mesh.time().timeName(),
             mesh,
             IOobject::READ_IF_PRESENT,
-            IOobject::NO_REGISTER
+            IOobject::NO_WRITE,
+            false
         );
 
-        if (TlHeader.headerOk())
+        if (TlHeader.typeHeaderOk<volScalarField>())
         {
             TlTmp.reset(new volScalarField(TlHeader, mesh));
             TlPtr = TlTmp.ptr();

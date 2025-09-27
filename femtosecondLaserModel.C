@@ -32,6 +32,7 @@ Description
 #include "fvc.H"
 #include "fvm.H"
 #include "mathematicalConstants.H"
+#include "boundBox.H"
 #include "treeBoundBox.H"
 #include "Pstream.H"
 #include "PstreamReduceOps.H"
@@ -79,7 +80,7 @@ femtosecondLaserModel::femtosecondLaserModel
     ),
     direction_(dict.get<vector>("direction")),
     focus_(dict.get<point>("focus")),
-    initialFocus_(focus_),
+    initialFocus_(dict.getOrDefault<point>("initialFocus", focus_)),
     scanVelocity_(dict.getOrDefault<vector>("scanVelocity", vector::zero)),
     pulseFrequency_(dict.getOrDefault<scalar>("pulseFrequency", 0.0)),
     pulseDutyCycle_(dict.getOrDefault<scalar>("pulseDutyCycle", 1.0)),
@@ -1074,13 +1075,66 @@ femtosecondLaserModel::applySpatialWeighting
     const pointField& cellCentres = mesh_.C();
     const scalarField& cellVolumes = mesh_.V();
     const pointField& meshPoints = mesh_.points();
-    
-    point entryPoint = focus_;
-    const scalar dirY = direction_.y();
-    if (mag(dirY) > VSMALL)
+
+    vector directionUnit(direction_);
+    const scalar directionMag = mag(directionUnit);
+
+    if (directionMag > VSMALL)
     {
-        const scalar s = (filmYMax_ - focus_.y())/dirY;
-        entryPoint = focus_ + s*direction_;
+        directionUnit /= directionMag;
+    }
+    else
+    {
+        directionUnit = vector::zero;
+    }
+
+    point entryPoint = focus_;
+
+    if (directionMag > VSMALL)
+    {
+        const boundBox domainBox(mesh_.bounds());
+        const point domainMin = domainBox.min();
+        const point domainMax = domainBox.max();
+
+        scalar tMin = -GREAT;
+        scalar tMax = GREAT;
+
+        for (direction cmpt = 0; cmpt < vector::nComponents; ++cmpt)
+        {
+            const scalar dirComp = directionUnit[cmpt];
+            const scalar focusComp = focus_[cmpt];
+
+            if (mag(dirComp) < VSMALL)
+            {
+                if
+                (
+                    focusComp < domainMin[cmpt] - SMALL
+                 || focusComp > domainMax[cmpt] + SMALL
+                )
+                {
+                    tMin = GREAT;
+                    tMax = -GREAT;
+                    break;
+                }
+
+                continue;
+            }
+
+            const scalar t1 = (domainMin[cmpt] - focusComp)/dirComp;
+            const scalar t2 = (domainMax[cmpt] - focusComp)/dirComp;
+
+            const scalar axisMin = Foam::min(t1, t2);
+            const scalar axisMax = Foam::max(t1, t2);
+
+            tMin = Foam::max(tMin, axisMin);
+            tMax = Foam::min(tMax, axisMax);
+        }
+
+        if (tMin <= tMax)
+        {
+            const scalar entryParam = Foam::min(tMin, scalar(0));
+            entryPoint = focus_ + entryParam*directionUnit;
+        }
     }
 
     forAll(cellCentres, cellI)
@@ -1128,7 +1182,10 @@ femtosecondLaserModel::applySpatialWeighting
         forAll(pointLabels, pointi)
         {
             const label ptI = pointLabels[pointi];
-            const scalar s = ((meshPoints[ptI] - entryPoint) & direction_);
+            const scalar s =
+                directionMag > VSMALL
+              ? ((meshPoints[ptI] - entryPoint) & directionUnit)
+              : 0.0;
             sMin = Foam::min(sMin, s);
             sMax = Foam::max(sMax, s);
         }
@@ -1142,7 +1199,11 @@ femtosecondLaserModel::applySpatialWeighting
             sIn = sOut;
             sOut = tmp;
         }
-
+        if (directionMag > VSMALL)
+        {
+            sIn = Foam::max(sIn, scalar(0));
+            sOut = Foam::max(sOut, sIn);
+        }
         const scalar effectiveReflectivity = reflectivity_;
         scalar transmissionFactor = 1.0 - effectiveReflectivity;
         if (transmission_ >= 0)
