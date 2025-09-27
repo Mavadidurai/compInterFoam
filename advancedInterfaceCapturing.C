@@ -34,7 +34,9 @@ Description
 #include "wallFvPatch.H"
 #include "fvPatchField.H"
 #include "Pstream.H"
-
+#include "dimensionSet.H"
+#include "IOstreams.H"
+#include "token.H"
 #include <cmath>
 
 namespace Foam
@@ -119,17 +121,37 @@ advancedInterfaceCapturing::advancedInterfaceCapturing
     const bool verbose =
         mesh.time().controlDict().lookupOrDefault<Switch>("verbose", false);
 
-    meltingTemp_ = aicDict.lookupOrDefault<dimensionedScalar>
-    (
-        "meltingTemperature",
-        meltingTemp_
-    );
-    vaporTemp_ = aicDict.lookupOrDefault<dimensionedScalar>
-    (
-        "vaporTemperature",
-        vaporTemp_
-    );
+    auto readTemperature =
+        [&](const word& key, const dimensionedScalar& defaultValue)
+        {
+            dimensionedScalar value(defaultValue);
 
+            if (aicDict.found(key))
+            {
+                ITstream& is = aicDict.lookup(key);
+                token firstToken(is);
+                is.putBack(firstToken);
+
+                if (firstToken.isPunctuation(token::BEGIN_SQR))
+                {
+                    dimensionSet dims(is);
+                    const scalar scalarValue = readScalar(is);
+                    value = dimensionedScalar(key, dims, scalarValue);
+                }
+                else
+                {
+                    const scalar scalarValue = readScalar(is);
+                    value = dimensionedScalar(key, dimTemperature, scalarValue);
+                }
+
+                is.check("reading " + key);
+            }
+
+            return value;
+        };
+
+    meltingTemp_ = readTemperature("meltingTemperature", meltingTemp_);
+    vaporTemp_ = readTemperature("vaporTemperature", vaporTemp_);
     const bool master = Pstream::master();
     if (verbose && master)
     {

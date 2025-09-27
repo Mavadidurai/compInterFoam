@@ -74,8 +74,8 @@ private:
     // Private Data
         //- Reference to mesh
         const fvMesh& mesh_;
-        //- Reference to dictionary
-        const dictionary& dict_;
+        //- Local copy of dictionary controls
+        dictionary dict_;
         //- Metal phase indicator (e.g. alpha1)
         const volScalarField& metalFraction_;
         //- Ambient fallback temperature for non-metal cells

@@ -130,15 +130,15 @@ twoTemperatureModel::twoTemperatureModel
 {
     scalar CeLogTe = ambientTemperature_.value();
 
-    if (dict.found("Ce"))
+    if (dict_.found("Ce"))
     {
-        if (dict.isDict("Ce"))
+        if (dict_.isDict("Ce"))
         {
-            const dictionary& CeDict = dict.subDict("Ce");
+            const dictionary& CeDict = dict_.subDict("Ce");
             CeFunction_.reset(Function1<scalar>::New("Ce", CeDict).ptr());
 
-            const scalar minTe = dict.lookupOrDefault<scalar>("minTe", 300.0);
-            const scalar maxTe = dict.lookupOrDefault<scalar>("maxTe", 4000.0);
+            const scalar minTe = dict_.lookupOrDefault<scalar>("minTe", 300.0);
+            const scalar maxTe = dict_.lookupOrDefault<scalar>("maxTe", 4000.0);
             scalar refTe = CeDict.lookupOrDefault<scalar>
             (
                 "referenceTemperature",
@@ -178,65 +178,65 @@ twoTemperatureModel::twoTemperatureModel
         }
         else
         {
-            dict.lookup("Ce") >> Ce_;
+            dict_.lookup("Ce") >> Ce_;
         }
     }
     else
     {
-        FatalIOErrorInFunction(dict)
+        FatalIOErrorInFunction(dict_)
             << "Missing required entry 'Ce' in two-temperature properties"
             << exit(FatalIOError);
     }
 
-    if (dict.found("Cl"))
+    if (dict_.found("Cl"))
     {
-        Cl_ = dict.lookupOrDefault<dimensionedScalar>("Cl", Cl_);
+        Cl_ = dict_.lookupOrDefault<dimensionedScalar>("Cl", Cl_);
     }
 
-    if (dict.found("G"))
+    if (dict_.found("G"))
     {
-        if (dict.isDict("G"))
+        if (dict_.isDict("G"))
         {
-            GFunction_.reset(Function1<scalar>::New("G", dict.subDict("G")).ptr());
+            GFunction_.reset(Function1<scalar>::New("G", dict_.subDict("G")).ptr());
         }
         else
         {
-            dict.lookup("G") >> G_;
+            dict_.lookup("G") >> G_;
         }
     }
     else
     {
-        FatalIOErrorInFunction(dict)
+        FatalIOErrorInFunction(dict_)
             << "Missing required entry 'G' in two-temperature properties"
             << exit(FatalIOError);
     }
 
-    if (dict.found("De"))
+    if (dict_.found("De"))
     {
-        De_ = dict.lookupOrDefault<dimensionedScalar>("De", De_);
+        De_ = dict_.lookupOrDefault<dimensionedScalar>("De", De_);
     }
 
-    if (dict.found("gasMetalExchangeCoeff"))
+    if (dict_.found("gasMetalExchangeCoeff"))
     {
-        if (dict.isDict("gasMetalExchangeCoeff"))
+        if (dict_.isDict("gasMetalExchangeCoeff"))
         {
             gasMetalExchangeFunction_.reset
             (
                 Function1<scalar>::New
                 (
                     "gasMetalExchangeCoeff",
-                    dict.subDict("gasMetalExchangeCoeff")
+                    dict_.subDict("gasMetalExchangeCoeff")
                 ).ptr()
             );
         }
         else
         {
-            dict.lookup("gasMetalExchangeCoeff") >> gasMetalExchangeCoeff_;
+            dict_.lookup("gasMetalExchangeCoeff") >> gasMetalExchangeCoeff_;
         }
     }
     else
     {
-        FatalIOErrorInFunction(dict)
+        FatalIOErrorInFunction(dict_)
             << "Missing required entry 'gasMetalExchangeCoeff' in"
             << " two-temperature properties"
             << exit(FatalIOError);
