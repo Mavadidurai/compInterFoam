@@ -1,0 +1,18 @@
+#!/bin/sh
+set -eu
+self=$(readlink -f "$0")
+if command -v wmake >/dev/null 2>&1; then
+    real=$(command -v wmake)
+    if [ "$real" != "$self" ]; then
+        exec "$real" "$@"
+    fi
+fi
+cat <<'EOF_MSG'
+Error: OpenFOAM's wmake command is not available on your PATH.
+This solver must be compiled inside an OpenFOAM environment.
+Please source the appropriate OpenFOAM bashrc, for example:
+    source /opt/openfoam/etc/bashrc
+and then rerun:
+    wmake
+EOF_MSG
+exit 127
