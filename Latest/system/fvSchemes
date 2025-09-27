@@ -27,7 +27,7 @@ gradSchemes
 {
     default         Gauss linear;
     grad(U)         cellLimited Gauss linear 0.5;
-    grad(alpha)     cellLimited Gauss linear 1;
+    grad(alpha.metal) cellLimited Gauss linear 1;
     grad(Te)        cellLimited Gauss linear 0.5;
     grad(Tl)        cellLimited Gauss linear 0.5;
     // If you have a single-phase gas T field too:

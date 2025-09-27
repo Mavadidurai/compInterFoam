@@ -46,11 +46,13 @@ fileHandler     uncollated;
 
 runTimeModifiable yes;
 
+logRecoilSuppression false;         // Disable verbose recoil logging
+    
 // Advanced interface capturing
 useAdvancedInterfaceCapturing  true;
 advancedInterfaceCapturing
 {
-    pressureScale        10;
+    pressureScale        [1 -1 -1 0 0 0 0] 5e6;
     recoilMax            5e7;           // Increased limit
     clampRecoil          true;
     scaleRecoilMax       true;          // Enable interface scaling
@@ -59,7 +61,7 @@ advancedInterfaceCapturing
     recoilRelax          0.5;
     alphaMin             0.001;
     alphaMax             0.999;
-    logRecoilSuppression false;         // Disable verbose recoil logging
+
 }
 
 // Temperature clamping
@@ -265,7 +267,6 @@ functions
                 (
                     "liftResults.csv",
                     IOstreamOption::ASCII,
-                    IOstreamOption::currentVersion,
                     IOstreamOption::UNCOMPRESSED,
                     IOstreamOption::APPEND
                 );
