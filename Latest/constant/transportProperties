@@ -39,6 +39,8 @@ scAlpha         scAlpha [0 0 0 0 0 0 0] 0;
 phaseChangeCoeffs
 {
     model               temperatureWindow;
+    Tsol                1941;      // K - Solidus temperature
+    hf                  8.9e6;     // J/kg - Latent heat of vaporization    
     Tvapor              3560;
     windowWidth         50;
     dtFloor             1e-12;
