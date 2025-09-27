@@ -23,13 +23,13 @@ stopAt          endTime;
 endTime         5e-8;          // 50 ns simulation time
 
 deltaT          6e-13;         // Base time step
-adjustTimeStep  yes;
+adjustTimeStep  no;
 maxCo           0.5;
 maxAlphaCo      0.5;
 maxDeltaT       5e-11;         // Cap at 50 ps
 minDeltaT       5e-15;         // Allow reduction to 5 fs
 
-verbose         false;         // Disable verbose output
+verbose         true;
 
 maxThermalCourant 0.9;
 
