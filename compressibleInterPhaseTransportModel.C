@@ -157,11 +157,11 @@ Foam::compressibleInterPhaseTransportModel::alphaEff() const
         return
             mixture_.alpha1()*mixture_.thermo1().alphaEff
             (
-                turbulence1_->alphat()
+                turbulence1_->alphatEff()
             )
           + mixture_.alpha2()*mixture_.thermo2().alphaEff
             (
-                turbulence2_->alphat()
+                turbulence2_->alphatEff()
             );
     }
 
@@ -176,11 +176,11 @@ Foam::compressibleInterPhaseTransportModel::kappaEff() const
         return
             mixture_.alpha1()*mixture_.thermo1().kappaEff
             (
-                turbulence1_->alphat()
+                turbulence1_->alphatEff()
             )
           + mixture_.alpha2()*mixture_.thermo2().kappaEff
             (
-                turbulence2_->alphat()
+                turbulence2_->alphatEff()
             );
     }
 

@@ -93,7 +93,8 @@ Foam::twoPhaseMixtureThermo::twoPhaseMixtureThermo
                 return false;
             }
 
-            value = readScalar(dict.lookup(entryName));
+            dimensionedScalar dimValue(entryName, dict);
+            value = dimValue.value();
 
             if (!std::isfinite(value))
             {
