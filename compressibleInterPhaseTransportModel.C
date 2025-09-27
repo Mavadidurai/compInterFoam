@@ -157,15 +157,15 @@ Foam::compressibleInterPhaseTransportModel::alphaEff() const
         return
             mixture_.alpha1()*mixture_.thermo1().alphaEff
             (
-                turbulence1_->alphat()
+                 turbulence1_->thermalDiffusivity()
             )
           + mixture_.alpha2()*mixture_.thermo2().alphaEff
             (
-                turbulence2_->alphat()
+                turbulence2_->thermalDiffusivity()
             );
     }
 
-    return mixture_.alphaEff(turbulence_->alphat());
+    return mixture_.alphaEff(turbulence_->thermalDiffusivity());
 }
 
 Foam::tmp<Foam::volScalarField>
@@ -176,15 +176,15 @@ Foam::compressibleInterPhaseTransportModel::kappaEff() const
         return
             mixture_.alpha1()*mixture_.thermo1().kappaEff
             (
-                turbulence1_->alphat()
+                turbulence1_->thermalDiffusivity()
             )
           + mixture_.alpha2()*mixture_.thermo2().kappaEff
             (
-                turbulence2_->alphat()
+                turbulence2_->thermalDiffusivity()
             );
     }
 
-    return mixture_.kappaEff(turbulence_->alphat());
+    return mixture_.kappaEff(turbulence_->thermalDiffusivity());
 }
 
 Foam::tmp<Foam::fvVectorMatrix>
@@ -195,10 +195,10 @@ Foam::compressibleInterPhaseTransportModel::divDevRhoReff
 {
     if (twoPhaseTransport_)
     {
-        return turbulence1_->divDevTau(U) + turbulence2_->divDevTau(U);
+        return turbulence1_->divDevRhoReff(U) + turbulence2_->divDevRhoReff(U);
     }
 
-    return turbulence_->divDevTau(U);
+    return turbulence_->divDevRhoReff(U);
 }
 
 void Foam::compressibleInterPhaseTransportModel::correctPhasePhi()
