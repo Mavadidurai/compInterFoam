@@ -290,6 +290,8 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
     const scalarField& massRateField = massRate.primitiveField();
 
     const scalar alphaWindow = Foam::max(alphaMax_ - alphaMin_, Foam::SMALL);
+    const scalar recoilOnTemp = vaporTemp_.value() - recoilTempOffset_.value();
+    const scalar evaporationOnTemp = vaporTemp_.value() + phaseChangeTempOffset_.value();    
     bool haveMetalCell = false;
     scalar maxTemp = 0.0;
 
@@ -326,16 +328,13 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
                 << ". Value: " << alpha
                 << abort(FatalError);
         }
-        scalar alphaMask = (alpha - alphaMin_)/alphaWindow;
-        alphaMask = Foam::min(Foam::max(alphaMask, scalar(0)), scalar(1));
-
         scalar Tval = gasT;
-        if (TlFieldPtr)
+        if (TlFieldPtr && alpha > 0.01)
         {
-            Tval = alphaMask*(*TlFieldPtr)[cellI] + (1.0 - alphaMask)*gasT;
+            Tval = (*TlFieldPtr)[cellI];
         }
 
-        if (alphaMask > SMALL)
+        if (alpha > 0.01)
         {
             if (!haveMetalCell || Tval > maxTemp)
             {
@@ -344,9 +343,6 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
             haveMetalCell = true;
         }
     }
-
-    const scalar recoilOnTemp = vaporTemp_.value() - recoilTempOffset_.value();
-    const scalar evaporationOnTemp = vaporTemp_.value() + phaseChangeTempOffset_.value();
     const bool verbose = mesh_.time().controlDict().lookupOrDefault<Switch>("verbose", false);
     if (verbose && master)
     {
@@ -407,9 +403,9 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
         }
 
         scalar localTemp = gasTField[cellI];
-        if (TlFieldPtr)
+        if (TlFieldPtr && alpha > 0.01)
         {
-            localTemp = alphaMask*(*TlFieldPtr)[cellI] + (1.0 - alphaMask)*localTemp;
+            localTemp = (*TlFieldPtr)[cellI];
         }
 
         if (localTemp < recoilOnTemp)

@@ -341,9 +341,25 @@ void Foam::twoPhaseMixtureThermo::computePhaseChange()
     // Reset the implicit relaxation coefficient
     phaseChangeRelaxCoeff_ = dimensionedScalar("relax", dimless/dimTime, 0.0);
     const bool master = Pstream::master();
+    const fvMesh& mesh = T_.mesh();
     // Access coefficients from transportProperties
-    const dictionary& transportDict = T_.mesh().lookupObject<dictionary>("transportProperties");
-    const volScalarField& Tl = T_.mesh().lookupObject<volScalarField>("Tl");
+    const dictionary& transportDict = mesh.lookupObject<dictionary>("transportProperties");
+
+    if (!mesh.foundObject<volScalarField>("Tl"))
+    {
+        static bool warnedMissingTl = false;
+        if (!warnedMissingTl && master)
+        {
+            WarningInFunction
+                << "Lattice temperature field 'Tl' not available;"
+                << " skipping phase-change update until it is created." << endl;
+            warnedMissingTl = true;
+        }
+
+        return;
+    }
+
+    const volScalarField& Tl = mesh.lookupObject<volScalarField>("Tl");
     if (!transportDict.found("phaseChangeCoeffs"))
     {
         FatalErrorInFunction
