@@ -154,18 +154,19 @@ Foam::compressibleInterPhaseTransportModel::alphaEff() const
 {
     if (twoPhaseTransport_)
     {
+        const tmp<volScalarField> alphat1Tmp = turbulence1_->alphat();
+        const volScalarField& alphat1 = alphat1Tmp();
+
+        const tmp<volScalarField> alphat2Tmp = turbulence2_->alphat();
+        const volScalarField& alphat2 = alphat2Tmp();
+
         return
-            mixture_.alpha1()*mixture_.thermo1().alphaEff
-            (
-                turbulence1_->alphatEff()
-            )
-          + mixture_.alpha2()*mixture_.thermo2().alphaEff
-            (
-                turbulence2_->alphatEff()
-            );
+            mixture_.alpha1()*mixture_.thermo1().alphaEff(alphat1)
+          + mixture_.alpha2()*mixture_.thermo2().alphaEff(alphat2);
     }
 
-    return mixture_.alphaEff(turbulence_->alphat());
+    const tmp<volScalarField> alphatTmp = turbulence_->alphat();
+    return mixture_.alphaEff(alphatTmp());
 }
 
 Foam::tmp<Foam::volScalarField>
@@ -173,18 +174,19 @@ Foam::compressibleInterPhaseTransportModel::kappaEff() const
 {
     if (twoPhaseTransport_)
     {
+        const tmp<volScalarField> alphat1Tmp = turbulence1_->alphat();
+        const volScalarField& alphat1 = alphat1Tmp();
+
+        const tmp<volScalarField> alphat2Tmp = turbulence2_->alphat();
+        const volScalarField& alphat2 = alphat2Tmp();
+
         return
-            mixture_.alpha1()*mixture_.thermo1().kappaEff
-            (
-                turbulence1_->alphatEff()
-            )
-          + mixture_.alpha2()*mixture_.thermo2().kappaEff
-            (
-                turbulence2_->alphatEff()
-            );
+            mixture_.alpha1()*mixture_.thermo1().kappaEff(alphat1)
+          + mixture_.alpha2()*mixture_.thermo2().kappaEff(alphat2);
     }
 
-    return mixture_.kappaEff(turbulence_->alphat());
+    const tmp<volScalarField> alphatTmp = turbulence_->alphat();
+    return mixture_.kappaEff(alphatTmp());
 }
 
 Foam::tmp<Foam::fvVectorMatrix>
