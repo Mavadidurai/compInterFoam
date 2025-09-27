@@ -347,7 +347,7 @@ const auto readTransportSimulationType =
             false
         );
 
-        if (!io.headerOk())
+        if (!io.typeHeaderOk<IOdictionary>())
         {
             return false;
         }
@@ -386,7 +386,7 @@ if (transportSimulationType == "twoPhaseTransport")
                 false
             );
 
-            return io.headerOk();
+            return io.typeHeaderOk<IOdictionary>();
         };
 
     const bool phase1DictFound =

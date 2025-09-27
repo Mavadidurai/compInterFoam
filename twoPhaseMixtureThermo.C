@@ -256,8 +256,7 @@ Foam::twoPhaseMixtureThermo::twoPhaseMixtureThermo
                     << exit(FatalIOError);
             }
 
-            const entry& e = dict.lookupEntry(entryName, false, false);
-            dimensionedScalar value(e, dict);
+            dimensionedScalar value(entryName, dict);
             const scalar val = value.value();
 
             if (!std::isfinite(val) || val <= 0)

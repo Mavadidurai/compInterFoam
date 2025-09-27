@@ -54,7 +54,7 @@ Foam::compressibleInterPhaseTransportModel::compressibleInterPhaseTransportModel
                 IOobject::NO_WRITE
             );
 
-            if (!io.headerOk())
+            if (!io.typeHeaderOk<IOdictionary>(true))
             {
                 return false;
             }
@@ -70,7 +70,7 @@ Foam::compressibleInterPhaseTransportModel::compressibleInterPhaseTransportModel
             return false;
         };
 
-    if (!readSimulationType(momentumTransportModel::typeName))
+    if (!readSimulationType(compressibleMomentumTransportModel::typeName))
     {
         readSimulationType("turbulenceProperties");
     }
@@ -117,7 +117,7 @@ Foam::compressibleInterPhaseTransportModel::compressibleInterPhaseTransportModel
             )
         );
 
-        turbulence1_ = phaseCompressible::momentumTransportModel::New
+        turbulence1_ = phaseCompressibleMomentumTransportModel::New
         (
             alpha1,
             rho1,
@@ -127,7 +127,7 @@ Foam::compressibleInterPhaseTransportModel::compressibleInterPhaseTransportModel
             mixture.thermo1()
         );
 
-        turbulence2_ = phaseCompressible::momentumTransportModel::New
+        turbulence2_ = phaseCompressibleMomentumTransportModel::New
         (
             alpha2,
             rho2,
@@ -139,7 +139,7 @@ Foam::compressibleInterPhaseTransportModel::compressibleInterPhaseTransportModel
     }
     else
     {
-        turbulence_ = compressible::momentumTransportModel::New
+        turbulence_ = compressibleMomentumTransportModel::New
         (
             rho,
             U,
