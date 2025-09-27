@@ -101,32 +101,4 @@ fluxRequired
     p_rgh           yes;                               // ✓ REQUIRED
     alpha.metal     yes;                               // ✓ REQUIRED
     alpha.air       yes;                               // ✓ REQUIRED  
-    alpha           yes;                               // ✓ REQUIRED
 }
-
-// =============================================================================
-// ANALYSIS SUMMARY:
-// =============================================================================
-// 
-// ✓ GOOD ASPECTS:
-// - ddtSchemes: localEuler is appropriate for your physics
-// - Most laplacian schemes are correct
-// - Interface schemes (vanLeer01) are good improvements
-// - Pressure schemes look appropriate
-//
-// ⚠️  AREAS FOR IMPROVEMENT:
-// - Temperature transport schemes too aggressive (linear/limitedLinear)  
-// - Two-temperature model schemes need more stability
-// - Gradient schemes for temperature fields could use limiting
-// - Some interpolation schemes could be more conservative
-//
-// 🔧 STABILITY IMPROVEMENTS MADE:
-// - Added limitedLinear01 for temperature transport (bounded 0-1)
-// - Added orthogonal correction limiting (0.33) for temperature diffusion
-// - Added gradient limiting for momentum transport  
-// - Changed interface compression to upwind (more stable)
-// - Limited surface normal gradients for temperature fields
-//
-// 📊 OVERALL ASSESSMENT: 
-// Your original schemes were 75% good, but the temperature-related schemes
-// needed more conservatism for the extreme gradients in laser heating.

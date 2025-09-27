@@ -52,16 +52,15 @@ logRecoilSuppression false;         // Disable verbose recoil logging
 useAdvancedInterfaceCapturing  true;
 advancedInterfaceCapturing
 {
-    pressureScale        [1 -1 -1 0 0 0 0] 5e6;
-    recoilMax            5e7;           // Increased limit
-    clampRecoil          true;
-    scaleRecoilMax       true;          // Enable interface scaling
-    recoilTempOffset     [0 0 0 1 0 0 0] 200;
-    phaseChangeTempOffset [0 0 0 1 0 0 0] 0;
-    recoilRelax          0.5;
-    alphaMin             0.001;
-    alphaMax             0.999;
-
+    pressureScale           [1 -1 -2 0 0 0 0] 1e5;
+    recoilMax               5e8;          // Pa, scalar
+    recoilTempOffset        [0 0 0 1 0 0 0] 100;
+    phaseChangeTempOffset   [0 0 0 1 0 0 0] 50;
+    clampRecoil             true;
+    scaleRecoilMax          false;
+    recoilRelax             0.5;
+    alphaMin                0.3;
+    alphaMax                0.7;
 }
 
 // Temperature clamping
