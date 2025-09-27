@@ -147,10 +147,18 @@ advancedInterfaceCapturing::advancedInterfaceCapturing
             << " 'advancedInterfaceCapturing' dictionary."
             << abort(FatalError);
     }
-    phaseChangeTempOffset_ = aicDict.lookupOrDefault<dimensionedScalar>
+    const scalar phaseChangeOffsetValue =
+        aicDict.lookupOrDefault<scalar>
+        (
+            "phaseChangeTempOffset",
+            phaseChangeTempOffset_.value()
+        );
+
+    phaseChangeTempOffset_ = dimensionedScalar
     (
         "phaseChangeTempOffset",
-        phaseChangeTempOffset_
+        dimTemperature,
+        phaseChangeOffsetValue
     );
 
     pressureScale_ = dimensionedScalar
@@ -165,10 +173,18 @@ advancedInterfaceCapturing::advancedInterfaceCapturing
     );
     recoilMax_ = aicDict.lookupOrDefault<scalar>("recoilMax", recoilMax_);
 
-    recoilTempOffset_ = aicDict.lookupOrDefault<dimensionedScalar>
+    const scalar recoilOffsetValue =
+        aicDict.lookupOrDefault<scalar>
+        (
+            "recoilTempOffset",
+            recoilTempOffset_.value()
+        );
+
+    recoilTempOffset_ = dimensionedScalar
     (
         "recoilTempOffset",
-        recoilTempOffset_
+        dimTemperature,
+        recoilOffsetValue
     );
     if (recoilTempOffset_.value() < 0)
     {

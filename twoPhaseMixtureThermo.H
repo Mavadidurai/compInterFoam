@@ -238,8 +238,10 @@ public:
             virtual tmp<volScalarField> hc() const;
 
             //- Temperature from enthalpy/internal energy for cell-set
-            //  Currently unsupported. Returns the starting temperature
-            //  and emits a runtime warning.
+            //  Uses a Newton iteration (up to 50 steps, tolerance 1e-6 on
+            //  the maximum |ΔT| correction) seeded with T0 to invert the
+            //  mixture enthalpy, emitting a warning if convergence is not
+            //  achieved.
             virtual tmp<scalarField> THE
             (
                 const scalarField& h,
@@ -249,8 +251,10 @@ public:
             ) const;
 
             //- Temperature from enthalpy/internal energy for patch
-            //  Currently unsupported. Returns the starting temperature
-            //  and emits a runtime warning.
+            //  Uses a Newton iteration (up to 50 steps, tolerance 1e-6 on
+            //  the maximum |ΔT| correction) seeded with T0 to invert the
+            //  mixture enthalpy, emitting a warning if convergence is not
+            //  achieved.
             virtual tmp<scalarField> THE
             (
                 const scalarField& h,

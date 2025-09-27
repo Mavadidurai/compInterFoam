@@ -36,8 +36,10 @@ SourceFiles
 \*---------------------------------------------------------------------------*/
 #ifndef compressibleInterPhaseTransportModel_H
 #define compressibleInterPhaseTransportModel_H
-#include "compressible/momentumTransportModel/momentumTransportModel.H"
-#include "phaseCompressible/momentumTransportModel/momentumTransportModel.H"
+
+#include "compressibleTurbulenceModel.H"
+#include "PhaseCompressibleTurbulenceModel.H"
+
 #include "twoPhaseMixture.H"
 #include "twoPhaseMixtureThermo.H"
 #include "turbulentFluidThermoModel.H"

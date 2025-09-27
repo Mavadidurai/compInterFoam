@@ -714,6 +714,7 @@ void Foam::twoPhaseMixtureThermo::computePhaseChange()
     }
     const scalar minAlpha = 0.0;
     const scalar maxAlpha = 1.0;
+    const scalar localRateMax = 1.0/Foam::max(dtFloor_, SMALL);    
     forAll(Tl, cellI)
     {
         const scalar a1 = Foam::min(Foam::max(alpha1()[cellI], minAlpha), maxAlpha);
@@ -759,7 +760,8 @@ void Foam::twoPhaseMixtureThermo::computePhaseChange()
         {
             localRate = 0.0;
             sourceVal = 0.0;
-        }        
+        }
+        localRate = Foam::min(localRate, localRateMax);
         phaseChangeRelaxCoeff_[cellI] = localRate;
         phaseChangeSource_[cellI] = sourceVal;
     }
