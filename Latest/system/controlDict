@@ -17,10 +17,10 @@ FoamFile
 
 application     compInterFoam;
 
-startFrom       startTime;
+startFrom       latestTime;
 startTime       0;
 stopAt          endTime;
-endTime         2e-11;          // 50 ns simulation time
+endTime         5e-11;          // Extend to 50 ps total
 
 deltaT          6e-13;         // Base time step
 adjustTimeStep  no;
@@ -35,7 +35,7 @@ maxThermalCourant 0.9;
 
 // Output control
 writeControl    runTime;
-writeInterval   1e-12;          // Write every 10 ns
+writeInterval   5e-13;          // Write every 0.5 ps
 purgeWrite      10;            // Keep only last 10 time directories
 writeFormat     ascii;
 writePrecision  8;             // Reduced from 12
@@ -50,13 +50,13 @@ runTimeModifiable yes;
 useAdvancedInterfaceCapturing  true;
 advancedInterfaceCapturing
 {
-    pressureScale        1;
-    recoilMax            5e6;           // Increased limit
+    pressureScale        10;
+    recoilMax            5e7;           // Increased limit
     clampRecoil          true;
     scaleRecoilMax       true;          // Enable interface scaling
-    recoilTempOffset     [0 0 0 1 0 0 0] 300;
+    recoilTempOffset     [0 0 0 1 0 0 0] 200;
     phaseChangeTempOffset [0 0 0 1 0 0 0] 0;
-    recoilRelax          0.2;
+    recoilRelax          0.5;
     alphaMin             0.001;
     alphaMax             0.999;
     logRecoilSuppression false;         // Disable verbose recoil logging
@@ -119,10 +119,13 @@ functions
             const volScalarField& p = tp();
             const volVectorField& U = mesh().lookupObject<volVectorField>("U");
             
+            const volScalarField& recoilP = mesh().lookupObject<volScalarField>("recoilPressure");
+
             // Max temperatures - fix API calls
             const scalar maxTe = gMax(Te);
             const scalar maxTl = gMax(Tl);
             const scalar maxTgas = gMax(T);
+            const scalar maxRecoil = gMax(recoilP);
             
             // Metal volume - fix API calls
             const scalarField alphaVol = alpha.primitiveField() * mesh().V();
@@ -185,7 +188,8 @@ functions
                 << " MetalVol=" << metalVolUm3 << "μm³"
                 << " Pmax=" << maxPressure/1e6 << "MPa[" << pStatus << "]"
                 << " Pmin=" << minPressure/1e6 << "MPa"
-                << " Vmax=" << maxEjectionVel << "m/s[" << velStatus << "]" << endl;
+                << " Vmax=" << maxEjectionVel << "m/s[" << velStatus << "]"
+                << " Recoil=" << maxRecoil/1e6 << "MPa" << endl;
                 
             // Detailed validation warnings
             if (teStatus != "OK" || tlStatus != "OK" || pStatus != "OK" || velStatus != "OK")
