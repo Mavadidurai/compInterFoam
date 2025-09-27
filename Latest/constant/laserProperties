@@ -48,10 +48,10 @@ gasAbsorptionCoeff 0;     // [1/m] gas absorption (0 disables direct gas heating
 // The solver now scales the pulse-energy check by the fraction of the Gaussian
 // spot that falls inside the mesh bounds, so partially clipped beams no longer
 // raise false energy mismatch warnings.
-pulseEnergy     1.93e-7;         // [J] total energy (≈0.30 J/cm^2 incident fluence)
+pulseEnergy     3e-7;         // [J] total energy (≈0.30 J/cm^2 incident fluence)
 pulseWidth      2.14e-13;        // [s] 214 fs pulse width
 laserStartTime  0;    // [s] delay pulse until after the fluid preconditioning period
-laserEndTime    8e-12;    // [s] extend window to capture trailing pulse tail
+laserEndTime    2e-11;    // [s] extend window to capture trailing pulse tail
 // --- Spatial Gaussian (match the box center and film depth) ---
 spotSize        6.0e-6;         // [m] beam diameter (3 µm 1/e^2 radius)
 // Put the beam center inside the domain (mid x,z; inside donor film at y≈8.0357 µm)
