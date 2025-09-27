@@ -72,13 +72,13 @@ class compressibleInterPhaseTransportModel
     tmp<surfaceScalarField> alphaRhoPhi2_;
 
     //- Single turbulence model for the mixture
-    autoPtr<compressibleMomentumTransportModel> turbulence_;
+    autoPtr<compressible::momentumTransportModel> turbulence_;
 
     //- Phase-1 transport model when two-phase transport is enabled
-    autoPtr<phaseCompressibleMomentumTransportModel> turbulence1_;
+    autoPtr<phaseCompressible::momentumTransportModel> turbulence1_;
 
     //- Phase-2 transport model when two-phase transport is enabled
-    autoPtr<phaseCompressibleMomentumTransportModel> turbulence2_;
+    autoPtr<phaseCompressible::momentumTransportModel> turbulence2_;
 
 public:
 
