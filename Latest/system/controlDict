@@ -46,22 +46,36 @@ fileHandler     uncollated;
 
 runTimeModifiable yes;
 
-logRecoilSuppression false;         // Disable verbose recoil logging
-    
 // Advanced interface capturing
 useAdvancedInterfaceCapturing  true;
 advancedInterfaceCapturing
 {
-    pressureScale           [1 -1 -2 0 0 0 0] 1e5;
-    recoilMax               5e8;          // Pa, scalar
-    recoilTempOffset        [0 0 0 1 0 0 0] 100;
-    phaseChangeTempOffset   [0 0 0 1 0 0 0] 50;
-    clampRecoil             true;
-    scaleRecoilMax          false;
-    recoilRelax             0.5;
-    alphaMin                0.3;
-    alphaMax                0.7;
+    // Pa·s as a plain number (code wraps units internally)
+    pressureScale         5e6;        // try 5e6–1e7 for LIFT
+
+    // Pa cap as a plain number
+    recoilMax             5e8;
+
+    clampRecoil           true;
+    scaleRecoilMax        true;
+
+    // Temperature offsets (K)
+    recoilTempOffset      100;        // activate recoil ~100 K above Tvap
+    phaseChangeTempOffset 50;         // small buffer around Tvap
+
+    // 0–1 smoothing
+    recoilRelax           0.7;
+
+    // Interface window (narrower than defaults)
+    alphaMin              0.05;
+    alphaMax              0.95;
+
+    // Optional
+    // meltingTemperature [0 0 0 1 0 0 0] 1941;
+    // vaporTemperature   [0 0 0 1 0 0 0] 3560;
 }
+// Top-level (optional) — enables a note about suppressed condensation cells
+logRecoilSuppression true;
 
 // Temperature clamping
 enableTClamp    true;
@@ -71,21 +85,47 @@ maxT            8000;
 // Two-temperature model properties
 twoTemperatureProperties
 {
-    Ce   [1 -1 -2 -1 0 0 0] 1.5e6;
-    Cl   [1 -1 -2 -1 0 0 0] 2.3e6;
-    G    [1 -1 -3 -1 0 0 0] 5e17;
-    
-    maxElectronDeltaT        6e-13;
-    energyTolerance 0.01;
+    // Required (scalar or Function1 dict)
+    Ce  [1 -1 -2 -1 0 0 0] 1.5e6;      // J/m3/K
+    Cl  [1 -1 -2 -1 0 0 0] 2.5e6;      // J/m3/K
+    G   [1 -1 -3 -1 0 0 0] 5e17;       // W/m3/K
+    De  [0  2 -1  0 0 0 0] 1e-4;       // m2/s
+
+    gasMetalExchangeCoeff [1 -1 -3 -1 0 0 0] 1e14;  // W/m3/K
+    minGasMetalExchangeCoeff [1 -1 -3 -1 0 0 0] 0;
+    maxGasMetalExchangeCoeff [1 -1 -3 -1 0 0 0] 1e17;
+
+    // Bounds (used for both Te and Tl)
     minTe 300;
     maxTe 15000;
-    minTl 300;
-    maxTl 15000;
-    gasMetalExchangeCoeff [1 -1 -3 -1 0 0 0] 1e15;  // Reduced from 3.2e17
-    maxGasMetalExchangeCoeff [1 -1 -3 -1 0 0 0] 1e17;
-    minGasMetalExchangeCoeff [1 -1 -3 -1 0 0 0] 0;
-    electronSubCycles 10;
+    ambientTemperature 300;
+
+    // Micro-stepping (optional)
+    electronSubCycles        1;      // base plan
+    minElectronSubCycles     1;
+    maxElectronSubCycles     20;
+    maxElectronDeltaT        2e-13;  // s (e.g., cap electron substep ~200 fs)
+
+    // Inner coupling (optional)
+    nInnerCouplingSweeps         1;
+    innerCouplingResidualTol     -1; // disabled (set e.g. 1e-3 to enforce)
+
+    // Conductivity correction (optional)
+    klHighTThreshold 1000;    // K
+    klExponent       0.5;     // 0 disables
+
+    // Masking/smoothing (optional)
+    metalFractionFloor      1e-6;
+    metalFractionCutoff     1e-6;
+    metalAmbientBlendWidth  1e-3;
+
+    // Energy diagnostics
+    energyTolerance         0.01;    // or energyTol
+    energyDiagnostics       false;
+    temperatureDiagnostics  true;
+    energyAudit             false;
 }
+
 
 libs
 (
