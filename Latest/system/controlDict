@@ -126,14 +126,6 @@ twoTemperatureProperties
     energyAudit             false;
 }
 
-
-libs
-(
-    "libutilityFunctionObjects.so"
-    "libfieldFunctionObjects.so"
-    "libsampling.so"
-);
-
 // Clean monitoring functions
 functions
 {
