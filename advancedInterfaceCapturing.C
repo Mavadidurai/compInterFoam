@@ -289,16 +289,7 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
 
     const scalarField& massRateField = massRate.primitiveField();
 
-    auto effectiveTemperature =
-        [&](const label cellI, const scalar alpha) -> scalar
-        {
-            if (TlFieldPtr && alpha > alphaMin_)
-            {
-                return (*TlFieldPtr)[cellI];
-            }
-            return gasTField[cellI];
-        };
-
+    const scalar alphaWindow = Foam::max(alphaMax_ - alphaMin_, Foam::SMALL);
     bool haveMetalCell = false;
     scalar maxTemp = 0.0;
 
@@ -335,8 +326,16 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
                 << ". Value: " << alpha
                 << abort(FatalError);
         }
-        const scalar Tval = effectiveTemperature(cellI, alpha);
-        if (alpha > alphaMin_)
+        scalar alphaMask = (alpha - alphaMin_)/alphaWindow;
+        alphaMask = Foam::min(Foam::max(alphaMask, scalar(0)), scalar(1));
+
+        scalar Tval = gasT;
+        if (TlFieldPtr)
+        {
+            Tval = alphaMask*(*TlFieldPtr)[cellI] + (1.0 - alphaMask)*gasT;
+        }
+
+        if (alphaMask > SMALL)
         {
             if (!haveMetalCell || Tval > maxTemp)
             {
@@ -388,26 +387,16 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
             "logRecoilSuppression",
             false
         );
-    const scalar invAlphaWindow = 1.0/(alphaMax_ - alphaMin_);
+    const scalar invAlphaWindow = 1.0/alphaWindow;
     label suppressedCondensationCells = 0;
 
     // Compute recoil pressure based on evaporation rate
     forAll(gasTField, cellI)
     {
         const scalar alpha = alpha1Field[cellI];
-        const scalar localTemp = effectiveTemperature(cellI, alpha);
+        scalar alphaMask = (alpha - alphaMin_)*invAlphaWindow;
+        alphaMask = Foam::min(Foam::max(alphaMask, scalar(0)), scalar(1));
 
-        if (localTemp < evaporationOnTemp)
-        {
-            continue;
-        }
-
-        const scalar alphaMask =
-            Foam::min
-            (
-                Foam::max((alpha - alphaMin_)*invAlphaWindow, scalar(0)),
-                scalar(1)
-            );
         if (alphaMask <= SMALL || alphaMask >= (1.0 - SMALL))
         {
             if (massRateField[cellI] < -massRateEps)
@@ -417,30 +406,50 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
             continue;
         }
 
-        const scalar interfaceWeight = 4.0 * alphaMask * (1.0 - alphaMask);
-        if (interfaceWeight <= SMALL)
+        scalar localTemp = gasTField[cellI];
+        if (TlFieldPtr)
+        {
+            localTemp = alphaMask*(*TlFieldPtr)[cellI] + (1.0 - alphaMask)*localTemp;
+        }
+
+        if (localTemp < recoilOnTemp)
         {
             continue;
         }
 
-        scalar phaseChangeVal = 0.0;
         const scalar rawRate = massRateField[cellI];
+        const scalar localRecoilMax = scaleRecoilMax
+            ? recoilMax_ * alphaMask
+            : recoilMax_;
+
+        scalar localRecoil = 0.0;
+
         if (rawRate > massRateEps)
         {
-            phaseChangeVal = rawRate;
+            localRecoil = pressureScale * rawRate;
+            if (clampRecoil)
+            {
+                localRecoil = Foam::min(localRecoil, localRecoilMax);
+            }
         }
         else if (rawRate < -massRateEps)
         {
             ++suppressedCondensationCells;
+            continue;
         }
-        const scalar pressureValue = pressureScale * phaseChangeVal;
-        const scalar localRecoilMax = scaleRecoilMax
-            ? recoilMax_ * interfaceWeight
-            : recoilMax_;
-        const scalar unclamped = pressureValue * interfaceWeight;
-        recoilField[cellI] = clampRecoil
-            ? Foam::min(unclamped, localRecoilMax)
-            : unclamped;
+        else
+        {
+            const scalar tempWindow = Foam::max(evaporationOnTemp - recoilOnTemp, Foam::SMALL);
+            scalar tempWeight = (localTemp - recoilOnTemp)/tempWindow;
+            tempWeight = Foam::min(Foam::max(tempWeight, scalar(0)), scalar(1));
+            localRecoil = tempWeight * localRecoilMax;
+        }
+
+        localRecoil *= alphaMask;
+
+        recoilField[cellI] = clampRecoil && !scaleRecoilMax
+            ? Foam::min(localRecoil, recoilMax_)
+            : localRecoil;
     }
     if (applyRelaxation)
     {
