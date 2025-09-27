@@ -43,18 +43,17 @@ filmThicknessExpected    7.14e-8;    // 71.4 nm (matches y3 - y2 = 20.0714 - 20.
 gasAbsorptionCoeff 0;     // [1/m] gas absorption (0 disables direct gas heating)
 
 // --- Energy & timing ---
-// Tune energy to exceed the Ti melt+vapor energy (~2.6e-8 J absorbed)
-// while staying within the solver's 6e16 W/m^2 guard band.
-// The solver now scales the pulse-energy check by the fraction of the Gaussian
-// spot that falls inside the mesh bounds, so partially clipped beams no longer
-// raise false energy mismatch warnings.
-pulseEnergy     3e-7;         // [J] total energy (≈0.30 J/cm^2 incident fluence)
-pulseWidth      2.14e-13;        // [s] 214 fs pulse width
-laserStartTime  0;    // [s] delay pulse until after the fluid preconditioning period
-laserEndTime    2e-11;    // [s] extend window to capture trailing pulse tail
+// CRITICAL: Match pulse energy to exceed Ti melt+vapor energy
+pulseEnergy     3e-7;         // [J] total energy (≈0.30 J/cm² incident fluence)
+pulseWidth      2.14e-13;     // [s] 214 fs pulse width
+
+// CRITICAL FIX: Extend laser window to allow physics continuation
+laserStartTime  0;            // [s] start immediately
+laserEndTime    4e-11;        // [s] EXTENDED to 40 ps (was 2e-11)
+
 // --- Spatial Gaussian (match the box center and film depth) ---
-spotSize        6.0e-6;         // [m] beam diameter (3 µm 1/e^2 radius)
-// Put the beam center inside the domain (mid x,z; inside donor film at y≈8.0357 µm)
+spotSize        6.0e-6;       // [m] beam diameter (3 μm 1/e² radius)
+// Put the beam center inside the domain (mid x,z; inside donor film at y≈8.0357 μm)
 focus            (25e-6 20.0357e-6 5e-6);
 direction       (0 -1 0);
 
@@ -72,7 +71,16 @@ gaussianProfile     true;
 
 // Optional intensity entry (consistent with pulseEnergy & pulseWidth)
 continuousLaser     false;
-maxVolumetricSource 3e24;   // [W/m^3] keep limiter above peak volumetric heating
+maxVolumetricSource 3e24;   // [W/m³] keep limiter above peak volumetric heating
+
+// CRITICAL: Enable pulse frequency for extended operation
+pulseFrequency      1e12;     // [1/s] 1 THz repetition rate for sustained heating
+pulseDutyCycle      0.1;      // 10% duty cycle
+
+// Energy tolerance for validation
+pulseEnergyToleranceRel 0.05; // 5% relative tolerance
+pulseEnergyToleranceAbs 1e-9; // 1 nJ absolute tolerance
+
 // NOTE: If peakIntensity is specified, it must match the derived value within 5% or
 // the solver now aborts, so omit it to accept the computed value when iterating setups.
 // ************************************************************************* //
