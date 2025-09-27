@@ -117,7 +117,7 @@ Foam::compressibleInterPhaseTransportModel::compressibleInterPhaseTransportModel
             )
         );
 
-        turbulence1_ = phaseCompressible::turbulenceModel::New
+turbulence1_ = PhaseCompressibleTurbulenceModel<rhoThermo>::New
         (
             alpha1,
             rho1,
@@ -127,7 +127,7 @@ Foam::compressibleInterPhaseTransportModel::compressibleInterPhaseTransportModel
             mixture.thermo1()
         );
 
-        turbulence2_ = phaseCompressible::turbulenceModel::New
+turbulence2_ = PhaseCompressibleTurbulenceModel<rhoThermo>::New
         (
             alpha2,
             rho2,
