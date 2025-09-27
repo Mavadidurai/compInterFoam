@@ -45,7 +45,7 @@ gasAbsorptionCoeff 0;     // [1/m] gas absorption (0 disables direct gas heating
 
 // --- Energy & timing ---
 // CRITICAL: Match pulse energy to exceed Ti melt+vapor energy
-pulseEnergy     3e-7;         // [J] total energy (≈0.30 J/cm² incident fluence)
+pulseEnergy     3e-7;        // [J] total energy (≈1.06 J/cm² incident fluence)
 pulseWidth      2.14e-13;     // [s] 214 fs pulse width
 
 // CRITICAL FIX: Extend laser window to allow physics continuation
@@ -78,8 +78,10 @@ continuousLaser     false;
 maxVolumetricSource 3e24;   // [W/m³] keep limiter above peak volumetric heating
 
 // CRITICAL: Enable pulse frequency for extended operation
-pulseFrequency      1e12;     // [1/s] 1 THz repetition rate for sustained heating
-pulseDutyCycle      0.1;      // 10% duty cycle
+//pulseFrequency      1e12;     // [1/s] 1 THz repetition rate for sustained heating
+//pulseDutyCycle      0.1;      // 10% duty cycle
+pulseFrequency      0;        // [1/s] disabled for single pulse operation
+pulseDutyCycle      0;        // [-] duty cycle unused when pulses disabled
 
 // Energy tolerance for validation
 pulseEnergyToleranceRel 0.05; // 5% relative tolerance
