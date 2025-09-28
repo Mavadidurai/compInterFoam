@@ -402,6 +402,7 @@ milestones
         
         const scalar maxTl = gMax(Tl);
         const scalar maxTe = gMax(Te);
+        const scalar minTl = gMin(Tl);        
         const scalar maxQLaser = gMax(QLaser);
         const scalar maxPressure = gMax(p);
         const scalar maxRecoil = gMax(recoilP);
@@ -548,9 +549,9 @@ milestones
             solidificationPhase = true;
         }
                     // PHASE 12: Transfer completion (low velocity + cooled)
-            if (!transferComplete && t > 1e-10 && maxVel < 50 && maxTl < 2500) {
+            if (!transferComplete && t > 1e-10 && maxEjectionVel < 50 && maxTl < 2500) {
                 Info<< "*** PHASE 12: TRANSFER COMPLETE at t=" << t*1e12 << "ps ***" << nl
-                    << "    Max velocity: " << maxVel << " m/s" << nl
+                    << "    Max velocity: " << maxEjectionVel << " m/s" << nl
                     << "    Max temperature: " << maxTl << " K" << endl;
                 transferComplete = true;
             }
