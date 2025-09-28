@@ -1542,8 +1542,20 @@ void femtosecondLaserModel::calculateSource() const
     }
     lastTimeIndex_ = timeIndex;
 
+    const bool singlePulse = (!continuousLaser_ && pulseFrequency_ <= SMALL);
+
+    scalar effectiveLaserEnd = laserEndTime_;
+    if (singlePulse)
+    {
+        const scalar sigma =
+            pulseWidth_.value()/(2.0*sqrt(2.0*log(2.0)));
+        const scalar pulseEnd = laserStartTime_ + 6.0*sigma;
+        effectiveLaserEnd = min(laserEndTime_, pulseEnd);
+    }
+
     const scalar overlapStart = max(tStart, laserStartTime_);
-    const scalar overlapEnd   = min(t, laserEndTime_);
+    const scalar overlapEnd   = min(t, effectiveLaserEnd);
+    const scalar comparisonLaserEnd = singlePulse ? effectiveLaserEnd : laserEndTime_;
 
     if (verbose && master && timeIndex % 10 == 0)
     {
@@ -1556,7 +1568,7 @@ void femtosecondLaserModel::calculateSource() const
 
     if ((overlapEnd - overlapStart) <= VSMALL)
     {
-        if (verbose && master && t <= laserEndTime_ + 1e-12)
+        if (verbose && master && t <= comparisonLaserEnd + 1e-12)
         {
             Info<< "No time overlap - laser inactive this step" << endl;
         }
@@ -1579,11 +1591,15 @@ void femtosecondLaserModel::calculateSource() const
 
     if (!envelope.active || envelope.temporalAverage <= VSMALL)
     {
-        if
-        (
+        const bool withinActiveWindow =
             (overlapEnd - overlapStart) > SMALL
          && t >= laserStartTime_
-         && t <= laserEndTime_
+         && t <= comparisonLaserEnd;
+
+        if
+        (
+            withinActiveWindow
+         && !(singlePulse && t > comparisonLaserEnd + 1e-12)
         )
         {
            WarningInFunction
