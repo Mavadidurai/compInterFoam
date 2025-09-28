@@ -92,9 +92,9 @@ advancedInterfaceCapturing
 logRecoilSuppression true;
 
 // Temperature clamping - EXTENDED RANGE
-enableTClamp    true;
+enableTClamp    false;
 minT            200;           // Allow cooling below room temp
-maxT            15000;         // Keep high temp limit
+maxT            50000;         // Raised to avoid premature clamping
 
 // Two-temperature model properties - OPTIMIZED FOR EXTENDED RUNS
 twoTemperatureProperties
@@ -109,7 +109,7 @@ twoTemperatureProperties
     maxGasMetalExchangeCoeff [1 -1 -3 -1 0 0 0] 1e16;
     maxGasMetalHeatFlux    1e16;
     minTe 200;             // Allow cooling
-    maxTe 15000;
+    maxTe 50000;
     ambientTemperature 300;
 
     // ADAPTIVE MICRO-STEPPING
