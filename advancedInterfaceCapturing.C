@@ -45,7 +45,6 @@ advancedInterfaceCapturing::advancedInterfaceCapturing
 (
     const fvMesh& mesh,
     volScalarField& alpha1,
-    const surfaceScalarField& phi,
     const twoPhaseMixtureThermo& mixture,
     const volScalarField& T,
     const volScalarField* Tl
@@ -114,7 +113,6 @@ advancedInterfaceCapturing::advancedInterfaceCapturing
     previousRecoilPressure_(mesh.nCells(), 0.0),
     havePreviousRecoil_(false)
 {
-    (void)phi;
     const dictionary& aicDict =
         mesh.time().controlDict().subOrEmptyDict("advancedInterfaceCapturing");
 

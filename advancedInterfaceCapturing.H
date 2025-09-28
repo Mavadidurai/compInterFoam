@@ -35,7 +35,6 @@ Description
 #include "fvMesh.H"
 #include "volFields.H"
 #include "fvc.H"
-#include "surfaceFields.H"
 #include "twoPhaseMixtureThermo.H"
 namespace Foam
 {
@@ -73,7 +72,6 @@ public:
     (
         const fvMesh& mesh,
         volScalarField& alpha1,
-        const surfaceScalarField& phi,
         const twoPhaseMixtureThermo& mixture,
         const volScalarField& T,
         const volScalarField* Tl = nullptr

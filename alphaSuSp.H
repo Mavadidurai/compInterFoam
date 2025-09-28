@@ -7,7 +7,7 @@ tmp<volScalarField::Internal> Sp
     (
         "Sp",
         mesh,
-        dimensionedScalar(dgdt.dimensions(), 0)
+        dimensionedScalar("zeroSp", dgdt.dimensions(), 0)
     )
 );
 
@@ -17,7 +17,7 @@ tmp<volScalarField::Internal> Su
     (
         "Su",
         mesh,
-        dimensionedScalar(dgdt.dimensions(), 0)
+        dimensionedScalar("zeroSu", dgdt.dimensions(), 0)
     )
 );
 

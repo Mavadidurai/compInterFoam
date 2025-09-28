@@ -149,6 +149,7 @@ IOdictionary transportProperties
         true   // ensure registration
     )
 );
+(void)transportProperties;
 twoPhaseMixtureThermo mixture(U, phi);
 // Set verbosity flag from controlDict now that runTime is available
 
@@ -578,7 +579,6 @@ if (verbose && Foam::Pstream::master())
         (
             mesh,
             alpha1,
-            phi,
             mixture,
             T,
             &ttm.Tl()
