@@ -36,26 +36,4 @@ sigma           sigma [1 0 -2 0 0 0 0] 1.64;
 icAlpha         icAlpha [0 0 0 0 0 0 0] 0;
 scAlpha         scAlpha [0 0 0 0 0 0 0] 0;
 
-phaseChangeCoeffs
-{
-    model               temperatureWindow;
-    hf                  [0 2 -2 0 0 0 0] 8.9e6;
-    Tsol                [0 0 0 0 0 0 1] 1941;
-    Tvap                [0 0 0 0 0 0 1] 3560;
-    windowWidth         50;
-    dtFloor             1e-12;
-    relaxationTime      5e-11;
-    maxSource           1e9;
-    minCoefficient      5e7;
-    metalFractionCutoff 1e-6;
-    activationTime      ((0 5e-10));
-}
-
-massTransferCoeffs
-{
-    tStart  (0);
-    tEnd    (5e-10);
-    rateMax 1e13;
-}
-
 // ************************************************************************* //

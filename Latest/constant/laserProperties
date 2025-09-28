@@ -48,10 +48,6 @@ gasAbsorptionCoeff 0;     // [1/m] gas absorption (0 disables direct gas heating
 pulseEnergy     3e-7;        // [J] total energy (≈1.06 J/cm² incident fluence)
 pulseWidth      2.14e-13;     // [s] 214 fs pulse width
 
-// CRITICAL FIX: Extend laser window to allow physics continuation
-laserStartTime  0;            // [s] start immediately
-laserEndTime    4e-11;        // [s] EXTENDED to 40 ps (was 2e-11)
-
 // --- Spatial Gaussian (match the box center and film depth) ---
 spotSize        6.0e-6;       // [m] beam diameter (3 μm 1/e² radius)
 // Put the beam center inside the domain (mid x,z; inside donor film at y≈8.0357 μm)
