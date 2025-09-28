@@ -168,15 +168,22 @@ functions
                 newInterval = 1e-11;
             }
             
+            static scalar nextWriteTime = 0;
+
             // Only update if interval changed significantly
             if (abs(newInterval - lastWriteIntervalChange) > 0.1e-12) {
-                const_cast<Time&>(mesh().time()).writeInterval() = newInterval;
                 lastWriteIntervalChange = newInterval;
-                
+                nextWriteTime = t + newInterval;
+
                 if (Pstream::master()) {
-                    Info<< "Adaptive output: Changed write interval to " 
+                    Info<< "Adaptive output: Changed write interval to "
                         << newInterval*1e12 << " ps at t=" << t*1e12 << " ps" << endl;
                 }
+            }
+
+            if (t >= nextWriteTime) {
+                mesh().time().writeNow();
+                nextWriteTime = t + newInterval;
             }
         #};
     }
