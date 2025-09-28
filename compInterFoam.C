@@ -245,7 +245,7 @@ int main(int argc, char *argv[])
 
         // Update laser model
         laser.update();
-        laser.correct(runTime.value());
+        laser.correct();
         const tmp<volScalarField> tLaserSource = laser.source();
         mixture.setQLaser(tLaserSource());
         const volScalarField& QLaser = mixture.Q_laser();
