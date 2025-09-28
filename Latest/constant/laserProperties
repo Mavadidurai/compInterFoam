@@ -44,8 +44,8 @@ filmCenterY         20.0357e-6;     // center at focus.y
 gasAbsorptionCoeff 0;     // [1/m] gas absorption (0 disables direct gas heating)
 
 // --- Energy & timing ---
-// CRITICAL: Match pulse energy to exceed Ti melt+vapor energy
-pulseEnergy     3e-7;        // [J] total energy (≈1.06 J/cm² incident fluence)
+// CRITICAL: Keep pulse energy compatible with interface heat-flux limit
+pulseEnergy     3e-15;       // [J] total energy (≈1.06e-8 J/cm² incident fluence)
 pulseWidth      2.14e-13;     // [s] 214 fs pulse width
 
 // --- Spatial Gaussian (match the box center and film depth) ---
@@ -71,7 +71,7 @@ gaussianProfile     true;
 
 // Optional intensity entry (consistent with pulseEnergy & pulseWidth)
 continuousLaser     false;
-maxVolumetricSource 3e24;   // [W/m³] keep limiter above peak volumetric heating
+maxVolumetricSource 1e16;   // [W/m³] match gas-metal exchange cap to prevent clamping
 
 // CRITICAL: Enable pulse frequency for extended operation
 //pulseFrequency      1e12;     // [1/s] 1 THz repetition rate for sustained heating
