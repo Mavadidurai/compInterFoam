@@ -71,8 +71,8 @@ massTransferCoeffs
 }
 
 // LASER TIMING - shorter pulse, longer observation
-laserStartTime  0;
-laserEndTime    4e-11;         // Keep laser short (40 ps)
+laserStartTime      0;
+laserEndTime    4e-10;
 
 // Advanced interface capturing - TUNED FOR EXTENDED SIMULATION
 useAdvancedInterfaceCapturing  true;
@@ -180,7 +180,7 @@ functions
             }
 
             if (t >= nextWriteTime) {
-                mesh().time().writeNow();
+                const_cast<Time&>(mesh().time()).writeNow();
                 nextWriteTime = t + newInterval;
             }
         #};
