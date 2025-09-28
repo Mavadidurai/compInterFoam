@@ -146,7 +146,14 @@ int main(int argc, char *argv[])
                     GREAT
                 )
             );
-
+            const scalar minDeltaTValue
+            (
+                runTime.controlDict().lookupOrDefault<scalar>
+                (
+                    "minDeltaT",
+                    0.0
+                )
+            );
             const dimensionedScalar maxDeltaT
             (
                 "maxDeltaT",
@@ -187,7 +194,15 @@ int main(int argc, char *argv[])
             rSubDeltaT = rDeltaT;
             rSubDeltaT = max(invMaxDeltaT, rSubDeltaT);
             rSubDeltaT.correctBoundaryConditions();
-            
+            scalar newDeltaT = 1.0/gMax(rDeltaT.primitiveField());
+            const scalar minDeltaT
+            (
+                runTime.controlDict().lookupOrDefault<scalar>("minDeltaT", SMALL)
+            );
+            newDeltaT = max(minDeltaT, min(newDeltaT, maxDeltaTValue));
+            runTime.setDeltaT(newDeltaT);
+            runTime.deltaT0() = runTime.deltaTValue();
+           
             if (verbose && master)
             {
                 Info<< "Flow time scale min/max = "
