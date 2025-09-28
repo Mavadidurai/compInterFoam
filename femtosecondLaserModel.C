@@ -1136,6 +1136,40 @@ femtosecondLaserModel::applySpatialWeighting
             entryPoint = focus_ + entryParam*directionUnit;
         }
     }
+    scalar filmIntervalStart = 0.0;
+    scalar filmIntervalEnd = 0.0;
+    bool haveFilmInterval = false;
+
+    if (directionMag > VSMALL)
+    {
+        const scalar dirY = directionUnit.y();
+
+        if (mag(dirY) > VSMALL)
+        {
+            const scalar sToMin = (filmYMin_ - entryPoint.y())/dirY;
+            const scalar sToMax = (filmYMax_ - entryPoint.y())/dirY;
+            const scalar intervalMin = Foam::min(sToMin, sToMax);
+            const scalar intervalMax = Foam::max(sToMin, sToMax);
+            const scalar positiveStart = Foam::max(intervalMin, scalar(0));
+
+            if (intervalMax > positiveStart)
+            {
+                filmIntervalStart = positiveStart;
+                filmIntervalEnd = intervalMax;
+                haveFilmInterval = true;
+            }
+        }
+        else if
+        (
+            entryPoint.y() >= filmYMin_
+         && entryPoint.y() <= filmYMax_
+        )
+        {
+            filmIntervalStart = 0.0;
+            filmIntervalEnd = GREAT;
+            haveFilmInterval = true;
+        }
+    }
 
     forAll(cellCentres, cellI)
     {
@@ -1204,6 +1238,18 @@ femtosecondLaserModel::applySpatialWeighting
             sIn = Foam::max(sIn, scalar(0));
             sOut = Foam::max(sOut, sIn);
         }
+        const bool cellUsesFilmInterval = inFilm && haveFilmInterval;
+
+        if (cellUsesFilmInterval)
+        {
+            sIn = Foam::max(sIn, filmIntervalStart);
+            sOut = Foam::min(sOut, filmIntervalEnd);
+
+            if (sOut <= sIn)
+            {
+                continue;
+            }
+        }        
         const scalar effectiveReflectivity = reflectivity_;
         scalar transmissionFactor = 1.0 - effectiveReflectivity;
         if (transmission_ >= 0)
@@ -1238,17 +1284,26 @@ femtosecondLaserModel::applySpatialWeighting
             * spatialTerm
             * transmissionFactor;
 
-        const scalar deltaS = Foam::max(sOut - sIn, VSMALL);
+        scalar deltaS = Foam::max(sOut - sIn, VSMALL);
 
         scalar Ein = baseIntensity;
         scalar Eout = baseIntensity;
 
-        if (cellAbsorptionCoeff > VSMALL)
+        scalar sInForExponent = sIn;
+        scalar sOutForExponent = sOut;
+
+        if (cellUsesFilmInterval)
         {
-            Ein *= exp(-cellAbsorptionCoeff*sIn);
-            Eout *= exp(-cellAbsorptionCoeff*sOut);
+            sInForExponent = Foam::max(sIn - filmIntervalStart, scalar(0));
+            sOutForExponent = Foam::max(sOut - filmIntervalStart, scalar(0));
+            deltaS = Foam::max(sOut - sIn, VSMALL);
         }
 
+        if (cellAbsorptionCoeff > VSMALL)
+        {
+            Ein *= exp(-cellAbsorptionCoeff*sInForExponent);
+            Eout *= exp(-cellAbsorptionCoeff*sOutForExponent);
+        }
         scalar qVol = (Ein - Eout)/deltaS;
         qVol = Foam::max(qVol, scalar(0));
 
