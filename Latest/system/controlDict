@@ -20,13 +20,13 @@ application     compInterFoam;
 startFrom       latestTime;
 startTime       0;
 stopAt          endTime;
-endTime         5e-10;          // Extend to 50 ps total
+endTime         5e-9;          // Extend to 50 ps total
 
 deltaT          6e-13;         // Base time step
 adjustTimeStep  no;
 maxCo           0.5;
 maxAlphaCo      0.5;
-maxDeltaT       5e-10;         // Cap at 50 ps
+maxDeltaT       5e-9;         // Cap at 50 ps
 minDeltaT       5e-15;         // Allow reduction to 5 fs
 
 verbose         true;
@@ -80,7 +80,7 @@ logRecoilSuppression true;
 // Temperature clamping
 enableTClamp    true;
 minT            250;
-maxT            8000;
+maxT            15000;
 
 // Two-temperature model properties
 twoTemperatureProperties
@@ -313,46 +313,211 @@ functions
         #};
     }
 
-    // Phase transition milestones
-    milestones
-    {
-        type            coded;
-        libs            ("libutilityFunctionObjects.so");
-        name            milestones;
-        writeControl    timeStep;
-        writeInterval   1;
+// Enhanced Phase transition milestones for complete LIFT process
+milestones
+{
+    type            coded;
+    libs            ("libutilityFunctionObjects.so");
+    name            milestones;
+    writeControl    timeStep;
+    writeInterval   1;
 
-        codeWrite
-        #{
-            const scalar t = mesh().time().value();
-            const volScalarField& Tl = mesh().lookupObject<volScalarField>("Tl");
-            const volScalarField& QLaser = mesh().lookupObject<volScalarField>("Q_laser");
-            const scalar maxTl = gMax(Tl);
-            const scalar maxQLaser = gMax(QLaser);
-            
-            static bool meltHit = false;
-            static bool vapHit = false;
-            static bool laserStarted = false;
-            
-            if (!laserStarted && maxQLaser > 1e6) // Laser activation
+    codeWrite
+    #{
+        const scalar t = mesh().time().value();
+        const volScalarField& Tl = mesh().lookupObject<volScalarField>("Tl");
+        const volScalarField& Te = mesh().lookupObject<volScalarField>("Te");
+        const volScalarField& QLaser = mesh().lookupObject<volScalarField>("Q_laser");
+        const volScalarField& alpha = mesh().lookupObject<volScalarField>("alpha.metal");
+        const volScalarField& p_rgh = mesh().lookupObject<volScalarField>("p_rgh");
+        const volScalarField& rho = mesh().lookupObject<volScalarField>("rho");
+        const volScalarField& gh = mesh().lookupObject<volScalarField>("gh");
+        const volVectorField& U = mesh().lookupObject<volVectorField>("U");
+        const volScalarField& recoilP = mesh().lookupObject<volScalarField>("recoilPressure");
+        
+        // Calculate total pressure
+        tmp<volScalarField> tp(p_rgh + rho*gh);
+        const volScalarField& p = tp();
+        
+        const scalar maxTl = gMax(Tl);
+        const scalar maxTe = gMax(Te);
+        const scalar maxQLaser = gMax(QLaser);
+        const scalar maxPressure = gMax(p);
+        const scalar maxRecoil = gMax(recoilP);
+        
+        // Calculate metal volume for tracking ablation
+        const scalarField alphaVol = alpha.primitiveField() * mesh().V();
+        const scalar currentMetalVol = gSum(alphaVol) * 1e18; // μm³
+        static scalar initialMetalVol = -1.0;
+        if (initialMetalVol < 0) initialMetalVol = currentMetalVol;
+        const scalar metalLoss = (initialMetalVol - currentMetalVol) / initialMetalVol * 100;
+        
+        // Calculate maximum velocity in metal regions
+        scalar maxEjectionVel = 0.0;
+        const scalarField& alphaInternal = alpha.primitiveField();
+        const vectorField& UInternal = U.primitiveField();
+        
+        forAll(alphaInternal, cellI)
+        {
+            if (alphaInternal[cellI] > 0.1) // Metal-rich cells
             {
-                Info<< "*** LASER ACTIVATED at t=" << t*1e12 << "ps, Q=" << maxQLaser/1e12 << "TW/m³ ***" << endl;
-                laserStarted = true;
+                const scalar velMag = mag(UInternal[cellI]);
+                maxEjectionVel = max(maxEjectionVel, velMag);
             }
+        }
+        reduce(maxEjectionVel, maxOp<scalar>());
+        
+        // Track LIFT process milestones
+        static bool laserStarted = false;
+        static bool absorptionPhase = false;
+        static bool heatingPhase = false;
+        static bool meltingPhase = false;
+        static bool vaporizationPhase = false;
+        static bool plasmaPlaquePhase = false;
+        static bool recoilPressurePhase = false;
+        static bool ejectionPhase = false;
+        static bool accelerationPhase = false;
+        static bool transferPhase = false;
+        static bool solidificationPhase = false;
+        
+        // Phase 1: Laser Activation (0-1 ps)
+        if (!laserStarted && maxQLaser > 1e6)
+        {
+            Info<< "*** PHASE 1: LASER ACTIVATED at t=" << t*1e12 << "ps ***" << nl
+                << "    Power: " << maxQLaser/1e12 << " TW/m³" << endl;
+            laserStarted = true;
+        }
+        
+        // Phase 2: Energy Absorption (0-10 ps)
+        if (laserStarted && !absorptionPhase && maxTe > 500)
+        {
+            Info<< "*** PHASE 2: ENERGY ABSORPTION at t=" << t*1e12 << "ps ***" << nl
+                << "    Electron temp: " << maxTe << " K" << nl
+                << "    Lattice temp: " << maxTl << " K" << endl;
+            absorptionPhase = true;
+        }
+        
+        // Phase 3: Rapid Heating (1-50 ps)
+        if (absorptionPhase && !heatingPhase && maxTl > 1000)
+        {
+            Info<< "*** PHASE 3: RAPID HEATING at t=" << t*1e12 << "ps ***" << nl
+                << "    Lattice temp: " << maxTl << " K" << nl
+                << "    Te-Tl coupling active" << endl;
+            heatingPhase = true;
+        }
+        
+        // Phase 4: Melting Onset (depends on material - Ti: 1941K)
+        if (heatingPhase && !meltingPhase && maxTl > 1941.0)
+        {
+            Info<< "*** PHASE 4: MELTING ONSET at t=" << t*1e12 << "ps ***" << nl
+                << "    Lattice temp: " << maxTl << " K" << nl
+                << "    Phase change begins" << endl;
+            meltingPhase = true;
+        }
+        
+        // Phase 5: Vaporization (Ti: 3560K)
+        if (meltingPhase && !vaporizationPhase && maxTl > 3560.0)
+        {
+            Info<< "*** PHASE 5: VAPORIZATION at t=" << t*1e12 << "ps ***" << nl
+                << "    Lattice temp: " << maxTl << " K" << nl
+                << "    Vapor generation begins" << endl;
+            vaporizationPhase = true;
+        }
+        
+        // Phase 6: Plasma Plaque Formation (high temp + high pressure)
+        if (vaporizationPhase && !plasmaPlaquePhase && maxTl > 5000 && maxPressure > 1e7)
+        {
+            Info<< "*** PHASE 6: PLASMA PLAQUE FORMATION at t=" << t*1e12 << "ps ***" << nl
+                << "    Lattice temp: " << maxTl << " K" << nl
+                << "    Pressure: " << maxPressure/1e6 << " MPa" << nl
+                << "    High-density vapor/plasma region" << endl;
+            plasmaPlaquePhase = true;
+        }
+        
+        // Phase 7: Recoil Pressure Buildup
+        if (plasmaPlaquePhase && !recoilPressurePhase && maxRecoil > 1e6)
+        {
+            Info<< "*** PHASE 7: RECOIL PRESSURE BUILDUP at t=" << t*1e12 << "ps ***" << nl
+                << "    Recoil pressure: " << maxRecoil/1e6 << " MPa" << nl
+                << "    Momentum transfer initiating" << endl;
+            recoilPressurePhase = true;
+        }
+        
+        // Phase 8: Material Ejection (velocity threshold)
+        if (recoilPressurePhase && !ejectionPhase && maxEjectionVel > 10.0)
+        {
+            Info<< "*** PHASE 8: MATERIAL EJECTION at t=" << t*1e12 << "ps ***" << nl
+                << "    Max velocity: " << maxEjectionVel << " m/s" << nl
+                << "    Metal loss: " << metalLoss << "%" << nl
+                << "    Droplet formation begins" << endl;
+            ejectionPhase = true;
+        }
+        
+        // Phase 9: Acceleration Phase (high velocity development)
+        if (ejectionPhase && !accelerationPhase && maxEjectionVel > 100.0)
+        {
+            Info<< "*** PHASE 9: ACCELERATION PHASE at t=" << t*1e12 << "ps ***" << nl
+                << "    Max velocity: " << maxEjectionVel << " m/s" << nl
+                << "    Significant momentum transfer" << endl;
+            accelerationPhase = true;
+        }
+        
+        // Phase 10: Transfer Phase (substantial material loss)
+        if (accelerationPhase && !transferPhase && metalLoss > 1.0)
+        {
+            Info<< "*** PHASE 10: TRANSFER PHASE at t=" << t*1e12 << "ps ***" << nl
+                << "    Metal loss: " << metalLoss << "%" << nl
+                << "    Material transfer in progress" << endl;
+            transferPhase = true;
+        }
+        
+        // Phase 11: Solidification (cooling phase)
+        if (transferPhase && !solidificationPhase && maxTl < 2000 && t > 40e-12)
+        {
+            Info<< "*** PHASE 11: SOLIDIFICATION PHASE at t=" << t*1e12 << "ps ***" << nl
+                << "    Lattice temp: " << maxTl << " K" << nl
+                << "    Cooling and resolidification" << endl;
+            solidificationPhase = true;
+        }
+        
+        // Additional process indicators
+        if (t > 1e-12 && (t*1e12) == int(t*1e12)) // Every picosecond
+        {
+            // Energy balance check
+            const scalar energyDensity = maxQLaser * t; // Approximate
+            const scalar expectedTemp = energyDensity / 2.5e6; // Rough estimate
             
-            if (!meltHit && maxTl > 1941.0) // Ti melting point
+            if (abs(maxTl - expectedTemp) > 500 && maxTl > 1000)
             {
-                Info<< "*** MELTING at t=" << t*1e12 << "ps, Tl=" << maxTl << "K ***" << endl;
-                meltHit = true;
+                Info<< "*** ENERGY BALANCE DEVIATION at t=" << t*1e12 << "ps ***" << nl
+                    << "    Expected temp: ~" << expectedTemp << " K" << nl
+                    << "    Actual temp: " << maxTl << " K" << endl;
             }
-            
-            if (!vapHit && maxTl > 3560.0) // Ti vaporization
-            {
-                Info<< "*** VAPORIZATION at t=" << t*1e12 << "ps, Tl=" << maxTl << "K ***" << endl;
-                vapHit = true;
-            }
-        #};
-    }
+        }
+        
+        // Critical failure warnings
+        if (maxTl > 15000)
+        {
+            WarningInFunction
+                << "CRITICAL: Temperature exceeds physical limits!" << nl
+                << "Tl_max = " << maxTl << " K at t = " << t*1e12 << " ps" << endl;
+        }
+        
+        if (maxEjectionVel > 5000)
+        {
+            WarningInFunction
+                << "CRITICAL: Velocity exceeds realistic LIFT values!" << nl
+                << "V_max = " << maxEjectionVel << " m/s at t = " << t*1e12 << " ps" << endl;
+        }
+        
+        if (metalLoss > 50.0)
+        {
+            WarningInFunction
+                << "CRITICAL: Excessive material loss!" << nl
+                << "Loss = " << metalLoss << "% at t = " << t*1e12 << " ps" << endl;
+        }
+    #};
+}
 
 
     // Mid-plane visualization (optional)
