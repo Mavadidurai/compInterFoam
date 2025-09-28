@@ -1586,11 +1586,10 @@ void femtosecondLaserModel::calculateSource() const
          && t <= laserEndTime_
         )
         {
-            FatalErrorInFunction
+           WarningInFunction
                 << "Temporal envelope is inactive while current time "
                 << "slice lies inside the configured laser window. "
-                << "No laser energy will be deposited."
-                << exit(FatalError);
+                << "No laser energy will be deposited." << endl;
         }
 
         if (verbose && master && timeIndex % 10 == 0)
