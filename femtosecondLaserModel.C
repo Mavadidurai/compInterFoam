@@ -1262,31 +1262,37 @@ femtosecondLaserModel::applySpatialWeighting
                 continue;
             }
         }        
-        const scalar effectiveReflectivity = reflectivity_;
-        scalar transmissionFactor = 1.0 - effectiveReflectivity;
-        if (transmission_ >= 0)
+        scalar transmissionFactor = 1.0;
+
+        if (inFilm)
         {
-            transmissionFactor = transmission_;
-        }
-        else if (incidenceAngle_ > VSMALL)
-        {
-            const scalar n1 = 1.0;
-            const scalar sqrtR = sqrt(effectiveReflectivity);
-            const scalar n2 = (1.0 + sqrtR)/max(VSMALL, (1.0 - sqrtR));
-            const scalar sinThetaT = n1/n2 * sin(incidenceAngle_);
-            if (mag(sinThetaT) < 1.0)
+            const scalar effectiveReflectivity = reflectivity_;
+            transmissionFactor = 1.0 - effectiveReflectivity;
+
+            if (transmission_ >= 0)
             {
-                const scalar cosTheta  = cos(incidenceAngle_);
-                const scalar cosThetaT = sqrt(1.0 - sqr(sinThetaT));
-                const scalar Rs = sqr((n1*cosTheta - n2*cosThetaT)
-                                    /(n1*cosTheta + n2*cosThetaT));
-                const scalar Rp = sqr((n1*cosThetaT - n2*cosTheta)
-                                    /(n1*cosThetaT + n2*cosTheta));
-                transmissionFactor = 1.0 - 0.5*(Rs + Rp);
+                transmissionFactor = transmission_;
             }
-            else
+            else if (incidenceAngle_ > VSMALL)
             {
-                transmissionFactor = 0.0;
+                const scalar n1 = 1.0;
+                const scalar sqrtR = sqrt(effectiveReflectivity);
+                const scalar n2 = (1.0 + sqrtR)/max(VSMALL, (1.0 - sqrtR));
+                const scalar sinThetaT = n1/n2 * sin(incidenceAngle_);
+                if (mag(sinThetaT) < 1.0)
+                {
+                    const scalar cosTheta  = cos(incidenceAngle_);
+                    const scalar cosThetaT = sqrt(1.0 - sqr(sinThetaT));
+                    const scalar Rs = sqr((n1*cosTheta - n2*cosThetaT)
+                                        /(n1*cosTheta + n2*cosThetaT));
+                    const scalar Rp = sqr((n1*cosThetaT - n2*cosTheta)
+                                        /(n1*cosThetaT + n2*cosTheta));
+                    transmissionFactor = 1.0 - 0.5*(Rs + Rp);
+                }
+                else
+                {
+                    transmissionFactor = 0.0;
+                }
             }
         }
 
