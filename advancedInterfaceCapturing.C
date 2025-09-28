@@ -412,6 +412,7 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
     const scalar massRateEps = 1e-12;
     // Access fields only once for efficiency and validate sizes
     scalarField& recoilField = recoilPressure_.primitiveFieldRef();
+    const labelListList& cellCells = mesh_.cellCells();
     
     const bool logRecoilSuppression =
         mesh_.time().controlDict().lookupOrDefault<Switch>
@@ -429,7 +430,7 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
         scalar alphaMask = (alpha - alphaMin_)*invAlphaWindow;
         alphaMask = Foam::min(Foam::max(alphaMask, scalar(0)), scalar(1));
 
-        if (alphaMask <= SMALL || alphaMask >= (1.0 - SMALL))
+        if (alphaMask <= SMALL)
         {
             if (massRateField[cellI] < -massRateEps)
             {
@@ -437,6 +438,37 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
             }
             continue;
         }
+
+        if (alphaMask >= (1.0 - SMALL))
+        {
+            bool treatAsInterface = false;
+
+            if (massRateField[cellI] > massRateEps)
+            {
+                const labelList& neighbours = cellCells[cellI];
+                forAll(neighbours, nbrI)
+                {
+                    const label nbrCellI = neighbours[nbrI];
+                    if (alpha1Field[nbrCellI] < alphaMax_)
+                    {
+                        treatAsInterface = true;
+                        break;
+                    }
+                }
+            }
+
+            if (!treatAsInterface)
+            {
+                if (massRateField[cellI] < -massRateEps)
+                {
+                    ++suppressedCondensationCells;
+                }
+                continue;
+            }
+
+            alphaMask = scalar(1.0 - SMALL);
+        }
+
 
         scalar localTemp = gasTField[cellI];
         if (TlFieldPtr && alpha > 0.01)

@@ -448,7 +448,9 @@ bool femtosecondLaserModel::checkPhysicalBounds() const
                           << wavelength_.value() << " m" << endl;
         //ok = false;
     }
-    if (peakIntensity_.value() > 6e16)
+    // Typical LIFT experiments routinely exceed 6e16 W/m^2, so only warn
+    // when intensities move well beyond the validated range for this model.
+    if (peakIntensity_.value() > 1e17)
     {
         WarningInFunction << "Very high peak intensity: "
                           << peakIntensity_.value() << " W/m^2" << endl;
