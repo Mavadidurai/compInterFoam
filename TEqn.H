@@ -61,27 +61,24 @@ extern const bool master;
             totalHighClamped = localHigh;
             totalCellsClamped = localCells;
 
-            const scalar oldMin = gMin(TintPreClamp);
-            const scalar oldMax = gMax(TintPreClamp);
-
             const dimensionedScalar minTDim("minT", dimTemperature, minPhysicalTemp);
             const dimensionedScalar maxTDim("maxT", dimTemperature, maxPhysicalTemp);
 
             T = Foam::max(Foam::min(T, maxTDim), minTDim);
             T.correctBoundaryConditions();
 
-            if
-            (
-                (oldMin < minPhysicalTemp - SMALL)
-             || (oldMax > maxPhysicalTemp + SMALL)
-            )
+            if (Pstream::master())
             {
-                if (Pstream::master())
+                if (localLow > 0 || localHigh > 0)
                 {
                     WarningInFunction
                         << "Temperature clamp activated during " << stage
                         << ": enforcing [" << minPhysicalTemp << ", "
                         << maxPhysicalTemp << "] K" << endl;
+                }
+                else
+                {
+                    Info<< "T within physical bounds during " << stage << endl;
                 }
             }
         };
