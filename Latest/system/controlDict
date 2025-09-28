@@ -170,7 +170,7 @@ functions
             
             // Only update if interval changed significantly
             if (abs(newInterval - lastWriteIntervalChange) > 0.1e-12) {
-                const_cast<Time&>(mesh().time()).setWriteInterval(newInterval);
+                const_cast<Time&>(mesh().time()).writeInterval() = newInterval;
                 lastWriteIntervalChange = newInterval;
                 
                 if (Pstream::master()) {
