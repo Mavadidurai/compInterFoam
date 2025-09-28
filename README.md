@@ -78,11 +78,12 @@ Defines parameters for the recoil-pressure helper used when
 | `recoilRelax` | `1.0` | Temporal relaxation factor (`relaxFactor` supported for backward compatibility). |
 | `alphaMin` / `alphaMax` | `0.001` / `0.999` | Valid phase-fraction window for recoil evaluation.
 
-## `constant/transportProperties`
+## `system/controlDict`
 
 ### `phaseChangeCoeffs`
 Governs metal evaporation/condensation coupling supplied to the two-temperature
-model.
+model. Moving this dictionary into `controlDict` keeps timing adjustments close
+to the main run controls.
 
 | Entry | Default | Description |
 | --- | --- | --- |
@@ -97,13 +98,18 @@ model.
 | `activationTime` | – | List of `(start stop)` time windows when the source is active. |
 
 ### `massTransferCoeffs`
-Optional bulk mass-transfer limiter for the gas phase.
+Optional bulk mass-transfer limiter for the gas phase. Relocating this
+dictionary into `controlDict` puts its activation windows alongside other
+timing settings.
 
 | Entry | Default | Description |
 | --- | --- | --- |
 | `rateMax` | `-1` | Maximum `dg/dt` magnitude. Negative disables limiting. |
-| `tStart`, `tEnd` | – | Parallel lists defining activation windows. Missing or empty lists keep the limiter active at all times.
+| `tStart`, `tEnd` | – | Parallel lists defining activation windows. Missing or empty lists keep the limiter active at all times. |
 
+### `laserStartTime` / `laserEndTime`
+Top-level entries that define when the femtosecond laser source is active.
+Entries in `controlDict` override values supplied in `constant/laserProperties`.
 ## Notes
 * All diagnostics controlled by `verbose` are now emitted by the master MPI
   rank only to prevent duplicate messages in parallel runs.
