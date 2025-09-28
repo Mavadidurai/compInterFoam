@@ -26,6 +26,16 @@ if command -v wmake >/dev/null 2>&1; then
         exec "$real" "$@"
     fi
 fi
+default_bashrc=/opt/openfoam/etc/bashrc
+if [ -r "$default_bashrc" ]; then
+    . "$default_bashrc"
+    if command -v wmake >/dev/null 2>&1; then
+        real=$(command -v wmake)
+        if [ "$real" != "$self" ]; then
+            exec "$real" "$@"
+        fi
+    fi
+fi
 cat <<'EOF_MSG'
 Error: OpenFOAM's wmake command is not available on your PATH.
 This solver must be compiled inside an OpenFOAM environment.
