@@ -195,13 +195,12 @@ int main(int argc, char *argv[])
             rSubDeltaT = max(invMaxDeltaT, rSubDeltaT);
             rSubDeltaT.correctBoundaryConditions();
             scalar newDeltaT = 1.0/gMax(rDeltaT.primitiveField());
-            const scalar minDeltaT
+            newDeltaT = Foam::max
             (
-                runTime.controlDict().lookupOrDefault<scalar>("minDeltaT", SMALL)
+                minDeltaTValue,
+                Foam::min(maxDeltaTValue, newDeltaT)
             );
-            newDeltaT = max(minDeltaT, min(newDeltaT, maxDeltaTValue));
             runTime.setDeltaT(newDeltaT);
-            runTime.deltaT0() = runTime.deltaTValue();
            
             if (verbose && master)
             {

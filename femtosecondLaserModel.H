@@ -136,7 +136,8 @@ private:
     volScalarField& resetSourceField() const;  // ensure Q_laser exists and is zeroed
     scalar depositableEnergyFraction() const;
     scalar beamCoverageFraction() const;
-  
+    scalar effectiveTransmission(const scalar reflectivity) const;
+    
     EnvelopeResult evaluateTemporalEnvelope
     (
         const scalar overlapStart,
