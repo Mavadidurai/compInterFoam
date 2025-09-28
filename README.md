@@ -30,6 +30,12 @@ the helper script in the repository root:
 It will delegate to the system `wmake` when available or print a clear
 instruction when the OpenFOAM environment is missing.
 ## `system/controlDict`
+The reference case in [`Latest/system/controlDict`](Latest/system/controlDict)
+keeps the base time step fixed with `adjustTimeStep no`, so the Courant-number
+limits (`maxCo`, `maxAlphaCo`, `maxThermalCourant`) act as documentation only
+unless you explicitly set `adjustTimeStep yes`. Output is controlled with
+`writeControl runTime`, where `writeInterval` is specified in seconds of
+simulated time (`5e-13` corresponds to 0.5 ps in the default case).
 
 ### `verbose`
 * **Type:** `Switch`
