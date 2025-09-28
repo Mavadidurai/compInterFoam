@@ -82,7 +82,7 @@ advancedInterfaceCapturing
     recoilMax             2e8;         // Reduced max pressure
     clampRecoil           true;
     scaleRecoilMax        true;
-    recoilTempOffset      100;
+    recoilTempOffset      40;
     phaseChangeTempOffset 50;
     recoilRelax           0.8;         // More smoothing
     alphaMin              0.01;        // Relaxed for interface stability
@@ -107,7 +107,7 @@ twoTemperatureProperties
     gasMetalExchangeCoeff [1 -1 -3 -1 0 0 0] 5e13;  // Reduced for stability
     minGasMetalExchangeCoeff [1 -1 -3 -1 0 0 0] 0;
     maxGasMetalExchangeCoeff [1 -1 -3 -1 0 0 0] 1e16;
-
+    maxGasMetalHeatFlux    1e16;
     minTe 200;             // Allow cooling
     maxTe 15000;
     ambientTemperature 300;
@@ -637,16 +637,27 @@ milestones
     // Mid-plane visualization (optional)
     midPlaneVTK
     {
-        type        sampledSurface;
-        libs        ("libsampling.so");
-        surfaceType cuttingPlane;
-        planeType   pointAndNormal;
-        pointAndNormalDict { point (25e-6 0 5e-6); normal (0 1 0); }
-        fields      (alpha.metal Tl Te T p_rgh U);
-        interpolate true;
-        format      vtk;
-        writeControl writeTime;
-        writeInterval 1;
+        type            surfaces;
+        libs            ("libsampling.so");
+        writeControl    writeTime;
+        writeInterval   1;
+        surfaceFormat   vtk;
+        fields          (alpha.metal Tl Te T p_rgh U);
+
+        surfaces
+        (
+            midPlane
+            {
+                type                cuttingPlane;
+                planeType           pointAndNormal;
+                pointAndNormalDict
+                {
+                    point   (25e-6 0 5e-6);
+                    normal  (0 1 0);
+                }
+                interpolate         true;
+            }
+        );
     }
 
     // Comprehensive LIFT validation summary
