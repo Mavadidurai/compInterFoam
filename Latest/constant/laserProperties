@@ -38,7 +38,7 @@ FoamFile
 // Domain: x∈[0,50e-6], y∈[0,20e-6], z∈[0,10e-6]
 // CORRECTED: Specify exact film thickness to match blockMeshDict geometry
 filmThicknessExpected    7.14e-8;    // 71.4 nm (matches y3 - y2 = 20.0714 - 20.0000)
-//filmCenterY         20.0357e-6;     // center at focus.y
+filmCenterY         20.0357e-6;     // center at focus.y
 
 // geometry coupling
 gasAbsorptionCoeff 0;     // [1/m] gas absorption (0 disables direct gas heating)
