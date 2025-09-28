@@ -402,10 +402,11 @@ int main(int argc, char *argv[])
             else if (legacyRecoilPressure.valid())
             {
                 legacyRecoilPressure->write();
-            }            
+            }
+
+            runTime.write();
         }
 
-        runTime.write();
         runTime.printExecutionTime(Info);
     }
     

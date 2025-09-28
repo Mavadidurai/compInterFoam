@@ -466,23 +466,22 @@ const dictionary& globalControlDict = runTime.controlDict();
 
 const bool hasLaserStartControl = globalControlDict.found("laserStartTime");
 const bool hasLaserEndControl = globalControlDict.found("laserEndTime");
-const bool hasLaserStartDict = laserPropertiesDict.found("laserStartTime");
 const bool hasLaserEndDict = laserPropertiesDict.found("laserEndTime");
 
 const scalar laserStartTimeControl =
     hasLaserStartControl
-  ? globalControlDict.lookup<scalar>("laserStartTime")
+  ? readScalar(globalControlDict.lookup("laserStartTime"))
   : laserPropertiesDict.lookupOrDefault<scalar>("laserStartTime", 0.0);
 laserPropertiesDict.set("laserStartTime", laserStartTimeControl);
 
 scalar laserEndTimeDefault =
     hasLaserEndDict
-  ? laserPropertiesDict.lookup<scalar>("laserEndTime")
+  ? readScalar(laserPropertiesDict.lookup("laserEndTime"))
   : laserStartTimeControl;
 
 const scalar laserEndTimeControl =
     hasLaserEndControl
-  ? globalControlDict.lookup<scalar>("laserEndTime")
+  ? readScalar(globalControlDict.lookup("laserEndTime"))
   : laserEndTimeDefault;
 laserPropertiesDict.set("laserEndTime", laserEndTimeControl);
 
