@@ -45,7 +45,31 @@ timePrecision   6;
 fileHandler     uncollated;
 
 runTimeModifiable yes;
+// Phase-change timing and coefficients
+phaseChangeCoeffs
+{
+    model               temperatureWindow;
+    hf                  hf [0 2 -2 0 0 0 0] 8.9e6;
+    Tsol                Tsol [0 0 0 0 0 0 1] 1941;
+    Tvap                Tvap [0 0 0 0 0 0 1] 3560;
+    windowWidth         50;
+    dtFloor             1e-12;
+    relaxationTime      5e-11;
+    maxSource           1e9;
+    minCoefficient      5e7;
+    metalFractionCutoff 1e-6;
+    activationTime      ((0 5e-11));
+}
 
+massTransferCoeffs
+{
+    tStart  (0);
+    tEnd    (5e-11);
+    rateMax 1e13;
+}
+
+laserStartTime  0;
+laserEndTime    4e-11;
 // Advanced interface capturing
 useAdvancedInterfaceCapturing  true;
 advancedInterfaceCapturing
