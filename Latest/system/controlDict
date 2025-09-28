@@ -150,7 +150,7 @@ functions
         #{
             const scalar t = mesh().time().value();
             static scalar lastWriteIntervalChange = -1;
-            
+            static scalar nextWriteTime = 0;            
             // Adaptive write intervals based on physics
             scalar newInterval = 1e-12;  // Default 1 ps
             
@@ -167,8 +167,6 @@ functions
                 // Solidification phase (500+ ps): 10 ps intervals
                 newInterval = 1e-11;
             }
-            
-            static scalar nextWriteTime = 0;
 
             // Only update if interval changed significantly
             if (abs(newInterval - lastWriteIntervalChange) > 0.1e-12) {
