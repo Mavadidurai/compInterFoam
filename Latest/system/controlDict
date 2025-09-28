@@ -20,13 +20,13 @@ application     compInterFoam;
 startFrom       latestTime;
 startTime       0;
 stopAt          endTime;
-endTime         5e-11;          // Extend to 50 ps total
+endTime         5e-10;          // Extend to 50 ps total
 
 deltaT          6e-13;         // Base time step
 adjustTimeStep  no;
 maxCo           0.5;
 maxAlphaCo      0.5;
-maxDeltaT       5e-11;         // Cap at 50 ps
+maxDeltaT       5e-10;         // Cap at 50 ps
 minDeltaT       5e-15;         // Allow reduction to 5 fs
 
 verbose         true;
