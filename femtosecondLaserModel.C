@@ -1170,7 +1170,19 @@ femtosecondLaserModel::applySpatialWeighting
             haveFilmInterval = true;
         }
     }
+    scalar filmEntryOffset = 0.0;
 
+    if (haveFilmInterval && directionMag > VSMALL)
+    {
+        const scalar dirY = directionUnit.y();
+
+        if (mag(dirY) > VSMALL)
+        {
+            const scalar targetY = (dirY >= 0) ? filmYMin_ : filmYMax_;
+            filmEntryOffset = (targetY - entryPoint.y())/dirY;
+            filmEntryOffset = Foam::max(filmEntryOffset, scalar(0));
+        }
+    }
     forAll(cellCentres, cellI)
     {
         const point& c = cellCentres[cellI];
@@ -1284,7 +1296,7 @@ femtosecondLaserModel::applySpatialWeighting
             * spatialTerm
             * transmissionFactor;
 
-        scalar deltaS = Foam::max(sOut - sIn, VSMALL);
+        const scalar deltaS = Foam::max(sOut - sIn, VSMALL);
 
         scalar Ein = baseIntensity;
         scalar Eout = baseIntensity;
@@ -1292,11 +1304,13 @@ femtosecondLaserModel::applySpatialWeighting
         scalar sInForExponent = sIn;
         scalar sOutForExponent = sOut;
 
-        if (cellUsesFilmInterval)
+        if (inFilm)
         {
-            sInForExponent = Foam::max(sIn - filmIntervalStart, scalar(0));
-            sOutForExponent = Foam::max(sOut - filmIntervalStart, scalar(0));
-            deltaS = Foam::max(sOut - sIn, VSMALL);
+            const scalar depthIn = Foam::max(scalar(0), sIn - filmEntryOffset);
+            const scalar depthOut = Foam::max(depthIn, sOut - filmEntryOffset);
+
+            sInForExponent = depthIn;
+            sOutForExponent = depthOut;
         }
 
         if (cellAbsorptionCoeff > VSMALL)

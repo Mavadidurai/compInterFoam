@@ -209,6 +209,18 @@ advancedInterfaceCapturing::advancedInterfaceCapturing
             << ") must be non-negative"
             << abort(FatalError);
     }
+    if (recoilTempOffset_.value() > phaseChangeTempOffset_.value())
+    {
+        if (master)
+        {
+            WarningInFunction
+                << "recoilTempOffset (" << recoilTempOffset_.value()
+                << ") exceeds phaseChangeTempOffset ("
+                << phaseChangeTempOffset_.value()
+                << ") and will be limited." << endl;
+        }
+        recoilTempOffset_ = phaseChangeTempOffset_;
+    }
 
     clampRecoil_ = aicDict.lookupOrDefault<Switch>
     (
