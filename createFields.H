@@ -462,6 +462,36 @@ IOdictionary laserPropertiesDict
         IOobject::NO_WRITE
     )
 );
+const dictionary& globalControlDict = runTime.controlDict();
+
+const bool hasLaserStartControl = globalControlDict.found("laserStartTime");
+const bool hasLaserEndControl = globalControlDict.found("laserEndTime");
+const bool hasLaserStartDict = laserPropertiesDict.found("laserStartTime");
+const bool hasLaserEndDict = laserPropertiesDict.found("laserEndTime");
+
+const scalar laserStartTimeControl =
+    hasLaserStartControl
+  ? globalControlDict.lookup<scalar>("laserStartTime")
+  : laserPropertiesDict.lookupOrDefault<scalar>("laserStartTime", 0.0);
+laserPropertiesDict.set("laserStartTime", laserStartTimeControl);
+
+scalar laserEndTimeDefault =
+    hasLaserEndDict
+  ? laserPropertiesDict.lookup<scalar>("laserEndTime")
+  : laserStartTimeControl;
+
+const scalar laserEndTimeControl =
+    hasLaserEndControl
+  ? globalControlDict.lookup<scalar>("laserEndTime")
+  : laserEndTimeDefault;
+laserPropertiesDict.set("laserEndTime", laserEndTimeControl);
+
+if (!hasLaserEndControl && !hasLaserEndDict)
+{
+    FatalIOErrorInFunction(globalControlDict)
+        << "Specify 'laserEndTime' in controlDict or constant/laserProperties" << nl
+        << exit(FatalIOError);
+}
 femtosecondLaserModel laser(mesh, laserPropertiesDict);
 if (verbose && Foam::Pstream::master())
 {

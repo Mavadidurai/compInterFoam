@@ -414,32 +414,9 @@ extern const bool master;
             << gMax(mag(gasMetalHeatFlux)().internalField()) << endl;
         if (enableTClamp)
         {
-            const scalarField& Tint = T.internalField();
-            label nLow = 0;
-            label nHigh = 0;
-            forAll(Tint, cellI)
-            {
-                const scalar val = Tint[cellI];
-                if (val < minPhysicalTemp)
-                {
-                    ++nLow;
-                }
-                else if (val > maxPhysicalTemp)
-                {
-                    ++nHigh;
-                }
-            }
-
-            scalar totalLow = scalar(nLow);
-            scalar totalHigh = scalar(nHigh);
-            scalar totalCells = scalar(Tint.size());
-            Foam::reduce(totalLow, sumOp<scalar>());
-            Foam::reduce(totalHigh, sumOp<scalar>());
-            Foam::reduce(totalCells, sumOp<scalar>());
-            const scalar denom = Foam::max(scalar(1), totalCells);
-
-            Info<< "    clamp fractions: low=" << totalLow/denom
-                << "  high=" << totalHigh/denom << endl;
+            const scalar denom = Foam::max(scalar(1), totalCellsClamped);
+            Info<< "    clamp fractions: low=" << totalLowClamped/denom
+                << "  high=" << totalHighClamped/denom << endl;
         }
     }
 }

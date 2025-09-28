@@ -84,6 +84,7 @@ Foam::twoPhaseMixtureThermo::twoPhaseMixtureThermo
 {
     const dictionary& transportDict =
         U.mesh().lookupObject<dictionary>("transportProperties");
+    const dictionary& controlDict = U.mesh().time().controlDict();
 
     auto tryLookup =
         [&](const dictionary& dict, const word& entryName, const char* location, scalar& value) -> bool
@@ -108,9 +109,16 @@ Foam::twoPhaseMixtureThermo::twoPhaseMixtureThermo
         };
 
     const dictionary* phaseChangeDictPtr = nullptr;
-    if (transportDict.found("phaseChangeCoeffs"))
+    const char* phaseChangeDictLocation = nullptr;
+    if (controlDict.found("phaseChangeCoeffs"))
+    {
+        phaseChangeDictPtr = &controlDict.subDict("phaseChangeCoeffs");
+        phaseChangeDictLocation = "controlDict.phaseChangeCoeffs";
+    }
+    else if (transportDict.found("phaseChangeCoeffs"))
     {
         phaseChangeDictPtr = &transportDict.subDict("phaseChangeCoeffs");
+        phaseChangeDictLocation = "transportProperties.phaseChangeCoeffs";
     }
 
     auto lookupOptionalScalar =
@@ -126,7 +134,23 @@ Foam::twoPhaseMixtureThermo::twoPhaseMixtureThermo
                         (
                             *phaseChangeDictPtr,
                             name,
-                            "transportProperties.phaseChangeCoeffs",
+                            phaseChangeDictLocation
+                                ? phaseChangeDictLocation
+                                : "phaseChangeCoeffs",
+                            value
+                        )
+                    )
+                    {
+                        return true;
+                    }
+
+                    if
+                    (
+                        tryLookup
+                        (
+                            controlDict,
+                            name,
+                            "controlDict",
                             value
                         )
                     )
@@ -507,6 +531,7 @@ void Foam::twoPhaseMixtureThermo::computePhaseChange()
     const fvMesh& mesh = T_.mesh();
     // Access coefficients from transportProperties
     const dictionary& transportDict = mesh.lookupObject<dictionary>("transportProperties");
+    const dictionary& controlDict = mesh.time().controlDict();
 
     const volScalarField* TlPtr = nullptr;
     autoPtr<volScalarField> TlTmp;
@@ -549,15 +574,28 @@ void Foam::twoPhaseMixtureThermo::computePhaseChange()
     }
 
     const volScalarField& Tl = *TlPtr;
-    if (!transportDict.found("phaseChangeCoeffs"))
+    const dictionary* pcPtr = nullptr;
+    word pcLocation("phaseChangeCoeffs");
+    if (controlDict.found("phaseChangeCoeffs"))
+    {
+        pcPtr = &controlDict.subDict("phaseChangeCoeffs");
+        pcLocation = "controlDict.phaseChangeCoeffs";
+    }
+    else if (transportDict.found("phaseChangeCoeffs"))
+    {
+        pcPtr = &transportDict.subDict("phaseChangeCoeffs");
+        pcLocation = "transportProperties.phaseChangeCoeffs";
+    }
+
+    if (!pcPtr)
     {
         FatalErrorInFunction
-            << "phaseChangeCoeffs not found in transportProperties" << nl
+            << "phaseChangeCoeffs not found in controlDict or transportProperties" << nl
             << "Supply a phaseChangeCoeffs sub-dictionary or disable phase change." << nl
             << exit(FatalError);
 
     }
-    const dictionary& pc = transportDict.subDict("phaseChangeCoeffs");
+    const dictionary& pc = *pcPtr;
     const scalar Tvapor = pc.lookupOrDefault<scalar>("Tvapor", T_vapor_);
     const scalar windowWidth = pc.lookupOrDefault<scalar>("windowWidth", 0.0);
     dtFloor_ = pc.lookupOrDefault<scalar>("dtFloor", dtFloor_);
@@ -602,7 +640,7 @@ void Foam::twoPhaseMixtureThermo::computePhaseChange()
             if (master)
             {
                 WarningInFunction
-                    << "phaseChangeCoeffs:maxSource not specified; using "
+                    << pcLocation << ":maxSource not specified; using "
                     << (hasTransportDefault
                         ? "transportProperties entry 'phaseChangeMaxSourceDefault'"
                         : "internal fallback")
@@ -790,8 +828,22 @@ Foam::twoPhaseMixtureThermo::computeMassTransfer() const
     volScalarField& dgdt = tDgdt.ref();
     const dictionary& transportDict =
         T_.mesh().lookupObject<dictionary>("transportProperties");
+    const dictionary& controlDict = T_.mesh().time().controlDict();
     const bool master = Pstream::master();
-    if (!transportDict.found("massTransferCoeffs"))
+    const dictionary* mtPtr = nullptr;
+    word mtLocation("massTransferCoeffs");
+    if (controlDict.found("massTransferCoeffs"))
+    {
+        mtPtr = &controlDict.subDict("massTransferCoeffs");
+        mtLocation = "controlDict.massTransferCoeffs";
+    }
+    else if (transportDict.found("massTransferCoeffs"))
+    {
+        mtPtr = &transportDict.subDict("massTransferCoeffs");
+        mtLocation = "transportProperties.massTransferCoeffs";
+    }
+
+    if (!mtPtr)
     {
         if (master)
         {
@@ -799,7 +851,7 @@ Foam::twoPhaseMixtureThermo::computeMassTransfer() const
         }
         return tDgdt;
     }
-    const dictionary& mt = transportDict.subDict("massTransferCoeffs");
+    const dictionary& mt = *mtPtr;
     const scalar rateMax = mt.lookupOrDefault<scalar>("rateMax", -1.0);
     // lattice heat capacity [J/m^3/K] from two-temperature properties
     const scalar ClVal = ClTTM_.value();
@@ -818,7 +870,7 @@ Foam::twoPhaseMixtureThermo::computeMassTransfer() const
     {
         if (master)
         {
-            Info<< "massTransferCoeffs:" << nl;
+            Info<< mtLocation << ':' << nl;
             if (rateMax > 0)
             {
                 Info<< "    rateMax   " << rateMax << nl;
