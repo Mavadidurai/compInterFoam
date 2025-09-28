@@ -1579,7 +1579,21 @@ void femtosecondLaserModel::calculateSource() const
 
     if (!envelope.active || envelope.temporalAverage <= VSMALL)
     {
-    if (verbose && master && timeIndex % 10 == 0)
+        if
+        (
+            (overlapEnd - overlapStart) > SMALL
+         && t >= laserStartTime_
+         && t <= laserEndTime_
+        )
+        {
+            FatalErrorInFunction
+                << "Temporal envelope is inactive while current time "
+                << "slice lies inside the configured laser window. "
+                << "No laser energy will be deposited."
+                << exit(FatalError);
+        }
+
+        if (verbose && master && timeIndex % 10 == 0)
         {
             Info<< "Temporal envelope inactive - no laser heating" << endl;
         }

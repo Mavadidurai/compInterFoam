@@ -126,6 +126,50 @@ extern const bool master;
         );
     interfaceExchange = Foam::min(Foam::max(interfaceExchange, minCoeff), maxCoeff);
     interfaceExchange.correctBoundaryConditions();
+    const volScalarField& Tl = ttm.Tl();
+
+    const scalar qCap =
+        twoTemperatureDict.lookupOrDefault<scalar>
+        (
+            "maxGasMetalHeatFlux",
+            -1.0
+        );
+
+    const dimensionedScalar qCapDim
+    (
+        "maxGasMetalHeatFlux",
+        interfaceExchange.dimensions()*dimTemperature,
+        qCap
+    );
+
+    if (qCap > 0)
+    {
+
+        const scalar tempDiffFloorValue =
+            twoTemperatureDict.lookupOrDefault<scalar>
+            (
+                "temperatureDifferenceFloor",
+                1e-3
+            );
+
+        const dimensionedScalar tempDiffFloor
+        (
+            "temperatureDifferenceFloor",
+            dimTemperature,
+            Foam::max(tempDiffFloorValue, SMALL)
+        );
+
+        tmp<volScalarField> tTempDiff(mag(T - Tl));
+        volScalarField& tempDiff = tTempDiff.ref();
+        tempDiff = Foam::max(tempDiff, tempDiffFloor);
+
+        tmp<volScalarField> tCoeffCap(qCapDim/tempDiff);
+        const volScalarField& coeffCap = tCoeffCap();
+
+        interfaceExchange =
+            Foam::min(Foam::max(interfaceExchange, -coeffCap), coeffCap);
+        interfaceExchange.correctBoundaryConditions();
+    }
 
     tmp<volScalarField> tCv2 = mixture.thermo2().Cv();
     tmp<volScalarField> tRho2 = mixture.thermo2().rho();
@@ -193,8 +237,6 @@ extern const bool master;
          fvOptions(CvolLimited, T)
      );
 
-    const volScalarField& Tl = ttm.Tl();
-
     TEqn += fvm::Sp(interfaceExchange, T);
     TEqn.source() += interfaceExchange*Tl;
 
@@ -233,7 +275,10 @@ extern const bool master;
 
     tmp<volScalarField> tRawFlux(interfaceExchange*(T - Tl));
     volScalarField& rawFlux = tRawFlux.ref();
-
+    if (qCap > 0)
+    {
+        rawFlux = Foam::min(Foam::max(rawFlux, -qCapDim), qCapDim);
+    }
     const scalar maxThermalCourant =
         Foam::max
         (
@@ -377,24 +422,6 @@ extern const bool master;
         activeMask.correctBoundaryConditions();
 
         rawFlux *= activeMask;
-    }
-    {
-        const scalar qCap =
-            twoTemperatureDict.lookupOrDefault<scalar>
-            (
-                "maxGasMetalHeatFlux",
-                -1.0
-            );
-        if (qCap > 0)
-        {
-            const dimensionedScalar qCapDim
-            (
-                "maxGasMetalHeatFlux",
-                rawFlux.dimensions(),
-                qCap
-            );
-            rawFlux = Foam::min(Foam::max(rawFlux, -qCapDim), qCapDim);
-        }
     }
 
     const volScalarField& limitedFlux = tRawFlux();
