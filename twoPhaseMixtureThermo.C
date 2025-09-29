@@ -109,7 +109,7 @@ Foam::twoPhaseMixtureThermo::twoPhaseMixtureThermo
         };
 
     const dictionary* phaseChangeDictPtr = nullptr;
-    const char* phaseChangeDictLocation = nullptr;
+    std::string phaseChangeDictLocation;
     if (controlDict.found("phaseChangeCoeffs"))
     {
         phaseChangeDictPtr = &controlDict.subDict("phaseChangeCoeffs");
@@ -123,11 +123,61 @@ Foam::twoPhaseMixtureThermo::twoPhaseMixtureThermo
             << exit(FatalIOError);
     }
 
+    const std::string phaseChangeDictDisplay =
+        phaseChangeDictLocation.empty()
+            ? "controlDict.phaseChangeCoeffs"
+            : phaseChangeDictLocation;
+    const std::string controlDictDisplay = "controlDict";
+
+    auto isPhaseChangeCoeffsLocation =
+        [&](const std::string& location) -> bool
+        {
+            return !location.empty()
+                && location.find(phaseChangeDictDisplay) == 0;
+        };
+
+    auto isControlDictLocation =
+        [&](const std::string& location) -> bool
+        {
+            return !location.empty()
+                && location.find(controlDictDisplay) == 0
+                && !isPhaseChangeCoeffsLocation(location);
+        };
+
+    auto alternateDictionary =
+        [&](const std::string& location) -> const std::string&
+        {
+            return isControlDictLocation(location)
+                ? phaseChangeDictDisplay
+                : controlDictDisplay;
+        };
+
+    auto combinedAlternateDictionary =
+        [&](const std::string& a, const std::string& b) -> std::string
+        {
+            const bool aIsPhase = isPhaseChangeCoeffsLocation(a);
+            const bool bIsPhase = isPhaseChangeCoeffsLocation(b);
+            const bool aIsControl = isControlDictLocation(a);
+            const bool bIsControl = isControlDictLocation(b);
+
+            if ((aIsPhase || bIsPhase) && (aIsControl || bIsControl))
+            {
+                return phaseChangeDictDisplay + " and " + controlDictDisplay;
+            }
+
+            if (aIsPhase || bIsPhase)
+            {
+                return controlDictDisplay;
+            }
+
+            return phaseChangeDictDisplay;
+        };
+
     auto lookupOptionalScalar =
-        [&](const word& entryName, scalar& value) -> bool
+        [&](const word& entryName, scalar& value, std::string& location) -> bool
         {
             auto tryNameInAllLocations =
-                [&](const word& name) -> bool
+                [&](const word& name, const bool legacyAlias) -> bool
                 {
                     if
                     (
@@ -136,13 +186,16 @@ Foam::twoPhaseMixtureThermo::twoPhaseMixtureThermo
                         (
                             *phaseChangeDictPtr,
                             name,
-                            phaseChangeDictLocation
-                                ? phaseChangeDictLocation
-                                : "phaseChangeCoeffs",
+                            phaseChangeDictDisplay.c_str(),
                             value
                         )
                     )
                     {
+                        location = phaseChangeDictDisplay;
+                        if (legacyAlias)
+                        {
+                            location += " (legacy entry '" + name + "')";
+                        }
                         return true;
                     }
 
@@ -157,13 +210,18 @@ Foam::twoPhaseMixtureThermo::twoPhaseMixtureThermo
                         )
                     )
                     {
+                        location = "controlDict";
+                        if (legacyAlias)
+                        {
+                            location += " (legacy entry '" + name + "')";
+                        }
                         return true;
                     }
 
                     return false;
                 };
 
-            if (tryNameInAllLocations(entryName))
+            if (tryNameInAllLocations(entryName, false))
             {
                 return true;
             }
@@ -175,15 +233,27 @@ Foam::twoPhaseMixtureThermo::twoPhaseMixtureThermo
              || entryName == "Tvap"
             )
             {
-                if (entryName != "Tvapor" && tryNameInAllLocations(word("Tvapor")))
+                if
+                (
+                    entryName != "Tvapor"
+                 && tryNameInAllLocations(word("Tvapor"), true)
+                )
                 {
                     return true;
                 }
-                if (entryName != "T_vapor" && tryNameInAllLocations(word("T_vapor")))
+                if
+                (
+                    entryName != "T_vapor"
+                 && tryNameInAllLocations(word("T_vapor"), true)
+                )
                 {
                     return true;
                 }
-                if (entryName != "Tvap" && tryNameInAllLocations(word("Tvap")))
+                if
+                (
+                    entryName != "Tvap"
+                 && tryNameInAllLocations(word("Tvap"), true)
+                )
                 {
                     return true;
                 }
@@ -193,38 +263,54 @@ Foam::twoPhaseMixtureThermo::twoPhaseMixtureThermo
         };
 
     auto lookupRequiredScalar =
-        [&](const word& primaryName, const word& legacyName) -> scalar
+        [&](const word& primaryName, const word& legacyName, std::string& location) -> scalar
         {
             scalar value = 0.0;
 
-            if (!primaryName.empty() && lookupOptionalScalar(primaryName, value))
+            if
+            (
+                !primaryName.empty()
+             && lookupOptionalScalar(primaryName, value, location)
+            )
             {
                 return value;
             }
 
-            if (!legacyName.empty() && lookupOptionalScalar(legacyName, value))
+            if
+            (
+                !legacyName.empty()
+             && lookupOptionalScalar(legacyName, value, location)
+            )
             {
+                location += " (legacy entry '" + legacyName + "')";
                 return value;
             }
 
             FatalIOErrorInFunction(controlDict)
                 << "Missing required entry '" << primaryName
                 << "' (or legacy '" << legacyName
-                << "') in controlDict or controlDict.phaseChangeCoeffs"
+                << "') in " << phaseChangeDictDisplay << " or controlDict"
                 << exit(FatalIOError);
 
             return 0.0;
         };
 
-    latentHeat_ = lookupRequiredScalar("latentHeat", "hf");
-    T_melt_ = lookupRequiredScalar("T_melt", "Tsol");
-    T_vapor_ = lookupRequiredScalar("T_vapor", "Tvap");
+    std::string latentHeatLocation;
+    std::string TmeltLocation;
+    std::string TvaporLocation;
+
+    latentHeat_ = lookupRequiredScalar("latentHeat", "hf", latentHeatLocation);
+    T_melt_ = lookupRequiredScalar("T_melt", "Tsol", TmeltLocation);
+    T_vapor_ = lookupRequiredScalar("T_vapor", "Tvap", TvaporLocation);
 
     if (latentHeat_ <= SMALL)
     {
         FatalIOErrorInFunction(controlDict)
-            << "Latent heat ('latentHeat' or legacy 'hf') in controlDict or"
-            << " controlDict.phaseChangeCoeffs must be positive"
+            << "Latent heat ('latentHeat' or legacy 'hf') in "
+            << latentHeatLocation
+            << " must be positive (also checked "
+            << alternateDictionary(latentHeatLocation)
+            << ")"
             << exit(FatalIOError);
     }
 
@@ -232,15 +318,21 @@ Foam::twoPhaseMixtureThermo::twoPhaseMixtureThermo
     {
         FatalIOErrorInFunction(controlDict)
             << "Phase change temperatures ('T_melt'/'T_vapor' or legacy 'Tsol'/'Tvap')"
-            << " in controlDict or controlDict.phaseChangeCoeffs must be positive"
+            << " in " << TmeltLocation << " and " << TvaporLocation
+            << " must be positive (also checked "
+            << combinedAlternateDictionary(TmeltLocation, TvaporLocation)
+            << ")"
             << exit(FatalIOError);
     }
 
     if (T_melt_ >= T_vapor_)
     {
         FatalIOErrorInFunction(controlDict)
-            << "Expected T_melt < T_vapor (legacy Tsol < Tvap) in controlDict"
-            << " or controlDict.phaseChangeCoeffs"
+            << "Expected T_melt < T_vapor (legacy Tsol < Tvap) with values from "
+            << TmeltLocation << " and " << TvaporLocation
+            << " (also checked "
+            << combinedAlternateDictionary(TmeltLocation, TvaporLocation)
+            << ")"
             << exit(FatalIOError);
     }
     if (debug)
