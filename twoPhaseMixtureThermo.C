@@ -115,10 +115,12 @@ Foam::twoPhaseMixtureThermo::twoPhaseMixtureThermo
         phaseChangeDictPtr = &controlDict.subDict("phaseChangeCoeffs");
         phaseChangeDictLocation = "controlDict.phaseChangeCoeffs";
     }
-    else if (transportDict.found("phaseChangeCoeffs"))
+    else
     {
-        phaseChangeDictPtr = &transportDict.subDict("phaseChangeCoeffs");
-        phaseChangeDictLocation = "transportProperties.phaseChangeCoeffs";
+        FatalIOErrorInFunction(controlDict)
+            << "Missing required dictionary 'phaseChangeCoeffs' in controlDict"
+            << " (controlDict.phaseChangeCoeffs)"
+            << exit(FatalIOError);
     }
 
     auto lookupOptionalScalar =
@@ -151,20 +153,6 @@ Foam::twoPhaseMixtureThermo::twoPhaseMixtureThermo
                             controlDict,
                             name,
                             "controlDict",
-                            value
-                        )
-                    )
-                    {
-                        return true;
-                    }
-
-                    if
-                    (
-                        tryLookup
-                        (
-                            transportDict,
-                            name,
-                            "transportProperties",
                             value
                         )
                     )
@@ -219,10 +207,10 @@ Foam::twoPhaseMixtureThermo::twoPhaseMixtureThermo
                 return value;
             }
 
-            FatalIOErrorInFunction(transportDict)
+            FatalIOErrorInFunction(controlDict)
                 << "Missing required entry '" << primaryName
                 << "' (or legacy '" << legacyName
-                << "') in transportProperties"
+                << "') in controlDict or controlDict.phaseChangeCoeffs"
                 << exit(FatalIOError);
 
             return 0.0;
@@ -234,22 +222,25 @@ Foam::twoPhaseMixtureThermo::twoPhaseMixtureThermo
 
     if (latentHeat_ <= SMALL)
     {
-        FatalIOErrorInFunction(transportDict)
-            << "Latent heat ('latentHeat' or legacy 'hf') in transportProperties must be positive"
+        FatalIOErrorInFunction(controlDict)
+            << "Latent heat ('latentHeat' or legacy 'hf') in controlDict or"
+            << " controlDict.phaseChangeCoeffs must be positive"
             << exit(FatalIOError);
     }
 
     if (T_melt_ <= 0 || T_vapor_ <= 0)
     {
-        FatalIOErrorInFunction(transportDict)
-            << "Phase change temperatures ('T_melt'/'T_vapor' or legacy 'Tsol'/'Tvap') in transportProperties must be positive"
+        FatalIOErrorInFunction(controlDict)
+            << "Phase change temperatures ('T_melt'/'T_vapor' or legacy 'Tsol'/'Tvap')"
+            << " in controlDict or controlDict.phaseChangeCoeffs must be positive"
             << exit(FatalIOError);
     }
 
     if (T_melt_ >= T_vapor_)
     {
-        FatalIOErrorInFunction(transportDict)
-            << "Expected T_melt < T_vapor (legacy Tsol < Tvap) in transportProperties"
+        FatalIOErrorInFunction(controlDict)
+            << "Expected T_melt < T_vapor (legacy Tsol < Tvap) in controlDict"
+            << " or controlDict.phaseChangeCoeffs"
             << exit(FatalIOError);
     }
     if (debug)
