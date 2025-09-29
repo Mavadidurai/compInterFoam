@@ -96,9 +96,10 @@ femtosecondLaserModel::femtosecondLaserModel
     pulseEnergyToleranceAbs_
     (
         dict.getOrDefault<scalar>("pulseEnergyToleranceAbs", 1e-12)
-    ),    
+    ),
     laserStartTime_(dict.getOrDefault<scalar>("laserStartTime", 0.0)),
     laserEndTime_(dict.get<scalar>("laserEndTime")),
+    pulseCenterTime_(-GREAT),
     filmYMin_(0.0),
     filmYMax_(0.0),
     tSource_(),
@@ -161,7 +162,25 @@ femtosecondLaserModel::femtosecondLaserModel
             << "pulseEnergyToleranceAbs " << pulseEnergyToleranceAbs_
             << " is negative; clamping to 0" << endl;
         pulseEnergyToleranceAbs_ = 0.0;
-    }    
+    }
+
+    if (dict.found("pulseCenterTime"))
+    {
+        pulseCenterTime_ = dict.get<scalar>("pulseCenterTime");
+        const scalar clampedCenter =
+            Foam::min(Foam::max(pulseCenterTime_, laserStartTime_), laserEndTime_);
+
+        if (clampedCenter != pulseCenterTime_)
+        {
+            WarningInFunction
+                << "pulseCenterTime " << pulseCenterTime_
+                << " outside [" << laserStartTime_ << ", " << laserEndTime_
+                << "]; clamping to " << clampedCenter
+                << endl;
+        }
+
+        pulseCenterTime_ = clampedCenter;
+    }
     const bool filmYMinProvided = dict.found("filmYMin");
     const bool filmYMaxProvided = dict.found("filmYMax");
 
@@ -1002,15 +1021,21 @@ femtosecondLaserModel::evaluateTemporalEnvelope
 
         const scalar sigma =
             pulseWidth_.value()/(2.0*sqrt(2.0*log(2.0)));  // std dev from FWHM
-        const scalar windowWidth = max(laserEndTime_ - laserStartTime_, SMALL);
+        scalar center = pulseCenterTime_;
+        const bool customCenter = (pulseCenterTime_ > -0.5*GREAT);
 
-        // Limit how far the peak can move away from the trigger time.  Using
-        // ±3σ retains >99% of the Gaussian energy while avoiding large delays
-        // when laserEndTime is set long after the pulse.
-        const scalar maxCenterOffset = 3.0*sigma;
-        const scalar halfWindow = 0.5*windowWidth;
-        const scalar centerOffset = min(halfWindow, maxCenterOffset);
-        const scalar center = laserStartTime_ + centerOffset;
+        if (!customCenter)
+        {
+            const scalar windowWidth = max(laserEndTime_ - laserStartTime_, SMALL);
+
+            // Limit how far the peak can move away from the trigger time.
+            // Using ±3σ retains >99% of the Gaussian energy while avoiding
+            // large delays when laserEndTime is set long after the pulse.
+            const scalar maxCenterOffset = 3.0*sigma;
+            const scalar halfWindow = 0.5*windowWidth;
+            const scalar centerOffset = min(halfWindow, maxCenterOffset);
+            center = laserStartTime_ + centerOffset;
+        }
 
         result.temporalIntegral =
             gaussianWindowIntegral(overlapStart, overlapEnd, center, sigma);
@@ -1583,10 +1608,44 @@ void femtosecondLaserModel::calculateSource() const
 
     if (!envelope.active || envelope.temporalAverage <= VSMALL)
     {
-        const bool withinActiveWindow =
+        bool outsidePulseWindow = false;
+
+        if (singlePulse)
+        {
+            const scalar sigma =
+                pulseWidth_.value()/(2.0*sqrt(2.0*log(2.0)));
+
+            if (sigma <= VSMALL)
+            {
+                outsidePulseWindow = true;
+            }
+            else
+            {
+                const scalar windowWidth =
+                    max(laserEndTime_ - laserStartTime_, SMALL);
+                const scalar halfWindow = 0.5*windowWidth;
+                const scalar maxCenterOffset = 3.0*sigma;
+                const scalar centerOffset = min(halfWindow, maxCenterOffset);
+                const scalar pulseCenter = laserStartTime_ + centerOffset;
+                const scalar toleranceRadius = 5.0*sigma;
+                const scalar toleranceStart = pulseCenter - toleranceRadius;
+                const scalar toleranceEnd = pulseCenter + toleranceRadius;
+
+                outsidePulseWindow =
+                    overlapEnd <= toleranceStart || overlapStart >= toleranceEnd;
+            }
+        }
+
+        bool withinActiveWindow =
             (overlapEnd - overlapStart) > SMALL
          && t >= laserStartTime_
          && t <= comparisonLaserEnd;
+
+        if (singlePulse && outsidePulseWindow)
+        {
+            withinActiveWindow = false;
+        }
+
 
         if
         (

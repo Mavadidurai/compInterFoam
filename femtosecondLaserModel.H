@@ -80,7 +80,7 @@ private:
     
     scalar              laserStartTime_;    // [s]
     scalar              laserEndTime_;      // [s]
-
+    scalar              pulseCenterTime_;   // [s] optional Gaussian centre
     // Donor film bounds (y)
     scalar              filmYMin_;
     scalar              filmYMax_;
@@ -213,6 +213,7 @@ public:
     const vector&             direction()    const { return direction_; }
     scalar laserStartTime() const { return laserStartTime_; }
     scalar laserEndTime()   const { return laserEndTime_; }
+    scalar pulseCenterTime() const { return pulseCenterTime_; }    
     bool   isContinuous()   const { return continuousLaser_; }
     bool valid() const;
     void write() const;
