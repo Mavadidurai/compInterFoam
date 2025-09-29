@@ -1630,9 +1630,11 @@ void femtosecondLaserModel::calculateSource() const
                 const scalar toleranceRadius = 5.0*sigma;
                 const scalar toleranceStart = pulseCenter - toleranceRadius;
                 const scalar toleranceEnd = pulseCenter + toleranceRadius;
+                const bool rawOutside =
+                    (t <= toleranceStart || tStart >= toleranceEnd);
 
                 outsidePulseWindow =
-                    overlapEnd <= toleranceStart || overlapStart >= toleranceEnd;
+                    rawOutside || overlapStart >= toleranceEnd;
             }
         }
 
