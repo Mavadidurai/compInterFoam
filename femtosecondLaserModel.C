@@ -1544,18 +1544,11 @@ void femtosecondLaserModel::calculateSource() const
 
     const bool singlePulse = (!continuousLaser_ && pulseFrequency_ <= SMALL);
 
-    scalar effectiveLaserEnd = laserEndTime_;
-    if (singlePulse)
-    {
-        const scalar sigma =
-            pulseWidth_.value()/(2.0*sqrt(2.0*log(2.0)));
-        const scalar pulseEnd = laserStartTime_ + 6.0*sigma;
-        effectiveLaserEnd = min(laserEndTime_, pulseEnd);
-    }
-
+    const scalar effectiveLaserEnd = laserEndTime_;
     const scalar overlapStart = max(tStart, laserStartTime_);
-    const scalar overlapEnd   = min(t, effectiveLaserEnd);
-    const scalar comparisonLaserEnd = singlePulse ? effectiveLaserEnd : laserEndTime_;
+    const scalar overlapEnd   = min(t, laserEndTime_);
+    const scalar overlapDuration = Foam::max(0.0, overlapEnd - overlapStart);
+    const scalar comparisonLaserEnd = laserEndTime_;
 
     if (verbose && master && timeIndex % 10 == 0)
     {
@@ -1563,10 +1556,10 @@ void femtosecondLaserModel::calculateSource() const
             << "  Current time window: [" << tStart*1e12 << ", " << t*1e12 << "] ps" << nl
             << "  Laser active window: [" << laserStartTime_*1e12 << ", " << laserEndTime_*1e12 << "] ps" << nl
             << "  Overlap window: [" << overlapStart*1e12 << ", " << overlapEnd*1e12 << "] ps" << nl
-            << "  Overlap duration: " << (overlapEnd - overlapStart)*1e12 << " ps" << endl;
+            << "  Overlap duration: " << overlapDuration*1e12 << " ps" << endl;
     }
 
-    if ((overlapEnd - overlapStart) <= VSMALL)
+    if (overlapDuration <= VSMALL)
     {
         if (verbose && master && t <= comparisonLaserEnd + 1e-12)
         {
@@ -1578,7 +1571,7 @@ void femtosecondLaserModel::calculateSource() const
     }
 
     const EnvelopeResult envelope =
-        evaluateTemporalEnvelope(overlapStart, overlapEnd, dt);
+        evaluateTemporalEnvelope(overlapStart, overlapStart + overlapDuration, dt);
 
     if (verbose && master && timeIndex % 10 == 0)
     {
