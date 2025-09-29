@@ -116,6 +116,10 @@ timing settings.
 ### `laserStartTime` / `laserEndTime`
 Top-level entries that define when the femtosecond laser source is active.
 Entries in `controlDict` override values supplied in `constant/laserProperties`.
+Single-pulse runs may additionally supply `pulseCenterTime` in
+`constant/laserProperties` to delay the Gaussian peak; values outside the
+window are clamped to the configured start/end times, and omitting the entry
+retains the legacy near-start placement.
 ## Notes
 * All diagnostics controlled by `verbose` are now emitted by the master MPI
   rank only to prevent duplicate messages in parallel runs.
