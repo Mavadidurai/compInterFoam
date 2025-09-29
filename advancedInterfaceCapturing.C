@@ -78,7 +78,7 @@ advancedInterfaceCapturing::advancedInterfaceCapturing
         dimensionedScalar
         (
             "pressureScale",
-            dimPressure*dimTime,
+            dimPressure,
             1.0
         )
     ),
@@ -180,7 +180,7 @@ advancedInterfaceCapturing::advancedInterfaceCapturing
     pressureScale_ = dimensionedScalar
     (
         "pressureScale",
-        dimPressure*dimTime,
+            dimPressure,
         aicDict.lookupOrDefault<scalar>
         (
             "pressureScale",

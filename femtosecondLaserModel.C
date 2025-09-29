@@ -1544,7 +1544,6 @@ void femtosecondLaserModel::calculateSource() const
 
     const bool singlePulse = (!continuousLaser_ && pulseFrequency_ <= SMALL);
 
-    const scalar effectiveLaserEnd = laserEndTime_;
     const scalar overlapStart = max(tStart, laserStartTime_);
     const scalar overlapEnd   = min(t, laserEndTime_);
     const scalar overlapDuration = Foam::max(0.0, overlapEnd - overlapStart);
