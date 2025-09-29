@@ -569,8 +569,11 @@ void femtosecondLaserModel::finalizePulseEnergyCheck
     const scalar expected = pulseExpectedAccumulator_;
     const scalar configuredDepositable =
         pulseEnergy_.value()*depositableEnergyFraction();
+    // Do not artificially inflate the tolerance reference for sub-nJ pulses;
+    // scale it with the actual expected/depositable energy so the audit
+    // continues to react when very small pulses are under-delivered.
     const scalar reference =
-        max(max(expected, configuredDepositable), scalar(1e-12));
+        max(max(expected, configuredDepositable), scalar(VSMALL));
     const scalar tolerance =
         max(pulseEnergyToleranceAbs_, pulseEnergyToleranceRel_*reference);
     const scalar diffExpected = mag(pulseEnergyAccumulator_ - expected);
