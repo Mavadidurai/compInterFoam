@@ -77,14 +77,14 @@ solvers
         smoother        symGaussSeidel;
         nSweeps         4;
         maxIter         200;
-        tolerance       1e-6; 
-        relTol          0.1;
+        tolerance       1e-10;
+        relTol          0;
     }
     TFinal
     {
         $T;
         nSweeps         6;
-        tolerance       1e-11;
+        tolerance       1e-10;
     }
 
     // Two-temperature fields

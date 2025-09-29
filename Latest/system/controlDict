@@ -17,16 +17,16 @@ FoamFile
 
 application     compInterFoam;
 
-startFrom       latestTime;
+startFrom       startTime;
 startTime       0;
 stopAt          endTime;
 endTime         1e-9;          // EXTENDED: 1 ns total for complete LIFT process
 
 deltaT          1e-13;         // Base time step (0.1 fs)
 adjustTimeStep  yes;           // ENABLE adaptive time stepping
-maxCo           0.3;           // Reduced for stability during long runs
-maxAlphaCo      0.2;           // Reduced for interface stability
-maxDeltaT       1e-11;         // Allow larger steps during cooling phase (10 ps max)
+maxCo           0.1;           // Reduced for stability during long runs
+maxAlphaCo      0.05;          // Reduced for interface stability
+maxDeltaT       1e-12;         // Allow larger steps during cooling phase (1 ps max)
 minDeltaT       1e-15;         // Minimum 1 fs for precision
 
 verbose         true;
@@ -79,13 +79,13 @@ laserEndTime    4e-10;
 useAdvancedInterfaceCapturing  true;
 advancedInterfaceCapturing
 {
-    pressureScale         3e6;         // Reduced for long-term stability
-    recoilMax             2e8;         // Reduced max pressure
+    pressureScale         1e5;         // Adjusted for target scaling
+    recoilMax             5e7;         // Adjusted maximum recoil pressure
     clampRecoil           true;
     scaleRecoilMax        true;
     recoilTempOffset      40;
     phaseChangeTempOffset 50;
-    recoilRelax           0.8;         // More smoothing
+    recoilRelax           0.95;        // Increased smoothing
     alphaMin              0.01;        // Relaxed for interface stability
     alphaMax              0.99;
 }
