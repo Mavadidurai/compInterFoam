@@ -71,7 +71,7 @@ gaussianProfile     true;
 
 // Optional intensity entry (consistent with pulseEnergy & pulseWidth)
 continuousLaser     false;
-maxVolumetricSource 1e16;   // [W/m³] match gas-metal exchange cap to prevent clamping
+maxVolumetricSource 1e14;   // [W/m³] aligned with updated gas-metal coupling cap
 
 // CRITICAL: Enable pulse frequency for extended operation
 //pulseFrequency      1e12;     // [1/s] 1 THz repetition rate for sustained heating
