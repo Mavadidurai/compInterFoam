@@ -29,8 +29,7 @@ FoamFile
 //   reflectivity        [-]
 //   gaussianProfile     [bool]
 //   continuousLaser     [bool]
-//   laserStartTime      [s]
-//   laserEndTime        [s]
+//   pulseCenterTime     [s, optional]
 //   gasAbsorptionCoeff  [1/m, optional, default 0]
 // Parameter checks enforce pulseWidth 10fs–10ps, wavelength 100nm–2µm
 // and peakIntensity ≤6e16 W/m^2.
@@ -45,6 +44,7 @@ gasAbsorptionCoeff 0;     // [1/m] gas absorption (0 disables direct gas heating
 
 // --- Energy & timing ---
 // CRITICAL: Keep pulse energy compatible with interface heat-flux limit
+//pulseCenterTime    3e-10;    // Removed to allow default near-start Gaussian centre
 pulseEnergy     3e-15;       // [J] total energy (≈1.06e-8 J/cm² incident fluence)
 pulseWidth      2.14e-13;     // [s] 214 fs pulse width
 
