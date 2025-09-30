@@ -131,7 +131,7 @@ private:
     // --- helpers ---
     scalar pulseNormalizationFactor() const;
     void   calculateSource() const;
-    bool   validateParameters() const;
+    void   validateParameters() const;
     bool   checkPhysicalBounds() const;
     scalar calculateGaussianIntensity(const scalar R) const;
     bool   isInBeam(const point& p, const scalar axialHalfLength) const;

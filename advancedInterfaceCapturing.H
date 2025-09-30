@@ -61,6 +61,8 @@ private:
     // Valid alpha range (controlDict → advancedInterfaceCapturing)
     scalar alphaMin_;               // Minimum alpha for recoil activation
     scalar alphaMax_;               // Maximum alpha for recoil activation
+    scalar massRateEps_;            // Tolerance for evaporation rate comparisons
+    scalar metalAlphaCutoff_;       // Minimum alpha treated as metal-dominated    
     // Field for recoil pressure
     volScalarField recoilPressure_;  // Recoil pressure from vaporization
     scalarField previousRecoilPressure_;        // Cached recoil pressure for smoothing

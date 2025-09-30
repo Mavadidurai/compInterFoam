@@ -366,26 +366,116 @@ void femtosecondLaserModel::update()
 //------------------------------------------------------------------------------
 // validate parameters
 //------------------------------------------------------------------------------
-bool femtosecondLaserModel::validateParameters() const
+void femtosecondLaserModel::validateParameters() const
 {
-    bool ok = true;
+    if (peakIntensity_.dimensions() != dimPower/dimArea)
+    {
+        FatalErrorInFunction
+            << "peakIntensity dimensions " << peakIntensity_.dimensions()
+            << " do not match expected " << (dimPower/dimArea) << nl
+            << abort(FatalError);
+    }
+    if (pulseWidth_.dimensions() != dimTime)
+    {
+        FatalErrorInFunction
+            << "pulseWidth dimensions " << pulseWidth_.dimensions()
+            << " do not match expected " << dimTime << nl
+            << abort(FatalError);
+    }
+    if (wavelength_.dimensions() != dimLength)
+    {
+        FatalErrorInFunction
+            << "wavelength dimensions " << wavelength_.dimensions()
+            << " do not match expected " << dimLength << nl
+            << abort(FatalError);
+    }
+    if (absorptionCoeff_.dimensions() != dimless/dimLength)
+    {
+        FatalErrorInFunction
+            << "absorptionCoeff dimensions " << absorptionCoeff_.dimensions()
+            << " do not match expected " << (dimless/dimLength) << nl
+            << abort(FatalError);
+    }
+    if (gasAbsorptionCoeff_.dimensions() != dimless/dimLength)
+    {
+        FatalErrorInFunction
+            << "gasAbsorptionCoeff dimensions "
+            << gasAbsorptionCoeff_.dimensions()
+            << " do not match expected " << (dimless/dimLength) << nl
+            << abort(FatalError);
+    }
+    if (spotSize_.dimensions() != dimLength)
+    {
+        FatalErrorInFunction
+            << "spotSize dimensions " << spotSize_.dimensions()
+            << " do not match expected " << dimLength << nl
+            << abort(FatalError);
+    }
+    if (pulseEnergy_.dimensions() != dimEnergy)
+    {
+        FatalErrorInFunction
+            << "pulseEnergy dimensions " << pulseEnergy_.dimensions()
+            << " do not match expected " << dimEnergy << nl
+            << abort(FatalError);
+    }
+    if (maxVolumetricSource_.dimensions() != dimPower/dimVolume)
+    {
+        FatalErrorInFunction
+            << "maxVolumetricSource dimensions "
+            << maxVolumetricSource_.dimensions()
+            << " do not match expected " << (dimPower/dimVolume) << nl
+            << abort(FatalError);
+    }
 
-    ok = ok && (peakIntensity_.dimensions() == dimPower/dimArea);
-    ok = ok && (pulseWidth_.dimensions()    == dimTime);
-    ok = ok && (wavelength_.dimensions()    == dimLength);
-    ok = ok && (absorptionCoeff_.dimensions()== dimless/dimLength);
-    ok = ok && (gasAbsorptionCoeff_.dimensions()== dimless/dimLength);    
-    ok = ok && (spotSize_.dimensions()      == dimLength);
-    ok = ok && (pulseEnergy_.dimensions()   == dimEnergy);
-    ok = ok && (maxVolumetricSource_.dimensions() == dimPower/dimVolume);
-
-    ok = ok && (peakIntensity_.value() > 0);
-    ok = ok && (pulseWidth_.value()    > 0);
-    ok = ok && (wavelength_.value()    > 0);
-    ok = ok && (spotSize_.value()      > 0);
-    ok = ok && (pulseEnergy_.value()   > 0);
-    ok = ok && (gasAbsorptionCoeff_.value() >= 0);
-    ok = ok && (maxVolumetricSource_.value() >= 0);
+    if (peakIntensity_.value() <= 0)
+    {
+        FatalErrorInFunction
+            << "peakIntensity (" << peakIntensity_.value()
+            << ") must be positive" << nl
+            << abort(FatalError);
+    }
+    if (pulseWidth_.value() <= 0)
+    {
+        FatalErrorInFunction
+            << "pulseWidth (" << pulseWidth_.value()
+            << ") must be positive" << nl
+            << abort(FatalError);
+    }
+    if (wavelength_.value() <= 0)
+    {
+        FatalErrorInFunction
+            << "wavelength (" << wavelength_.value()
+            << ") must be positive" << nl
+            << abort(FatalError);
+    }
+    if (spotSize_.value() <= 0)
+    {
+        FatalErrorInFunction
+            << "spotSize (" << spotSize_.value()
+            << ") must be positive" << nl
+            << abort(FatalError);
+    }
+    if (pulseEnergy_.value() <= 0)
+    {
+        FatalErrorInFunction
+            << "pulseEnergy (" << pulseEnergy_.value()
+            << ") must be positive" << nl
+            << abort(FatalError);
+    }
+    if (gasAbsorptionCoeff_.value() < 0)
+    {
+        FatalErrorInFunction
+            << "gasAbsorptionCoeff (" << gasAbsorptionCoeff_.value()
+            << ") must be non-negative" << nl
+            << abort(FatalError);
+    }
+    if (maxVolumetricSource_.value() < 0)
+    {
+        FatalErrorInFunction
+            << "maxVolumetricSource (" << maxVolumetricSource_.value()
+            << ") must be non-negative" << nl
+            << abort(FatalError);
+    }
     if (laserStartTime_ < 0)
     {
         FatalErrorInFunction
@@ -448,7 +538,6 @@ bool femtosecondLaserModel::validateParameters() const
             << ") deviates from expected " << expected
             << " by more than " << tol << " m" << endl;
     }
-    return ok;
 }
 
 //------------------------------------------------------------------------------
@@ -731,27 +820,10 @@ scalar femtosecondLaserModel::effectiveTransmission(const scalar reflectivity) c
     {
         transmissionFactor = transmission_;
     }
-    else if (incidenceAngle_ > VSMALL)
+    else
     {
-        const scalar n1 = 1.0;
-        const scalar sqrtR = sqrt(max(reflectivity, scalar(0)));
-        const scalar n2 = (1.0 + sqrtR)/max(VSMALL, (1.0 - sqrtR));
-        const scalar sinThetaT = n1/n2 * sin(incidenceAngle_);
-
-        if (mag(sinThetaT) < 1.0)
-        {
-            const scalar cosTheta  = cos(incidenceAngle_);
-            const scalar cosThetaT = sqrt(1.0 - sqr(sinThetaT));
-            const scalar Rs = sqr((n1*cosTheta - n2*cosThetaT)
-                                /(n1*cosTheta + n2*cosThetaT));
-            const scalar Rp = sqr((n1*cosThetaT - n2*cosTheta)
-                                /(n1*cosThetaT + n2*cosTheta));
-            transmissionFactor = 1.0 - 0.5*(Rs + Rp);
-        }
-        else
-        {
-            transmissionFactor = 0.0;
-        }
+        // Angle-dependent Fresnel corrections require explicit optical properties
+        transmissionFactor = 1.0 - reflectivity;
     }
 
     return min(max(transmissionFactor, scalar(0)), scalar(1));
@@ -1119,104 +1191,88 @@ femtosecondLaserModel::applySpatialWeighting
     const scalarField& cellVolumes = mesh_.V();
     const pointField& meshPoints = mesh_.points();
 
-    vector directionUnit(direction_);
-    const scalar directionMag = mag(directionUnit);
-
-    if (directionMag > VSMALL)
-    {
-        directionUnit /= directionMag;
-    }
-    else
-    {
-        directionUnit = vector::zero;
-    }
+    const vector directionUnit(direction_);
 
     point entryPoint = focus_;
 
-    if (directionMag > VSMALL)
+    const boundBox domainBox(mesh_.bounds());
+    const point domainMin = domainBox.min();
+    const point domainMax = domainBox.max();
+
+    scalar tMin = -GREAT;
+    scalar tMax = GREAT;
+
+    for (Foam::direction cmpt = 0; cmpt < vector::nComponents; ++cmpt)
     {
-        const boundBox domainBox(mesh_.bounds());
-        const point domainMin = domainBox.min();
-        const point domainMax = domainBox.max();
+        const scalar dirComp = directionUnit[cmpt];
+        const scalar focusComp = focus_[cmpt];
 
-        scalar tMin = -GREAT;
-        scalar tMax = GREAT;
-
-        for (Foam::direction cmpt = 0; cmpt < vector::nComponents; ++cmpt)
+        if (mag(dirComp) < VSMALL)
         {
-            const scalar dirComp = directionUnit[cmpt];
-            const scalar focusComp = focus_[cmpt];
-
-            if (mag(dirComp) < VSMALL)
+            if
+            (
+                focusComp < domainMin[cmpt] - SMALL
+             || focusComp > domainMax[cmpt] + SMALL
+            )
             {
-                if
-                (
-                    focusComp < domainMin[cmpt] - SMALL
-                 || focusComp > domainMax[cmpt] + SMALL
-                )
-                {
-                    tMin = GREAT;
-                    tMax = -GREAT;
-                    break;
-                }
-
-                continue;
+                tMin = GREAT;
+                tMax = -GREAT;
+                break;
             }
 
-            const scalar t1 = (domainMin[cmpt] - focusComp)/dirComp;
-            const scalar t2 = (domainMax[cmpt] - focusComp)/dirComp;
-
-            const scalar axisMin = Foam::min(t1, t2);
-            const scalar axisMax = Foam::max(t1, t2);
-
-            tMin = Foam::max(tMin, axisMin);
-            tMax = Foam::min(tMax, axisMax);
+            continue;
         }
 
-        if (tMin <= tMax && tMax >= 0)
-        {
-            const scalar entryParam =
-                (tMin > 0) ? tMin : Foam::min(tMin, scalar(0));
-            entryPoint = focus_ + entryParam*directionUnit;
-        }
+        const scalar t1 = (domainMin[cmpt] - focusComp)/dirComp;
+        const scalar t2 = (domainMax[cmpt] - focusComp)/dirComp;
+
+        const scalar axisMin = Foam::min(t1, t2);
+        const scalar axisMax = Foam::max(t1, t2);
+
+        tMin = Foam::max(tMin, axisMin);
+        tMax = Foam::min(tMax, axisMax);
+    }
+
+    if (tMin <= tMax && tMax >= 0)
+    {
+        const scalar entryParam =
+            (tMin > 0) ? tMin : Foam::min(tMin, scalar(0));
+        entryPoint = focus_ + entryParam*directionUnit;
     }
     scalar filmIntervalStart = 0.0;
     scalar filmIntervalEnd = 0.0;
     bool haveFilmInterval = false;
 
-    if (directionMag > VSMALL)
+    const scalar dirY = directionUnit.y();
+
+    if (mag(dirY) > VSMALL)
     {
-        const scalar dirY = directionUnit.y();
+        const scalar sToMin = (filmYMin_ - entryPoint.y())/dirY;
+        const scalar sToMax = (filmYMax_ - entryPoint.y())/dirY;
+        const scalar intervalMin = Foam::min(sToMin, sToMax);
+        const scalar intervalMax = Foam::max(sToMin, sToMax);
+        const scalar positiveStart = Foam::max(intervalMin, scalar(0));
 
-        if (mag(dirY) > VSMALL)
+        if (intervalMax > positiveStart)
         {
-            const scalar sToMin = (filmYMin_ - entryPoint.y())/dirY;
-            const scalar sToMax = (filmYMax_ - entryPoint.y())/dirY;
-            const scalar intervalMin = Foam::min(sToMin, sToMax);
-            const scalar intervalMax = Foam::max(sToMin, sToMax);
-            const scalar positiveStart = Foam::max(intervalMin, scalar(0));
-
-            if (intervalMax > positiveStart)
-            {
-                filmIntervalStart = positiveStart;
-                filmIntervalEnd = intervalMax;
-                haveFilmInterval = true;
-            }
-        }
-        else if
-        (
-            entryPoint.y() >= filmYMin_
-         && entryPoint.y() <= filmYMax_
-        )
-        {
-            filmIntervalStart = 0.0;
-            filmIntervalEnd = GREAT;
+            filmIntervalStart = positiveStart;
+            filmIntervalEnd = intervalMax;
             haveFilmInterval = true;
         }
     }
+    else if
+    (
+        entryPoint.y() >= filmYMin_
+     && entryPoint.y() <= filmYMax_
+    )
+    {
+        filmIntervalStart = 0.0;
+        filmIntervalEnd = GREAT;
+        haveFilmInterval = true;
+    }
     scalar filmEntryOffset = 0.0;
 
-    if (haveFilmInterval && directionMag > VSMALL)
+    if (haveFilmInterval)
     {
         const scalar dirY = directionUnit.y();
 
@@ -1272,10 +1328,7 @@ femtosecondLaserModel::applySpatialWeighting
         forAll(pointLabels, pointi)
         {
             const label ptI = pointLabels[pointi];
-            const scalar s =
-                directionMag > VSMALL
-              ? ((meshPoints[ptI] - entryPoint) & directionUnit)
-              : 0.0;
+            const scalar s = (meshPoints[ptI] - entryPoint) & directionUnit;
             sMin = Foam::min(sMin, s);
             sMax = Foam::max(sMax, s);
         }
@@ -1289,11 +1342,8 @@ femtosecondLaserModel::applySpatialWeighting
             sIn = sOut;
             sOut = tmp;
         }
-        if (directionMag > VSMALL)
-        {
-            sIn = Foam::max(sIn, scalar(0));
-            sOut = Foam::max(sOut, sIn);
-        }
+        sIn = Foam::max(sIn, scalar(0));
+        sOut = Foam::max(sOut, sIn);
         const bool cellUsesFilmInterval = inFilm && haveFilmInterval;
 
         if (cellUsesFilmInterval)
@@ -1816,7 +1866,8 @@ bool femtosecondLaserModel::activeThisStep() const
 //------------------------------------------------------------------------------
 bool femtosecondLaserModel::valid() const
 {
-    return validateParameters() && checkPhysicalBounds();
+    validateParameters();
+    return checkPhysicalBounds();
 }
 
 //------------------------------------------------------------------------------

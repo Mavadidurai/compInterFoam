@@ -97,6 +97,8 @@ advancedInterfaceCapturing::advancedInterfaceCapturing
     // Relaxed default bounds to reduce clipping of interface values
     alphaMin_(0.001),
     alphaMax_(0.999),
+    massRateEps_(1e-12),
+    metalAlphaCutoff_(0.01),
     recoilPressure_
     (
         IOobject
@@ -258,7 +260,16 @@ advancedInterfaceCapturing::advancedInterfaceCapturing
     recoilRelax_ = Foam::min(Foam::max(recoilRelax_, scalar(0)), scalar(1));    
     alphaMin_ = aicDict.lookupOrDefault<scalar>("alphaMin", alphaMin_);
     alphaMax_ = aicDict.lookupOrDefault<scalar>("alphaMax", alphaMax_);
-
+    massRateEps_ = Foam::max
+    (
+        aicDict.lookupOrDefault<scalar>("massRateEps", massRateEps_),
+        scalar(0)
+    );
+    metalAlphaCutoff_ = aicDict.lookupOrDefault<scalar>
+    (
+        "metalAlphaCutoff",
+        metalAlphaCutoff_
+    );
     if (alphaMin_ >= alphaMax_)
     {
         FatalErrorInFunction
@@ -333,7 +344,7 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
     const scalar evaporationOnTemp = vaporTemp_.value() + phaseChangeTempOffset_.value();    
     bool haveMetalCell = false;
     scalar maxTemp = 0.0;
-
+    const scalar metalAlphaCutoff = metalAlphaCutoff_;
     forAll(gasTField, cellI)
     {
         const scalar alpha = alpha1Field[cellI];
@@ -368,12 +379,12 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
                 << abort(FatalError);
         }
         scalar Tval = gasT;
-        if (TlFieldPtr && alpha > 0.01)
+        if (TlFieldPtr && alpha > metalAlphaCutoff)
         {
             Tval = (*TlFieldPtr)[cellI];
         }
 
-        if (alpha > 0.01)
+        if (alpha > metalAlphaCutoff)
         {
             if (!haveMetalCell || Tval > maxTemp)
             {
@@ -412,7 +423,7 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
     const bool scaleRecoilMax = scaleRecoilMax_;
     const scalar recoilRelax = recoilRelax_;
     const bool applyRelaxation = recoilRelax < (1.0 - Foam::SMALL);
-    const scalar massRateEps = 1e-12;
+    const scalar massRateEps = massRateEps_;
     // Access fields only once for efficiency and validate sizes
     scalarField& recoilField = recoilPressure_.primitiveFieldRef();
     const labelListList& cellCells = mesh_.cellCells();
@@ -474,7 +485,7 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
 
 
         scalar localTemp = gasTField[cellI];
-        if (TlFieldPtr && alpha > 0.01)
+        if (TlFieldPtr && alpha > metalAlphaCutoff)
         {
             localTemp = (*TlFieldPtr)[cellI];
         }
