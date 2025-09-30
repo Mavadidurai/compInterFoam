@@ -450,8 +450,8 @@ Foam::twoPhaseMixtureThermo::twoPhaseMixtureThermo
             << ", rho=" << rho2_.value() << endl;
     }
     updateTwoTemperatureCache();
-    thermo1_ = rhoThermo::New(U.mesh());
-    thermo2_ = rhoThermo::New(U.mesh());
+    thermo1_ = rhoThermo::New(U.mesh(), phase1Name());
+    thermo2_ = rhoThermo::New(U.mesh(), phase2Name());
     correct();
 }
 // * * * * * * * * * * * * * * * * Destructor  * * * * * * * * * * * * * * * //

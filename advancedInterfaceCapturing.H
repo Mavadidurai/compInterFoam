@@ -51,7 +51,7 @@ private:
     dimensionedScalar meltingTemp_;             // Melting temperature (Tsol)
     dimensionedScalar vaporTemp_;               // Vaporization temperature (Tvap)
         // User-configurable recoil pressure parameters
-    dimensionedScalar pressureScale_; // Scaling factor for evaporation rate
+    dimensionedScalar pressureScale_; // Scaling factor for evaporation rate [Pa·s]
     scalar recoilMax_;               // Base recoil pressure cap
     dimensionedScalar recoilTempOffset_;        // Temperature offset for recoil activation
     dimensionedScalar phaseChangeTempOffset_;   // Offset for phase-change threshold
