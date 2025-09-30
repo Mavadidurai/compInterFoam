@@ -66,7 +66,7 @@ Description
 #include "femtosecondLaserModel.H"
 #include "twoTemperatureModel.H"
 #include "advancedInterfaceCapturing.H"
-
+#include <cmath>
 extern const bool master = Foam::Pstream::master();
 Foam::Switch verbose(false);
 namespace

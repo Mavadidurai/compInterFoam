@@ -125,7 +125,14 @@ twoTemperatureModel::twoTemperatureModel
         dimEnergy,
         0.0
     ),
+    lastLoggedEnergy_
+    (
+        "lastLoggedEnergy",
+        dimEnergy,
+        0.0
+    ),
     energyInitialized_(false),
+    loggedEnergyInitialized_(false),
     lastElectronSubCycles_(1)
 {
     scalar CeLogTe = ambientTemperature_.value();
@@ -764,6 +771,7 @@ void twoTemperatureModel::updateEnergyTracking
 {
     lastTotalEnergy_ = currentEnergy;
     energyInitialized_ = true;
+    loggedEnergyInitialized_ = false;    
 }
 
 label twoTemperatureModel::electronSubCycleCount
@@ -1134,7 +1142,13 @@ void twoTemperatureModel::solve
         );
     }
 
+    const dimensionedScalar previousLoggedEnergy =
+        energyInitialized_ ? lastTotalEnergy_ : currentEnergy;
+
     updateEnergyTracking(currentEnergy);
+
+    lastLoggedEnergy_ = previousLoggedEnergy;
+    loggedEnergyInitialized_ = true;
 
     writeEnergyDiagnostics
     (
@@ -1383,18 +1397,18 @@ void twoTemperatureModel::write() const
             << "  Mean Te: " << gAverage(Te_) << " K" << nl
             << "  Mean Tl: " << gAverage(Tl_) << " K" << nl;
     }
-    if (energyInitialized_)
+    if (energyInitialized_ && loggedEnergyInitialized_)
     {
         tmp<volScalarField> tCeW = electronHeatCapacity();
         const volScalarField& CeW = tCeW();
         tmp<volScalarField> tMetal = clampedMetalFraction();
-        const volScalarField& metalEff = tMetal();        
+        const volScalarField& metalEff = tMetal();
         dimensionedScalar currentEnergy =
             fvc::domainIntegrate(metalEff*(CeW*Te_ + Cl_*Tl_));
         scalar energyError = mag
         (
-            (currentEnergy.value() - lastTotalEnergy_.value())/
-            (mag(lastTotalEnergy_.value()) + SMALL)
+            (currentEnergy.value() - lastLoggedEnergy_.value())/
+            (mag(lastLoggedEnergy_.value()) + SMALL)
         );
         if (verbose && master)
         {
@@ -1402,6 +1416,7 @@ void twoTemperatureModel::write() const
                 << "  Current total energy: " << currentEnergy.value() << " J" << nl
                 << "  Energy error: " << energyError * 100 << " %" << endl;
         }
+        lastLoggedEnergy_ = currentEnergy;
     }
 }
 tmp<volScalarField> Foam::twoTemperatureModel::ke() const

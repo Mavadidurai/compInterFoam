@@ -1031,13 +1031,31 @@ femtosecondLaserModel::evaluateTemporalEnvelope
         {
             const scalar windowWidth = max(laserEndTime_ - laserStartTime_, SMALL);
 
-            // Limit how far the peak can move away from the trigger time.
-            // Using ±3σ retains >99% of the Gaussian energy while avoiding
-            // large delays when laserEndTime is set long after the pulse.
-            const scalar maxCenterOffset = 3.0*sigma;
-            const scalar halfWindow = 0.5*windowWidth;
-            const scalar centerOffset = min(halfWindow, maxCenterOffset);
-            center = laserStartTime_ + centerOffset;
+            if (sigma <= VSMALL)
+            {
+                center = laserStartTime_ + 0.5*windowWidth;
+            }
+            else
+            {
+                const scalar compatibilityWidth = 6.0*sigma;
+
+                if (windowWidth <= compatibilityWidth + SMALL)
+                {
+                    // Retain historical placement when the activation window is
+                    // only a few σ wide so that legacy dictionaries remain
+                    // unaffected.
+                    const scalar maxCenterOffset = 3.0*sigma;
+                    const scalar halfWindow = 0.5*windowWidth;
+                    const scalar centerOffset = min(halfWindow, maxCenterOffset);
+                    center = laserStartTime_ + centerOffset;
+                }
+                else
+                {
+                    // With a long activation window, default to its midpoint to
+                    // avoid forcing the Gaussian peak near the start time.
+                    center = 0.5*(laserStartTime_ + laserEndTime_);
+                }
+            }
         }
 
         result.temporalIntegral =
@@ -1597,7 +1615,7 @@ void femtosecondLaserModel::calculateSource() const
         return;
     }
 
-    const EnvelopeResult envelope =
+    EnvelopeResult envelope =
         evaluateTemporalEnvelope(overlapStart, overlapStart + overlapDuration, dt);
 
     if (verbose && master && timeIndex % 10 == 0)
@@ -1609,30 +1627,88 @@ void femtosecondLaserModel::calculateSource() const
             << "  Expected energy: " << envelope.expectedEnergy << " J" << endl;
     }
 
-    if (!envelope.active || envelope.temporalAverage <= VSMALL)
+    scalar sigma = 0.0;
+    scalar pulseCenter = laserStartTime_;
+
+    if (singlePulse)
+    {
+        sigma = pulseWidth_.value()/(2.0*sqrt(2.0*log(2.0)));
+
+        if (pulseCenterTime_ > -0.5*GREAT)
+        {
+            pulseCenter = pulseCenterTime_;
+        }
+        else
+        {
+            const scalar windowWidth = max(laserEndTime_ - laserStartTime_, SMALL);
+
+            if (sigma <= VSMALL)
+            {
+                pulseCenter = laserStartTime_ + 0.5*windowWidth;
+            }
+            else
+            {
+                const scalar compatibilityWidth = 6.0*sigma;
+
+                if (windowWidth <= compatibilityWidth + SMALL)
+                {
+                    const scalar maxCenterOffset = 3.0*sigma;
+                    const scalar halfWindow = 0.5*windowWidth;
+                    const scalar centerOffset = min(halfWindow, maxCenterOffset);
+                    pulseCenter = laserStartTime_ + centerOffset;
+                }
+                else
+                {
+                    pulseCenter = 0.5*(laserStartTime_ + laserEndTime_);
+                }
+            }
+        }
+    }
+
+    const scalar pulseToleranceRadius = (singlePulse && sigma > VSMALL)
+        ? 5.0*sigma
+        : 0.0;
+    const scalar toleranceStart = pulseCenter - pulseToleranceRadius;
+    const scalar toleranceEnd = pulseCenter + pulseToleranceRadius;
+
+    bool tailActivated = false;
+
+    if ((!envelope.active || envelope.temporalAverage <= VSMALL)
+     && singlePulse
+     && sigma > VSMALL)
+    {
+        const bool sliceInsideLaserWindow = overlapEnd > overlapStart;
+        const bool sliceOutsideFiveSigma =
+            (overlapEnd <= toleranceStart || overlapStart >= toleranceEnd);
+
+        if (sliceInsideLaserWindow && sliceOutsideFiveSigma)
+        {
+            const scalar tailIntegral =
+                gaussianWindowIntegral(overlapStart, overlapEnd, pulseCenter, sigma);
+
+            if (tailIntegral > 0.0)
+            {
+                envelope.temporalIntegral = tailIntegral;
+                envelope.temporalAverage =
+                    min(scalar(1.0), max(tailIntegral/max(dt, VSMALL), scalar(0.0)));
+                envelope.active = true;
+                tailActivated = true;
+            }
+        }
+    }
+
+    if ((!envelope.active || envelope.temporalAverage <= VSMALL) && !tailActivated)
     {
         bool outsidePulseWindow = false;
 
         if (singlePulse)
         {
-            const scalar sigma =
-                pulseWidth_.value()/(2.0*sqrt(2.0*log(2.0)));
-
             if (sigma <= VSMALL)
             {
                 outsidePulseWindow = true;
             }
             else
             {
-                const scalar windowWidth =
-                    max(laserEndTime_ - laserStartTime_, SMALL);
-                const scalar halfWindow = 0.5*windowWidth;
-                const scalar maxCenterOffset = 3.0*sigma;
-                const scalar centerOffset = min(halfWindow, maxCenterOffset);
-                const scalar pulseCenter = laserStartTime_ + centerOffset;
-                const scalar toleranceRadius = 5.0*sigma;
-                const scalar toleranceStart = pulseCenter - toleranceRadius;
-                const scalar toleranceEnd = pulseCenter + toleranceRadius;
                 const bool rawOutside =
                     (t <= toleranceStart || tStart >= toleranceEnd);
 
