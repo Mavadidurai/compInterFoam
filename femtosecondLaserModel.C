@@ -1634,19 +1634,10 @@ void femtosecondLaserModel::calculateSource() const
             }
             else
             {
-                const scalar compatibilityWidth = 6.0*sigma;
-
-                if (windowWidth <= compatibilityWidth + SMALL)
-                {
-                    const scalar maxCenterOffset = 3.0*sigma;
-                    const scalar halfWindow = 0.5*windowWidth;
-                    const scalar centerOffset = min(halfWindow, maxCenterOffset);
-                    pulseCenter = laserStartTime_ + centerOffset;
-                }
-                else
-                {
-                    pulseCenter = 0.5*(laserStartTime_ + laserEndTime_);
-                }
+                const scalar maxCenterOffset = 3.0*sigma;
+                const scalar halfWindow = 0.5*windowWidth;
+                const scalar centerOffset = min(halfWindow, maxCenterOffset);
+                pulseCenter = laserStartTime_ + centerOffset;
             }
         }
     }
