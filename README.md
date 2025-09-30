@@ -128,3 +128,6 @@ retains the legacy near-start placement.
   triggers spurious mismatch warnings.
 * Defaults above reflect the values compiled into the solver; supply explicit
   entries in your dictionaries to override them as needed.
+* The femtosecond laser accepts `spatialIntegrationMode` to control axial
+  chord estimation: `exact` (default) scans cell vertices, while `centerline`
+  approximates the span from `V^(1/3)` for faster but less precise deposition.
