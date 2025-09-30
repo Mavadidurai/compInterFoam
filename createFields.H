@@ -113,6 +113,7 @@ volScalarField T
     mesh,
     dimensionedScalar("T", dimTemperature, 300.0)
 );
+
 volScalarField gasMetalHeatFlux
 (
     IOobject
@@ -150,6 +151,113 @@ IOdictionary transportProperties
     )
 );
 (void)transportProperties;
+
+word metalGroup(word::null);
+word gasGroup(word::null);
+
+if (transportProperties.found("phases"))
+{
+    wordList phases(transportProperties.lookup("phases"));
+
+    if (phases.size() > 0)
+    {
+        metalGroup = phases[0];
+    }
+
+    if (phases.size() > 1)
+    {
+        gasGroup = phases[1];
+    }
+}
+
+if (metalGroup.empty())
+{
+    metalGroup = "metal";
+}
+
+if (gasGroup.empty())
+{
+    gasGroup = "gas";
+}
+
+const word metalTName = IOobject::groupName("T", metalGroup);
+const word gasTName = IOobject::groupName("T", gasGroup);
+
+autoPtr<volScalarField> metalTPtr;
+autoPtr<volScalarField> gasTPtr;
+
+if (!mesh.foundObject<volScalarField>(metalTName))
+{
+    IOobject metalTHeader
+    (
+        metalTName,
+        runTime.timeName(),
+        mesh,
+        IOobject::READ_IF_PRESENT,
+        IOobject::NO_WRITE,
+        false
+    );
+
+    if (!metalTHeader.typeHeaderOk<volScalarField>())
+    {
+        metalTPtr.reset
+        (
+            new volScalarField
+            (
+                IOobject
+                (
+                    metalTName,
+                    runTime.timeName(),
+                    mesh,
+                    IOobject::NO_READ,
+                    IOobject::AUTO_WRITE
+                ),
+                T
+            )
+        );
+
+        metalTPtr->boundaryFieldRef() = T.boundaryField();
+        metalTPtr->correctBoundaryConditions();
+        metalTPtr->write();
+    }
+}
+
+if (!mesh.foundObject<volScalarField>(gasTName))
+{
+    IOobject gasTHeader
+    (
+        gasTName,
+        runTime.timeName(),
+        mesh,
+        IOobject::READ_IF_PRESENT,
+        IOobject::NO_WRITE,
+        false
+    );
+
+    if (!gasTHeader.typeHeaderOk<volScalarField>())
+    {
+        gasTPtr.reset
+        (
+            new volScalarField
+            (
+                IOobject
+                (
+                    gasTName,
+                    runTime.timeName(),
+                    mesh,
+                    IOobject::NO_READ,
+                    IOobject::AUTO_WRITE
+                ),
+                T
+            )
+        );
+
+        gasTPtr->boundaryFieldRef() = T.boundaryField();
+        gasTPtr->correctBoundaryConditions();
+        gasTPtr->write();
+    }
+}
+
 twoPhaseMixtureThermo mixture(U, phi);
 // Set verbosity flag from controlDict now that runTime is available
 
