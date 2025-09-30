@@ -1,0 +1,58 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+| =========                 |                                                 |
+| \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox           |
+|  \\    /   O peration     | Version:  v2406                                 |
+|   \\  /    A nd           | Website:  www.openfoam.com                      |
+|    \\/     M anipulation  |                                                 |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    object      thermophysicalProperties.air;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+// Thermophysical model for compressible air treated as a perfect gas
+
+thermoType
+{
+    type            heRhoThermo;     // was hePsiThermo  ← FIX
+    mixture         pureMixture;
+    transport       const;
+    thermo          hConst;
+    equationOfState rhoConst;
+    specie          specie;
+    energy          sensibleEnthalpy;
+}
+
+
+mixture
+{
+    specie
+    {
+        molWeight   28.97;              // kg/kmol - Air molecular weight
+    }
+    
+    thermodynamics
+    {
+        Cp          1000;               // J/kg·K - Air specific heat
+        Hf          0.0;                // J/kg - Heat of formation
+        Tref        300;                // K - Reference temperature
+        Href        0;                  // J/kg - Reference enthalpy
+    }
+    
+    transport
+    {
+        mu          1.8e-5;             // Pa·s - Air dynamic viscosity
+        Pr          0.7;                // Prandtl number for air
+    }
+
+    equationOfState
+    {
+        rho         1.2;                // kg/m³ - ✅ FIXED: Constant air density
+    }
+}
+
+// ************************************************************************* //
