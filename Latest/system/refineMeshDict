@@ -38,5 +38,16 @@ maxLocalCells        30000000;
 minRefinementCells   0;
 
 refinementRegions
-{}
+{
+    donorFilmBox
+    {
+        mode inside;
+        levels ((1e15 1));
+        box
+        {
+            min (0 19.99 0);
+            max (50 20.0814 10);
+        }
+    }
+}
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
