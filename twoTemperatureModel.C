@@ -778,33 +778,44 @@ label twoTemperatureModel::electronSubCycleCount
 
     if (dict_.found("maxElectronDeltaT"))
     {
-       dimensionedScalar maxElectronDtDim
+        dimensionedScalar maxElectronDtDim
         (
             "maxElectronDeltaT",
             dimTime,
             dtValue
         );
 
-        try
+        if
+        (
+            const entry* maxElectronDtEntry =
+                dict_.lookupEntryPtr("maxElectronDeltaT", false, false)
+        )
         {
-            maxElectronDtDim =
-                dict_.lookupOrDefault<dimensionedScalar>
-                (
-                    "maxElectronDeltaT",
-                    maxElectronDtDim
-                );
-        }
-        catch (const Foam::IOerror&)
-        {
-            const scalar fallbackDt =
-                dict_.lookupOrDefault<scalar>("maxElectronDeltaT", dtValue);
+            if (maxElectronDtEntry->is<dimensionedScalar>())
+            {
+                maxElectronDtDim =
+                    dict_.lookupOrDefault<dimensionedScalar>
+                    (
+                        "maxElectronDeltaT",
+                        maxElectronDtDim
+                    );
+            }
+            else
+            {
+                const scalar fallbackDt =
+                    dict_.lookupOrDefault<scalar>
+                    (
+                        "maxElectronDeltaT",
+                        dtValue
+                    );
 
-            maxElectronDtDim = dimensionedScalar
-            (
-                maxElectronDtDim.name(),
-                maxElectronDtDim.dimensions(),
-                fallbackDt
-            );
+                maxElectronDtDim = dimensionedScalar
+                (
+                    maxElectronDtDim.name(),
+                    maxElectronDtDim.dimensions(),
+                    fallbackDt
+                );
+            }
         }
 
         const scalar maxElectronDt = maxElectronDtDim.value();
