@@ -32,7 +32,7 @@ class twoPhaseMixtureThermo
         //- Thermo-package of phase 2
         autoPtr<rhoThermo> thermo2_;
 
-        //- Latent heat of fusion (J/kg)
+        //- Phase-change/evaporation latent heat used for mass-transfer (J/kg)
         scalar latentHeat_;
 
         //- Solidus temperature (K)
@@ -63,8 +63,11 @@ class twoPhaseMixtureThermo
         dimensionedScalar rho1_;
         dimensionedScalar rho2_;
         //- Cached lattice heat capacity from the two-temperature model [J/m^3/K]
-        //  Defaults to 2.5e6 J/m^3/K if twoTemperatureProperties are absent        
+        //  Defaults to 2.5e6 J/m^3/K if twoTemperatureProperties are absent
         dimensionedScalar ClTTM_;
+
+        //- Surface tension model
+        mutable autoPtr<surfaceTensionModel> sigmaModel_;
 
         //- Refresh cached two-temperature properties from the control dictionary
         void updateTwoTemperatureCache();

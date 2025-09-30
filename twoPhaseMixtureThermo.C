@@ -80,7 +80,8 @@ Foam::twoPhaseMixtureThermo::twoPhaseMixtureThermo
     nu2_("nu2", dimViscosity, 0.0),
     rho1_("rho1", dimDensity, 0.0),
     rho2_("rho2", dimDensity, 0.0),
-    ClTTM_("ClTTM", dimEnergy/dimVolume/dimTemperature, 0.0)
+    ClTTM_("ClTTM", dimEnergy/dimVolume/dimTemperature, 0.0),
+    sigmaModel_(nullptr)
 {
     const dictionary& transportDict =
         U.mesh().lookupObject<dictionary>("transportProperties");
@@ -306,7 +307,7 @@ Foam::twoPhaseMixtureThermo::twoPhaseMixtureThermo
     if (latentHeat_ <= SMALL)
     {
         FatalIOErrorInFunction(controlDict)
-            << "Latent heat ('latentHeat' or legacy 'hf') in "
+            << "Phase-change latent heat ('latentHeat' or legacy 'hf') in "
             << latentHeatLocation
             << " must be positive (also checked "
             << alternateDictionary(latentHeatLocation)
@@ -450,8 +451,29 @@ Foam::twoPhaseMixtureThermo::twoPhaseMixtureThermo
             << ", rho=" << rho2_.value() << endl;
     }
     updateTwoTemperatureCache();
-    thermo1_ = rhoThermo::New(U.mesh(), phase1Name());
-    thermo2_ = rhoThermo::New(U.mesh(), phase2Name());
+    try
+    {
+        thermo1_ = rhoThermo::New(U.mesh(), phase1Name());
+    }
+    catch (const Foam::error::IOerror&)
+    {
+        FatalErrorInFunction
+            << "Failed to construct rhoThermo for phase '" << phase1Name()
+            << "'. Expected dictionary 'thermophysicalProperties."
+            << phase1Name() << "'." << exit(FatalError);
+    }
+
+    try
+    {
+        thermo2_ = rhoThermo::New(U.mesh(), phase2Name());
+    }
+    catch (const Foam::error::IOerror&)
+    {
+        FatalErrorInFunction
+            << "Failed to construct rhoThermo for phase '" << phase2Name()
+            << "'. Expected dictionary 'thermophysicalProperties."
+            << phase2Name() << "'." << exit(FatalError);
+    }
     correct();
 }
 // * * * * * * * * * * * * * * * * Destructor  * * * * * * * * * * * * * * * //
@@ -467,6 +489,7 @@ void Foam::twoPhaseMixtureThermo::correctThermo()
 }
 void Foam::twoPhaseMixtureThermo::correct()
 {
+    sigmaModel_.reset(nullptr);
     psi_ = alpha1()*thermo1_->psi() + alpha2()*thermo2_->psi();
     mu_ = alpha1()*thermo1_->mu() + alpha2()*thermo2_->mu();
     alpha_ = alpha1()*thermo1_->alpha() + alpha2()*thermo2_->alpha();
@@ -587,9 +610,14 @@ Foam::dimensionedScalar Foam::twoPhaseMixtureThermo::latentHeat() const
 Foam::tmp<Foam::volScalarField>
 Foam::twoPhaseMixtureThermo::sigma() const
 {
+    if (!sigmaModel_.valid())
+    {
+        sigmaModel_ = surfaceTensionModel::New(*this, alpha1().mesh());
+    }
+
     Foam::tmp<Foam::volScalarField> tsigma
     (
-        surfaceTensionModel::New(*this, alpha1().mesh())->sigma()
+        sigmaModel_->sigma()
     );
     if
     (

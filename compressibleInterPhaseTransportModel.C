@@ -117,23 +117,36 @@ Foam::compressibleInterPhaseTransportModel::compressibleInterPhaseTransportModel
             )
         );
 
-        // For OpenFOAM v2406, disable phase-based turbulence models
-        // They have linking/instantiation issues in this version
-        Info<< "Note: Phase-based turbulence models disabled for OpenFOAM v2406 compatibility." << nl
-            << "      Falling back to mixture-based turbulence modeling." << endl;
-        
-        // Reset to use mixture-based approach
-        twoPhaseTransport_ = false;
+        turbulence1_ = PhaseCompressibleTurbulenceModel<rhoThermo>::New
+        (
+            alpha1,
+            rho1,
+            U,
+            alphaRhoPhi1_(),
+            phi_,
+            mixture_.thermo1()
+        );
+
+        turbulence2_ = PhaseCompressibleTurbulenceModel<rhoThermo>::New
+        (
+            alpha2,
+            rho2,
+            U,
+            alphaRhoPhi2_(),
+            phi_,
+            mixture_.thermo2()
+        );
     }
-    
-    // Always use mixture-based turbulence model for OpenFOAM v2406 compatibility
-    turbulence_ = compressible::turbulenceModel::New
-    (
-        rho,
-        U,
-        rhoPhi_,
-        mixture
-    );
+    else
+    {
+        turbulence_ = compressible::turbulenceModel::New
+        (
+            rho,
+            U,
+            rhoPhi_,
+            mixture
+        );
+    }
 }
 
 Foam::tmp<Foam::volScalarField>
@@ -141,22 +154,16 @@ Foam::compressibleInterPhaseTransportModel::alphaEff() const
 {
     if (twoPhaseTransport_)
     {
-        // This should not be reached in v2406 due to forced fallback above
-        FatalErrorInFunction
-            << "Two-phase turbulence transport should be disabled in v2406"
-            << exit(FatalError);
-            
-        return tmp<volScalarField>(nullptr);
+        const tmp<volScalarField> alphat1 = turbulence1_->alphat();
+        const tmp<volScalarField> alphat2 = turbulence2_->alphat();
+
+        return
+            mixture_.alpha1()*mixture_.thermo1().alphaEff(alphat1())
+          + mixture_.alpha2()*mixture_.thermo2().alphaEff(alphat2());
     }
 
     // Use mixture-based approach with turbulent thermal diffusivity
-    const tmp<volScalarField> nutTmp = turbulence_->nut();
-    const volScalarField& nut = nutTmp();
-    
-    // Convert kinematic turbulent viscosity to thermal diffusivity
-    // using turbulent Prandtl number: alphat = nut/Prt
-    const scalar Prt = 0.85; // Typical turbulent Prandtl number
-    const tmp<volScalarField> alphat = nut/Prt;
+    const tmp<volScalarField> alphat = turbulence_->alphat();
     
     return mixture_.alphaEff(alphat());
 }
@@ -166,12 +173,12 @@ Foam::compressibleInterPhaseTransportModel::kappaEff() const
 {
     if (twoPhaseTransport_)
     {
-        // This should not be reached in v2406 due to forced fallback above
-        FatalErrorInFunction
-            << "Two-phase turbulence transport should be disabled in v2406"
-            << exit(FatalError);
-            
-        return tmp<volScalarField>(nullptr);
+        const tmp<volScalarField> alphat1 = turbulence1_->alphat();
+        const tmp<volScalarField> alphat2 = turbulence2_->alphat();
+
+        return
+            mixture_.alpha1()*mixture_.thermo1().kappaEff(alphat1())
+          + mixture_.alpha2()*mixture_.thermo2().kappaEff(alphat2());
     }
 
     // Use mixture-based approach with turbulent thermal diffusivity
@@ -188,12 +195,9 @@ Foam::compressibleInterPhaseTransportModel::divDevRhoReff
 {
     if (twoPhaseTransport_)
     {
-        // This should not be reached in v2406 due to forced fallback above
-        FatalErrorInFunction
-            << "Two-phase turbulence transport should be disabled in v2406"
-            << exit(FatalError);
-            
-        return tmp<fvVectorMatrix>(nullptr);
+        return
+            turbulence1_->divDevRhoReff(U)
+          + turbulence2_->divDevRhoReff(U);
     }
 
     return turbulence_->divDevRhoReff(U);
@@ -218,10 +222,8 @@ void Foam::compressibleInterPhaseTransportModel::correct()
 {
     if (twoPhaseTransport_)
     {
-        // This should not be reached in v2406 due to forced fallback above
-        FatalErrorInFunction
-            << "Two-phase turbulence transport should be disabled in v2406"
-            << exit(FatalError);
+        turbulence1_->correct();
+        turbulence2_->correct();
     }
     else
     {
