@@ -338,7 +338,7 @@ extern const bool master;
     activeMask *= contactMask;
     activeMask.correctBoundaryConditions();
 
-    T = activeMask*T + (scalar(1) - activeMask)*Tl;
+    T = (scalar(1) - activeMask)*T + activeMask*Tl;
     T.correctBoundaryConditions();
 
     mixture.correctThermo();
