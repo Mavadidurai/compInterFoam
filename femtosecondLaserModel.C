@@ -89,6 +89,10 @@ femtosecondLaserModel::femtosecondLaserModel
     incidenceAngle_(dict.getOrDefault<scalar>("incidenceAngle", 0.0)),
     gaussianProfile_(dict.getOrDefault<bool>("gaussianProfile", true)),
     continuousLaser_(dict.getOrDefault<bool>("continuousLaser", false)),
+    applyInterfaceTransmissionEverywhere_
+    (
+        dict.getOrDefault<bool>("applyInterfaceTransmissionEverywhere", true)
+    ),    
     pulseEnergyToleranceRel_
     (
         dict.getOrDefault<scalar>("pulseEnergyToleranceRel", 0.01)
@@ -925,7 +929,7 @@ scalar femtosecondLaserModel::beamCoverageFraction() const
     scalar coverage = fracU*fracV;
     coverage = min(max(coverage, scalar(0)), scalar(1));
 
-    return coverage;
+    return coverage; // ignores tree-box clipping; focus near bounds overestimates
 }
 //------------------------------------------------------------------------------
 femtosecondLaserModel::EnvelopeResult
@@ -1302,12 +1306,15 @@ femtosecondLaserModel::applySpatialWeighting
                 continue;
             }
         }        
-        scalar transmissionFactor = 1.0;
+        // reflectivity_ is defined at the film interface, so the transmission
+        // derived from it attenuates the beam prior to entering either phase.
+        const scalar interfaceTransmission = effectiveTransmission(reflectivity_);
 
-        if (inFilm)
+        scalar transmissionFactor = interfaceTransmission;
+
+        if (!applyInterfaceTransmissionEverywhere_ && !inFilm)
         {
-            const scalar effectiveReflectivity = reflectivity_;
-            transmissionFactor = effectiveTransmission(effectiveReflectivity);
+            transmissionFactor = 1.0;
         }
 
         const scalar baseIntensity =
@@ -1554,7 +1561,7 @@ void femtosecondLaserModel::calculateSource() const
             << "Focus: " << focus_ << nl
             << "  Focus Y: " << focus_.y()*1e6 << " µm" << nl
             << "Film bounds: [" << filmYMin_*1e6 << ", " << filmYMax_*1e6 << "] µm" << nl
-            << "Peak intensity: " << peakIntensity_.value() << " W/m²" << nl
+            << "Peak intensity: " << peakIntensity_.value() << " W/m^2" << nl
             << "Pulse energy: " << pulseEnergy_.value() << " J" << nl
             << "Spot size: " << spotSize_.value()*1e6 << " µm diameter" << nl
             << "Direction: " << direction_ << nl
@@ -1610,7 +1617,7 @@ void femtosecondLaserModel::calculateSource() const
             << "  Active: " << (envelope.active ? "YES" : "NO") << nl
             << "  Temporal integral: " << envelope.temporalIntegral << " s" << nl
             << "  Temporal average: " << envelope.temporalAverage << nl
-            << "  Expected energy: " << envelope.expectedEnergy << " J" << endl;
+            << "  Expected energy: " << envelope.expectedEnergy << " J" << endl; // coverage ignores tree-box clipping near bounds
     }
 
     scalar sigma = 0.0;
@@ -1648,33 +1655,7 @@ void femtosecondLaserModel::calculateSource() const
     const scalar toleranceStart = pulseCenter - pulseToleranceRadius;
     const scalar toleranceEnd = pulseCenter + pulseToleranceRadius;
 
-    bool tailActivated = false;
-
-    if ((!envelope.active || envelope.temporalAverage <= VSMALL)
-     && singlePulse
-     && sigma > VSMALL)
-    {
-        const bool sliceInsideLaserWindow = overlapEnd > overlapStart;
-        const bool sliceOutsideFiveSigma =
-            (overlapEnd <= toleranceStart || overlapStart >= toleranceEnd);
-
-        if (sliceInsideLaserWindow && sliceOutsideFiveSigma)
-        {
-            const scalar tailIntegral =
-                gaussianWindowIntegral(overlapStart, overlapEnd, pulseCenter, sigma);
-
-            if (tailIntegral > 0.0)
-            {
-                envelope.temporalIntegral = tailIntegral;
-                envelope.temporalAverage =
-                    min(scalar(1.0), max(tailIntegral/max(dt, VSMALL), scalar(0.0)));
-                envelope.active = true;
-                tailActivated = true;
-            }
-        }
-    }
-
-    if ((!envelope.active || envelope.temporalAverage <= VSMALL) && !tailActivated)
+    if (!envelope.active || envelope.temporalAverage <= VSMALL)
     {
         bool outsidePulseWindow = false;
 
@@ -1766,7 +1747,7 @@ void femtosecondLaserModel::calculateSource() const
             << "  Cells in beam: " << metrics.cellsInBeam << nl
             << "  Cells in film: " << metrics.cellsInFilm << nl
             << "  Cells in gas: " << metrics.cellsInGas << nl
-            << "  Max source value: " << metrics.maxSourceValue << " W/m³" << nl
+            << "  Max source value: " << metrics.maxSourceValue << " W/m^3" << nl
             << "  Total power: " << metrics.totalSourceIntegral << " W" << nl
             << "  Film power: " << metrics.totalFilmSourceIntegral << " W" << nl
             << "  Limited cells: " << metrics.limitedCells << endl;

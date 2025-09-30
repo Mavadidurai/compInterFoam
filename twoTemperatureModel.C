@@ -33,6 +33,7 @@ Description
 #include "fvc.H"
 #include "fvm.H"
 #include "Pstream.H"
+#include "error.H"
 #include <cmath>
 extern Foam::Switch verbose;
 namespace Foam
@@ -662,8 +663,8 @@ void twoTemperatureModel::writeSolveStatistics
         << "  Tl range: " << minTl.value() << " - " << maxTl.value() << " K" << nl
         << "  Max temperature difference: "
         << max(tempDiff).value() << " K" << nl
-        << "  Mean Te: " << gAverage(Te_).value() << " K" << nl
-        << "  Mean Tl: " << gAverage(Tl_).value() << " K" << nl
+        << "  Mean Te: " << gAverage(Te_) << " K" << nl
+        << "  Mean Tl: " << gAverage(Tl_) << " K" << nl
         << "  Coupling residual: " << residual << endl;
 }
 
@@ -793,7 +794,7 @@ label twoTemperatureModel::electronSubCycleCount
                     maxElectronDtDim
                 );
         }
-        catch (const Foam::error::IOerror&)
+        catch (const Foam::IOerror&)
         {
             const scalar fallbackDt =
                 dict_.lookupOrDefault<scalar>("maxElectronDeltaT", dtValue);
@@ -1394,8 +1395,8 @@ void twoTemperatureModel::write() const
             << "Field statistics:" << nl
             << "  Te range: " << min(Te_).value() << " - " << max(Te_).value() << " K" << nl
             << "  Tl range: " << min(Tl_).value() << " - " << max(Tl_).value() << " K" << nl
-            << "  Mean Te: " << gAverage(Te_).value() << " K" << nl
-            << "  Mean Tl: " << gAverage(Tl_).value() << " K" << nl;
+            << "  Mean Te: " << gAverage(Te_) << " K" << nl
+            << "  Mean Tl: " << gAverage(Tl_) << " K" << nl;
     }
     if (energyInitialized_ && loggedEnergyInitialized_)
     {

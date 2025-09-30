@@ -68,11 +68,14 @@ private:
     vector              scanVelocity_;      // [m/s]
     scalar              pulseFrequency_;    // [1/s]
     scalar              pulseDutyCycle_;    // [-]
+    // Reflectivity specified at the film interface; converted to transmission
+    // before spatial weighting so it attenuates the beam entering any cell.
     scalar              reflectivity_;      // [-]
     scalar              transmission_;      // [-] (>=0 overrides reflectivity)
     scalar              incidenceAngle_;    // [rad]
     bool                gaussianProfile_;
     bool                continuousLaser_;
+    bool                applyInterfaceTransmissionEverywhere_;
     
     // Pulse energy consistency tolerances
     scalar              pulseEnergyToleranceRel_;
@@ -85,7 +88,8 @@ private:
     scalar              filmYMin_;
     scalar              filmYMax_;
 
-    // Cached source
+    // Cached source backing the const source() API; update() resets these so
+    // they are not treated as thread-safe caches
     mutable tmp<volScalarField> tSource_;
     mutable bool         sourceValid_;
     mutable scalar       cumulativeEnergy_;

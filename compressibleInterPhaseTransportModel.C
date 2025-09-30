@@ -154,12 +154,10 @@ Foam::compressibleInterPhaseTransportModel::alphaEff() const
 {
     if (twoPhaseTransport_)
     {
-        const tmp<volScalarField> alphat1 = turbulence1_->alphat();
-        const tmp<volScalarField> alphat2 = turbulence2_->alphat();
+        const tmp<volScalarField> alphaEff1 = turbulence1_->alphaEff();
+        const tmp<volScalarField> alphaEff2 = turbulence2_->alphaEff();
 
-        return
-            mixture_.alpha1()*mixture_.thermo1().alphaEff(alphat1())
-          + mixture_.alpha2()*mixture_.thermo2().alphaEff(alphat2());
+        return mixture_.alpha1()*alphaEff1() + mixture_.alpha2()*alphaEff2();
     }
 
     // Use mixture-based approach with turbulent thermal diffusivity
@@ -173,12 +171,10 @@ Foam::compressibleInterPhaseTransportModel::kappaEff() const
 {
     if (twoPhaseTransport_)
     {
-        const tmp<volScalarField> alphat1 = turbulence1_->alphat();
-        const tmp<volScalarField> alphat2 = turbulence2_->alphat();
+        const tmp<volScalarField> kappaEff1 = turbulence1_->kappaEff();
+        const tmp<volScalarField> kappaEff2 = turbulence2_->kappaEff();
 
-        return
-            mixture_.alpha1()*mixture_.thermo1().kappaEff(alphat1())
-          + mixture_.alpha2()*mixture_.thermo2().kappaEff(alphat2());
+        return mixture_.alpha1()*kappaEff1() + mixture_.alpha2()*kappaEff2();
     }
 
     // Use mixture-based approach with turbulent thermal diffusivity
