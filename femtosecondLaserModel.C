@@ -1018,9 +1018,9 @@ femtosecondLaserModel::evaluateTemporalEnvelope
         // enabled.  The previous implementation centred the Gaussian at the
         // midpoint between laserStartTime and laserEndTime, which can shift the
         // peak several picoseconds after the intended trigger and effectively
-        // delay the heat source.  Constrain the peak to remain close to the
-        // configured start time while preserving backward compatibility when the
-        // time window is narrow.
+        // delay the heat source.  Constrain the peak to remain close to the        
+        // configured start time by capping how far it may drift from
+        // laserStartTime when no explicit pulseCenterTime is supplied.
 
         const scalar sigma =
             pulseWidth_.value()/(2.0*sqrt(2.0*log(2.0)));  // std dev from FWHM
@@ -1037,24 +1037,10 @@ femtosecondLaserModel::evaluateTemporalEnvelope
             }
             else
             {
-                const scalar compatibilityWidth = 6.0*sigma;
-
-                if (windowWidth <= compatibilityWidth + SMALL)
-                {
-                    // Retain historical placement when the activation window is
-                    // only a few σ wide so that legacy dictionaries remain
-                    // unaffected.
-                    const scalar maxCenterOffset = 3.0*sigma;
-                    const scalar halfWindow = 0.5*windowWidth;
-                    const scalar centerOffset = min(halfWindow, maxCenterOffset);
-                    center = laserStartTime_ + centerOffset;
-                }
-                else
-                {
-                    // With a long activation window, default to its midpoint to
-                    // avoid forcing the Gaussian peak near the start time.
-                    center = 0.5*(laserStartTime_ + laserEndTime_);
-                }
+                const scalar maxCenterOffset = 3.0*sigma;
+                const scalar halfWindow = 0.5*windowWidth;
+                const scalar centerOffset = min(halfWindow, maxCenterOffset);
+                center = laserStartTime_ + centerOffset;
             }
         }
 
