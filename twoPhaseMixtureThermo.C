@@ -635,9 +635,11 @@ Foam::twoPhaseMixtureThermo::sigma() const
 }
 void Foam::twoPhaseMixtureThermo::computePhaseChange()
 {
-    phaseChangeSource_ = dimensionedScalar("source", dimTemperature/dimTime, 0.0);
+    // Reset source terms without triggering dimension checks that can fail when
+    // older restart data carried incorrect dimensions.
+    phaseChangeSource_.primitiveFieldRef() = 0.0;
     // Reset the implicit relaxation coefficient
-    phaseChangeRelaxCoeff_ = dimensionedScalar("relax", dimless/dimTime, 0.0);
+    phaseChangeRelaxCoeff_.primitiveFieldRef() = 0.0;
     const bool master = Pstream::master();
     const fvMesh& mesh = T_.mesh();
     // Access coefficients from transportProperties
