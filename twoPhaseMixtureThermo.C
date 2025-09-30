@@ -455,7 +455,7 @@ Foam::twoPhaseMixtureThermo::twoPhaseMixtureThermo
     {
         thermo1_ = rhoThermo::New(U.mesh(), phase1Name());
     }
-    catch (const Foam::error::IOerror&)
+    catch (const Foam::IOerror&)
     {
         FatalErrorInFunction
             << "Failed to construct rhoThermo for phase '" << phase1Name()
@@ -467,7 +467,7 @@ Foam::twoPhaseMixtureThermo::twoPhaseMixtureThermo
     {
         thermo2_ = rhoThermo::New(U.mesh(), phase2Name());
     }
-    catch (const Foam::error::IOerror&)
+    catch (const Foam::IOerror&)
     {
         FatalErrorInFunction
             << "Failed to construct rhoThermo for phase '" << phase2Name()

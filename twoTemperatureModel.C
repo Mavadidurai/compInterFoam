@@ -683,8 +683,8 @@ void twoTemperatureModel::writeSolveStatistics
         << "  Tl range: " << minTl.value() << " - " << maxTl.value() << " K" << nl
         << "  Max temperature difference: "
         << max(tempDiff).value() << " K" << nl
-        << "  Mean Te: " << gAverage(Te_) << " K" << nl
-        << "  Mean Tl: " << gAverage(Tl_) << " K" << nl
+        << "  Mean Te: " << gAverage(Te_).value() << " K" << nl
+        << "  Mean Tl: " << gAverage(Tl_).value() << " K" << nl
         << "  Coupling residual: " << residual << endl;
 }
 
@@ -1394,8 +1394,8 @@ void twoTemperatureModel::write() const
             << "Field statistics:" << nl
             << "  Te range: " << min(Te_).value() << " - " << max(Te_).value() << " K" << nl
             << "  Tl range: " << min(Tl_).value() << " - " << max(Tl_).value() << " K" << nl
-            << "  Mean Te: " << gAverage(Te_) << " K" << nl
-            << "  Mean Tl: " << gAverage(Tl_) << " K" << nl;
+            << "  Mean Te: " << gAverage(Te_).value() << " K" << nl
+            << "  Mean Tl: " << gAverage(Tl_).value() << " K" << nl;
     }
     if (energyInitialized_ && loggedEnergyInitialized_)
     {
