@@ -119,6 +119,12 @@ twoTemperatureModel::twoTemperatureModel
     CeFunction_(nullptr),
     GFunction_(nullptr),
     gasMetalExchangeFunction_(nullptr),
+    cumulativeLaserEnergy_
+    (
+        "cumulativeLaserEnergy",
+        dimEnergy,
+        0.0
+    ),
     lastTotalEnergy_
     (
         "lastTotalEnergy",
@@ -133,6 +139,7 @@ twoTemperatureModel::twoTemperatureModel
     ),
     energyInitialized_(false),
     loggedEnergyInitialized_(false),
+    energyTrackingTimeIndex_(mesh.time().timeIndex()),
     lastElectronSubCycles_(1)
 {
     scalar CeLogTe = ambientTemperature_.value();
@@ -254,15 +261,6 @@ twoTemperatureModel::twoTemperatureModel
             << "Invalid model parameters"
             << abort(FatalError);
     }
-    // Register fields if not already present
-    if (!mesh_.foundObject<volScalarField>("Te"))
-    {
-        mesh_.objectRegistry::store(new volScalarField(Te_));
-    }
-    if (!mesh_.foundObject<volScalarField>("Tl"))
-    {
-        mesh_.objectRegistry::store(new volScalarField(Tl_));
-    }
     // Initialize energy tracking
     updateEnergyTracking();
      const bool master = Pstream::master();
@@ -290,17 +288,6 @@ twoTemperatureModel::twoTemperatureModel
             << "  Metal fraction field = " << metalFraction_.name() << endl;
     }
 }
-twoTemperatureModel::~twoTemperatureModel()
-{
-    if (mesh_.foundObject<volScalarField>("Te"))
-    {
-        mesh_.objectRegistry::checkOut("Te");
-    }
-    if (mesh_.foundObject<volScalarField>("Tl"))
-    {
-        mesh_.objectRegistry::checkOut("Tl");
-    }
-}
 volScalarField& twoTemperatureModel::Te()
 {
     if (!validateFields())
@@ -323,15 +310,14 @@ volScalarField& twoTemperatureModel::Tl()
 }
 bool twoTemperatureModel::validateParameters() const
 {
-    bool valid = true;
-       // Check dimensions
-    if (Te_.dimensions() != dimTemperature || 
+    // Check dimensions
+    if (Te_.dimensions() != dimTemperature ||
         Tl_.dimensions() != dimTemperature)
     {
         FatalErrorInFunction
             << "Invalid temperature dimensions"
             << abort(FatalError);
-        valid = false;
+        return false;
     }
     if (Ce_.dimensions() != dimEnergy/dimVolume/dimTemperature ||
         Cl_.dimensions() != dimEnergy/dimVolume/dimTemperature ||
@@ -341,7 +327,7 @@ bool twoTemperatureModel::validateParameters() const
         FatalErrorInFunction
             << "Invalid material property dimensions"
             << abort(FatalError);
-        valid = false;
+        return false;
     }
     // Check property values
     if (Ce_.value() <= 0 || Cl_.value() <= 0 || G_.value() <= 0 || De_.value() <= 0)
@@ -349,7 +335,7 @@ bool twoTemperatureModel::validateParameters() const
         FatalErrorInFunction
             << "Non-positive material properties detected"
             << abort(FatalError);
-        valid = false;
+        return false;
     }
 	    // Warn if material properties appear outside typical ranges
     if (Ce_.value() < 1e4 || Ce_.value() > 1e8)
@@ -376,7 +362,7 @@ bool twoTemperatureModel::validateParameters() const
         FatalErrorInFunction
             << "Inconsistent thermal conductivity dimensions"
             << abort(FatalError);
-        valid = false;
+        return false;
     }
     // Check temperature values
     forAll(Te_, cellI)
@@ -386,11 +372,10 @@ bool twoTemperatureModel::validateParameters() const
             FatalErrorInFunction
                 << "Negative temperature detected at cell " << cellI
                 << abort(FatalError);
-            valid = false;
-            break;
+            return false;
         }
     }
-    return valid;
+    return true;
 }
 scalar twoTemperatureModel::metalValidationThreshold() const
 {
@@ -631,13 +616,7 @@ void twoTemperatureModel::writeEnergyDiagnostics
     const dimensionedScalar latticeEnergyAfter =
         fvc::domainIntegrate(metalEff*(Cl_*Tl_));
 
-    static dimensionedScalar cumulativeLaserEnergy
-    (
-        "cumulativeLaserEnergy",        
-        dimEnergy,
-        0.0
-    );
-    cumulativeLaserEnergy += laserEnergy;
+    cumulativeLaserEnergy_ += laserEnergy;
 
     Info<< "Energy diagnostics:" << nl
         << "  Electron energy before: "
@@ -656,7 +635,7 @@ void twoTemperatureModel::writeEnergyDiagnostics
         << "  Total metal energy: "
         << (electronEnergyAfter + latticeEnergyAfter).value() << " J" << nl
         << "  Cumulative laser energy: "
-        << cumulativeLaserEnergy.value() << " J" << endl;
+        << cumulativeLaserEnergy_.value() << " J" << endl;
 }
 
 void twoTemperatureModel::writeSolveStatistics
@@ -769,9 +748,22 @@ void twoTemperatureModel::updateEnergyTracking
     const dimensionedScalar& currentEnergy
 ) const
 {
+
+    const label currentTimeIndex = mesh_.time().timeIndex();
+
+    if (!energyInitialized_ || currentTimeIndex < energyTrackingTimeIndex_)
+    {
+        cumulativeLaserEnergy_ = dimensionedScalar
+        (
+            cumulativeLaserEnergy_.name(),
+            cumulativeLaserEnergy_.dimensions(),
+            0.0
+        );
+    }
     lastTotalEnergy_ = currentEnergy;
     energyInitialized_ = true;
-    loggedEnergyInitialized_ = false;    
+    loggedEnergyInitialized_ = false;
+    energyTrackingTimeIndex_ = currentTimeIndex;   
 }
 
 label twoTemperatureModel::electronSubCycleCount
@@ -785,27 +777,36 @@ label twoTemperatureModel::electronSubCycleCount
 
     if (dict_.found("maxElectronDeltaT"))
     {
-        scalar maxElectronDt = dtValue;
+       dimensionedScalar maxElectronDtDim
+        (
+            "maxElectronDeltaT",
+            dimTime,
+            dtValue
+        );
 
-        if (dict_.isDict("maxElectronDeltaT"))
+        try
         {
-            maxElectronDt =
+            maxElectronDtDim =
                 dict_.lookupOrDefault<dimensionedScalar>
                 (
                     "maxElectronDeltaT",
-                    dimensionedScalar
-                    (
-                        "maxElectronDeltaT",
-                        dimTime,
-                        dtValue
-                    )
-                ).value();
+                    maxElectronDtDim
+                );
         }
-        else
+        catch (const Foam::error::IOerror&)
         {
-            maxElectronDt =
+            const scalar fallbackDt =
                 dict_.lookupOrDefault<scalar>("maxElectronDeltaT", dtValue);
+
+            maxElectronDtDim = dimensionedScalar
+            (
+                maxElectronDtDim.name(),
+                maxElectronDtDim.dimensions(),
+                fallbackDt
+            );
         }
+
+        const scalar maxElectronDt = maxElectronDtDim.value();
 
         if (maxElectronDt > SMALL)
         {
@@ -1165,8 +1166,7 @@ void twoTemperatureModel::solve
 
 tmp<volScalarField> twoTemperatureModel::electronThermalConductivity() const
 {
-    // Create temporary field for electron thermal conductivity
-    tmp<volScalarField> tke
+    tmp<volScalarField> ke
     (
         new volScalarField
         (
@@ -1183,17 +1183,17 @@ tmp<volScalarField> twoTemperatureModel::electronThermalConductivity() const
             dimensionedScalar("ke", dimPower/dimLength/dimTemperature, 1.0)
         )
     );
-    // Get reference to field for modification
-    volScalarField& ke = tke.ref(); // Calculate conductivity using cell-wise electron heat capacity
-    // ke = CeField * De_, allowing spatially varying Ce
+    // Get primitive field references for efficient looping
+    scalarField& kei = ke.ref().primitiveFieldRef();
     tmp<volScalarField> tCe = electronHeatCapacity();
     const volScalarField& CeField = tCe();
-    forAll(ke, cellI)
+    const scalarField& Cei = CeField.primitiveField();
+    forAll(kei, cellI)
     {
-        ke[cellI] = (CeField[cellI] * De_).value();
+        kei[cellI] = (Cei[cellI] * De_).value();
     }
-    ke.correctBoundaryConditions();    
-    return tke;
+    ke.ref().correctBoundaryConditions();
+    return ke;
 }
 tmp<volScalarField> twoTemperatureModel::electronHeatCapacity() const
 {

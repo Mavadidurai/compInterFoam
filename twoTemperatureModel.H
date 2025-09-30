@@ -95,14 +95,16 @@ private:
         //- Optional temperature-dependent coupling factor G(T)
         autoPtr<Function1<scalar>> GFunction_;
         //- Optional gas-metal exchange coefficient variation
-        autoPtr<Function1<scalar>> gasMetalExchangeFunction_;        
+        autoPtr<Function1<scalar>> gasMetalExchangeFunction_;
         //- Energy Conservation Tracking
+        mutable dimensionedScalar cumulativeLaserEnergy_; //- Cumulative laser energy input [J]
         mutable dimensionedScalar lastTotalEnergy_;      //- Previous total energy [J]
         mutable dimensionedScalar lastLoggedEnergy_;      //- Energy used for diagnostics [J]
         mutable bool energyInitialized_;                 //- Energy tracking flag
         mutable bool loggedEnergyInitialized_;           //- Diagnostic energy flag
+        mutable label energyTrackingTimeIndex_;          //- Time index used for cumulative energy reset
         //- Number of electron micro-steps executed in the previous solve
-        label lastElectronSubCycles_;        
+        label lastElectronSubCycles_;
     // Private Member Functions
         //- Validate model parameters and dimensions
         bool validateParameters() const;
@@ -205,8 +207,6 @@ public:
             const dictionary& dict,
             const volScalarField& metalFraction
         );
-        //- Destructor
-        virtual ~twoTemperatureModel();
         //- Prevent copying
         twoTemperatureModel(const twoTemperatureModel&) = delete;
         void operator=(const twoTemperatureModel&) = delete;
