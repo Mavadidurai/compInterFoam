@@ -217,21 +217,13 @@ extern const bool master;
          fvc::ddt(CvolLimited)
        + fvc::div(CvolPhi)
      );
-     const volScalarField& contErr = tContErr();
-     volScalarField contErrLimited
-     (
-         Foam::min
-         (
-             contErr,
-             dimensionedScalar("zeroContErr", contErr.dimensions(), 0)
-         )
-     );
+    const volScalarField& contErr = tContErr();
 
-     fvScalarMatrix TEqn
-     (
-         fvm::ddt(CvolLimited, T)
-       + fvm::div(CvolPhi, T)
-       - fvm::Sp(contErrLimited, T)
+    fvScalarMatrix TEqn
+    (
+        fvm::ddt(CvolLimited, T)
+      + fvm::div(CvolPhi, T)
+      - fvm::Sp(contErr, T)
        - fvm::laplacian(transportModel.kappaEff(), T)
       ==
          fvOptions(CvolLimited, T)
