@@ -251,7 +251,7 @@ functions
             forAll(alphaInternal, cellI)
             {
                 const scalar alphaVal = alphaInternal[cellI];
-                if (alphaVal > 0.01 && alphaVal < 0.99)
+                if (alphaVal > 0.05)
                 {
                     const scalar velMag = mag(UInternal[cellI]);
                     maxEjectionVel = max(maxEjectionVel, velMag);
@@ -358,7 +358,7 @@ functions
             forAll(alphaInternal, cellI)
             {
                 const scalar alphaVal = alphaInternal[cellI];
-                if (alphaVal > 0.01 && alphaVal < 0.99)
+                if (alphaVal > 0.05)
                 {
                     maxVel = max(maxVel, mag(UInternal[cellI]));
                 }
