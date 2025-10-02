@@ -26,7 +26,7 @@ solvers
         maxIter         50;
 
         nAlphaCorr      1;              // Keep at 1
-        nAlphaSubCycles 1;              // Increased to stabilise transport
+        nAlphaSubCycles 3;              // Increased to stabilise transport
         cAlpha          0.5;            // Softer compression to avoid overshoot
         icAlpha         0;
         scAlpha         0;

@@ -22,11 +22,11 @@ startTime       0;
 stopAt          endTime;
 endTime         1e-9;          // EXTENDED: 1 ns total for complete LIFT process
 
-deltaT          1e-14;         // Base time step (10 fs)
+deltaT          5e-14;         // Base time step (10 fs)
 adjustTimeStep  yes;           // ENABLE adaptive time stepping
 maxCo           0.1;           // Reduced for stability during long runs
 maxAlphaCo      0.05;          // Reduced for interface stability
-maxDeltaT       1e-12;         // Allow larger steps during cooling phase (1 ps max)
+maxDeltaT       1e-13;         // Allow larger steps during cooling phase (1 ps max)
 minDeltaT       1e-15;         // Minimum 1 fs for precision
 
 verbose         true;
@@ -36,7 +36,7 @@ maxThermalCourant 0.3;         // Tightened for thermal stability
 // ADAPTIVE OUTPUT - more frequent during active phase, less during cooling
 writeControl    adjustableRunTime;
 writeInterval   1e-13;         // Start with 1 ps intervals
-purgeWrite      20;            // Keep more time directories for analysis
+purgeWrite      200;            // Keep more time directories for analysis
 writeFormat     ascii;
 writePrecision  8;
 writeCompression off;
@@ -51,8 +51,8 @@ phaseChangeCoeffs
 {
     model               temperatureWindow;
     hf                  hf [0 2 -2 0 0 0 0] 8.9e6;
-    Tsol                Tsol [0 0 0 1 0 0 0] 1941;
-    Tvap                Tvap [0 0 0 1 0 0 0] 3560;
+    Tsol                Tsol [0 0 0 1 0 0 0] 1941.0;
+    Tvap                Tvap [0 0 0 1 0 0 0] 3560.0;
     windowWidth         50;
     dtFloor             1e-15;         // Reduced for precision
     relaxationTime      1e-10;        // Longer for extended cooling
@@ -73,7 +73,7 @@ massTransferCoeffs
 
 // LASER TIMING - shorter pulse, longer observation
 laserStartTime      0;
-laserEndTime    4e-8;
+laserEndTime    4e-10;
 
 // Advanced interface capturing - TUNED FOR EXTENDED SIMULATION
 useAdvancedInterfaceCapturing  true;
@@ -105,33 +105,38 @@ twoTemperatureProperties
     G   [1 -1 -3 -1 0 0 0] 5e18;
     De  [0  2 -1  0 0 0 0] 1e-4;
 
-    gasMetalExchangeCoeff [1 -1 -3 -1 0 0 0] 1e13;  // Matches gas heat capacity timescale
+    gasMetalExchangeCoeff [1 -1 -3 -1 0 0 0] 1e10;  // Matches gas heat capacity timescale
     minGasMetalExchangeCoeff [1 -1 -3 -1 0 0 0] 0;
     maxGasMetalExchangeCoeff [1 -1 -3 -1 0 0 0] 1e12;  // Keep coupling within cap
-    maxGasMetalHeatFlux    0;  // Align heat flux limit with revised coupling
+    maxGasMetalHeatFlux    1e12;  // Align heat flux limit with revised coupling
     minTe 200;             // Allow cooling
     maxTe 50000;
     ambientTemperature 300;
 
-    // ADAPTIVE MICRO-STEPPING
-    electronSubCycles        1;
+    // ADAPTIVE MICRO-STEPPING (optional)
+
+    electronSubCycles        1;      // base plan
     minElectronSubCycles     1;
-    maxElectronSubCycles     10;     // Reduced for long runs
-    maxElectronDeltaT        5e-13;  // Larger electron steps allowed
+    maxElectronSubCycles     20;
+    maxElectronDeltaT       [0 0 1 0 0 0 0] 2e-13;  // s (e.g., cap electron substep ~200 fs)
 
-    nInnerCouplingSweeps         2;  // More coupling iterations
-    innerCouplingResidualTol     1e-6; // Enable convergence check
+    // Inner coupling (optional)
+    nInnerCouplingSweeps         1;
+    innerCouplingResidualTol     -1; // disabled (set e.g. 1e-3 to enforce)
 
-    klHighTThreshold 1000;
-    klExponent       0.5;
-
+    // Conductivity correction (optional)
+    klHighTThreshold 1000;    // K
+    klExponent       0.5;     // 0 disables
+    
+    // Masking/smoothing (optional)
     metalFractionFloor      1e-6;
     metalFractionCutoff     1e-6;
     metalAmbientBlendWidth  1e-3;
 
-    energyTolerance         0.02;    // Relaxed for long runs
+    // Energy diagnostics
+    energyTolerance         0.01;    // or energyTol
     energyDiagnostics       false;
-    temperatureDiagnostics  false;   // Reduce output volume
+    temperatureDiagnostics  true;
     energyAudit             false;
 }
 
@@ -245,7 +250,8 @@ functions
             
             forAll(alphaInternal, cellI)
             {
-                if (alphaInternal[cellI] > 0.05) // Metal-rich cells
+                const scalar alphaVal = alphaInternal[cellI];
+                if (alphaVal > 0.01 && alphaVal < 0.99)
                 {
                     const scalar velMag = mag(UInternal[cellI]);
                     maxEjectionVel = max(maxEjectionVel, velMag);
@@ -351,7 +357,8 @@ functions
             
             forAll(alphaInternal, cellI)
             {
-                if (alphaInternal[cellI] > 0.1)
+                const scalar alphaVal = alphaInternal[cellI];
+                if (alphaVal > 0.01 && alphaVal < 0.99)
                 {
                     maxVel = max(maxVel, mag(UInternal[cellI]));
                 }
