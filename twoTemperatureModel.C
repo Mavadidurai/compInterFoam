@@ -778,38 +778,45 @@ label twoTemperatureModel::electronSubCycleCount
 
     if (dict_.found("maxElectronDeltaT"))
     {
-        dimensionedScalar maxElectronDtDim
+        const dimensionedScalar defaultMaxElectronDt
         (
             "maxElectronDeltaT",
             dimTime,
             dtValue
         );
 
-        try
-        {
-            maxElectronDtDim =
-                dict_.lookupOrDefault<dimensionedScalar>
-                (
-                    "maxElectronDeltaT",
-                    maxElectronDtDim
-                );
-        }
-        catch (const Foam::error&)
-        {
-            const scalar fallbackDt =
-                dict_.lookupOrDefault<scalar>
-                (
-                    "maxElectronDeltaT",
-                    dtValue
-                );
+        dimensionedScalar maxElectronDtDim =
+            dict_.lookupOrDefault<dimensionedScalar>
+            (
+                "maxElectronDeltaT",
+                defaultMaxElectronDt
+            );
 
+        if (maxElectronDtDim.dimensions() == dimTime)
+        {
+            // Already dimensionally consistent
+        }
+        else if (maxElectronDtDim.dimensions() == dimless)
+        {
             maxElectronDtDim = dimensionedScalar
             (
                 maxElectronDtDim.name(),
-                maxElectronDtDim.dimensions(),
-                fallbackDt
+                dimTime,
+                maxElectronDtDim.value()
             );
         }
+        else
+        {
+            FatalIOErrorInFunction(dict_)
+                << "Entry 'maxElectronDeltaT' must be specified either "
+                << "with time dimensions or as a plain scalar." << nl
+                << "    dimensions provided: "
+                << maxElectronDtDim.dimensions() << nl
+                << "    expected: " << dimTime
+                << " or " << dimless
+                << exit(FatalIOError);
+        }
+
 
         const scalar maxElectronDt = maxElectronDtDim.value();
 
