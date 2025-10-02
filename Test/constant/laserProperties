@@ -40,12 +40,12 @@ filmThicknessExpected    7.14e-8;    // 71.4 nm (matches y3 - y2 = 20.0714 - 20.
 filmCenterY         20.0357e-6;     // center at focus.y
 
 // geometry coupling
-gasAbsorptionCoeff 5e6;     // [1/m] gas absorption (0 disables direct gas heating)
+gasAbsorptionCoeff 0;     // [1/m] gas absorption (0 disables direct gas heating)
 
 // --- Energy & timing ---
 // CRITICAL: Keep pulse energy compatible with interface heat-flux limit
-//pulseCenterTime    3e-10;    // Removed to allow default near-start Gaussian centre
-pulseEnergy     3e-8;        // [J] total energy (≈0.106 J/cm² incident fluence)
+pulseCenterTime    2e-10;    // Removed to allow default near-start Gaussian centre
+pulseEnergy     3e-15;       // [J] total energy (≈1.06e-8 J/cm² incident fluence)
 pulseWidth      2.14e-13;     // [s] 214 fs pulse width
 
 // --- Spatial Gaussian (match the box center and film depth) ---
@@ -62,7 +62,7 @@ absorptionCoeff     6.0e7;    // [1/m] ≈17 nm optical depth in Ti at 343 nm
 
 // Reflectivity / profile
 reflectivity        0.35;
-transmission          -1;   // disable override; use reflectivity entry
+transmission    -1;   // disable override; use reflectivity entry
 
 gaussianProfile     true;
 
@@ -71,11 +71,11 @@ gaussianProfile     true;
 
 // Optional intensity entry (consistent with pulseEnergy & pulseWidth)
 continuousLaser     false;
-maxVolumetricSource 4e21;   // [W/m³] aligned with updated gas-metal coupling cap
+maxVolumetricSource 1e14;   // [W/m³] aligned with updated gas-metal coupling cap
 
 // CRITICAL: Enable pulse frequency for extended operation
-pulseFrequency      1e12;     // [1/s] 1 THz repetition rate for sustained heating
-pulseDutyCycle      0.1;      // 10% duty cycle
+//pulseFrequency      1e12;     // [1/s] 1 THz repetition rate for sustained heating
+//pulseDutyCycle      0.1;      // 10% duty cycle
 pulseFrequency      0;        // [1/s] disabled for single pulse operation
 pulseDutyCycle      0;        // [-] duty cycle unused when pulses disabled
 
