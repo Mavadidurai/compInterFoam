@@ -17,7 +17,7 @@ FoamFile
 
 application     compInterFoam;
 
-startFrom       latestTime;
+startFrom       startTime;
 startTime       0;
 stopAt          endTime;
 endTime         1e-9;          // EXTENDED: 1 ns total for complete LIFT process
@@ -92,8 +92,8 @@ advancedInterfaceCapturing
 
 logRecoilSuppression true;
 
-// Temperature clamping - EXTENDED RANGE
-enableTClamp    true;
+// Temperature clamping - disabled to allow physical peak temperatures
+enableTClamp    false;
 minT            200;           // Allow cooling below room temp
 maxT            18000;          // Clamp high temperatures for stability
 
