@@ -799,7 +799,7 @@ scalar femtosecondLaserModel::gaussianWindowIntegral
     const scalar sigma
 ) const
 {
-    if (sigma <= VSMALL)
+    if (sigma <= 0)
     {
         return 0.0;
     }
