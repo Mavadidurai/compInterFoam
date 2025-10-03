@@ -93,7 +93,8 @@ extern const bool master;
 
     tmp<volScalarField> tInterfaceExchange = ttm.gasMetalExchangeCoeffField();
     volScalarField& interfaceExchange = tInterfaceExchange.ref();
-
+    tmp<volScalarField> tCappedInterfaceExchange(interfaceExchange.clone());
+    volScalarField& cappedInterfaceExchange = tCappedInterfaceExchange.ref();
     const dictionary twoTemperatureDict =
         ctrl.subOrEmptyDict("twoTemperatureProperties");
 
@@ -124,8 +125,13 @@ extern const bool master;
             "maxGasMetalExchangeCoeff",
             maxCoeffDefault
         );
-    interfaceExchange = Foam::min(Foam::max(interfaceExchange, minCoeff), maxCoeff);
-    interfaceExchange.correctBoundaryConditions();
+    cappedInterfaceExchange =
+        Foam::min
+        (
+            Foam::max(cappedInterfaceExchange, minCoeff),
+            maxCoeff
+        );
+    cappedInterfaceExchange.correctBoundaryConditions();
     const volScalarField& Tl = ttm.Tl();
 
     const scalar qCap =
@@ -166,9 +172,13 @@ extern const bool master;
         tmp<volScalarField> tCoeffCap(qCapDim/tempDiff);
         const volScalarField& coeffCap = tCoeffCap();
 
-        interfaceExchange =
-            Foam::min(Foam::max(interfaceExchange, -coeffCap), coeffCap);
-        interfaceExchange.correctBoundaryConditions();
+        cappedInterfaceExchange =
+            Foam::min
+            (
+                Foam::max(cappedInterfaceExchange, -coeffCap),
+                coeffCap
+            );
+        cappedInterfaceExchange.correctBoundaryConditions();
     }
     const scalar metalFractionFloor =
         twoTemperatureDict.lookupOrDefault<scalar>
@@ -244,6 +254,8 @@ extern const bool master;
 
     interfaceExchange *= activeMask;
     interfaceExchange.correctBoundaryConditions();
+    cappedInterfaceExchange *= activeMask;
+    cappedInterfaceExchange.correctBoundaryConditions();    
     tmp<volScalarField> tCv2 = mixture.thermo2().Cv();
     tmp<volScalarField> tRho2 = mixture.thermo2().rho();
 
@@ -345,7 +357,7 @@ extern const bool master;
         Foam::max(scalar(0), Foam::min(scalar(1), thermalFluxRelax));
 
     const volScalarField& cachedTgas = tTgas();
-    tmp<volScalarField> tRawFlux(interfaceExchange*(cachedTgas - Tl));
+    tmp<volScalarField> tRawFlux(cappedInterfaceExchange*(cachedTgas - Tl));
     volScalarField& rawFlux = tRawFlux.ref();
     if (qCap > 0)
     {
@@ -380,7 +392,7 @@ extern const bool master;
 
         tmp<volScalarField> tThermalCo
         (
-            (interfaceExchange*runTime.deltaT())/CvolLimited
+            (cappedInterfaceExchange*runTime.deltaT())/CvolLimited
         );
         volScalarField& thermalCo = tThermalCo.ref();
         thermalCo = Foam::max

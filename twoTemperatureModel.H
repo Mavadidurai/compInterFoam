@@ -151,7 +151,7 @@ private:
         //- Integrated gas-metal coupling energy for this time-step
         dimensionedScalar couplingEnergy
         (
-            const volScalarField& gasMetalHeatFluxMasked,
+            const volScalarField& gasMetalHeatFlux,
             const dimensionedScalar& dtDim
         ) const;
         //- Compute current total metal energy

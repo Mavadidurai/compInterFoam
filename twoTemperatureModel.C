@@ -577,11 +577,11 @@ void twoTemperatureModel::solveElectronEquation
 
 dimensionedScalar twoTemperatureModel::couplingEnergy
 (
-    const volScalarField& gasMetalHeatFluxMasked,
+    const volScalarField& gasMetalHeatFlux,
     const dimensionedScalar& dtDim
 ) const
 {
-    return fvc::domainIntegrate(gasMetalHeatFluxMasked)*dtDim;
+    return fvc::domainIntegrate(gasMetalHeatFlux)*dtDim;
 }
 
 dimensionedScalar twoTemperatureModel::currentTotalEnergy() const
@@ -949,28 +949,6 @@ void twoTemperatureModel::solve
     // redistribution caused by updated metal fractions does not appear
     // as an artificial conservation error.
     previousEnergy = currentTotalEnergy();
-    tmp<volScalarField> tMetalContactClamp =
-        Foam::min
-        (
-            Foam::max(metalFraction_, scalar(0)),
-            scalar(1)
-        );
-    const volScalarField& metalContactClamp = tMetalContactClamp();
-    tmp<volScalarField> tContactMask
-    (
-        new volScalarField(fvc::average(metalFraction_))
-    );
-    volScalarField& contactMask = tContactMask.ref();
-    contactMask = Foam::min(Foam::max(contactMask, scalar(0)), scalar(1));
-    contactMask = Foam::max(contactMask, metalContactClamp);
-
-    tmp<volScalarField> tCouplingMask =
-        metalActiveMask(Foam::max(metalFractionFloor, VSMALL));
-    volScalarField& couplingMask = tCouplingMask.ref();
-    couplingMask *= contactMask;
-    
-    tmp<volScalarField> tGasMetalHeatFluxMasked = couplingMask*gasMetalHeatFlux;
-    const volScalarField& gasMetalHeatFluxMasked = tGasMetalHeatFluxMasked();
 
     const dimensionedScalar dtDim = mesh_.time().deltaT();
     // Cache the micro-step count for diagnostics; callers can query the
@@ -1021,7 +999,7 @@ void twoTemperatureModel::solve
     const dimensionedScalar phaseChangeEnergy =
         fvc::domainIntegrate(metalEff*(Cl_*phaseChangeSource))*dtDim;
     const dimensionedScalar couplingEnergyValue =
-        couplingEnergy(gasMetalHeatFluxMasked, dtDim);
+        couplingEnergy(gasMetalHeatFlux, dtDim);
     const dimensionedScalar totalEnergyInput =
         laserEnergy + phaseChangeEnergy + couplingEnergyValue;
 
@@ -1083,7 +1061,7 @@ void twoTemperatureModel::solve
                 phaseChangeRelaxCoeff,
                 phaseChangeSource,
                 TlOld,
-                gasMetalHeatFluxMasked,
+                gasMetalHeatFlux,
                 dtSub,
                 TlPrev
             );
