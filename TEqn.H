@@ -1,6 +1,6 @@
 /*---------------------------------------------------------------------------*\
   Temperature equation for LIFT simulation with the two-temperature model
-  rewritten in a compact OpenFOAM style.
+  Fixed version with proper gas-metal thermal coupling
 \*---------------------------------------------------------------------------*/
 
 extern Foam::Switch verbose;
@@ -27,11 +27,14 @@ extern const bool master;
             << " must be less than maxT=" << maxPhysicalTemp
             << abort(FatalError);
     }
+    
     const scalar thermalFluxRelax =
         ctrl.lookupOrDefault<scalar>("thermalFluxRelax", 1.0);
+    
     scalar totalCellsClamped = 0.0;
     scalar totalLowClamped = 0.0;
     scalar totalHighClamped = 0.0;
+    
     auto clampTemperature =
         [&](const word& stage)
         {
@@ -95,6 +98,7 @@ extern const bool master;
     volScalarField& interfaceExchange = tInterfaceExchange.ref();
     tmp<volScalarField> tCappedInterfaceExchange(interfaceExchange.clone());
     volScalarField& cappedInterfaceExchange = tCappedInterfaceExchange.ref();
+    
     const dictionary twoTemperatureDict =
         ctrl.subOrEmptyDict("twoTemperatureProperties");
 
@@ -125,6 +129,7 @@ extern const bool master;
             "maxGasMetalExchangeCoeff",
             maxCoeffDefault
         );
+        
     cappedInterfaceExchange =
         Foam::min
         (
@@ -132,6 +137,7 @@ extern const bool master;
             maxCoeff
         );
     cappedInterfaceExchange.correctBoundaryConditions();
+    
     const volScalarField& Tl = ttm.Tl();
 
     const scalar qCap =
@@ -150,7 +156,6 @@ extern const bool master;
 
     if (qCap > 0)
     {
-
         const scalar tempDiffFloorValue =
             twoTemperatureDict.lookupOrDefault<scalar>
             (
@@ -180,6 +185,7 @@ extern const bool master;
             );
         cappedInterfaceExchange.correctBoundaryConditions();
     }
+    
     const scalar metalFractionFloor =
         twoTemperatureDict.lookupOrDefault<scalar>
         (
@@ -252,12 +258,29 @@ extern const bool master;
     activeMask *= contactMask;
     activeMask.correctBoundaryConditions();
 
-    // Prevent reduction of the interface exchange strength by the activeMask
-    // so that the full coupling coefficient is retained.
-    // interfaceExchange *= activeMask;
+    // CRITICAL FIX: Do NOT weaken interface exchange with activeMask
+    // This was preventing heat from escaping the metal
+    // interfaceExchange *= activeMask;              // ← DISABLED
+    // cappedInterfaceExchange *= activeMask;        // ← DISABLED
+    
+    // Instead, apply mask only where metal fraction is negligible
+    const dimensionedScalar minMetalForCoupling
+    (
+        "minMetalForCoupling",
+        dimless,
+        Foam::max(metalFractionFloor, VSMALL)
+    );
+    
+    tmp<volScalarField> tCouplingMask = 
+        Foam::pos(metalFraction - minMetalForCoupling);
+    const volScalarField& couplingMask = tCouplingMask();
+    
+    interfaceExchange *= couplingMask;
+    cappedInterfaceExchange *= couplingMask;
+    
     interfaceExchange.correctBoundaryConditions();
-    // cappedInterfaceExchange *= activeMask;
     cappedInterfaceExchange.correctBoundaryConditions();
+    
     tmp<volScalarField> tCv2 = mixture.thermo2().Cv();
     tmp<volScalarField> tRho2 = mixture.thermo2().rho();
 
@@ -296,14 +319,14 @@ extern const bool master;
     );
 
     tmp<volScalarField> tCvolLimited(Foam::max(CvolGas, cvolFloor));
-     const volScalarField& CvolLimited = tCvolLimited();
-     tmp<surfaceScalarField> tCvolPhi(fvc::interpolate(CvolLimited)*phi);
-     const surfaceScalarField& CvolPhi = tCvolPhi();
-     tmp<volScalarField> tContErr
-     (
-         fvc::ddt(CvolLimited)
-       + fvc::div(CvolPhi)
-     );
+    const volScalarField& CvolLimited = tCvolLimited();
+    tmp<surfaceScalarField> tCvolPhi(fvc::interpolate(CvolLimited)*phi);
+    const surfaceScalarField& CvolPhi = tCvolPhi();
+    tmp<volScalarField> tContErr
+    (
+        fvc::ddt(CvolLimited)
+      + fvc::div(CvolPhi)
+    );
     const volScalarField& contErr = tContErr();
 
     fvScalarMatrix TEqn
@@ -311,11 +334,12 @@ extern const bool master;
         fvm::ddt(CvolLimited, T)
       + fvm::div(CvolPhi, T)
       - fvm::Sp(contErr, T)
-       - fvm::laplacian(transportModel.kappaEff(), T)
+      - fvm::laplacian(transportModel.kappaEff(), T)
       ==
-         fvOptions(CvolLimited, T)
-     );
+        fvOptions(CvolLimited, T)
+    );
 
+    // Add gas-metal coupling terms
     TEqn += fvm::Sp(interfaceExchange, T);
     TEqn.source() += interfaceExchange*Tl;
 
@@ -346,6 +370,10 @@ extern const bool master;
         T.correctBoundaryConditions();
     }
 
+    // CRITICAL FIX: Do NOT force T = Tl in metal regions
+    // This prevents the gas from having independent temperature
+    // T = (scalar(1) - activeMask)*T + activeMask*Tl;  // ← REMOVED
+
     T.correctBoundaryConditions();
 
     mixture.correctThermo();
@@ -356,10 +384,12 @@ extern const bool master;
 
     tmp<volScalarField> tRawFlux(cappedInterfaceExchange*(T - Tl));
     volScalarField& rawFlux = tRawFlux.ref();
+    
     if (qCap > 0)
     {
         rawFlux = Foam::min(Foam::max(rawFlux, -qCapDim), qCapDim);
     }
+    
     const scalar maxThermalCourant =
         Foam::max
         (
@@ -453,6 +483,13 @@ extern const bool master;
             << gAverage(interfaceExchange)
             << "  max |q_gm| = "
             << gMax(mag(gasMetalHeatFlux)().internalField()) << endl;
+        
+        // Diagnostic: Total heat flux from metal to gas
+        const dimensionedScalar totalHeatOut = 
+            fvc::domainIntegrate(gasMetalHeatFlux);
+        Info<< "    net heat flux metal→gas: " 
+            << totalHeatOut.value() << " W" << endl;
+            
         if (enableTClamp)
         {
             const scalar denom = Foam::max(scalar(1), totalCellsClamped);
