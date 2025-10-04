@@ -299,6 +299,8 @@ int main(int argc, char *argv[])
                     Info<< "  Thermal coupling iteration " << thermalIter + 1
                         << " / " << nThermalCouplingIter << endl;
                 }
+                
+#include "TEqn.H"
 
                 ttm.solve
                 (
@@ -308,8 +310,6 @@ int main(int argc, char *argv[])
                     gasMetalHeatFlux
                 );
                 mixture.setClTTM(ttm.Cl());
-
-#include "TEqn.H"
 
                 if (verbose && master)
                 {
