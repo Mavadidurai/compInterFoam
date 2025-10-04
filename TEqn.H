@@ -344,10 +344,6 @@ extern const bool master;
         T.correctBoundaryConditions();
     }
 
-    tmp<volScalarField> tTgas(T.clone());
-    tTgas.ref().rename("TgasCache");
-
-    T = (scalar(1) - activeMask)*T + activeMask*Tl;
     T.correctBoundaryConditions();
 
     mixture.correctThermo();
@@ -356,8 +352,7 @@ extern const bool master;
     const scalar fluxRelax =
         Foam::max(scalar(0), Foam::min(scalar(1), thermalFluxRelax));
 
-    const volScalarField& cachedTgas = tTgas();
-    tmp<volScalarField> tRawFlux(cappedInterfaceExchange*(cachedTgas - Tl));
+    tmp<volScalarField> tRawFlux(cappedInterfaceExchange*(T - Tl));
     volScalarField& rawFlux = tRawFlux.ref();
     if (qCap > 0)
     {
