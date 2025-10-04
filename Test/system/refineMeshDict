@@ -25,8 +25,8 @@ globalCoeffs
     normal (0 1 0);   // y-direction (film thickness)
 }
 
-// No directions are refined; the list is retained for completeness only.
-directions           ();
+// Re-enable refinement along the film normal to capture the thin layers.
+directions           (normal);
 
 useHexTopology      no;
 geometricCut        no;              // ensure no geometric splitting occurs
@@ -42,7 +42,7 @@ refinementRegions
     donorFilmBox
     {
         mode inside;
-        levels ((1e15 1));
+        levels ((1e15 3));
         box
         {
             min (0 19.99 0);
