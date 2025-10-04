@@ -252,10 +252,12 @@ extern const bool master;
     activeMask *= contactMask;
     activeMask.correctBoundaryConditions();
 
-    interfaceExchange *= activeMask;
+    // Prevent reduction of the interface exchange strength by the activeMask
+    // so that the full coupling coefficient is retained.
+    // interfaceExchange *= activeMask;
     interfaceExchange.correctBoundaryConditions();
-    cappedInterfaceExchange *= activeMask;
-    cappedInterfaceExchange.correctBoundaryConditions();    
+    // cappedInterfaceExchange *= activeMask;
+    cappedInterfaceExchange.correctBoundaryConditions();
     tmp<volScalarField> tCv2 = mixture.thermo2().Cv();
     tmp<volScalarField> tRho2 = mixture.thermo2().rho();
 
