@@ -1310,7 +1310,7 @@ tmp<volScalarField> twoTemperatureModel::gasMetalExchangeCoeffField() const
         scalar(1)
     );
 
-    //coeff *= metalMask;
+    coeff *= metalMask;
 
     // Suppress coupling when either phase fraction vanishes by
     // weighting the exchange coefficient with an interface indicator.
@@ -1344,7 +1344,7 @@ tmp<volScalarField> twoTemperatureModel::gasMetalExchangeCoeffField() const
         Foam::max(interfaceWeight, scalar(0)),
         scalar(1)
     );
-    //coeff *= interfaceWeight;
+    coeff *= interfaceWeight;
     coeff.correctBoundaryConditions();
     return tCoeff;
 }

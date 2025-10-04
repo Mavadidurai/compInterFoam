@@ -258,25 +258,27 @@ extern const bool master;
     activeMask *= contactMask;
     activeMask.correctBoundaryConditions();
 
-    // CRITICAL FIX: Do NOT weaken interface exchange with activeMask
-    // This was preventing heat from escaping the metal
-    // interfaceExchange *= activeMask;              // ← DISABLED
-    // cappedInterfaceExchange *= activeMask;        // ← DISABLED
+    // Weight the exchange with a smooth interface mask so that
+    // coupling acts only where both phases are present.
     
-    // Instead, apply mask only where metal fraction is negligible
-    const dimensionedScalar minMetalForCoupling
+    const volScalarField& gasFraction = mixture.alpha2();
+
+    tmp<volScalarField> tGasClamp
     (
-        "minMetalForCoupling",
-        dimless,
-        Foam::max(metalFractionFloor, VSMALL)
+        Foam::min(Foam::max(gasFraction, scalar(0)), scalar(1))
     );
-    
-    tmp<volScalarField> tCouplingMask = 
-        Foam::pos(metalFraction - minMetalForCoupling);
-    const volScalarField& couplingMask = tCouplingMask();
-    
-    interfaceExchange *= couplingMask;
-    cappedInterfaceExchange *= couplingMask;
+    const volScalarField& gasClamp = tGasClamp();
+
+    tmp<volScalarField> tInterfaceMask(scalar(4.0)*metalClamp*gasClamp);
+    volScalarField& interfaceMask = tInterfaceMask.ref();
+    interfaceMask = Foam::min
+    (
+        Foam::max(interfaceMask, scalar(0)),
+        scalar(1)
+    );
+
+    interfaceExchange *= interfaceMask;
+    cappedInterfaceExchange *= interfaceMask;
     
     interfaceExchange.correctBoundaryConditions();
     cappedInterfaceExchange.correctBoundaryConditions();
