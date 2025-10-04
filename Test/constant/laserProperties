@@ -45,7 +45,7 @@ gasAbsorptionCoeff 0;     // [1/m] gas absorption (0 disables direct gas heating
 // --- Energy & timing ---
 // CRITICAL: Keep pulse energy compatible with interface heat-flux limit
 
-pulseEnergy     1e-7;        // [J] total energy (≈0.35 J/cm², matches film heat capacity)
+pulseEnergy     1e-9;        // [J] total energy (≈0.35 J/cm², matches film heat capacity)
 pulseWidth      2.14e-13;     // [s] 214 fs pulse width
 
 // --- Spatial Gaussian (match the box center and film depth) ---
