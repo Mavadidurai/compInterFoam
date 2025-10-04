@@ -21,7 +21,16 @@ fvVectorMatrix UEqn
 
 if (recoilPressurePtr)
 {
-    UEqn -= fvc::grad(*recoilPressurePtr);
+    const dimensionedScalar maxRecoilGrad = 
+        gMax(mag(fvc::grad(*recoilPressurePtr))());
+    
+    if (verbose && master)
+    {
+        Info<< "Applying recoil pressure gradient: max = " 
+            << maxRecoilGrad.value() << " Pa/m" << endl;
+    }
+    
+    //UEqn -= fvc::grad(*recoilPressurePtr);
 }
 
 UEqn.relax();
@@ -29,6 +38,13 @@ fvOptions.constrain(UEqn);
 
 if (pimple.momentumPredictor())
 {
+    volScalarField pTotal("pTotal", p_rgh);
+    
+    if (recoilPressurePtr)
+    {
+        pTotal += *recoilPressurePtr;
+    }
+    
     solve
     (
         UEqn
@@ -40,14 +56,13 @@ if (pimple.momentumPredictor())
               * fvc::snGrad(alpha1)
             )*mesh.magSf()
         )
-      - fvc::grad(p_rgh)
+      - fvc::grad(pTotal)
       + rho*g
     );
 
     fvOptions.correct(U);
     K = 0.5*magSqr(U);
 }
-
 volScalarField rAU("rAU", 1.0/UEqn.A());
 
 phi = fvc::flux(U);
