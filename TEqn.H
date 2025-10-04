@@ -340,8 +340,8 @@ extern const bool master;
     );
 
     // Add gas-metal coupling terms
-    TEqn += fvm::Sp(interfaceExchange, T);
-    TEqn.source() += interfaceExchange*Tl;
+    TEqn += fvm::Sp(cappedInterfaceExchange, T);
+    TEqn.source() += cappedInterfaceExchange*Tl;
 
     TEqn.relax();
     fvOptions.constrain(TEqn);
@@ -462,14 +462,17 @@ extern const bool master;
 
     const volScalarField& limitedFlux = tRawFlux();
 
+    tmp<volScalarField> tMetalToGasFlux(-limitedFlux);
+    const volScalarField& metalToGasFlux = tMetalToGasFlux();
+
     if (fluxRelax < 1.0 - SMALL)
     {
         gasMetalHeatFlux =
-            fluxRelax*limitedFlux + (1.0 - fluxRelax)*gasMetalHeatFlux;
+            fluxRelax*metalToGasFlux + (1.0 - fluxRelax)*gasMetalHeatFlux;
     }
     else
     {
-        gasMetalHeatFlux = limitedFlux;
+        gasMetalHeatFlux = metalToGasFlux;
     }
 
     gasMetalHeatFlux.correctBoundaryConditions();

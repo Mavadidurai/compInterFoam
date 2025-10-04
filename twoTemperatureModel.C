@@ -538,7 +538,7 @@ void twoTemperatureModel::solveLatticeEquation
       + metalEff*(G*Te_)
       + metalEff*(Cl_*phaseChangeSource)
       + metalEff*(Cl_*phaseChangeRelaxCoeff*TlOld)
-      //- gasMetalHeatFlux
+      - metalEff*gasMetalHeatFlux
     );
 
     TlEqn.relax();
