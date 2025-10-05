@@ -323,8 +323,10 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
         previousRecoilPressure_ = 0.0;
         havePreviousRecoil_ = false;
     }
-const scalar maxPhysicalTemp = 
-    mesh_.time().controlDict().lookupOrDefault<scalar>("maxTe", 3500.0);
+    const dictionary& aicDict =
+        mesh_.time().controlDict().subOrEmptyDict("advancedInterfaceCapturing");
+    const scalar maxPhysicalTemp =
+        aicDict.lookupOrDefault<scalar>("maxPhysicalTemperature", 5000.0);
 
     // OPTIMIZED: Calculate once, reuse multiple times
     const scalar currentTime = mesh_.time().value();
@@ -408,7 +410,7 @@ const scalar maxPhysicalTemp =
         {
             Tval = (*TlFieldPtr)[cellI];
         }
-
+        Tval = Foam::min(Tval, maxPhysicalTemp);
         if (alpha > metalAlphaCutoff)
         {
             if (!haveMetalCell || Tval > maxTemp)
@@ -511,11 +513,11 @@ const scalar maxPhysicalTemp =
 
         scalar localTemp = gasTField[cellI];
 
-if (TlFieldPtr && alpha > metalAlphaCutoff)
-{
-    localTemp = (*TlFieldPtr)[cellI];
-    localTemp = Foam::min(localTemp, maxPhysicalTemp);  // ← Now efficient
-}
+        if (TlFieldPtr && alpha > metalAlphaCutoff)
+        {
+            localTemp = (*TlFieldPtr)[cellI];
+        }
+        localTemp = Foam::min(localTemp, maxPhysicalTemp);
 
         if (localTemp < recoilOnTemp)
         {
