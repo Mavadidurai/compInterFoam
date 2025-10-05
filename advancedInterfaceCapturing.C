@@ -179,18 +179,10 @@ advancedInterfaceCapturing::advancedInterfaceCapturing
         phaseChangeOffsetValue
     );
 
-    const scalar pressureScaleValue =
-        aicDict.lookupOrDefault<scalar>
-        (
-            "pressureScale",
-            pressureScale_.value()
-        );
-
-    pressureScale_ = dimensionedScalar
+   pressureScale_ = aicDict.lookupOrDefault<dimensionedScalar>
     (
         "pressureScale",
-        dimPressure*dimTime,
-        pressureScaleValue
+        pressureScale_
     );
     recoilMax_ = aicDict.lookupOrDefault<scalar>("recoilMax", recoilMax_);
 
@@ -418,7 +410,7 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
     // Initialize recoil pressure field
     recoilPressure_ = dimensionedScalar("zero", dimPressure, 0.0);
     // Constants for recoil pressure model sourced from dictionaries
-    const scalar pressureScale = pressureScale_.value();
+
     const bool clampRecoil = clampRecoil_;
     const bool scaleRecoilMax = scaleRecoilMax_;
     const scalar recoilRelax = recoilRelax_;
@@ -504,7 +496,8 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
 
         if (rawRate > massRateEps)
         {
-            localRecoil = pressureScale * rawRate;
+            const dimensionedScalar recoilDim = pressureScale_ * rawRate;
+            localRecoil = recoilDim.value();
             if (clampRecoil)
             {
                 localRecoil = Foam::min(localRecoil, localRecoilMax);

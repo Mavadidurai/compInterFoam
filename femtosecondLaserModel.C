@@ -1604,6 +1604,11 @@ void femtosecondLaserModel::calculateSource() const
     // ENHANCED DEBUG OUTPUT
     if (verbose && master && timeIndex % 10 == 0)
     {
+         Info<< "=== LASER SOURCE CALCULATION ENTERED ===" << nl
+            << "Time: " << mesh_.time().value() << " s" << nl
+            << "Focus: " << focus_ << nl
+            << "Mesh bounds: " << mesh_.bounds() << nl;
+                   
         Info<< "===== LASER DEBUG =====" << nl
             << "Time: " << t << " s (" << t*1e12 << " ps)" << nl
             << "Time step: " << dt << " s (" << dt*1e12 << " ps)" << nl
