@@ -179,21 +179,39 @@ advancedInterfaceCapturing::advancedInterfaceCapturing
         phaseChangeOffsetValue
     );
 
-    auto pressureCfg = aicDict.lookupOrDefault<dimensionedScalar>
-    (
-        "pressureScale",
-        pressureScale_
-    );
+    const dimensionedScalar pressureDefault(pressureScale_);
+    const dimensionedScalar rawPressureScale =
+        aicDict.lookupOrDefault<dimensionedScalar>
+        (
+            "pressureScale",
+            pressureDefault
+        );
 
-    if (pressureCfg.dimensions() == dimless)
+    dimensionedScalar pressureCfg(pressureDefault);
+
+    if (rawPressureScale.dimensions() == pressureDefault.dimensions())
+    {
+        pressureCfg = rawPressureScale;
+    }
+    else if (rawPressureScale.dimensions() == dimless)
     {
         pressureCfg = dimensionedScalar
         (
-            pressureCfg.name(),
-            pressureScale_.dimensions(),
-            pressureCfg.value()
+            rawPressureScale.name(),
+            pressureDefault.dimensions(),
+            rawPressureScale.value()
         );
     }
+    else
+    {
+        FatalIOErrorInFunction(aicDict)
+            << "Entry 'pressureScale' has dimensions "
+            << rawPressureScale.dimensions()
+            << ", expected " << pressureDefault.dimensions()
+            << " or " << dimless
+            << exit(FatalIOError);
+    }
+
 
     pressureScale_ = pressureCfg;
     recoilMax_ = aicDict.lookupOrDefault<scalar>("recoilMax", recoilMax_);

@@ -242,7 +242,7 @@ extern const bool master;
                     talphaPhi1Un(),
                     talphaPhi1Corr.ref(),
                     Sp(),
-                    (-Sp()*alpha1)(),
+                    Su(),
                     oneField(),
                     zeroField()
                 );
