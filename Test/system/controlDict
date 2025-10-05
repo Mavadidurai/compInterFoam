@@ -51,8 +51,8 @@ phaseChangeCoeffs
 {
     model               temperatureWindow;
     hf                  hf [0 2 -2 0 0 0 0] 8.9e6;
-    Tsol                Tsol [0 0 0 1 0 0 0] 1941;
-    Tvap                Tvap [0 0 0 1 0 0 0] 3560;
+    Tsol                Tsol [0 0 0 1 0 0 0] 1941.0;
+    Tvap                Tvap [0 0 0 1 0 0 0] 3560.0;
     windowWidth         50;
     dtFloor             1e-15;         // Reduced for precision
     relaxationTime      1e-13;        // Longer for extended cooling
@@ -79,7 +79,7 @@ laserEndTime    4e-10;
 useAdvancedInterfaceCapturing  true;
 advancedInterfaceCapturing
 {
-    pressureScale         [1 -1 -1 0 0 0 0] 1e5;
+    pressureScale         1e5;
     recoilMax             1e6;         // Adjusted maximum recoil pressure
     clampRecoil           true;
     scaleRecoilMax        true;
@@ -137,7 +137,7 @@ twoTemperatureProperties
     temperatureDiagnostics  true;
     energyAudit             true;
 }
-
+/*
 // Clean monitoring functions
 functions
 {
@@ -497,3 +497,4 @@ functions
         #};
     }
 }
+*/
