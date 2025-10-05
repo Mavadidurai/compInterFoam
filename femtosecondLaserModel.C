@@ -1329,18 +1329,46 @@ femtosecondLaserModel::applySpatialWeighting
                 inFilm = false;
             }
         }
+        bool depositInMetal = inFilm;
+        const scalar gasCoeff = gasAbsorptionCoeff_.value();
 
+        if (metalFractions)
+        {
+            const scalar alphaVal = Foam::min
+            (
+                Foam::max((*metalFractions)[cellI], scalar(0)),
+                scalar(1)
+            );
+
+            if (alphaVal > metalFractionTol)
+            {
+                depositInMetal = true;
+            }
+            else
+            {
+                depositInMetal = false;
+            }
+        }
         if (!isInBeam(c, axialHalfLength))
         {
             continue;
         }
 
-        if (inFilm) ++metrics.cellsInFilm;
-        else        ++metrics.cellsInGas;
-
         ++metrics.cellsInBeam;
         metrics.totalBeamVolume += cellVolumes[cellI];
+        if (depositInMetal)
+        {
+            ++metrics.cellsInFilm;
+        }
+        else
+        {
+            ++metrics.cellsInGas;
 
+            if (gasCoeff <= VSMALL)
+            {
+                continue;
+            }
+        }
         vector r = c - focus_;
         scalar z = (r & direction_);
         r -= z*direction_;
@@ -1349,7 +1377,7 @@ femtosecondLaserModel::applySpatialWeighting
         const scalar spatialTerm = calculateGaussianIntensity(R);
 
         const scalar cellAbsorptionCoeff =
-            inFilm ? absorptionCoeff_.value() : gasAbsorptionCoeff_.value();
+            depositInMetal ? absorptionCoeff_.value() : gasCoeff;
 
         const labelList& pointLabels = mesh_.cellPoints(cellI);
 
@@ -1454,8 +1482,14 @@ femtosecondLaserModel::applySpatialWeighting
                 max(metrics.maxSourceValue, source[cellI]);
             metrics.totalSourceIntegral += cellPower;
 
-            if (inFilm) metrics.totalFilmSourceIntegral += cellPower;
-            else        metrics.totalGasSourceIntegral  += cellPower;
+            if (depositInMetal)
+            {
+                metrics.totalFilmSourceIntegral += cellPower;
+            }
+            else
+            {
+                metrics.totalGasSourceIntegral  += cellPower;
+            }
         }
     }
 
@@ -1522,10 +1556,10 @@ void femtosecondLaserModel::emitDiagnostics
             << "  Cells in beam: " << metrics.cellsInBeam << nl
             << "  Cells in metal film: " << metrics.cellsInFilm << nl
             << "  Cells in gas: " << metrics.cellsInGas << nl
-            << "  Max intensity: " << metrics.maxSourceValue/1e12 << " TW/m^3" << nl
-            << "  Total power: " << metrics.totalSourceIntegral/1e12 << " TW" << nl
-            << "    Film power: " << metrics.totalFilmSourceIntegral/1e12 << " TW" << nl
-            << "    Gas power:  " << metrics.totalGasSourceIntegral/1e12 << " TW" << nl
+            << "  Max intensity: " << metrics.maxSourceValue << " W/m^3" << nl
+            << "  Total power: " << metrics.totalSourceIntegral << " W" << nl
+            << "    Film power: " << metrics.totalFilmSourceIntegral << " W" << nl
+            << "    Gas power:  " << metrics.totalGasSourceIntegral  << " W" << nl
             << "  dt: " << dt << " s" << nl
             << "  Energy this step: " << energyThisStep.value() << " J" << nl
             << "    Film energy this step: " << filmEnergyThisStep << " J" << nl
