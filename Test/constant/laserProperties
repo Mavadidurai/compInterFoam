@@ -62,12 +62,15 @@ absorptionCoeff     6.0e7;    // [1/m] ≈17 nm optical depth in Ti at 343 nm
 
 // Reflectivity / profile
 reflectivity        0.35;
-transmission        0.35;   // disable override; use reflectivity entry
+transmission        0.35;
+
+temporalShape       gaussian;
+spatialShape        gaussian;
 
 gaussianProfile     true;
 
 // --- Peak intensity (derived to match pulseEnergy exactly) ---
-//peakIntensity       9.316e16;       // [W/m^2] matches pulseEnergy with Gaussian space+time
+//peakIntensity       9.315644e14;    // [W/m^2] reported in diagnostics
 
 // Optional intensity entry (consistent with pulseEnergy & pulseWidth)
 continuousLaser     false;
