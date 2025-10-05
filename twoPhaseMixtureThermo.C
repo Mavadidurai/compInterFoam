@@ -709,7 +709,36 @@ void Foam::twoPhaseMixtureThermo::computePhaseChange()
 
     }
     const dictionary& pc = *pcPtr;
-    const scalar Tvapor = pc.lookupOrDefault<scalar>("Tvapor", T_vapor_);
+    auto readTemperatureEntry =
+        [&](const word& entryName, scalar& value) -> bool
+        {
+            if (!pc.found(entryName))
+            {
+                return false;
+            }
+
+            try
+            {
+                const dimensionedScalar dimValue(entryName, pc);
+                value = dimValue.value();
+            }
+            catch (const Foam::IOerror&)
+            {
+                value = pc.lookupOrDefault<scalar>(entryName, value);
+            }
+
+            return true;
+        };
+
+    scalar Tvapor = T_vapor_;
+    if
+    (
+        !readTemperatureEntry("Tvapor", Tvapor)
+     && !readTemperatureEntry("Tvap", Tvapor)
+    )
+    {
+        Tvapor = T_vapor_;
+    }
     const scalar windowWidth = pc.lookupOrDefault<scalar>("windowWidth", 0.0);
     dtFloor_ = pc.lookupOrDefault<scalar>("dtFloor", dtFloor_);
     scalar relaxationRate = pc.lookupOrDefault<scalar>("relaxationRate", -1.0);
