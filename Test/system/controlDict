@@ -55,9 +55,10 @@ phaseChangeCoeffs
     Tvap                Tvap [0 0 0 1 0 0 0] 3560;
     windowWidth         50;
     dtFloor             1e-15;         // Reduced for precision
-    relaxationTime      1e-10;        // Longer for extended cooling
-    maxSource           5e8;           // Reduced for stability
+    relaxationTime      1e-12;        // Faster response for femtosecond dynamics
+    maxSource           1e10;          // Allow sufficient heating-driven mass transfer
     minCoefficient      1e7;          // Reduced for gradual cooling
+    onlyAboveVapor      true;
     metalFractionCutoff 1e-6;
     // EXTENDED ACTIVATION - through transfer and cooling
     activationTime      ((0 4e-10));  // Active through 400 ps
