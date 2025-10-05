@@ -1065,7 +1065,9 @@ void twoTemperatureModel::solve
                 dtSub,
                 TlPrev
             );
-
+    Tl_ = Foam::min(Tl_, maxTemp);
+    Tl_ = Foam::max(Tl_, minTemp);
+    Tl_.correctBoundaryConditions(); 
             TlPrev = Tl_;
 
             tmp<volScalarField> tke = electronThermalConductivity();
@@ -1084,7 +1086,9 @@ void twoTemperatureModel::solve
                 dtSub,
                 TePrev
             );
-
+    Te_ = Foam::min(Te_, maxTemp);
+    Te_ = Foam::max(Te_, minTemp);
+    Te_.correctBoundaryConditions();
             TePrev = Te_;
         }
 
