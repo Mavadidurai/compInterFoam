@@ -37,14 +37,14 @@ FoamFile
 // Domain: x∈[0,50e-6], y∈[0,20e-6], z∈[0,10e-6]
 // CORRECTED: Specify exact film thickness to match blockMeshDict geometry
 filmThicknessExpected    7.14e-8;    // 71.4 nm (matches y3 - y2 = 20.0714 - 20.0000)
-filmCenterY        	 20.0357e-6;     // center at focus.y
+filmCenterY         20.0357e-6;     // center at focus.y
 
 // geometry coupling
 gasAbsorptionCoeff 0;     // [1/m] gas absorption (0 disables direct gas heating)
 
 // --- Energy & timing ---
 // CRITICAL: Keep pulse energy compatible with interface heat-flux limit
-
+//pulseCenterTime    3e-10;    // Removed to allow default near-start Gaussian centre
 pulseEnergy     300e-9;        // [J] total energy  300 nJ - enough to reach vaporization
 pulseWidth      2.14e-13;     // [s] 214 fs pulse width
 
@@ -62,7 +62,7 @@ absorptionCoeff     6.0e7;    // [1/m] ≈17 nm optical depth in Ti at 343 nm
 
 // Reflectivity / profile
 reflectivity        0.35;
-transmission        0.35;   // disable override; use reflectivity entry
+transmission          -1;   // disable override; use reflectivity entry
 
 gaussianProfile     true;
 
@@ -78,7 +78,7 @@ maxVolumetricSource 0;   // [W/m³] disable cap to allow full femtosecond deposi
 //pulseDutyCycle      0.1;      // 10% duty cycle
 pulseFrequency      0;        // [1/s] disabled for single pulse operation
 pulseDutyCycle      0;        // [-] duty cycle unused when pulses disabled
-pulseCenterTime    2e-12;  // 2 picoseconds - gives time to see heating
+
 // Energy tolerance for validation
 pulseEnergyToleranceRel 0.05; // 5% relative tolerance
 pulseEnergyToleranceAbs 1e-9; // 1 nJ absolute tolerance
