@@ -19,7 +19,6 @@ substrateFixedVelocity
 {
     type            vectorFixedValueConstraint;
     active          no;
-
     selectionMode   cellZone;
     cellZone        substrate;
 
