@@ -50,22 +50,20 @@ mixture
         Pr              0.03;           // Prandtl number (liquid metals)
     }
     
-equationOfState
-{
-    // rPolynomial expects the specific volume fit 1/ρ = Σ Ci T^i (T in K)
-    // Fitted to (T, ρ) = [(300 K, 4500 kg/m3), (1200 K, 4300 kg/m3),
-    // (1941 K, 4100 kg/m3), (3200 K, 3400 kg/m3)]
-    C (0.0002172169461 1.922024813e-08 -9.483330982e-12 3.433386724e-15 0);
-}
-
-
+	equationOfState
+	{
+	    // rPolynomial expects the specific volume fit 1/ρ = Σ Ci T^i (T in K)
+	    // Fitted to (T, ρ) = [(300 K, 4500 kg/m3), (1200 K, 4300 kg/m3),
+	    // (1941 K, 4100 kg/m3), (3200 K, 3400 kg/m3)]
+	    C (0.0002172169461 1.922024813e-08 -9.483330982e-12 3.433386724e-15 0);
+	}
 }
 
 // LIFT-specific properties
 Tsol                1941.0;             // K - Solidus temperature
 Tliq                1941.0;             // K - Liquidus temperature
 Tvap                3560.0;             // K - Vaporisation temperature
-hf    		    8.9e6;     		// ← vaporization latent heat (Ti), not fusion
+hf    		    3.65e5;     	// ← vaporization latent heat (Ti), not fusion
 kappa               17.2;               // W/m·K - Thermal conductivity
 
 // ************************************************************************* //
