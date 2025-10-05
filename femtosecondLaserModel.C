@@ -1190,7 +1190,25 @@ femtosecondLaserModel::applySpatialWeighting
     const pointField& cellCentres = mesh_.C();
     const scalarField& cellVolumes = mesh_.V();
     const pointField& meshPoints = mesh_.points();
+    const volScalarField* metalFractionPtr = nullptr;
 
+    if (mesh_.foundObject<volScalarField>("alpha.metal"))
+    {
+        metalFractionPtr = &mesh_.lookupObject<volScalarField>("alpha.metal");
+    }
+    else if (mesh_.foundObject<volScalarField>("alpha1"))
+    {
+        metalFractionPtr = &mesh_.lookupObject<volScalarField>("alpha1");
+    }
+
+    const scalarField* metalFractions = nullptr;
+
+    if (metalFractionPtr)
+    {
+        metalFractions = &metalFractionPtr->internalField();
+    }
+
+    const scalar metalFractionTol = 1e-6;
     const vector directionUnit(direction_);
 
     point entryPoint = focus_;
@@ -1292,7 +1310,25 @@ femtosecondLaserModel::applySpatialWeighting
             continue;
         }
 
-        const bool inFilm = (c.y() >= filmYMin_ && c.y() <= filmYMax_);
+        bool inFilm = (c.y() >= filmYMin_ && c.y() <= filmYMax_);
+
+        if (metalFractions)
+        {
+            const scalar alphaVal = Foam::min
+            (
+                Foam::max((*metalFractions)[cellI], scalar(0)),
+                scalar(1)
+            );
+
+            if (alphaVal > metalFractionTol)
+            {
+                inFilm = true;
+            }
+            else if (alphaVal < metalFractionTol)
+            {
+                inFilm = false;
+            }
+        }
 
         if (!isInBeam(c, axialHalfLength))
         {
