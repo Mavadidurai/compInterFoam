@@ -50,7 +50,7 @@ runTimeModifiable yes;
 phaseChangeCoeffs
 {
     model               temperatureWindow;
-    hf                  hf [0 2 -2 0 0 0 0] 8.9e6;
+    hf                  hf  [0 2 -2 0 0 0 0] 3.65e5;
     Tsol                Tsol [0 0 0 1 0 0 0] 1941;
     Tvap                Tvap [0 0 0 1 0 0 0] 3560;
     windowWidth         50;
