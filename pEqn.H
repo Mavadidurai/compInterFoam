@@ -87,6 +87,12 @@ extern const bool master;
             U = HbyA + rAU*fvc::reconstruct((phig + pEqn.flux())/rAUf);
             U.correctBoundaryConditions();
             fvOptions.correct(U);
+	    if (verbose && master)
+	    {
+		Info<< "DIAGNOSTIC AFTER PRESSURE CORRECTION:" << nl
+		    << "  max(U) = " << max(mag(U)).value() << " m/s" << nl
+		    << "  max(phi) = " << max(mag(phi)).value() << " m^3/s" << nl;
+	    }           
         }
     }
 

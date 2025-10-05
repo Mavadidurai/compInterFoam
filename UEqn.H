@@ -59,10 +59,21 @@ if (pimple.momentumPredictor())
       - fvc::grad(pTotal)
       + rho*g
     );
-
+// DIAGNOSTIC: after momentum predictor
+if (verbose && master)
+{
+    Info<< "DIAGNOSTIC AFTER MOMENTUM SOLVE:" << nl
+        << "  max(U) = " << max(mag(U)).value() << " m/s" << nl
+        << "  max(pTotal) = " << max(pTotal).value() << " Pa" << nl
+        << "  max(recoil) = "
+        << (recoilPressurePtr ? max(*recoilPressurePtr).value() : 0.0)
+        << " Pa" << nl;
+}
     fvOptions.correct(U);
     K = 0.5*magSqr(U);
 }
+
+
 volScalarField rAU("rAU", 1.0/UEqn.A());
 
 phi = fvc::flux(U);
