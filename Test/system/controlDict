@@ -27,7 +27,7 @@ adjustTimeStep  yes;           // ENABLE adaptive time stepping
 maxCo           0.1;           // Reduced for stability during long runs
 maxAlphaCo      0.05;          // Reduced for interface stability
 maxDeltaT       1e-17;         // Allow larger steps during cooling phase (1 ps max)
-minDeltaT       1e-15;         // Minimum 1 fs for precision
+minDeltaT       1e-18;         // Minimum 1 fs for precision
 
 verbose         true;
 thermalFluxRelax 0.25;         // Implicit flux relaxation
@@ -85,7 +85,7 @@ advancedInterfaceCapturing
     scaleRecoilMax        true;
     recoilTempOffset      20;
     phaseChangeTempOffset 20;
-    recoilRelax           0.3;
+    recoilRelax           0.1;
     alphaMin              0.05;
     alphaMax              0.95;
     maxPhysicalTemperature 5000;    
