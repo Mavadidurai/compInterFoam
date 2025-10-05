@@ -258,31 +258,6 @@ extern const bool master;
     activeMask *= contactMask;
     activeMask.correctBoundaryConditions();
 
-    // Weight the exchange with a smooth interface mask so that
-    // coupling acts only where both phases are present.
-    
-    const volScalarField& gasFraction = mixture.alpha2();
-
-    tmp<volScalarField> tGasClamp
-    (
-        Foam::min(Foam::max(gasFraction, scalar(0)), scalar(1))
-    );
-    const volScalarField& gasClamp = tGasClamp();
-
-    tmp<volScalarField> tInterfaceMask(scalar(4.0)*metalClamp*gasClamp);
-    volScalarField& interfaceMask = tInterfaceMask.ref();
-    interfaceMask = Foam::min
-    (
-        Foam::max(interfaceMask, scalar(0)),
-        scalar(1)
-    );
-
-    interfaceExchange *= interfaceMask;
-    cappedInterfaceExchange *= interfaceMask;
-    
-    interfaceExchange.correctBoundaryConditions();
-    cappedInterfaceExchange.correctBoundaryConditions();
-    
     tmp<volScalarField> tCv2 = mixture.thermo2().Cv();
     tmp<volScalarField> tRho2 = mixture.thermo2().rho();
 
