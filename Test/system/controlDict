@@ -26,7 +26,7 @@ deltaT          1e-14;         // Base time step (10 fs)
 adjustTimeStep  yes;           // ENABLE adaptive time stepping
 maxCo           0.1;           // Reduced for stability during long runs
 maxAlphaCo      0.05;          // Reduced for interface stability
-maxDeltaT       1e-12;         // Allow larger steps during cooling phase (1 ps max)
+maxDeltaT       1e-17;         // Allow larger steps during cooling phase (1 ps max)
 minDeltaT       1e-15;         // Minimum 1 fs for precision
 
 verbose         true;
@@ -79,15 +79,16 @@ laserEndTime    4e-10;
 useAdvancedInterfaceCapturing  true;
 advancedInterfaceCapturing
 {
-    pressureScale         1e5;         // Adjusted for target scaling
-    recoilMax             5e7;         // Adjusted maximum recoil pressure
+    pressureScale         1;
+    recoilMax             1e7;
     clampRecoil           true;
     scaleRecoilMax        true;
-    recoilTempOffset      40;
-    phaseChangeTempOffset 50;
-    recoilRelax           0.95;        // Increased smoothing
-    alphaMin              0.01;        // Relaxed for interface stability
-    alphaMax              0.99;
+    recoilTempOffset      20;
+    phaseChangeTempOffset 20;
+    recoilRelax           0.3;
+    alphaMin              0.05;
+    alphaMax              0.95;
+    maxPhysicalTemperature 5000;    
 }
 
 logRecoilSuppression true;
@@ -95,7 +96,7 @@ logRecoilSuppression true;
 // Temperature clamping - EXTENDED RANGE
 enableTClamp    true;
 minT            200;           // Allow cooling below room temp
-maxT            18000;          // Clamp high temperatures for stability
+maxT            8000;          // Clamp high temperatures for stability
 
 // Two-temperature model properties - OPTIMIZED FOR EXTENDED RUNS
 twoTemperatureProperties
@@ -110,7 +111,7 @@ twoTemperatureProperties
     maxGasMetalExchangeCoeff [1 -1 -3 -1 0 0 0] 1e12;  // Keep coupling within cap
     maxGasMetalHeatFlux    0;  // Align heat flux limit with revised coupling
     minTe 200;             // Allow cooling
-    maxTe 50000;
+    maxTe 5000;
     ambientTemperature 300;
 
     // ADAPTIVE MICRO-STEPPING
@@ -130,9 +131,9 @@ twoTemperatureProperties
     metalAmbientBlendWidth  1e-3;
 
     energyTolerance         0.02;    // Relaxed for long runs
-    energyDiagnostics       false;
-    temperatureDiagnostics  false;   // Reduce output volume
-    energyAudit             false;
+    energyDiagnostics       true;
+    temperatureDiagnostics  true;   // Reduce output volume
+    energyAudit             true;
 }
 
 // Clean monitoring functions
@@ -655,7 +656,7 @@ milestones
                 planeType           pointAndNormal;
                 pointAndNormalDict
                 {
-                    point   (25e-6 0 5e-6);
+                    point   (25e-6 2.00357e-05 5e-6);
                     normal  (0 1 0);
                 }
                 interpolate         true;
