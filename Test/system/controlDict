@@ -17,16 +17,16 @@ FoamFile
 
 application     compInterFoam;
 
-startFrom      latestTime;
+startFrom      startTime;
 startTime       0;
 stopAt          endTime;
-endTime         1e-9;          // EXTENDED: 1 ns total for complete LIFT process
+endTime         1e-9;          
 
-deltaT          5e-14;         // Base time step (10 fs)
+deltaT          1e-12;         
 adjustTimeStep  yes;           // ENABLE adaptive time stepping
-maxCo           0.1;           // Reduced for stability during long runs
-maxAlphaCo      0.05;          // Reduced for interface stability
-maxDeltaT       1e-13;         // Allow larger steps during cooling phase (1 ps max)
+maxCo           0.2;           // Reduced for stability during long runs
+maxAlphaCo      0.1;          // Reduced for interface stability
+maxDeltaT       5e-12;         
 minDeltaT       1e-15;         // Minimum 1 fs for precision
 
 verbose         true;
@@ -35,7 +35,7 @@ maxThermalCourant 0.3;         // Tightened for thermal stability
 
 // ADAPTIVE OUTPUT - more frequent during active phase, less during cooling
 writeControl    adjustableRunTime;
-writeInterval   1e-13;         // Start with 1 ps intervals
+writeInterval   1e-12;         // Start with 1 ps intervals
 purgeWrite      200;            // Keep more time directories for analysis
 writeFormat     ascii;
 writePrecision  8;
@@ -55,25 +55,25 @@ phaseChangeCoeffs
     Tvap                Tvap [0 0 0 1 0 0 0] 3560.0;
     windowWidth         50;
     dtFloor             1e-15;         // Reduced for precision
-    relaxationTime      1e-10;        // Longer for extended cooling
-    maxSource           1e13;          // Allow rapid relaxation toward Tvap
-    minCoefficient      1e12;         // Match enhanced cooling response
+    relaxationTime      1e-13;        // Longer for extended cooling
+    maxSource           1e15;          // Allow rapid relaxation toward Tvap
+    minCoefficient      1e14;         // Match enhanced cooling response
     metalFractionCutoff 1e-6;
     // EXTENDED ACTIVATION - through transfer and cooling
-    activationTime      ((0 8e-10));  // Active through 800 ps
+    activationTime      ((0 1e-10));  // Active through 800 ps
 }
 
 // EXTENDED MASS TRANSFER - through solidification
 massTransferCoeffs
 {
     tStart  (0);
-    tEnd    (8e-10);   // Extended to 800 ps
+    tEnd    (1e-10);   // Extended to 800 ps
     rateMax 1e12;      // Reduced for later phase stability
 }
 
 // LASER TIMING - shorter pulse, longer observation
 laserStartTime      0;
-laserEndTime    4e-10;
+laserEndTime    1e-10;
 
 // Advanced interface capturing - TUNED FOR EXTENDED SIMULATION
 useAdvancedInterfaceCapturing  true;
