@@ -359,7 +359,7 @@ extern const bool master;
     const scalar fluxRelax =
         Foam::max(scalar(0), Foam::min(scalar(1), thermalFluxRelax));
 
-    tmp<volScalarField> tRawFlux(cappedInterfaceExchange*(T - Tl));
+    tmp<volScalarField> tRawFlux(cappedInterfaceExchange*(Tl - T));
     volScalarField& rawFlux = tRawFlux.ref();
     
     if (qCap > 0)
@@ -439,7 +439,7 @@ extern const bool master;
 
     const volScalarField& limitedFlux = tRawFlux();
 
-    tmp<volScalarField> tMetalToGasFlux(-limitedFlux);
+    tmp<volScalarField> tMetalToGasFlux(limitedFlux);
     const volScalarField& metalToGasFlux = tMetalToGasFlux();
 
     if (fluxRelax < 1.0 - SMALL)

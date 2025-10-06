@@ -538,7 +538,7 @@ void twoTemperatureModel::solveLatticeEquation
       + metalEff*(G*Te_)
       + metalEff*(Cl_*phaseChangeSource)
       + metalEff*(Cl_*phaseChangeRelaxCoeff*TlOld)
-      - metalEff*gasMetalHeatFlux
+      + metalEff*gasMetalHeatFlux
     );
 
     TlEqn.relax();
@@ -1104,6 +1104,40 @@ void twoTemperatureModel::solve
             }
             break;
         }
+    }
+ // Energy balance diagnostics
+    if (verbose && Pstream::master())
+    {
+        tmp<volScalarField> tCeFinal = electronHeatCapacity();
+        //const volScalarField& CeFinal = tCeFinal();
+        
+        tmp<volScalarField> tGFinal = electronPhononCoupling();
+        const volScalarField& GFinal = tGFinal();
+        
+        const dimensionedScalar laserPower = 
+            fvc::domainIntegrate(metalEff*laserSource);
+        const dimensionedScalar eCoupling = 
+            fvc::domainIntegrate(metalEff*GFinal*Te_);
+        const dimensionedScalar lCoupling = 
+            fvc::domainIntegrate(metalEff*GFinal*Tl_);
+        const dimensionedScalar gasLoss = 
+            fvc::domainIntegrate(metalEff*gasMetalHeatFlux);
+        const dimensionedScalar metalVolume = 
+            fvc::domainIntegrate(metalEff);
+        
+        Info<< "══════ ENERGY BALANCE ══════" << nl
+            << "Metal volume: " << metalVolume.value()*1e18 << " µm³" << nl
+            << "Power terms [W]:" << nl
+            << "  Laser input:        " << laserPower.value() << nl
+            << "  e→l coupling:       " << (eCoupling - lCoupling).value() << nl
+            << "  Gas coupling loss:  " << gasLoss.value() << nl
+            << "Net power [W]:" << nl
+            << "  Into electrons:     " << (laserPower - eCoupling + lCoupling).value() << nl
+            << "  Into lattice:       " << (eCoupling - lCoupling - gasLoss).value() << nl
+            << "Temperatures:" << nl
+            << "  max(Te): " << gMax(Te_) << " K" << nl
+            << "  max(Tl): " << gMax(Tl_) << " K" << nl
+            << "════════════════════════════" << endl;
     }
 
     applyTemperatureBounds(activeMask, minTemp, maxTemp, ambientDim);
