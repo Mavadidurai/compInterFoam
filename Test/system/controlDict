@@ -35,8 +35,8 @@ maxThermalCourant 0.3;         // Tightened for thermal stability
 
 // ADAPTIVE OUTPUT - more frequent during active phase, less during cooling
 writeControl    adjustableRunTime;
-writeInterval   1e-13;         // Start with 1 ps intervals
-purgeWrite      200;            // Keep more time directories for analysis
+writeInterval   1e-17;         // Start with 1 ps intervals
+purgeWrite      20;            // Keep more time directories for analysis
 writeFormat     ascii;
 writePrecision  8;
 writeCompression off;
@@ -104,7 +104,7 @@ twoTemperatureProperties
 {
     Ce  [1 -1 -2 -1 0 0 0] 1.5e6;
     Cl  [1 -1 -2 -1 0 0 0] 2.5e6;
-    G   [1 -1 -3 -1 0 0 0] 2e17;
+    G   [1 -1 -3 -1 0 0 0] 5e16;
     De  [0  2 -1  0 0 0 0] 1e-4;
 
     gasMetalExchangeCoeff [1 -1 -3 -1 0 0 0] 0;
