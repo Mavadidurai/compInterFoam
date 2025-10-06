@@ -45,7 +45,7 @@ gasAbsorptionCoeff 0;     // [1/m] gas absorption (0 disables direct gas heating
 // --- Energy & timing ---
 // CRITICAL: Keep pulse energy compatible with interface heat-flux limit
 //pulseCenterTime    3e-10;    // Removed to allow default near-start Gaussian centre
-pulseEnergy     3e-7;        // [J] total energy  300 nJ - enough to reach vaporization
+pulseEnergy     3e-6;        // [J] total energy  300 nJ - enough to reach vaporization
 pulseWidth      2.14e-13;     // [s] 214 fs pulse width
 
 // --- Spatial Gaussian (match the box center and film depth) ---
