@@ -538,7 +538,7 @@ void twoTemperatureModel::solveLatticeEquation
       + metalEff*(G*Te_)
       + metalEff*(Cl_*phaseChangeSource)
       + metalEff*(Cl_*phaseChangeRelaxCoeff*TlOld)
-      + metalEff*gasMetalHeatFlux
+      - metalEff*gasMetalHeatFlux
     );
 
     TlEqn.relax();
@@ -581,7 +581,10 @@ dimensionedScalar twoTemperatureModel::couplingEnergy
     const dimensionedScalar& dtDim
 ) const
 {
-    return fvc::domainIntegrate(gasMetalHeatFlux)*dtDim;
+    tmp<volScalarField> tMetal = clampedMetalFraction();
+    const volScalarField& metalEff = tMetal();
+
+    return -fvc::domainIntegrate(metalEff*gasMetalHeatFlux)*dtDim;
 }
 
 dimensionedScalar twoTemperatureModel::currentTotalEnergy() const
@@ -627,7 +630,7 @@ void twoTemperatureModel::writeEnergyDiagnostics
         << "  Laser energy input: " << laserEnergy.value() << " J" << nl
         << "  Phase-change energy input: "
         << phaseChangeEnergy.value() << " J" << nl
-        << "  Gas-metal coupling energy input: "
+        << "  Gas-metal coupling energy loss: "
         << couplingEnergy.value() << " J" << nl
         << "  Electron energy after: "
         << electronEnergyAfter.value() << " J" << nl
@@ -1001,7 +1004,7 @@ void twoTemperatureModel::solve
     const dimensionedScalar couplingEnergyValue =
         couplingEnergy(gasMetalHeatFlux, dtDim);
     const dimensionedScalar totalEnergyInput =
-        laserEnergy + phaseChangeEnergy + couplingEnergyValue;
+        laserEnergy + phaseChangeEnergy - couplingEnergyValue;
 
     dimensionedScalar electronEnergyBefore("electronEnergyBefore", dimEnergy, 0.0);
     dimensionedScalar latticeEnergyBefore("latticeEnergyBefore", dimEnergy, 0.0);
