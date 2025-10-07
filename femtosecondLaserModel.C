@@ -1015,10 +1015,33 @@ femtosecondLaserModel::evaluateTemporalEnvelope
 {
     EnvelopeResult result;
     const scalar depositableFraction = depositableEnergyFraction();
-    const scalar coverageFraction = beamCoverageFraction();    
+    const scalar coverageFraction = beamCoverageFraction();
     if (continuousLaser_)
     {
         result.temporalIntegral = overlapEnd - overlapStart;
+
+        if (result.temporalIntegral > VSMALL)
+        {
+            const scalar beamRadius = spotSize_.value()/2.0;
+            if (beamRadius > VSMALL)
+            {
+                scalar effectiveArea = constant::mathematical::pi*sqr(beamRadius);
+
+                if (gaussianProfile_)
+                {
+                    effectiveArea *= 0.5;
+                }
+
+                const scalar incidentPower =
+                    peakIntensity_.value()*effectiveArea;
+
+                result.expectedEnergy =
+                    depositableFraction
+                  * coverageFraction
+                  * incidentPower
+                  * result.temporalIntegral;
+            }
+        }
     }
     else if (pulseFrequency_ > SMALL)
     {
