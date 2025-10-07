@@ -44,7 +44,8 @@ gasAbsorptionCoeff 0;     // [1/m] gas absorption (0 disables direct gas heating
 
 // --- Energy & timing ---
 // CRITICAL: Keep pulse energy compatible with interface heat-flux limit
-pulseCenterTime    3e-10;    // Center the Gaussian 0.3 ns after laserStartTime
+// NOTE: Omit pulseCenterTime to fire the single pulse immediately after
+//       laserStartTime.  Supplying a later center delays deposition.
 pulseEnergy     3e-6;        // [J] total energy  300 nJ - enough to reach vaporization
 pulseWidth      2.14e-13;     // [s] 214 fs pulse width
 
