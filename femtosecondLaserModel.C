@@ -117,6 +117,7 @@ femtosecondLaserModel::femtosecondLaserModel
     currentPulseStartTime_(0.0),
     pulseCounter_(0),
     trackingPulse_(false),
+    pulseCompleted_(false),
     activeThisStep_(false)
 {
     const scalar originalReflectivity = reflectivity_;
@@ -1113,9 +1114,10 @@ femtosecondLaserModel::evaluateTemporalEnvelope
             }
             else
             {
-                const scalar maxCenterOffset = 3.0*sigma;
                 const scalar halfWindow = 0.5*windowWidth;
+                const scalar maxCenterOffset = 3.0*sigma;
                 const scalar centerOffset = min(halfWindow, maxCenterOffset);
+
                 center = laserStartTime_ + centerOffset;
             }
         }
@@ -1616,6 +1618,7 @@ void femtosecondLaserModel::updateEnergyTracking
             if (!trackingPulse_)
             {
                 trackingPulse_ = true;
+                pulseCompleted_ = false;
                 pulseEnergyAccumulator_ = 0.0;
                 pulseExpectedAccumulator_ = 0.0;
                 currentPulseStartTime_ = overlapStart;
@@ -1699,6 +1702,7 @@ void femtosecondLaserModel::calculateSource() const
         cumulativeFilmEnergy_ = 0.0;
         cumulativeGasEnergy_  = 0.0;
         trackingPulse_ = false;
+        pulseCompleted_ = false;
         pulseEnergyAccumulator_ = 0.0;
         pulseExpectedAccumulator_ = 0.0;
         currentPulseStartTime_ = 0.0;
@@ -1707,6 +1711,12 @@ void femtosecondLaserModel::calculateSource() const
     lastTimeIndex_ = timeIndex;
 
     const bool singlePulse = (!continuousLaser_ && pulseFrequency_ <= SMALL);
+
+    if (singlePulse && pulseCompleted_)
+    {
+        sourceValid_ = true;
+        return;
+    }
 
     const scalar overlapStart = max(tStart, laserStartTime_);
     const scalar overlapEnd   = min(t, laserEndTime_);
@@ -1808,6 +1818,7 @@ void femtosecondLaserModel::calculateSource() const
         if (singlePulse && outsidePulseWindow)
         {
             withinActiveWindow = false;
+            pulseCompleted_ = true;
         }
 
 

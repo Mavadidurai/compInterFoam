@@ -101,7 +101,8 @@ private:
     mutable scalar       currentPulseStartTime_;
     mutable label        pulseCounter_;
     mutable bool         trackingPulse_;
-    mutable bool         activeThisStep_;    
+    mutable bool         pulseCompleted_;
+    mutable bool         activeThisStep_;
 
     // Temporal envelope summary for the current time-step
     struct EnvelopeResult
