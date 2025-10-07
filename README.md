@@ -119,7 +119,12 @@ Entries in `controlDict` override values supplied in `constant/laserProperties`.
 Single-pulse runs may additionally supply `pulseCenterTime` in
 `constant/laserProperties` to delay the Gaussian peak; values outside the
 window are clamped to the configured start/end times, and omitting the entry
-retains the legacy near-start placement.
+retains the legacy near-start placement. When the keyword is absent the solver
+centres the Gaussian at `laserStartTime + min(0.5·(laserEndTime -
+laserStartTime), 3σ)` so the energy lands within a few pulse widths of the
+trigger. Providing an explicit `pulseCenterTime` simply shifts this centre—it
+does not change the deposited energy, only when the peak arrives during the
+`[laserStartTime, laserEndTime]` window.
 ## Notes
 * All diagnostics controlled by `verbose` are now emitted by the master MPI
   rank only to prevent duplicate messages in parallel runs.
