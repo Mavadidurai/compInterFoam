@@ -376,7 +376,8 @@ int main(int argc, char *argv[])
             );
 
         const scalar prevEtotMag = mag(prevEtot);
-        const scalar denom = max(prevEtotMag, minEnergyForCheck);
+        const scalar currEtotMag = mag(Etot.value());
+        const scalar denom = max(max(prevEtotMag, currEtotMag), minEnergyForCheck);
         const scalar relChange = mag(Etot.value() - prevEtot)/denom;
 
         if
