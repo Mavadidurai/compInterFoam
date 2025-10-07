@@ -33,8 +33,8 @@ FoamFile
 //   gasAbsorptionCoeff  [1/m, optional, default 0]
 // Parameter checks enforce pulseWidth 10fs–10ps, wavelength 100nm–2µm
 // and peakIntensity ≤6e16 W/m^2.
-// Gaussian pulse focused in the 71.4 nm donor film (y=8.0–8.0714 µm)
-// Domain: x∈[0,50e-6], y∈[0,20e-6], z∈[0,10e-6]
+// Gaussian pulse focused in the 71.4 nm donor film (y=20.0000–20.0714 µm)
+// Domain: x∈[0,50e-6], y∈[0,32.0714e-6], z∈[0,10e-6]
 // CORRECTED: Specify exact film thickness to match blockMeshDict geometry
 filmThicknessExpected    7.14e-8;    // 71.4 nm (matches y3 - y2 = 20.0714 - 20.0000)
 filmCenterY         20.0357e-6;     // center at focus.y
@@ -44,13 +44,13 @@ gasAbsorptionCoeff 0;     // [1/m] gas absorption (0 disables direct gas heating
 
 // --- Energy & timing ---
 // CRITICAL: Keep pulse energy compatible with interface heat-flux limit
-pulseCenterTime    3e-10;    // Removed to allow default near-start Gaussian centre
+pulseCenterTime    3e-10;    // Center the Gaussian 0.3 ns after laserStartTime
 pulseEnergy     3e-6;        // [J] total energy  300 nJ - enough to reach vaporization
 pulseWidth      2.14e-13;     // [s] 214 fs pulse width
 
 // --- Spatial Gaussian (match the box center and film depth) ---
 spotSize        6.0e-6;       // [m] beam diameter (3 μm 1/e² radius)
-// Put the beam center inside the domain (mid x,z; inside donor film at y≈8.0357 μm)
+// Put the beam center inside the domain (mid x,z; inside donor film at y≈20.0357 μm)
 focus            (25e-6 20.0357e-6 5e-6);
 direction       (0 -1 0);
 
