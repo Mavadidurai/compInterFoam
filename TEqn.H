@@ -346,7 +346,34 @@ extern const bool master;
     {
         T.correctBoundaryConditions();
     }
+    // Automatically enforce physical gas-temperature bounds when the
+    // solution produces extreme or non-finite values.  Leaving these
+    // unchecked causes the gas-metal heat flux to explode, which in turn
+    // triggers the energy audit failure observed in the run log.
+    const scalar Tmin = gMin(T).value();
+    const scalar Tmax = gMax(T).value();
 
+    if
+    (
+        !Foam::isfinite(Tmin)
+     || !Foam::isfinite(Tmax)
+     || Tmin < minPhysicalTemp
+     || Tmax > maxPhysicalTemp
+    )
+    {
+        if (verbose && master)
+        {
+            WarningInFunction
+                << "Gas temperature left physical bounds: Tmin=" << Tmin
+                << " K, Tmax=" << Tmax << " K. Applying automatic clamp to ["
+                << minPhysicalTemp << ", " << maxPhysicalTemp << "] K" << endl;
+        }
+
+        const dimensionedScalar minTDim("minT", dimTemperature, minPhysicalTemp);
+        const dimensionedScalar maxTDim("maxT", dimTemperature, maxPhysicalTemp);
+        T = Foam::max(Foam::min(T, maxTDim), minTDim);
+        T.correctBoundaryConditions();
+    }
     // CRITICAL FIX: Do NOT force T = Tl in metal regions
     // This prevents the gas from having independent temperature
     // T = (scalar(1) - activeMask)*T + activeMask*Tl;  // ← REMOVED
