@@ -13,13 +13,29 @@ extern const bool master;
 
     const dictionary& ctrl = runTime.controlDict();
     const Switch enableTClamp = ctrl.lookupOrDefault<Switch>("enableTClamp", false);
-    const scalar minPhysicalTemp = ctrl.lookupOrDefault<scalar>("minT", 0.0);
+    const scalar minPhysicalTemp = Foam::max
+    (
+        ctrl.lookupOrDefault<scalar>("minT", 0.0),
+        Foam::SMALL
+    );
     const scalar maxPhysicalTemp = ctrl.lookupOrDefault<scalar>
     (
         "maxT",
         Foam::GREAT
     );
+    const dimensionedScalar minTDim
+    (
+        "minT",
+        dimTemperature,
+        minPhysicalTemp
+    );
 
+    const dimensionedScalar maxTDim
+    (
+        "maxT",
+        dimTemperature,
+        maxPhysicalTemp
+    );
     if (enableTClamp && maxPhysicalTemp <= minPhysicalTemp)
     {
         FatalErrorInFunction
@@ -63,9 +79,6 @@ extern const bool master;
             totalLowClamped = localLow;
             totalHighClamped = localHigh;
             totalCellsClamped = localCells;
-
-            const dimensionedScalar minTDim("minT", dimTemperature, minPhysicalTemp);
-            const dimensionedScalar maxTDim("maxT", dimTemperature, maxPhysicalTemp);
 
             T = Foam::max(Foam::min(T, maxTDim), minTDim);
             T.correctBoundaryConditions();
@@ -350,13 +363,13 @@ extern const bool master;
     // solution produces extreme or non-finite values.  Leaving these
     // unchecked causes the gas-metal heat flux to explode, which in turn
     // triggers the energy audit failure observed in the run log.
-    const scalar Tmin = gMin(T).value();
-    const scalar Tmax = gMax(T).value();
+    const scalar Tmin = gMin(T);
+    const scalar Tmax = gMax(T);
 
     if
     (
-        !Foam::isfinite(Tmin)
-     || !Foam::isfinite(Tmax)
+        !std::isfinite(Tmin)
+     || !std::isfinite(Tmax)
      || Tmin < minPhysicalTemp
      || Tmax > maxPhysicalTemp
     )
@@ -369,15 +382,13 @@ extern const bool master;
                 << minPhysicalTemp << ", " << maxPhysicalTemp << "] K" << endl;
         }
 
-        const dimensionedScalar minTDim("minT", dimTemperature, minPhysicalTemp);
-        const dimensionedScalar maxTDim("maxT", dimTemperature, maxPhysicalTemp);
         T = Foam::max(Foam::min(T, maxTDim), minTDim);
         T.correctBoundaryConditions();
     }
     // CRITICAL FIX: Do NOT force T = Tl in metal regions
     // This prevents the gas from having independent temperature
     // T = (scalar(1) - activeMask)*T + activeMask*Tl;  // ← REMOVED
-
+    T = Foam::max(Foam::min(T, maxTDim), minTDim);
     T.correctBoundaryConditions();
 
     mixture.correctThermo();
