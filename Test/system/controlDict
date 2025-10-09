@@ -17,21 +17,21 @@ FoamFile
 
 application     compInterFoam;
 
-startFrom       latestTime;
+startFrom       startTime;
 startTime       0;
 stopAt          endTime;
 endTime         1e-9;          // EXTENDED: 1 ns total for complete LIFT process
 
-deltaT          1e-15;         // Base time step (1 fs)
+deltaT          1e-13;         // Base time step (100 fs)
 adjustTimeStep  yes;           // ENABLE adaptive time stepping
-maxCo           0.01;          // Aggressive limit for stability
+maxCo           0.05;          // Allow reasonable growth while staying stable
 maxAlphaCo      0.005;         // Aggressive interface limit
-maxDeltaT       1e-14;         // Cap adaptive growth (10 fs)
-minDeltaT       1e-18;         // Minimum 1 fs for precision
+maxDeltaT       1e-13;         // Cap adaptive growth (100 fs)
+minDeltaT       1e-15;         // Minimum 1 fs for precision
 
 verbose         true;
-thermalFluxRelax 0.25;         // Implicit flux relaxation
-maxThermalCourant 0.3;         // Tightened for thermal stability
+thermalFluxRelax 0.1;          // Stronger damping of interface heat flux
+maxThermalCourant 0.1;         // Tightened for thermal stability
 
 // ADAPTIVE OUTPUT - more frequent during active phase, less during cooling
 writeControl    adjustableRunTime;
@@ -109,8 +109,8 @@ twoTemperatureProperties
 
     gasMetalExchangeCoeff [1 -1 -3 -1 0 0 0] 1e12;
     minGasMetalExchangeCoeff [1 -1 -3 -1 0 0 0] 0;
-    maxGasMetalExchangeCoeff [1 -1 -3 -1 0 0 0] 1e15;
-    maxGasMetalHeatFlux    1e15;
+    maxGasMetalExchangeCoeff [1 -1 -3 -1 0 0 0] 1e13;
+    maxGasMetalHeatFlux    1e14;
     minTe 200;             // Allow cooling
     maxTe 15000;
     ambientTemperature 300;
@@ -118,12 +118,12 @@ twoTemperatureProperties
     // ADAPTIVE MICRO-STEPPING
     electronSubCycles        1;
     minElectronSubCycles     1;
-    maxElectronSubCycles     50;     // Allow rapid transients
-    maxElectronDeltaT        [0 0 1 0 0 0 0] 2e-15;  // Guard rapid transients
+    maxElectronSubCycles     20;     // Allow rapid transients
+    maxElectronDeltaT        [0 0 1 0 0 0 0] 1e-14;  // Guard rapid transients
 
-    nInnerCouplingSweeps         2;  // More coupling iterations
-    innerCouplingResidualTol     1e-6; // Enable convergence check
-
+    nInnerCouplingSweeps         3;  // More coupling iterations
+    innerCouplingResidualTol     1e-4; // Enable convergence check
+    
     klHighTThreshold 1000;
     klExponent       0.5;
 

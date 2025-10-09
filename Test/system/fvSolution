@@ -57,7 +57,7 @@ solvers
     p_rghFinal
     {
         $p_rgh;
-        tolerance   1e-7;
+        tolerance   1e-8;
         relTol      0;
     }
     
@@ -121,16 +121,16 @@ relaxationFactors
 {
     fields
     {
-        p_rgh           0.1;
-        "alpha.*"       0.3;
+        p_rgh           0.3;
+        "alpha.*"       0.5;
     }
     equations
     {
-        U               0.1;
-        T               0.05;
-        Te              0.2;
-        Tl              0.2;
-        "alpha.*"       0.3;
+        U               0.3;
+        T               0.2;
+        Te              0.4;
+        Tl              0.4;
+        "alpha.*"       0.5;
         ".*Final"       0.8;
     }
 }
