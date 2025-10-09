@@ -17,7 +17,7 @@ FoamFile
 
 application     compInterFoam;
 
-startFrom       startTime;
+startFrom       latestTime;
 startTime       0;
 stopAt          endTime;
 endTime         1e-9;          // EXTENDED: 1 ns total for complete LIFT process
@@ -35,7 +35,7 @@ maxThermalCourant 0.1;         // Tightened for thermal stability
 
 // ADAPTIVE OUTPUT - more frequent during active phase, less during cooling
 writeControl    adjustableRunTime;
-writeInterval   1e-12;         // Start with 1 ps intervals
+writeInterval   1e-13;         // Start with 1 ps intervals
 purgeWrite      50;            // Keep more time directories for analysis
 writeFormat     ascii;
 writePrecision  8;
@@ -152,29 +152,58 @@ functions
         codeWrite
         #{
             const scalar t = mesh().time().value();
-            static scalar lastWriteIntervalChange = -1;
-            static scalar nextWriteTime = 0;
+            static scalar activeWriteInterval = -1;
+            static scalar nextWriteTime = -1;
             scalar newInterval = 1e-12;  // Default 1 ps
-            
+
             if (t < 1e-10)       newInterval = 1e-12;  // 1 ps
             else if (t < 3e-10)  newInterval = 2e-12;  // 2 ps
             else if (t < 5e-10)  newInterval = 5e-12;  // 5 ps
             else                 newInterval = 1e-11;  // 10 ps
 
-            if (mag(newInterval - lastWriteIntervalChange) > 0.1e-12) {
-                lastWriteIntervalChange = newInterval;
-                nextWriteTime = t + newInterval;
+            Time& runTime = const_cast<Time&>(mesh().time());
+            const scalar currentDeltaT = runTime.deltaTValue();
+
+            if
+            (
+                activeWriteInterval < 0
+             || mag(newInterval - activeWriteInterval) > 0.1e-12
+            )
+            {
+                activeWriteInterval = newInterval;
+
+                label completedSteps = 0;
+                if (activeWriteInterval > 0)
+                {
+                    completedSteps = label(t/activeWriteInterval);
+                }
+
+                nextWriteTime = (completedSteps + 1)*activeWriteInterval;
+
+                if (nextWriteTime <= t + 0.5*currentDeltaT)
+                {
+                    nextWriteTime += activeWriteInterval;
+                }
 
                 if (Pstream::master()) {
                     Info<< "Adaptive output: Changed write interval to "
-                        << newInterval*1e12 << " ps at t=" << t*1e12 << " ps" << endl;
+                        << activeWriteInterval*1e12 << " ps at t="
+                        << t*1e12 << " ps" << endl;
                 }
             }
 
-            if (t >= nextWriteTime) {
-                const_cast<Time&>(mesh().time()).writeNow();
-                nextWriteTime = t + newInterval;
-            }
+            const scalar writeTolerance = 0.5*currentDeltaT;
+
+            if (nextWriteTime >= 0 && t + writeTolerance >= nextWriteTime) {
+                const scalar originalTime = t;
+                const label originalIndex = runTime.timeIndex();
+
+                runTime.setTime(nextWriteTime, originalIndex);
+                runTime.writeNow();
+                runTime.setTime(originalTime, originalIndex);
+
+                nextWriteTime += activeWriteInterval;
+                }
         #};
     }
 
@@ -605,7 +634,7 @@ milestones
             const scalar energyDensity = maxQLaser * t; // Approximate
             const scalar expectedTemp = energyDensity / 2.5e6; // Rough estimate
             
-            if (abs(maxTl - expectedTemp) > 500 && maxTl > 1000)
+            if (mag(maxTl - expectedTemp) > 500 && maxTl > 1000)
             {
                 Info<< "*** ENERGY BALANCE DEVIATION at t=" << t*1e12 << "ps ***" << nl
                     << "    Expected temp: ~" << expectedTemp << " K" << nl
