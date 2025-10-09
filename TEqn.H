@@ -254,23 +254,25 @@ extern const bool master;
     volScalarField& activeMask = tActiveMask.ref();
     activeMask = Foam::min(Foam::max(activeMask, scalar(0)), scalar(1));
 
-    tmp<volScalarField> tMetalClamp
-    (
-        Foam::min(Foam::max(metalFraction, scalar(0)), scalar(1))
-    );
-    const volScalarField& metalClamp = tMetalClamp();
+    const volScalarField& gasFraction = mixture.alpha2();
 
     tmp<volScalarField> tContactMask
     (
-        new volScalarField(fvc::average(metalFraction))
+        Foam::min(Foam::max(gasFraction, scalar(0)), scalar(1))
     );
     volScalarField& contactMask = tContactMask.ref();
-    contactMask = Foam::min(Foam::max(contactMask, scalar(0)), scalar(1));
-    contactMask = Foam::max(contactMask, metalClamp);
+    contactMask.correctBoundaryConditions();
 
     activeMask *= contactMask;
     activeMask.correctBoundaryConditions();
 
+    // Limit the gas-metal exchange to cells that actually contain gas.
+    // Without this mask the solver applies enormous coupling inside the
+    // pure-metal region (where alpha2 ≈ 0), which forces the gas equation
+    // to drive T to unphysical values (~1e19 K in the log).
+    cappedInterfaceExchange *= contactMask;
+    cappedInterfaceExchange.correctBoundaryConditions();
+    
     tmp<volScalarField> tCv2 = mixture.thermo2().Cv();
     tmp<volScalarField> tRho2 = mixture.thermo2().rho();
 
@@ -479,7 +481,10 @@ extern const bool master;
 
     const volScalarField& limitedFlux = tRawFlux();
 
-    tmp<volScalarField> tMetalToGasFlux(limitedFlux);
+    tmp<volScalarField> tMaskedFlux(contactMask*limitedFlux);
+    const volScalarField& maskedFlux = tMaskedFlux();
+
+    tmp<volScalarField> tMetalToGasFlux(maskedFlux);
     const volScalarField& metalToGasFlux = tMetalToGasFlux();
 
     if (fluxRelax < 1.0 - SMALL)
@@ -492,6 +497,13 @@ extern const bool master;
         gasMetalHeatFlux = metalToGasFlux;
     }
 
+    if (qCap > 0)
+    {
+        gasMetalHeatFlux =
+            Foam::min(Foam::max(gasMetalHeatFlux, -qCapDim), qCapDim);
+    }
+
+    gasMetalHeatFlux *= contactMask;
     gasMetalHeatFlux.correctBoundaryConditions();
 
     if (verbose && master)
