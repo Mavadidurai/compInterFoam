@@ -318,7 +318,9 @@ extern const bool master;
       + fvc::div(CvolPhi)
     );
     const volScalarField& contErr = tContErr();
-
+// CRITICAL: Bound T BEFORE solving to prevent garbage input
+    T = Foam::max(Foam::min(T, maxTDim), minTDim);
+    T.correctBoundaryConditions();
     fvScalarMatrix TEqn
     (
         fvm::ddt(CvolLimited, T)

@@ -1306,13 +1306,14 @@ tmp<volScalarField> twoTemperatureModel::gasMetalExchangeCoeffField() const
         )
     );
     volScalarField& coeff = tCoeff.ref();
-    if (gasMetalExchangeFunction_.valid())
-    {
-        forAll(coeff, cellI)
-        {
-            coeff[cellI] = gasMetalExchangeFunction_->value(Tl_[cellI]);
-        }
+if (gasMetalExchangeFunction_.valid()) {
+    forAll(coeff, cellI) {
+        scalar val = gasMetalExchangeFunction_->value(Tl_[cellI]);
+        // CRITICAL: Hard bounds on function output
+        val = Foam::min(Foam::max(val, scalar(0)), scalar(1e15));
+        coeff[cellI] = val;
     }
+}
     const scalar metalFractionFloor =
         dict_.lookupOrDefault<scalar>("metalFractionFloor", 1e-6);
 

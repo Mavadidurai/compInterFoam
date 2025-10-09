@@ -19,18 +19,25 @@ fvVectorMatrix UEqn
     UEqn -= fvm::Sp(contErr, U);
 }
 
-if (recoilPressurePtr)
-{
-    const dimensionedScalar maxRecoilGrad = 
-        gMax(mag(fvc::grad(*recoilPressurePtr))());
+if (recoilPressurePtr) {
+    tmp<volVectorField> tRecoilGrad = fvc::grad(*recoilPressurePtr);
+    volVectorField& recoilGrad = tRecoilGrad.ref();
     
-    if (verbose && master)
-    {
-        Info<< "Applying recoil pressure gradient: max = " 
-            << maxRecoilGrad.value() << " Pa/m" << endl;
+    // CRITICAL: Limit gradient magnitude
+    const scalar maxAllowedGrad = 1e9; // Pa/m
+    forAll(recoilGrad, cellI) {
+        const scalar gradMag = mag(recoilGrad[cellI]);
+        if (gradMag > maxAllowedGrad) {
+            recoilGrad[cellI] *= maxAllowedGrad/gradMag;
+        }
     }
     
-    //UEqn -= fvc::grad(*recoilPressurePtr);
+    if (verbose && master) {
+        Info<< "Applying LIMITED recoil gradient: max = " 
+	<< gMax(mag(recoilGrad)().internalField()) << " Pa/m" << endl;  // CORRECT
+    }
+    
+    UEqn -= recoilGrad; // Now apply
 }
 
 UEqn.relax();

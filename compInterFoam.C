@@ -146,14 +146,13 @@ int main(int argc, char *argv[])
                     GREAT
                 )
             );
-            const scalar minDeltaTValue
-            (
+            const scalar rawMinDeltaT =
                 runTime.controlDict().lookupOrDefault<scalar>
                 (
                     "minDeltaT",
                     0.0
-                )
-            );
+                );
+            const scalar minDeltaTValue = Foam::max(rawMinDeltaT, SMALL);
             const dimensionedScalar maxDeltaT
             (
                 "maxDeltaT",
@@ -195,6 +194,11 @@ int main(int argc, char *argv[])
             rSubDeltaT = max(invMaxDeltaT, rSubDeltaT);
             rSubDeltaT.correctBoundaryConditions();
             scalar newDeltaT = 1.0/gMax(rDeltaT.primitiveField());
+            if (!std::isfinite(newDeltaT) || newDeltaT <= SMALL)
+            {
+                newDeltaT = Foam::max(runTime.deltaTValue(), minDeltaTValue);
+            }
+
             newDeltaT = Foam::max
             (
                 minDeltaTValue,

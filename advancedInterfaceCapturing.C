@@ -531,15 +531,17 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
 
         scalar localRecoil = 0.0;
 
-        if (rawRate > massRateEps)
-        {
-            const dimensionedScalar recoilDim = pressureScale_ * rawRate;
-            localRecoil = recoilDim.value();
-            if (clampRecoil)
-            {
-                localRecoil = Foam::min(localRecoil, localRecoilMax);
-            }
-        }
+	if (rawRate > massRateEps) {
+	    // CRITICAL: Clamp rawRate FIRST to prevent explosion
+	    const scalar clampedRate = Foam::min(rawRate, scalar(1e6)); // Max 10^6 /s
+	    const dimensionedScalar recoilDim = pressureScale_ * clampedRate;
+	    localRecoil = recoilDim.value();
+	    if (clampRecoil) {
+		localRecoil = Foam::min(localRecoil, localRecoilMax);
+	    }
+	    // CRITICAL: Absolute maximum regardless of settings
+	    localRecoil = Foam::min(localRecoil, scalar(1e8)); // 100 MPa hard cap
+	}
         else if (rawRate < -massRateEps)
         {
             ++suppressedCondensationCells;
