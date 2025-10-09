@@ -46,7 +46,7 @@ gasAbsorptionCoeff 0;     // [1/m] gas absorption (0 disables direct gas heating
 // CRITICAL: Keep pulse energy compatible with interface heat-flux limit
 // NOTE: Omit pulseCenterTime to fire the single pulse immediately after
 //       laserStartTime.  Supplying a later center delays deposition.
-pulseEnergy     3e-6;        // [J] total energy  300 nJ - enough to reach vaporization
+pulseEnergy    3e-7;        // [J] total energy  300 nJ (≈9.3e16 W/m^2 peak intensity)
 pulseWidth      2.14e-13;     // [s] 214 fs pulse width
 
 // --- Spatial Gaussian (match the box center and film depth) ---
@@ -70,7 +70,7 @@ spatialShape        gaussian;
 gaussianProfile     true;
 
 // --- Peak intensity (derived to match pulseEnergy exactly) ---
-//peakIntensity       9.315644e14;    // [W/m^2] reported in diagnostics
+//peakIntensity      9.315644e16;    // [W/m^2] expected from 300 nJ pulse
 
 // Optional intensity entry (consistent with pulseEnergy & pulseWidth)
 continuousLaser     false;
