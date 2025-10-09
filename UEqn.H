@@ -19,25 +19,22 @@ fvVectorMatrix UEqn
     UEqn -= fvm::Sp(contErr, U);
 }
 
-if (recoilPressurePtr) {
+if (recoilPressurePtr)
+{
     tmp<volVectorField> tRecoilGrad = fvc::grad(*recoilPressurePtr);
     volVectorField& recoilGrad = tRecoilGrad.ref();
-    
-    // CRITICAL: Limit gradient magnitude
+
     const scalar maxAllowedGrad = 1e9; // Pa/m
-    forAll(recoilGrad, cellI) {
+    forAll(recoilGrad, cellI)
+    {
         const scalar gradMag = mag(recoilGrad[cellI]);
-        if (gradMag > maxAllowedGrad) {
+        if (gradMag > maxAllowedGrad)
+        {
             recoilGrad[cellI] *= maxAllowedGrad/gradMag;
         }
     }
-    
-    if (verbose && master) {
-        Info<< "Applying LIMITED recoil gradient: max = " 
-	<< gMax(mag(recoilGrad)().internalField()) << " Pa/m" << endl;  // CORRECT
-    }
-    
-    UEqn -= recoilGrad; // Now apply
+
+    UEqn -= recoilGrad;
 }
 
 UEqn.relax();
@@ -45,13 +42,6 @@ fvOptions.constrain(UEqn);
 
 if (pimple.momentumPredictor())
 {
-    volScalarField pTotal("pTotal", p_rgh);
-    
-    if (recoilPressurePtr)
-    {
-        pTotal += *recoilPressurePtr;
-    }
-    
     solve
     (
         UEqn
@@ -63,20 +53,23 @@ if (pimple.momentumPredictor())
               * fvc::snGrad(alpha1)
             )*mesh.magSf()
         )
-      - fvc::grad(pTotal)
+      - fvc::grad(p_rgh)
       + rho*g
     );
-// DIAGNOSTIC: after momentum predictor
-if (verbose && master)
-{
-    Info<< "DIAGNOSTIC AFTER MOMENTUM SOLVE:" << nl
-        << "  max(U) = " << max(mag(U)).value() << " m/s" << nl
-        << "  max(pTotal) = " << max(pTotal).value() << " Pa" << nl
-        << "  max(recoil) = "
-        << (recoilPressurePtr ? max(*recoilPressurePtr).value() : 0.0)
-        << " Pa" << nl;
-}
+
     fvOptions.correct(U);
+
+    // Limit unphysical velocities that can destabilise the pressure solve
+    const scalar maxRealisticVel = 2000.0;
+    forAll(U, cellI)
+    {
+        const scalar magU = mag(U[cellI]);
+        if (magU > maxRealisticVel)
+        {
+            U[cellI] *= maxRealisticVel/magU;
+        }
+    }
+
     K = 0.5*magSqr(U);
 }
 
