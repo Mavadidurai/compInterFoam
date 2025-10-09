@@ -226,11 +226,12 @@ functions
             const scalar minPressure = gMin(p);
             const scalar avgPressure = gAverage(p);
             
-            // Velocity analysis with spatial distribution
+ // Velocity analysis with spatial distribution
             scalar maxEjectionVel = 0.0;
+            scalar maxBulkMetalVel = 0.0;
             scalar avgEjectionVel = 0.0;
             scalar metalCells = 0;
-            
+
             const scalarField& alphaInternal = alpha.primitiveField();
             const vectorField& UInternal = U.primitiveField();
             
@@ -244,12 +245,21 @@ functions
                     avgEjectionVel += velMag;
                     metalCells += 1;
                 }
+
+                if (alphaVal > 0.5)
+                {
+                    const scalar velMag = mag(UInternal[cellI]);
+                    maxBulkMetalVel = max(maxBulkMetalVel, velMag);
+                }
             }
-            
+
             reduce(maxEjectionVel, maxOp<scalar>());
+            reduce(maxBulkMetalVel, maxOp<scalar>());
             reduce(avgEjectionVel, sumOp<scalar>());
             reduce(metalCells, sumOp<scalar>());
-            
+
+            maxEjectionVel = max(maxEjectionVel, maxBulkMetalVel);
+
             if (metalCells > 0) avgEjectionVel /= metalCells;
 
             // Phase identification
