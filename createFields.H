@@ -378,7 +378,7 @@ dimensionedScalar ghRef
     "ghRef",
     g.dimensions()*dimLength,
     gMag > SMALL
-  ? (gValue & ((gValue/gMag)*hRef.value()))
+  ? (gValue & (-(gValue/gMag)*hRef.value()))
   : 0.0
 );
 
