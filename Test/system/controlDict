@@ -24,8 +24,8 @@ endTime         1e-9;          // EXTENDED: 1 ns total for complete LIFT process
 
 deltaT          1e-13;         // Base time step (10 fs)
 adjustTimeStep  yes;           // ENABLE adaptive time stepping
-maxCo           0.1;           // Reduced for stability during long runs
-maxAlphaCo      0.05;          // Reduced for interface stability
+maxCo           0.05;           // Reduced for stability during long runs
+maxAlphaCo      0.02;          // Reduced for interface stability
 maxDeltaT       1e-12;         // Allow larger steps during cooling phase (1 ps max)
 minDeltaT       1e-18;         // Minimum 1 fs for precision
 
@@ -81,7 +81,7 @@ useAdvancedInterfaceCapturing  true;
 advancedInterfaceCapturing
 {
     pressureScale         1;
-    recoilMax             1e7;
+    recoilMax             1e5;
     clampRecoil           true;
     scaleRecoilMax        true;
     recoilTempOffset      20;
