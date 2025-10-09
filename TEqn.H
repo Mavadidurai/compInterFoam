@@ -346,7 +346,10 @@ extern const bool master;
     // correct sink behaviour.
     TEqn -= fvm::Sp(cappedInterfaceExchange, T);
     TEqn.source() += cappedInterfaceExchange*Tl;
-
+    
+    // Add volumetric laser heating [W/m^3]
+    TEqn.source() += activeMask*mixture.Q_laser();
+    
     TEqn.relax();
     fvOptions.constrain(TEqn);
 

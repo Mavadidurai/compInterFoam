@@ -496,16 +496,26 @@ void twoTemperatureModel::applyTemperatureBounds
     const dimensionedScalar& ambient
 )
 {
-    tmp<volScalarField> tInactiveMask = scalar(1) - activeMask;
-    const volScalarField& inactiveMask = tInactiveMask();
-
     tmp<volScalarField> tBoundTe = Foam::max(Foam::min(Te_, maxTemp), minTemp);
     tmp<volScalarField> tBoundTl = Foam::max(Foam::min(Tl_, maxTemp), minTemp);
     const volScalarField& boundTe = tBoundTe();
     const volScalarField& boundTl = tBoundTl();
 
-    Te_ = activeMask*boundTe + inactiveMask*ambient;
-    Tl_ = activeMask*boundTl + inactiveMask*ambient;
+    const dimensionedScalar activeThreshold
+    (
+        "activeThreshold",
+        dimless,
+        VSMALL
+    );
+
+    tmp<volScalarField> tBinaryActive = pos(activeMask - activeThreshold);
+    const volScalarField& binaryActive = tBinaryActive();
+
+    tmp<volScalarField> tInactiveMask = scalar(1) - binaryActive;
+    const volScalarField& inactiveMask = tInactiveMask();
+
+    Te_ = binaryActive*boundTe + inactiveMask*ambient;
+    Tl_ = binaryActive*boundTl + inactiveMask*ambient;
 
     Te_.correctBoundaryConditions();
     Tl_.correctBoundaryConditions();
@@ -583,8 +593,8 @@ dimensionedScalar twoTemperatureModel::couplingEnergy
 {
     tmp<volScalarField> tMetal = clampedMetalFraction();
     const volScalarField& metalEff = tMetal();
-
-    return -fvc::domainIntegrate(metalEff*gasMetalHeatFlux)*dtDim;
+    return fvc::domainIntegrate(metalEff*gasMetalHeatFlux)*dtDim;
+    
 }
 
 dimensionedScalar twoTemperatureModel::currentTotalEnergy() const
