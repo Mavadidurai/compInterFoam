@@ -63,11 +63,12 @@ solvers
     
     "U.*"
    {
-        solver      smoothSolver;
-        smoother    symGaussSeidel;
-        nSweeps     2;
-        tolerance   1e-08;
-        relTol      0.1;
+            solver      smoothSolver;
+            smoother    symGaussSeidel;
+	    nSweeps     2;
+	    tolerance   1e-04;
+	    relTol      0.5;
+	    maxIter     200;
     }
 
     // Gas T (if present)
@@ -126,7 +127,7 @@ relaxationFactors
     }
     equations
     {
-        U               0.3;
+        U               0.7;
         T               0.2;
         Te              0.4;
         Tl              0.4;
