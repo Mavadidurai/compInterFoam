@@ -263,7 +263,7 @@ extern const bool master;
     volScalarField& contactMask = tContactMask.ref();
     contactMask.correctBoundaryConditions();
 
-    activeMask *= contactMask;
+    //activeMask *= contactMask;
     activeMask.correctBoundaryConditions();
 
     // Limit the gas-metal exchange to cells that actually contain gas.
