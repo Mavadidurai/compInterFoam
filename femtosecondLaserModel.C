@@ -1900,6 +1900,46 @@ void femtosecondLaserModel::calculateSource() const
 
     SpatialMetrics metrics = applySpatialWeighting(source, envelope.temporalAverage);
 
+    const scalar dtValue = dtDim.value();
+
+    if (envelope.expectedEnergy <= VSMALL || dtValue <= VSMALL)
+    {
+        if (metrics.totalSourceIntegral > VSMALL)
+        {
+            source = dimensionedScalar("zero", source.dimensions(), 0.0);
+            metrics.totalSourceIntegral = 0.0;
+            metrics.totalFilmSourceIntegral = 0.0;
+            metrics.totalGasSourceIntegral = 0.0;
+            metrics.maxSourceValue = 0.0;
+        }
+    }
+    else
+    {
+        const scalar desiredPower = envelope.expectedEnergy/dtValue;
+        const scalar actualPower = metrics.totalSourceIntegral;
+
+        if (actualPower > VSMALL)
+        {
+            const scalar scale = desiredPower/actualPower;
+
+            if (mag(scale - 1.0) > 1e-6)
+            {
+                source *= scale;
+                metrics.totalSourceIntegral      *= scale;
+                metrics.totalFilmSourceIntegral *= scale;
+                metrics.totalGasSourceIntegral  *= scale;
+                metrics.maxSourceValue          *= scale;
+            }
+        }
+        else
+        {
+            WarningInFunction
+                << "Temporal envelope expects " << envelope.expectedEnergy
+                << " J this step, but spatial integration returned zero"
+                << " power.  No laser energy will be deposited." << endl;
+        }
+    }
+
     if (verbose && master && timeIndex % 10 == 0)
     {
         Info<< "Spatial processing results:" << nl
