@@ -87,11 +87,21 @@ extern const bool master;
             U = HbyA + rAU*fvc::reconstruct((phig + pEqn.flux())/rAUf);
             U.correctBoundaryConditions();
             fvOptions.correct(U);
-	    if (verbose && master)
-	    {
-		Info<< "DIAGNOSTIC AFTER PRESSURE CORRECTION:" << nl
-		    << "  max(U) = " << max(mag(U)).value() << " m/s" << nl
-		    << "  max(phi) = " << max(mag(phi)).value() << " m^3/s" << nl;
+            const scalar maxRealisticVel = 2000.0;
+            forAll(U, cellI)
+            {
+                const scalar magU = mag(U[cellI]);
+                if (magU > maxRealisticVel)
+                {
+                    U[cellI] *= maxRealisticVel/magU;
+                }
+            }
+            phi = fvc::flux(U);
+            if (verbose && master)
+            {
+                Info<< "DIAGNOSTIC AFTER PRESSURE CORRECTION:" << nl
+                    << "  max(U) = " << max(mag(U)).value() << " m/s" << nl
+                    << "  max(phi) = " << max(mag(phi)).value() << " m^3/s" << nl;
 	    }           
         }
     }
