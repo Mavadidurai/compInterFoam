@@ -115,6 +115,15 @@ extern const bool master;
     const dictionary twoTemperatureDict =
         ctrl.subOrEmptyDict("twoTemperatureProperties");
 
+    const Switch applyGasLaserHeating
+    (
+        twoTemperatureDict.lookupOrDefault<Switch>
+        (
+            "applyGasLaserHeating",
+            Switch(twoTemperatureDict.size() == 0)
+        )
+    );
+
     const dimensionedScalar minCoeffDefault
     (
         "minGasMetalExchangeCoeff",
@@ -347,8 +356,11 @@ extern const bool master;
     TEqn -= fvm::Sp(cappedInterfaceExchange, T);
     TEqn.source() += cappedInterfaceExchange*Tl;
     
-    // Add volumetric laser heating [W/m^3]
-    TEqn.source() += activeMask*mixture.Q_laser();
+    // Add volumetric laser heating [W/m^3] when enabled
+    if (applyGasLaserHeating)
+    {
+        TEqn.source() += activeMask*mixture.Q_laser();
+    }
     
     TEqn.relax();
     fvOptions.constrain(TEqn);

@@ -24,7 +24,7 @@ if (recoilPressurePtr)
     tmp<volVectorField> tRecoilGrad = fvc::grad(*recoilPressurePtr);
     volVectorField& recoilGrad = tRecoilGrad.ref();
 
-    const scalar maxAllowedGrad = 1e9; // Pa/m
+    const scalar maxAllowedGrad = 1e7; // Pa/m
     forAll(recoilGrad, cellI)
     {
         const scalar gradMag = mag(recoilGrad[cellI]);
