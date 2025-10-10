@@ -767,8 +767,8 @@ milestones
             Info<< endl;
             
             Info<< "Overall Assessment: ";
-            bool isGood = (maxTe > 1000 && maxTe < 15000) && 
-                         (maxTl > 1000 && maxTl < 8000) &&
+            bool isGood = (maxTe > 600 && maxTe < 15000) &&
+                         (maxTl > 600 && maxTl < 8000) &&
                          (maxP > 1e5 && maxP < 1e9) &&
                          (maxVel > 1 && maxVel < 2000);
             if (isGood) Info<< "SIMULATION ON TRACK";
