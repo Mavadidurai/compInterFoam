@@ -82,7 +82,44 @@ if (pimple.momentumPredictor())
 
 
 volScalarField rAU("rAU", 1.0/UEqn.A());
+{
+    const dictionary& compCoeffs = compInterFoamCoeffsDict(mesh);
+    const Switch enableClamp = compCoeffs.lookupOrDefault<Switch>("enableRAUClamp", false);
 
+    if (enableClamp)
+    {
+        const scalar minRAU = compCoeffs.lookupOrDefault<scalar>("minRAU", 1e-10);
+        const scalar maxRAU = compCoeffs.lookupOrDefault<scalar>("maxRAU", GREAT);
+
+        auto clampValue = [&](scalar& value)
+        {
+            if (!std::isfinite(value))
+            {
+                value = minRAU;
+            }
+            else
+            {
+                value = Foam::max(minRAU, Foam::min(maxRAU, value));
+            }
+        };
+
+        scalarField& rAUInternal = rAU.primitiveFieldRef();
+        forAll(rAUInternal, cellI)
+        {
+            clampValue(rAUInternal[cellI]);
+        }
+
+        volScalarField::Boundary& rAUb = rAU.boundaryFieldRef();
+        forAll(rAUb, patchI)
+        {
+            scalarField& patchField = rAUb[patchI];
+            forAll(patchField, faceI)
+            {
+                clampValue(patchField[faceI]);
+            }
+        }
+    }
+}
 phi = fvc::flux(U);
 // Validate the computed flux to ensure all values are finite
 const scalarField& phiInternal = phi.internalField();

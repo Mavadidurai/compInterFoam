@@ -208,6 +208,11 @@ extern const bool master;
         cappedInterfaceExchange.correctBoundaryConditions();
     }
     
+    const label timeIndex = runTime.timeIndex();
+    const dimensionedScalar maxTlDim = gMax(Tl);
+    const scalar maxTl = maxTlDim.value();
+    const dimensionedScalar dt = runTime.deltaT();
+    
     const scalar metalFractionFloor =
         twoTemperatureDict.lookupOrDefault<scalar>
         (
@@ -264,12 +269,12 @@ if (verbose && master && timeIndex % 10 == 0)
     // Calculate cooling rate
     static scalar lastMaxTl = maxTl;
     const scalar coolingRate = (lastMaxTl - maxTl) / dt.value();
-    
+
     Info<< "Thermal diagnostics:" << nl
         << "  Cooling rate: " << coolingRate << " K/s" << nl
-        << "  Expected equilibrium time: " 
+        << "  Expected equilibrium time: "
         << (maxTl - 300.0) / max(coolingRate, SMALL) << " s" << endl;
-    
+
     lastMaxTl = maxTl;
 }
     volScalarField& activeMask = tActiveMask.ref();

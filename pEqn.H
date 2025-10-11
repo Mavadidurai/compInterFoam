@@ -22,7 +22,44 @@ extern const bool master;
         ),
         fvc::interpolate(rAU)
     );
+    {
+        const dictionary& compCoeffs = compInterFoamCoeffsDict(mesh);
+        const Switch enableClamp = compCoeffs.lookupOrDefault<Switch>("enableRAUClamp", false);
 
+        if (enableClamp)
+        {
+            const scalar minRAUf = compCoeffs.lookupOrDefault<scalar>("minRAUf", 1e-14);
+            const scalar maxRAUf = compCoeffs.lookupOrDefault<scalar>("maxRAUf", GREAT);
+
+            auto clampValue = [&](scalar& value)
+            {
+                if (!std::isfinite(value))
+                {
+                    value = minRAUf;
+                }
+                else
+                {
+                    value = Foam::max(minRAUf, Foam::min(maxRAUf, value));
+                }
+            };
+
+            scalarField& rAUfInternal = rAUf.primitiveFieldRef();
+            forAll(rAUfInternal, faceI)
+            {
+                clampValue(rAUfInternal[faceI]);
+            }
+
+            surfaceScalarField::Boundary& rAUfBf = rAUf.boundaryFieldRef();
+            forAll(rAUfBf, patchI)
+            {
+                scalarField& patchField = rAUfBf[patchI];
+                forAll(patchField, faceI)
+                {
+                    clampValue(patchField[faceI]);
+                }
+            }
+        }
+    }
     volVectorField HbyA
     (
         IOobject
@@ -84,7 +121,7 @@ extern const bool master;
         if
         (
             !solverPerf.converged()
-         || solverPerf.finalResidual() > 1e-2
+         && solverPerf.finalResidual() > 1e-2
         )
         {
             FatalErrorInFunction

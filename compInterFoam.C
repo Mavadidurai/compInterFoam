@@ -82,6 +82,18 @@ namespace
         recoilField.primitiveFieldRef() = 0.0;
         recoilField.correctBoundaryConditions();
     }
+    inline const Foam::dictionary& compInterFoamCoeffsDict(const Foam::fvMesh& mesh)
+    {
+        static const Foam::dictionary emptyDict;
+        const Foam::dictionary& solutionDict = mesh.solutionDict();
+
+        if (solutionDict.found("compInterFoamCoeffs"))
+        {
+            return solutionDict.subDict("compInterFoamCoeffs");
+        }
+
+        return emptyDict;
+    }
 }
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
@@ -124,6 +136,7 @@ int main(int argc, char *argv[])
     // Instantiate PIMPLE control for pressure-velocity coupling
     pimpleControl pimple(mesh);
     
+    runTime.functionObjects().start();
     // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
     Info<< "\nStarting time loop\n" << endl;
@@ -244,6 +257,8 @@ int main(int argc, char *argv[])
         }
 
         ++runTime;
+
+        runTime.functionObjects().execute();
 
         Info<< "Time = " << runTime.timeName() << nl << endl;
 
@@ -424,6 +439,7 @@ int main(int argc, char *argv[])
             }
 
             runTime.write();
+            runTime.functionObjects().write();
         }
 
         runTime.printExecutionTime(Info);
