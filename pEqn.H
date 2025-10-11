@@ -107,7 +107,25 @@ extern const bool master;
         ),
         constrainHbyA(rAU*UEqn.H(), U, p_rgh)
     );
+    /*
+    if (recoilPressurePtr)
+    {
+        tmp<volVectorField> tRecoilGrad = fvc::grad(*recoilPressurePtr);
+        volVectorField& recoilGrad = tRecoilGrad.ref();
 
+        const scalar maxAllowedGrad = 1e4; // Pa/m
+        forAll(recoilGrad, cellI)
+        {
+            const scalar gradMag = mag(recoilGrad[cellI]);
+            if (gradMag > maxAllowedGrad)
+            {
+                recoilGrad[cellI] *= maxAllowedGrad/gradMag;
+            }
+        }
+
+        HbyA += rAU*recoilGrad;
+    }
+    */
     surfaceScalarField phiHbyA
     (
         IOobject
@@ -149,6 +167,12 @@ extern const bool master;
             fvm::laplacian(rAUf, p_rgh)
          == fvc::div(phiHbyA)
         );
+        
+    if (recoilPressurePtr)
+    {
+        const scalar recoilRelaxFactor = 0.01;  // 1% per timestep
+        pEqn.source() -= recoilRelaxFactor * (*recoilPressurePtr) * mesh.V();
+    }
 
         SolverPerformance<scalar> solverPerf =
             pEqn.solve(mesh.solver(p_rgh.select(pimple.finalInnerIter())));
@@ -209,7 +233,95 @@ extern const bool master;
     p = p_rgh + rho*gh;
     p_rgh.correctBoundaryConditions();
     p.correctBoundaryConditions();
+   const dictionary& pressureCoeffs = compInterFoamCoeffsDict(mesh);
+    const Switch pressureClamp = pressureCoeffs.lookupOrDefault<Switch>
+    (
+        "pressureClamp",
+        false
+    );
 
+    if (pressureClamp)
+    {
+        const scalar minPressure = pressureCoeffs.lookupOrDefault<scalar>
+        (
+            "minPressure",
+            -GREAT
+        );
+        const scalar maxPressure = pressureCoeffs.lookupOrDefault<scalar>
+        (
+            "maxPressure",
+            GREAT
+        );
+
+        auto clampField =
+        [
+            &minPressure,
+            &maxPressure
+        ](volScalarField& fld)
+        {
+            bool clamped = false;
+
+            scalarField& internal = fld.primitiveFieldRef();
+            forAll(internal, cellI)
+            {
+                scalar& val = internal[cellI];
+                const scalar limited = Foam::max
+                (
+                    minPressure,
+                    Foam::min(maxPressure, val)
+                );
+
+                if (limited != val)
+                {
+                    val = limited;
+                    clamped = true;
+                }
+            }
+
+            volScalarField::Boundary& bFld = fld.boundaryFieldRef();
+            forAll(bFld, patchI)
+            {
+                scalarField& patchField = bFld[patchI];
+                forAll(patchField, faceI)
+                {
+                    scalar& val = patchField[faceI];
+                    const scalar limited = Foam::max
+                    (
+                        minPressure,
+                        Foam::min(maxPressure, val)
+                    );
+
+                    if (limited != val)
+                    {
+                        val = limited;
+                        clamped = true;
+                    }
+                }
+            }
+
+            return clamped;
+        };
+
+        const bool pClamped = clampField(p);
+        const bool pRghClamped = clampField(p_rgh);
+
+        if (pClamped || pRghClamped)
+        {
+            p.correctBoundaryConditions();
+            p_rgh.correctBoundaryConditions();
+
+            if (master)
+            {
+                WarningInFunction
+                    << "Pressure clamp applied to "
+                    << (pClamped && pRghClamped
+                        ? "p and p_rgh"
+                        : (pClamped ? "p" : "p_rgh"))
+                    << " with limits [" << minPressure
+                    << ", " << maxPressure << "]" << endl;
+            }
+        }
+    }
     K = 0.5*magSqr(U);
 
     if (verbose && master)

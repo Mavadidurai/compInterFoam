@@ -338,6 +338,86 @@ if (verbose && master && timeIndex % 10 == 0)
 
     tmp<volScalarField> tCvolLimited(Foam::max(CvolGas, cvolFloor));
     const volScalarField& CvolLimited = tCvolLimited();
+
+    const scalar maxThermalCourant =
+        Foam::max
+        (
+            scalar(0),
+            Foam::min
+            (
+                ctrl.lookupOrDefault<scalar>("maxThermalCourant", 1.0),
+                scalar(1)
+            )
+        );
+
+    if (maxThermalCourant > SMALL && maxThermalCourant < 1.0 - SMALL)
+    {
+        const scalar limiterAlphaMin =
+            Foam::max
+            (
+                ctrl.lookupOrDefault<scalar>("thermalLimiterAlphaMin", 1e-6),
+                0.0
+            );
+
+        const dimensionedScalar alphaLimiterFloor
+        (
+            "thermalLimiterAlphaMin",
+            dimless,
+            limiterAlphaMin
+        );
+
+        tmp<volScalarField> tThermalCo
+        (
+            (cappedInterfaceExchange*runTime.deltaT())/CvolLimited
+        );
+        volScalarField& thermalCo = tThermalCo.ref();
+        thermalCo = Foam::max
+        (
+            thermalCo,
+            dimensionedScalar("zeroThermalCo", dimless, 0.0)
+        );
+
+        const dimensionedScalar maxThermalCourantDim
+        (
+            "maxThermalCourant",
+            dimless,
+            maxThermalCourant
+        );
+        const dimensionedScalar oneDim("one", dimless, 1.0);
+        const dimensionedScalar epsCo
+        (
+            "epsThermalCourant",
+            dimless,
+            SMALL
+        );
+
+        tmp<volScalarField> tLimiter
+        (
+            maxThermalCourantDim/(thermalCo + epsCo)
+        );
+        volScalarField& limiter = tLimiter.ref();
+        limiter = Foam::min(limiter, oneDim);
+        limiter = Foam::max
+        (
+            limiter,
+            dimensionedScalar("zeroLimiter", dimless, 0.0)
+        );
+
+        tmp<volScalarField> tLimiterActive
+        (
+            Foam::pos(alpha2 - alphaLimiterFloor)
+        );
+        const volScalarField& limiterActive = tLimiterActive();
+
+        limiter = limiterActive*limiter + (oneDim - limiterActive)*oneDim;
+
+        cappedInterfaceExchange *= limiter;
+        cappedInterfaceExchange.correctBoundaryConditions();
+    }
+
+    interfaceExchange = cappedInterfaceExchange;
+    interfaceExchange.correctBoundaryConditions();
+
     tmp<surfaceScalarField> tCvolPhi(fvc::interpolate(CvolLimited)*phi);
     const surfaceScalarField& CvolPhi = tCvolPhi();
     tmp<volScalarField> tContErr
@@ -438,80 +518,10 @@ if (verbose && master && timeIndex % 10 == 0)
 
     tmp<volScalarField> tRawFlux(cappedInterfaceExchange*(Tl - T));
     volScalarField& rawFlux = tRawFlux.ref();
-    
+
     if (qCap > 0)
     {
         rawFlux = Foam::min(Foam::max(rawFlux, -qCapDim), qCapDim);
-    }
-    
-    const scalar maxThermalCourant =
-        Foam::max
-        (
-            scalar(0),
-            Foam::min
-            (
-                ctrl.lookupOrDefault<scalar>("maxThermalCourant", 1.0),
-                scalar(1)
-            )
-        );
-
-    if (maxThermalCourant > SMALL && maxThermalCourant < 1.0 - SMALL)
-    {
-        const scalar limiterAlphaMin =
-            Foam::max
-            (
-                ctrl.lookupOrDefault<scalar>("thermalLimiterAlphaMin", 1e-6),
-                0.0
-            );
-
-        const dimensionedScalar alphaLimiterFloor
-        (
-            "thermalLimiterAlphaMin",
-            dimless,
-            limiterAlphaMin
-        );
-
-        tmp<volScalarField> tThermalCo
-        (
-            (cappedInterfaceExchange*runTime.deltaT())/CvolLimited
-        );
-        volScalarField& thermalCo = tThermalCo.ref();
-        thermalCo = Foam::max
-        (
-            thermalCo,
-            dimensionedScalar("zeroThermalCo", dimless, 0.0)
-        );
-
-        const dimensionedScalar maxThermalCourantDim
-        (
-            "maxThermalCourant",
-            dimless,
-            maxThermalCourant
-        );
-        const dimensionedScalar oneDim("one", dimless, 1.0);
-        const dimensionedScalar epsCo
-        (
-            "epsThermalCourant",
-            dimless,
-            SMALL
-        );
-
-        tmp<volScalarField> tLimiter
-        (
-            maxThermalCourantDim/(thermalCo + epsCo)
-        );
-        volScalarField& limiter = tLimiter.ref();
-        limiter = Foam::min(limiter, oneDim);
-        limiter = Foam::max
-        (
-            limiter,
-            dimensionedScalar("zeroLimiter", dimless, 0.0)
-        );
-        tmp<volScalarField> tLimiterActive(Foam::pos(alpha2 - alphaLimiterFloor));
-        const volScalarField& limiterActive = tLimiterActive();
-
-        limiter = limiterActive*limiter + (oneDim - limiterActive)*oneDim;
-        rawFlux *= limiter;
     }
 
     const volScalarField& limitedFlux = tRawFlux();

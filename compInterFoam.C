@@ -165,7 +165,7 @@ int main(int argc, char *argv[])
                     "minDeltaT",
                     0.0
                 );
-            const scalar minDeltaTValue = Foam::max(rawMinDeltaT, SMALL);
+            const scalar minDeltaTValue = rawMinDeltaT > 0 ? rawMinDeltaT : SMALL;
             const dimensionedScalar maxDeltaT
             (
                 "maxDeltaT",
