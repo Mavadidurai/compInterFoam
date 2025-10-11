@@ -81,9 +81,51 @@ if (pimple.momentumPredictor())
 }
 
 
-volScalarField rAU("rAU", 1.0/UEqn.A());
+const dictionary& compCoeffs = compInterFoamCoeffsDict(mesh);
+
+const scalar diagFloorInput =
+    compCoeffs.lookupOrDefault<scalar>("minUEqnDiag", 1e-9);
+const scalar diagFloor = Foam::max(diagFloorInput, Foam::SMALL);
+
+tmp<volScalarField> tA = UEqn.A();
+volScalarField& A = tA.ref();
+
+bool adjustedDiag = false;
+auto enforceDiagFloor = [&](scalar& coeff)
 {
-    const dictionary& compCoeffs = compInterFoamCoeffsDict(mesh);
+    if (!std::isfinite(coeff) || coeff < diagFloor)
+    {
+        coeff = diagFloor;
+        adjustedDiag = true;
+    }
+};
+
+scalarField& AInternal = A.primitiveFieldRef();
+forAll(AInternal, cellI)
+{
+    enforceDiagFloor(AInternal[cellI]);
+}
+
+volScalarField::Boundary& Aboundary = A.boundaryFieldRef();
+forAll(Aboundary, patchI)
+{
+    scalarField& patchField = Aboundary[patchI];
+    forAll(patchField, faceI)
+    {
+        enforceDiagFloor(patchField[faceI]);
+    }
+}
+
+if (adjustedDiag && verbose && master)
+{
+    WarningInFunction
+        << "Detected non-physical UEqn diagonal coefficients; enforcing "
+        << "a minimum magnitude of " << diagFloor
+        << " before computing rAU" << endl;
+}
+
+volScalarField rAU("rAU", 1.0/A);
+{
     const Switch enableClamp = compCoeffs.lookupOrDefault<Switch>("enableRAUClamp", false);
 
     if (enableClamp)
@@ -122,6 +164,41 @@ volScalarField rAU("rAU", 1.0/UEqn.A());
 }
 phi = fvc::flux(U);
 // Validate the computed flux to ensure all values are finite
+{
+    const scalar minRAU = 1e-12;
+
+    scalarField& rAUInternal = rAU.primitiveFieldRef();
+    bool adjustedRAU = false;
+    forAll(rAUInternal, cellI)
+    {
+        scalar& val = rAUInternal[cellI];
+        if (!std::isfinite(val) || val <= minRAU)
+        {
+            val = minRAU;
+            adjustedRAU = true;
+        }
+    }
+
+    volScalarField::Boundary& rAUb = rAU.boundaryFieldRef();
+    forAll(rAUb, patchI)
+    {
+        scalarField& patchField = rAUb[patchI];
+        forAll(patchField, faceI)
+        {
+            scalar& val = patchField[faceI];
+            if (!std::isfinite(val) || val <= minRAU)
+            {
+                val = minRAU;
+                adjustedRAU = true;
+            }
+        }
+    }
+
+    if (adjustedRAU && verbose && master)
+    {
+        WarningInFunction << "Clamped non-physical rAU entries" << endl;
+    }
+}
 const scalarField& phiInternal = phi.internalField();
 forAll(phiInternal, faceI)
 {

@@ -424,8 +424,10 @@ int main(int argc, char *argv[])
         prevEtot = Etot.value();
         tCe.clear();
 
+        runTime.functionObjects().execute();
+
         // Write additional model fields and data
-        if (runTime.writeTime())
+        if (runTime.write())
         {
             laser.write();
             ttm.write();
@@ -437,9 +439,6 @@ int main(int argc, char *argv[])
             {
                 legacyRecoilPressure->write();
             }
-
-            runTime.write();
-            runTime.functionObjects().write();
         }
 
         runTime.printExecutionTime(Info);

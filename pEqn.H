@@ -23,6 +23,41 @@ extern const bool master;
         fvc::interpolate(rAU)
     );
     {
+        const scalar minRAUf = 1e-12;
+        bool adjustedRAUf = false;
+
+        scalarField& rAUfInternal = rAUf.primitiveFieldRef();
+        forAll(rAUfInternal, faceI)
+        {
+            scalar& val = rAUfInternal[faceI];
+            if (!std::isfinite(val) || val <= minRAUf)
+            {
+                val = minRAUf;
+                adjustedRAUf = true;
+            }
+        }
+
+        surfaceScalarField::Boundary& rAUfBf = rAUf.boundaryFieldRef();
+        forAll(rAUfBf, patchI)
+        {
+            scalarField& patchField = rAUfBf[patchI];
+            forAll(patchField, faceI)
+            {
+                scalar& val = patchField[faceI];
+                if (!std::isfinite(val) || val <= minRAUf)
+                {
+                    val = minRAUf;
+                    adjustedRAUf = true;
+                }
+            }
+        }
+
+        if (adjustedRAUf && verbose && master)
+        {
+            WarningInFunction << "Clamped non-physical rAUf entries" << endl;
+        }
+    }
+    {
         const dictionary& compCoeffs = compInterFoamCoeffsDict(mesh);
         const Switch enableClamp = compCoeffs.lookupOrDefault<Switch>("enableRAUClamp", false);
 
