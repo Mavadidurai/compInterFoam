@@ -259,7 +259,19 @@ extern const bool master;
                 )
             );
     }
-
+if (verbose && master && timeIndex % 10 == 0)
+{
+    // Calculate cooling rate
+    static scalar lastMaxTl = maxTl;
+    const scalar coolingRate = (lastMaxTl - maxTl) / dt.value();
+    
+    Info<< "Thermal diagnostics:" << nl
+        << "  Cooling rate: " << coolingRate << " K/s" << nl
+        << "  Expected equilibrium time: " 
+        << (maxTl - 300.0) / max(coolingRate, SMALL) << " s" << endl;
+    
+    lastMaxTl = maxTl;
+}
     volScalarField& activeMask = tActiveMask.ref();
     activeMask = Foam::min(Foam::max(activeMask, scalar(0)), scalar(1));
 

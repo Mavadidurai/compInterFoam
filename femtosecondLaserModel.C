@@ -1757,11 +1757,39 @@ void femtosecondLaserModel::calculateSource() const
 
     if (overlapDuration <= VSMALL)
     {
-        if (verbose && master && t <= comparisonLaserEnd + 1e-12)
+        const scalar tol = 1e-12;
+        const bool beforePulse = t <= laserStartTime_ + tol;
+        const bool afterPulse = tStart >= comparisonLaserEnd - tol;
+
+        if (beforePulse)
         {
-            Info<< "No time overlap - laser inactive this step" << endl;
+            if (verbose && master && timeIndex % 10 == 0)
+            {
+                Info<< "No time overlap - before laser start" << endl;
+            }
+            sourceValid_ = true;
+            return;
         }
-        finalizePulseEnergyCheck("inactive window", t);
+
+        if (afterPulse)
+        {
+            if (verbose && master && timeIndex % 10 == 0)
+            {
+                Info<< "No time overlap - laser pulse finished" << endl;
+            }
+            if (!pulseCompleted_)
+            {
+                finalizePulseEnergyCheck("post-pulse inactive window", t);
+                pulseCompleted_ = true;
+            }
+            sourceValid_ = true;
+            return;
+        }
+
+        if (verbose && master && timeIndex % 10 == 0)
+        {
+            Info<< "No time overlap - inside laser window without overlap" << endl;
+        }
         sourceValid_ = true;
         return;
     }
@@ -1833,8 +1861,10 @@ void femtosecondLaserModel::calculateSource() const
             }
         }
 
+        const bool haveOverlap = overlapDuration > VSMALL;
+
         bool withinActiveWindow =
-            (overlapEnd - overlapStart) > SMALL
+            haveOverlap
          && t >= laserStartTime_
          && t <= comparisonLaserEnd;
 
