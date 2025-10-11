@@ -343,18 +343,11 @@ extern const bool master;
     );
 
     // Add gas-metal coupling terms
-    // The gas-metal exchange term represents a heat sink of the form
-    //   q = h (Tl - T)
-    // which must appear in the matrix as -h*T on the left-hand side and
-    // +h*Tl on the source vector.  The previous implementation added the
-    // coefficient with a positive sign, which effectively drove the
-    // equation towards +h*T.  This inverted the physics, injected heat
-    // instead of removing it, and was the root cause of the runaway
-    // temperatures (e.g. the 1e19 K clamp) and the ensuing energy audit
-    // failure seen in the log.  Switching to a negative sign restores the
-    // correct sink behaviour.
-    TEqn -= fvm::Sp(cappedInterfaceExchange, T);
-    TEqn.source() += cappedInterfaceExchange*Tl;
+    // The exchange represents q = h (Tl - T), i.e. a sink proportional to
+    // the temperature difference.  This requires a positive diagonal
+    // contribution (+h*T) and the matching explicit source (-h*Tl).
+    TEqn += fvm::Sp(cappedInterfaceExchange, T);
+    TEqn.source() -= cappedInterfaceExchange*Tl;
     
     // Add volumetric laser heating [W/m^3] when enabled
     if (applyGasLaserHeating)
