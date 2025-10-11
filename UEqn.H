@@ -25,12 +25,29 @@ if (recoilPressurePtr)
     volVectorField& recoilGrad = tRecoilGrad.ref();
 
     const scalar maxAllowedGrad = 1e7; // Pa/m
+    const scalar maxRecoilDeltaU = 2000.0; // m/s change per time-step
+    const scalar deltaTVal = Foam::max(runTime.deltaTValue(), Foam::SMALL);
+
     forAll(recoilGrad, cellI)
     {
-        const scalar gradMag = mag(recoilGrad[cellI]);
+        vector& gradVal = recoilGrad[cellI];
+        const scalar gradMag = mag(gradVal);
         if (gradMag > maxAllowedGrad)
         {
-            recoilGrad[cellI] *= maxAllowedGrad/gradMag;
+            gradVal *= maxAllowedGrad/(gradMag + VSMALL);
+        }
+
+        const scalar rhoVal = rho[cellI];
+        if (!std::isfinite(rhoVal) || rhoVal <= SMALL)
+        {
+            gradVal = vector::zero;
+            continue;
+        }
+
+        const scalar deltaUMag = (mag(gradVal)/rhoVal)*deltaTVal;
+        if (deltaUMag > maxRecoilDeltaU)
+        {
+            gradVal *= maxRecoilDeltaU/(deltaUMag + VSMALL);
         }
     }
 
@@ -61,19 +78,21 @@ if (pimple.momentumPredictor())
 
     // Limit unphysical velocities that can destabilise the pressure solve
     const scalar maxRealisticVel = 2000.0;
-    forAll(U, cellI)
+    vectorField& Uinternal = U.primitiveFieldRef();
+    forAll(Uinternal, cellI)
     {
-        const scalar magU = mag(U[cellI]);
+        vector& Ui = Uinternal[cellI];
+        const scalar magU = mag(Ui);
         if (std::isfinite(magU))
         {
             if (magU > maxRealisticVel)
             {
-                U[cellI] *= maxRealisticVel/magU;
+                Ui *= maxRealisticVel/magU;
             }
         }
         else
         {
-            U[cellI] = vector::zero;
+            Ui = vector::zero;
         }
     }
 

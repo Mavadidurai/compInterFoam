@@ -62,12 +62,17 @@ private:
     scalar alphaMin_;               // Minimum alpha for recoil activation
     scalar alphaMax_;               // Maximum alpha for recoil activation
     scalar massRateEps_;            // Tolerance for evaporation rate comparisons
-    scalar metalAlphaCutoff_;       // Minimum alpha treated as metal-dominated    
+    scalar metalAlphaCutoff_;       // Minimum alpha treated as metal-dominated
     // Field for recoil pressure
     volScalarField recoilPressure_;  // Recoil pressure from vaporization
     scalarField previousRecoilPressure_;        // Cached recoil pressure for smoothing
     bool havePreviousRecoil_;                    // Flag indicating cache validity
-
+    scalar rampProgress_;            // Progress of recoil ramp (0-1)
+    scalar rampIncrement_;           // Increment per time step for recoil ramp
+    scalar recoilMaxDelta_;          // Maximum recoil change rate [Pa/s]
+    scalar recoilSmoothCoeff_;       // Weight for optional smoothing
+    label  recoilSmoothIters_;       // Number of smoothing iterations
+    
 public:
     // Constructor
     advancedInterfaceCapturing
@@ -91,13 +96,14 @@ public:
     // Write functions
     void write() const;
     void clearInternalFields()
-{
-    // Reset internal fields to prevent memory issues
-    recoilPressure_ = dimensionedScalar("zero", dimPressure, 0.0);
-    previousRecoilPressure_.setSize(mesh_.nCells());
-    previousRecoilPressure_ = 0.0;
-    havePreviousRecoil_ = false;   
-}
+    {
+        // Reset internal fields to prevent memory issues
+        recoilPressure_ = dimensionedScalar("zero", dimPressure, 0.0);
+        previousRecoilPressure_.setSize(mesh_.nCells());
+        previousRecoilPressure_ = 0.0;
+        havePreviousRecoil_ = false;
+        rampProgress_ = 0.0;
+    }
 };
 } // End namespace Foam
 #endif

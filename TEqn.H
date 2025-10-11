@@ -529,7 +529,11 @@ if (verbose && master && timeIndex % 10 == 0)
     }
     else
     {
-        gasMetalHeatFlux = metalToGasFlux;
+        const scalar maxLocalFlux = 1e10;  // 10 GW/m³ cap
+	gasMetalHeatFlux = Foam::min(
+    Foam::max(metalToGasFlux, -maxLocalFlux), 
+    maxLocalFlux
+);
     }
 
     if (qCap > 0)

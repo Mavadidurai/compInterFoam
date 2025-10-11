@@ -113,7 +113,12 @@ advancedInterfaceCapturing::advancedInterfaceCapturing
         dimensionedScalar("zero", dimPressure, 0.0)
     ),
     previousRecoilPressure_(mesh.nCells(), 0.0),
-    havePreviousRecoil_(false)
+    havePreviousRecoil_(false),
+    rampProgress_(0.0),
+    rampIncrement_(1.0),
+    recoilMaxDelta_(0.0),
+    recoilSmoothCoeff_(0.0),
+    recoilSmoothIters_(0)
 {
     const dictionary& aicDict =
         mesh.time().controlDict().subOrEmptyDict("advancedInterfaceCapturing");
@@ -292,6 +297,29 @@ advancedInterfaceCapturing::advancedInterfaceCapturing
         "metalAlphaCutoff",
         metalAlphaCutoff_
     );
+    const label rampSteps = Foam::max
+    (
+        aicDict.lookupOrDefault<label>("recoilRampSteps", 1),
+        label(1)
+    );
+    rampIncrement_ = 1.0/static_cast<scalar>(rampSteps);
+    rampProgress_ = 0.0;
+    recoilMaxDelta_ = Foam::max
+    (
+        aicDict.lookupOrDefault<scalar>("recoilMaxDelta", recoilMaxDelta_),
+        scalar(0)
+    );
+    recoilSmoothCoeff_ = aicDict.lookupOrDefault<scalar>
+    (
+        "recoilSmoothCoeff",
+        recoilSmoothCoeff_
+    );
+    recoilSmoothCoeff_ = Foam::min(Foam::max(recoilSmoothCoeff_, scalar(0)), scalar(1));
+    recoilSmoothIters_ = Foam::max
+    (
+        aicDict.lookupOrDefault<label>("recoilSmoothIters", recoilSmoothIters_),
+        label(0)
+    );
     if (alphaMin_ >= alphaMax_)
     {
         FatalErrorInFunction
@@ -421,6 +449,7 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
         }
     }
     const bool verbose = mesh_.time().controlDict().lookupOrDefault<Switch>("verbose", false);
+    const bool recoilActive = haveMetalCell && maxTemp >= recoilOnTemp;
     if (verbose && master)
     {
         Info<< "Calculating recoil pressure at t = " << currentTime
@@ -429,10 +458,11 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
             << ", evaporation T = " << evaporationOnTemp << "K" << endl;
     }
     // OPTIMIZED: Early exit using cached values
-    if (!haveMetalCell || maxTemp < recoilOnTemp)
+    if (!recoilActive)
     {
         // OPTIMIZED: Use cached zero value instead of creating new one
         recoilPressure_ = dimensionedScalar("zero", dimPressure, 0.0);
+        rampProgress_ = 0.0;
         if (verbose && master)
         {
             Info<< "Temperature too low for recoil pressure" << endl;
@@ -442,6 +472,8 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
         recoilPressure_.correctBoundaryConditions();
         return;
     }
+    rampProgress_ = Foam::min(rampProgress_ + rampIncrement_, scalar(1));
+    const scalar rampFactor = rampProgress_;
     // Initialize recoil pressure field
     recoilPressure_ = dimensionedScalar("zero", dimPressure, 0.0);
     // Constants for recoil pressure model sourced from dictionaries
@@ -451,6 +483,10 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
     const scalar recoilRelax = recoilRelax_;
     const bool applyRelaxation = recoilRelax < (1.0 - Foam::SMALL);
     const scalar massRateEps = massRateEps_;
+    const bool limitRecoilChange = recoilMaxDelta_ > SMALL;
+    const scalar maxDeltaPerStep = limitRecoilChange
+        ? recoilMaxDelta_ * mesh_.time().deltaTValue()
+        : scalar(0);
     // Access fields only once for efficiency and validate sizes
     scalarField& recoilField = recoilPressure_.primitiveFieldRef();
     const labelListList& cellCells = mesh_.cellCells();
@@ -560,9 +596,66 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
 
         localRecoil *= alphaMask;
 
-        recoilField[cellI] = clampRecoil && !scaleRecoilMax
+        scalar limitedRecoil = clampRecoil && !scaleRecoilMax
             ? Foam::min(localRecoil, recoilMax_)
             : localRecoil;
+
+        limitedRecoil *= rampFactor;
+
+        if (limitRecoilChange && maxDeltaPerStep > SMALL)
+        {
+            const scalar previousValue = previousRecoilPressure_[cellI];
+            const scalar delta = limitedRecoil - previousValue;
+            if (delta > maxDeltaPerStep)
+            {
+                limitedRecoil = previousValue + maxDeltaPerStep;
+            }
+            else if (delta < -maxDeltaPerStep)
+            {
+                limitedRecoil = previousValue - maxDeltaPerStep;
+            }
+        }
+
+        recoilField[cellI] = limitedRecoil;
+    }
+    if (recoilSmoothCoeff_ > SMALL && recoilSmoothIters_ > 0)
+    {
+        const scalar coeff = Foam::min(Foam::max(recoilSmoothCoeff_, scalar(0)), scalar(1));
+        scalarField workingField(recoilField);
+        scalarField updatedField(recoilField.size(), 0.0);
+
+        for (label iter = 0; iter < recoilSmoothIters_; ++iter)
+        {
+            forAll(workingField, cellI)
+            {
+                const labelList& neighbours = cellCells[cellI];
+                if (neighbours.size())
+                {
+                    scalar sum = 0.0;
+                    label count = 0;
+                    forAll(neighbours, nbrI)
+                    {
+                        const label nbrCellI = neighbours[nbrI];
+                        if (nbrCellI >= 0 && nbrCellI < workingField.size())
+                        {
+                            sum += workingField[nbrCellI];
+                            ++count;
+                        }
+                    }
+                    if (count > 0)
+                    {
+                        const scalar neighbourAvg = sum/static_cast<scalar>(count);
+                        updatedField[cellI] =
+                            (1.0 - coeff)*workingField[cellI] + coeff*neighbourAvg;
+                        continue;
+                    }
+                }
+                updatedField[cellI] = workingField[cellI];
+            }
+            workingField = updatedField;
+        }
+
+        recoilField = workingField;
     }
     if (applyRelaxation)
     {

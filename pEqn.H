@@ -174,19 +174,21 @@ extern const bool master;
             U.correctBoundaryConditions();
             fvOptions.correct(U);
             const scalar maxRealisticVel = 2000.0;
-            forAll(U, cellI)
+            vectorField& Uinternal = U.primitiveFieldRef();
+            forAll(Uinternal, cellI)
             {
-                const scalar magU = mag(U[cellI]);
+                vector& Ui = Uinternal[cellI];
+                const scalar magU = mag(Ui);
                 if (std::isfinite(magU))
                 {
                     if (magU > maxRealisticVel)
                     {
-                        U[cellI] *= maxRealisticVel/magU;
+                        Ui *= maxRealisticVel/magU;
                     }
                 }
                 else
                 {
-                    U[cellI] = vector::zero;
+                    Ui = vector::zero;
                 }
             }
             phi = fvc::flux(U);
