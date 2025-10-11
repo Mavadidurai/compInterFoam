@@ -64,9 +64,16 @@ if (pimple.momentumPredictor())
     forAll(U, cellI)
     {
         const scalar magU = mag(U[cellI]);
-        if (magU > maxRealisticVel)
+        if (std::isfinite(magU))
         {
-            U[cellI] *= maxRealisticVel/magU;
+            if (magU > maxRealisticVel)
+            {
+                U[cellI] *= maxRealisticVel/magU;
+            }
+        }
+        else
+        {
+            U[cellI] = vector::zero;
         }
     }
 

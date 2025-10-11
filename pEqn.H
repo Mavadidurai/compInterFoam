@@ -74,11 +74,25 @@ extern const bool master;
     {
         fvScalarMatrix pEqn
         (
-            fvc::div(phiHbyA)
-          - fvm::laplacian(rAUf, p_rgh)
+            fvm::laplacian(rAUf, p_rgh)
+         == fvc::div(phiHbyA)
         );
 
-        pEqn.solve(mesh.solver(p_rgh.select(pimple.finalInnerIter())));
+        SolverPerformance<scalar> solverPerf =
+            pEqn.solve(mesh.solver(p_rgh.select(pimple.finalInnerIter())));
+
+        if
+        (
+            !solverPerf.converged()
+         || solverPerf.finalResidual() > 1e-2
+        )
+        {
+            FatalErrorInFunction
+                << "Pressure solve failed: converged="
+                << solverPerf.converged()
+                << ", final residual=" << solverPerf.finalResidual()
+                << exit(FatalError);
+        }
 
         if (pimple.finalNonOrthogonalIter())
         {
@@ -91,9 +105,16 @@ extern const bool master;
             forAll(U, cellI)
             {
                 const scalar magU = mag(U[cellI]);
-                if (magU > maxRealisticVel)
+                if (std::isfinite(magU))
                 {
-                    U[cellI] *= maxRealisticVel/magU;
+                    if (magU > maxRealisticVel)
+                    {
+                        U[cellI] *= maxRealisticVel/magU;
+                    }
+                }
+                else
+                {
+                    U[cellI] = vector::zero;
                 }
             }
             phi = fvc::flux(U);
