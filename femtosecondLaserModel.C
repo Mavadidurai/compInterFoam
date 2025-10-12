@@ -1138,8 +1138,7 @@ femtosecondLaserModel::evaluateTemporalEnvelope
             else
             {
                 const scalar halfWindow = 0.5*windowWidth;
-                const scalar maxCenterOffset = 3.0*sigma;
-                const scalar centerOffset = min(halfWindow, maxCenterOffset);
+                const scalar centerOffset = min(halfWindow, sigma);
 
                 center = laserStartTime_ + centerOffset;
             }
@@ -1150,12 +1149,19 @@ femtosecondLaserModel::evaluateTemporalEnvelope
 
         if (result.temporalIntegral > VSMALL)
         {
-            const scalar fullIntegral = sigma*sqrt(2.0*constant::mathematical::pi);
+            const scalar windowIntegral =
+                gaussianWindowIntegral
+                (
+                    laserStartTime_,
+                    laserEndTime_,
+                    center,
+                    sigma
+                );
             result.expectedEnergy =
                 pulseEnergy_.value()
               * depositableFraction
-              * coverageFraction               
-              * result.temporalIntegral/max(fullIntegral, VSMALL);
+              * coverageFraction
+              * result.temporalIntegral/max(windowIntegral, VSMALL);
         }
     }
 
