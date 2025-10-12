@@ -84,14 +84,17 @@ namespace
     }
     inline const Foam::dictionary& compInterFoamCoeffsDict(const Foam::fvMesh& mesh)
     {
+        static Foam::dictionary cachedCoeffs;
         static const Foam::dictionary emptyDict;
         const Foam::dictionary& solutionDict = mesh.solutionDict();
 
         if (solutionDict.found("compInterFoamCoeffs"))
         {
-            return solutionDict.subDict("compInterFoamCoeffs");
+            cachedCoeffs = solutionDict.subDict("compInterFoamCoeffs");
+            return cachedCoeffs;
         }
 
+        cachedCoeffs.clear();
         return emptyDict;
     }
 }
