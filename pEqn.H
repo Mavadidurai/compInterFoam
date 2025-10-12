@@ -11,6 +11,8 @@ extern const bool master;
     }
 
     const dictionary& compCoeffs = compInterFoamCoeffsDict(mesh);
+    const scalar velocityClamp =
+        compCoeffs.lookupOrDefault<scalar>("maxVelocity", 2000.0);
     surfaceScalarField rAUf
     (
         IOobject
@@ -199,22 +201,24 @@ extern const bool master;
 
             U = HbyA + rAU*fvc::reconstruct((phig + pEqn.flux())/rAUf);
             fvOptions.correct(U);
-            const scalar maxRealisticVel = 2000.0;
-            vectorField& Uinternal = U.primitiveFieldRef();
-            forAll(Uinternal, cellI)
+            if (velocityClamp > 0)
             {
-                vector& Ui = Uinternal[cellI];
-                const scalar magU = mag(Ui);
-                if (std::isfinite(magU))
+                vectorField& Uinternal = U.primitiveFieldRef();
+                forAll(Uinternal, cellI)
                 {
-                    if (magU > maxRealisticVel)
+                    vector& Ui = Uinternal[cellI];
+                    const scalar magU = mag(Ui);
+                    if (std::isfinite(magU))
                     {
-                        Ui *= maxRealisticVel/magU;
+                        if (magU > velocityClamp)
+                        {
+                            Ui *= velocityClamp/magU;
+                        }
                     }
-                }
-                else
-                {
-                    Ui = vector::zero;
+                    else
+                    {
+                        Ui = vector::zero;
+                    }
                 }
             }
             U.correctBoundaryConditions();

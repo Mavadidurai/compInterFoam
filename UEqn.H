@@ -9,7 +9,9 @@ fvVectorMatrix UEqn
 
 UEqn.relax();
 fvOptions.constrain(UEqn);
-
+const dictionary& compCoeffs = compInterFoamCoeffsDict(mesh);
+const scalar velocityClamp =
+    compCoeffs.lookupOrDefault<scalar>("maxVelocity", 2000.0);
 if (pimple.momentumPredictor())
 {
     solve
@@ -29,31 +31,30 @@ if (pimple.momentumPredictor())
 
     fvOptions.correct(U);
 
-    // Limit unphysical velocities that can destabilise the pressure solve
-    const scalar maxRealisticVel = 2000.0;
-    vectorField& Uinternal = U.primitiveFieldRef();
-    forAll(Uinternal, cellI)
+    if (velocityClamp > 0)
     {
-        vector& Ui = Uinternal[cellI];
-        const scalar magU = mag(Ui);
-        if (std::isfinite(magU))
+        // Limit unphysical velocities that can destabilise the pressure solve
+        vectorField& Uinternal = U.primitiveFieldRef();
+        forAll(Uinternal, cellI)
         {
-            if (magU > maxRealisticVel)
+            vector& Ui = Uinternal[cellI];
+            const scalar magU = mag(Ui);
+            if (std::isfinite(magU))
             {
-                Ui *= maxRealisticVel/magU;
+                if (magU > velocityClamp)
+                {
+                    Ui *= velocityClamp/magU;
+                }
             }
-        }
-        else
-        {
-            Ui = vector::zero;
+            else
+            {
+                Ui = vector::zero;
+            }
         }
     }
     U.correctBoundaryConditions();
     K = 0.5*magSqr(U);
 }
-
-
-const dictionary& compCoeffs = compInterFoamCoeffsDict(mesh);
 
 const scalar diagFloorInput =
     compCoeffs.lookupOrDefault<scalar>("minUEqnDiag", 1e-9);
