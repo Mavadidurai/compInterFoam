@@ -199,7 +199,13 @@ extern const bool master;
         {
             phi = phiHbyA + pEqn.flux();
 
-            U = HbyA + rAU*fvc::reconstruct((phig + pEqn.flux())/rAUf);
+            // Reconstruct the pressure correction contribution only.  The
+            // gravitational/capillary term (phig) is already embedded in
+            // phiHbyA, so adding it again double-counts the body-force
+            // contribution and drives the pressure field into the clamp
+            // limits.  Recover the standard OpenFOAM formulation by using
+            // just the pressure-correction flux.
+            U = HbyA + rAU*fvc::reconstruct(pEqn.flux()/rAUf);
             fvOptions.correct(U);
             if (velocityClamp > 0)
             {
