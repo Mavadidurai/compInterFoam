@@ -1,0 +1,91 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+| =========                 |                                                 |
+| \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox           |
+|  \\    /   O peration     | Version:  v2406                                 |
+|   \\  /    A nd           | Website:  www.openfoam.com                      |
+|    \\/     M anipulation  |                                                 |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    location    "constant";
+    object      laserProperties;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+// Accepted keys for femtosecondLaserModel:
+//   peakIntensity       [W/m^2]
+//   pulseWidth          [s]
+//   wavelength          [m]
+//   absorptionCoeff     [1/m]
+//   spotSize            [m]
+//   pulseEnergy         [J]
+//   direction           (vector)
+//   focus               (point)
+//   scanVelocity        (vector, optional)
+//   pulseFrequency      [1/s, optional]
+//   pulseDutyCycle      [-, optional]
+//   reflectivity        [-]
+//   gaussianProfile     [bool]
+//   continuousLaser     [bool]
+//   pulseCenterTime     [s, optional]
+//   gasAbsorptionCoeff  [1/m, optional, default 0]
+// Parameter checks enforce pulseWidth 10fs–10ps, wavelength 100nm–2µm
+// and peakIntensity ≤6e16 W/m^2.
+// Gaussian pulse focused in the 71.4 nm donor film (y=20.0000–20.0714 µm)
+// Domain: x∈[0,50e-6], y∈[0,32.0714e-6], z∈[0,10e-6]
+// CORRECTED: Specify exact film thickness to match blockMeshDict geometry
+filmThicknessExpected    7.14e-8;    // 71.4 nm (matches y3 - y2 = 20.0714 - 20.0000)
+filmCenterY         20.0357e-6;     // center at focus.y
+
+// geometry coupling
+gasAbsorptionCoeff 0;     // [1/m] gas absorption (0 disables direct gas heating)
+
+// --- Energy & timing ---
+// CRITICAL: Keep pulse energy compatible with interface heat-flux limit
+// NOTE: Omit pulseCenterTime to fire the single pulse immediately after
+//       laserStartTime.  Supplying a later center delays deposition.
+pulseEnergy              3e-6;        // 300 nJ (was 3e-7, increased 10x)
+pulseWidth               2.14e-12;    // 2.14 ps (was 214 fs, increased 10x for gradual heating)
+
+// --- Spatial Gaussian (match the box center and film depth) ---
+spotSize        6.0e-6;       // [m] beam diameter (3 μm 1/e² radius)
+// Put the beam center inside the domain (mid x,z; inside donor film at y≈20.0357 μm)
+focus            (25e-6 20.0357e-6 5e-6);
+direction       (0 -1 0);
+
+// --- Wavelength / interaction ---
+wavelength          3.43e-7;  // [m]
+
+// Absorption
+absorptionCoeff     6.0e7;    // [1/m] ≈17 nm optical depth in Ti at 343 nm
+
+// Reflectivity / profile
+reflectivity        0.35;
+
+temporalShape       gaussian;
+spatialShape        gaussian;
+
+gaussianProfile     true;
+
+// --- Peak intensity (derived to match pulseEnergy exactly) ---
+//peakIntensity       9.315644e14;    // [W/m^2] reported in diagnostics
+
+// Optional intensity entry (consistent with pulseEnergy & pulseWidth)
+continuousLaser     false;
+maxVolumetricSource 0;  // [W/m³] disable cap so absorbed pulse energy is not clipped
+
+// CRITICAL: Enable pulse frequency for extended operation
+//pulseFrequency      1e12;     // [1/s] 1 THz repetition rate for sustained heating
+//pulseDutyCycle      0.1;      // 10% duty cycle
+pulseFrequency      0;        // [1/s] disabled for single pulse operation
+pulseDutyCycle      0;        // [-] duty cycle unused when pulses disabled
+
+// Energy tolerance for validation
+pulseEnergyToleranceRel 0.05; // 5% relative tolerance
+pulseEnergyToleranceAbs 1e-9; // 1 nJ absolute tolerance
+
+// NOTE: If peakIntensity is specified, it must match the derived value within 5% or
+// the solver now aborts, so omit it to accept the computed value when iterating setups.
+// ************************************************************************* //

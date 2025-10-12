@@ -1,0 +1,780 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+| =========                 |                                                 |
+| \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox           |
+|  \\    /   O peration     | Version:  v2406                                 |
+|   \\  /    A nd           | Website:  www.openfoam.com                      |
+|    \\/     M anipulation  |                                                 |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    location    "system";
+    object      controlDict;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+application     compInterFoam;
+
+startFrom       latestTime;
+startTime       0;
+stopAt          endTime;
+endTime         1e-9;          // EXTENDED: 1 ns total for complete LIFT process
+
+deltaT          1e-13;         // Base time step (100 fs)
+adjustTimeStep  yes;           // ENABLE adaptive time stepping
+maxCo           0.05;          // Allow reasonable growth while staying stable
+maxAlphaCo      0.005;         // Aggressive interface limit
+maxDeltaT       1e-13;         // Cap adaptive growth (100 fs)
+minDeltaT       1e-15;         // Minimum 1 fs for precision
+
+verbose         true;
+thermalFluxRelax 0.1;          // Stronger damping of interface heat flux
+maxThermalCourant 0.1;         // Tightened for thermal stability
+
+// ADAPTIVE OUTPUT - more frequent during active phase, less during cooling
+writeControl    adjustableRunTime;
+writeInterval   1e-13;         // Start with 1 ps intervals
+purgeWrite      50;            // Keep more time directories for analysis
+writeFormat     ascii;
+writePrecision  8;
+writeCompression off;
+timeFormat      general;
+timePrecision   8;             // Increased precision for longer runs
+fileHandler     uncollated;
+
+runTimeModifiable yes;
+
+// EXTENDED PHASE-CHANGE - longer activation for complete process
+phaseChangeCoeffs
+{
+    model               temperatureWindow;
+    hf                  hf  [0 2 -2 0 0 0 0] 3.65e5;
+    Tsol                Tsol [0 0 0 1 0 0 0] 1941;
+    Tvap                Tvap [0 0 0 1 0 0 0] 3560;
+    windowWidth         50;
+    dtFloor             1e-15;         // Reduced for precision
+    relaxationTime      1e-12;        // Faster response for femtosecond dynamics
+    maxSource           1e10;          // Allow sufficient heating-driven mass transfer
+    minCoefficient      1e7;          // Reduced for gradual cooling
+    onlyAboveVapor      true;
+    metalFractionCutoff 1e-6;
+    // EXTENDED ACTIVATION - through transfer and cooling
+    activationTime      ((0 4e-10));  // Active through 400 ps
+}
+
+// EXTENDED MASS TRANSFER - through solidification
+massTransferCoeffs
+{
+    tStart  (0);
+    tEnd    (4e-10);   // Active through 400 ps
+    rateMax 1e6;      // Reduced for later phase stability
+}
+
+// LASER TIMING - shorter pulse, longer observation
+laserStartTime      0;
+laserEndTime    4e-10;
+
+// Advanced interface capturing - TUNED FOR EXTENDED SIMULATION
+useAdvancedInterfaceCapturing  true;
+advancedInterfaceCapturing
+{
+    pressureScale         1;
+    recoilMax             1e7;
+    clampRecoil           true;
+    scaleRecoilMax        true;
+    recoilTempOffset      20;
+    phaseChangeTempOffset 20;
+    recoilRelax           0.1;
+    alphaMin              0.05;
+    alphaMax              0.95;
+    maxPhysicalTemperature 5000;    
+}
+
+logRecoilSuppression true;
+
+// Temperature clamping - EXTENDED RANGE
+enableTClamp    true;
+minT            200;           // Allow cooling below room temp
+maxT            15000;          // Clamp high temperatures for stability
+
+// Two-temperature model properties - OPTIMIZED FOR EXTENDED RUNS
+twoTemperatureProperties
+{
+    Ce  [1 -1 -2 -1 0 0 0] 1.5e6;
+    Cl  [1 -1 -2 -1 0 0 0] 2.5e6;
+    G   [1 -1 -3 -1 0 0 0] 5e16;
+    De  [0  2 -1  0 0 0 0] 1e-4;
+
+    gasMetalExchangeCoeff [1 -1 -3 -1 0 0 0] 1e10;
+    minGasMetalExchangeCoeff [1 -1 -3 -1 0 0 0] 0;
+    maxGasMetalExchangeCoeff [1 -1 -3 -1 0 0 0] 1e13;
+    maxGasMetalHeatFlux    1e12;
+    minTe 200;             // Allow cooling
+    maxTe 15000;
+    ambientTemperature 300;
+
+    // ADAPTIVE MICRO-STEPPING
+    electronSubCycles        1;
+    minElectronSubCycles     1;
+    maxElectronSubCycles     20;     // Allow rapid transients
+    maxElectronDeltaT        [0 0 1 0 0 0 0] 1e-14;  // Guard rapid transients
+
+    nInnerCouplingSweeps         3;  // More coupling iterations
+    innerCouplingResidualTol     1e-4; // Enable convergence check
+    
+    klHighTThreshold 1000;
+    klExponent       0.5;
+
+    metalFractionFloor      1e-6;
+    metalFractionCutoff     1e-6;
+    metalAmbientBlendWidth  1e-3;
+
+    energyTolerance         0.02;    // Relaxed for long runs
+    energyDiagnostics       true;
+    temperatureDiagnostics  true;   // Reduce output volume
+    energyAudit             true;
+}
+
+// Clean monitoring functions
+functions
+{
+  // Adaptive output frequency based on simulation phase
+    phaseAdaptiveOutput
+    {
+        type            coded;
+        libs            ("libutilityFunctionObjects.so");
+        name            phaseAdaptiveOutput;
+        writeControl    timeStep;
+        writeInterval   1;
+
+        codeWrite
+        #{
+            const scalar t = mesh().time().value();
+            static scalar activeWriteInterval = -1;
+            static scalar nextWriteTime = -1;
+            scalar newInterval = 1e-12;  // Default 1 ps
+
+            if (t < 1e-10)       newInterval = 1e-12;  // 1 ps
+            else if (t < 3e-10)  newInterval = 2e-12;  // 2 ps
+            else if (t < 5e-10)  newInterval = 5e-12;  // 5 ps
+            else                 newInterval = 1e-11;  // 10 ps
+
+            Time& runTime = const_cast<Time&>(mesh().time());
+            const scalar currentDeltaT = runTime.deltaTValue();
+
+            if
+            (
+                activeWriteInterval < 0
+             || mag(newInterval - activeWriteInterval) > 0.1e-12
+            )
+            {
+                activeWriteInterval = newInterval;
+
+                label completedSteps = 0;
+                if (activeWriteInterval > 0)
+                {
+                    completedSteps = label(t/activeWriteInterval);
+                }
+
+                nextWriteTime = (completedSteps + 1)*activeWriteInterval;
+
+                if (nextWriteTime <= t + 0.5*currentDeltaT)
+                {
+                    nextWriteTime += activeWriteInterval;
+                }
+
+                if (Pstream::master()) {
+                    Info<< "Adaptive output: Changed write interval to "
+                        << activeWriteInterval*1e12 << " ps at t="
+                        << t*1e12 << " ps" << endl;
+                }
+            }
+
+            const scalar writeTolerance = 0.5*currentDeltaT;
+
+            if (nextWriteTime >= 0 && t + writeTolerance >= nextWriteTime) {
+                const scalar originalTime = t;
+                const label originalIndex = runTime.timeIndex();
+
+                runTime.setTime(nextWriteTime, originalIndex);
+                runTime.writeNow();
+                runTime.setTime(originalTime, originalIndex);
+
+                nextWriteTime += activeWriteInterval;
+                }
+        #};
+    }
+
+    // COMPREHENSIVE LIFT monitoring with phase detection
+    liftMonitor
+    {
+        type            coded;
+        libs            ("libutilityFunctionObjects.so");
+        name            liftMonitor;
+        writeControl    timeStep;
+        writeInterval   5;  // Every 5 time steps
+
+        codeWrite
+        #{
+            const scalar t = mesh().time().value();
+            const volScalarField& Te = mesh().lookupObject<volScalarField>("Te");
+            const volScalarField& Tl = mesh().lookupObject<volScalarField>("Tl");
+            const volScalarField& T = mesh().lookupObject<volScalarField>("T");
+            const volScalarField& alpha = mesh().lookupObject<volScalarField>("alpha.metal");
+            const volScalarField& p_rgh = mesh().lookupObject<volScalarField>("p_rgh");
+            const volScalarField& rho = mesh().lookupObject<volScalarField>("rho");
+            const volScalarField& gh = mesh().lookupObject<volScalarField>("gh");
+            const volScalarField& QLaser = mesh().lookupObject<volScalarField>("Q_laser");
+            const volVectorField& U = mesh().lookupObject<volVectorField>("U");
+            const volScalarField& recoilP = mesh().lookupObject<volScalarField>("recoilPressure");
+            
+            tmp<volScalarField> tp(p_rgh + rho*gh);
+            const volScalarField& p = tp();
+
+            // Enhanced metrics for complete LIFT process
+            const scalar maxTe = gMax(Te);
+            const scalar maxTl = gMax(Tl);
+            const scalar minTl = gMin(Tl);
+            const scalar avgTl = gAverage(Tl);
+            const scalar maxTgas = gMax(T);
+            const scalar maxRecoil = gMax(recoilP);
+            const scalar maxQLaser = gMax(QLaser);
+            
+            // Metal volume tracking
+            const scalarField alphaVol = alpha.primitiveField() * mesh().V();
+            const scalar metalVol = gSum(alphaVol) * 1e18; // μm³
+            static scalar initialMetalVol = -1;
+            if (initialMetalVol < 0 && metalVol > 0.1) initialMetalVol = metalVol;
+            const scalar metalLoss = initialMetalVol > 0 ? 
+                (initialMetalVol - metalVol) / initialMetalVol * 100 : 0;
+            
+            // Pressure analysis
+            const scalar maxPressure = gMax(p);
+            const scalar minPressure = gMin(p);
+            const scalar avgPressure = gAverage(p);
+            
+ // Velocity analysis with spatial distribution
+            scalar maxEjectionVel = 0.0;
+            scalar maxBulkMetalVel = 0.0;
+            scalar avgEjectionVel = 0.0;
+            scalar metalCells = 0;
+
+            const scalarField& alphaInternal = alpha.primitiveField();
+            const vectorField& UInternal = U.primitiveField();
+            
+            forAll(alphaInternal, cellI)
+            {
+                const scalar alphaVal = alphaInternal[cellI];
+                if (alphaVal > 0.01 && alphaVal < 0.99)
+                {
+                    const scalar velMag = mag(UInternal[cellI]);
+                    maxEjectionVel = max(maxEjectionVel, velMag);
+                    avgEjectionVel += velMag;
+                    metalCells += 1;
+                }
+
+                if (alphaVal > 0.5)
+                {
+                    const scalar velMag = mag(UInternal[cellI]);
+                    maxBulkMetalVel = max(maxBulkMetalVel, velMag);
+                }
+            }
+
+            reduce(maxEjectionVel, maxOp<scalar>());
+            reduce(maxBulkMetalVel, maxOp<scalar>());
+            reduce(avgEjectionVel, sumOp<scalar>());
+            reduce(metalCells, sumOp<scalar>());
+
+            maxEjectionVel = max(maxEjectionVel, maxBulkMetalVel);
+
+            if (metalCells > 0) avgEjectionVel /= metalCells;
+
+            // Phase identification
+            word currentPhase = "UNKNOWN";
+            if (t <= 4e-11) {
+                if (maxQLaser > 1e6) currentPhase = "LASER_ACTIVE";
+                else if (maxTl > 3560) currentPhase = "VAPORIZATION";
+                else if (maxTl > 1941) currentPhase = "MELTING";
+                else if (maxTl > 500) currentPhase = "HEATING";
+                else currentPhase = "ABSORPTION";
+            } else if (maxEjectionVel > 100) {
+                currentPhase = "EJECTION";
+            } else if (maxTl > 2000) {
+                currentPhase = "COOLING";
+            } else if (maxTl > 1941) {
+                currentPhase = "SOLIDIFYING";
+            } else {
+                currentPhase = "SOLIDIFIED";
+            }
+
+            const scalar progress = t / 1e-9 * 100; // % of 1 ns
+            
+            // Comprehensive output
+            if (Pstream::master()) {
+                Info<< "LIFT[" << currentPhase << "]: t=" << t*1e12 << "ps (" 
+                    << progress << "%)" << endl;
+                Info<< "  Thermal: Te=" << maxTe << "K Tl=" << maxTl 
+                    << "K(avg=" << avgTl << ") Tgas=" << maxTgas << "K" << endl;
+                Info<< "  Material: Vol=" << metalVol << "μm³ Loss=" 
+                    << metalLoss << "% MetalCells=" << metalCells << endl;
+                Info<< "  Dynamics: Vmax=" << maxEjectionVel << "m/s Vavg=" 
+                    << avgEjectionVel << "m/s" << endl;
+                Info<< "  Pressure: P=" << maxPressure/1e6 << "MPa(avg=" 
+                    << avgPressure/1e6 << ") Recoil=" << maxRecoil/1e6 << "MPa" << endl;
+                Info<< "  Energy: Laser=" << maxQLaser/1e12 << "TW/m³" << endl;
+                
+                // Warnings for extended simulation
+                if (currentPhase == "LASER_ACTIVE" && t > 5e-11) {
+                    Info<< "  WARNING: Laser still active beyond expected duration!" << endl;
+                }
+                if (currentPhase == "SOLIDIFIED" && maxEjectionVel > 10) {
+                    Info<< "  WARNING: High velocity in solidified phase!" << endl;
+                }
+                if (metalLoss > 20) {
+                    Info<< "  WARNING: Excessive material loss!" << endl;
+                }
+            }
+        #};
+    }
+
+    // Detailed CSV output for analysis
+    detailedCSV
+    {
+        type            coded;
+        libs            ("libutilityFunctionObjects.so");
+        name            detailedCSV;
+        writeControl    timeStep;
+        writeInterval   25;
+
+        codeWrite
+        #{
+            static bool headerWritten = false;
+            const scalar t = mesh().time().value();
+            
+            const volScalarField& Te = mesh().lookupObject<volScalarField>("Te");
+            const volScalarField& Tl = mesh().lookupObject<volScalarField>("Tl");
+            const volScalarField& T = mesh().lookupObject<volScalarField>("T");
+            const volScalarField& alpha = mesh().lookupObject<volScalarField>("alpha.metal");
+            const volScalarField& p_rgh = mesh().lookupObject<volScalarField>("p_rgh");
+            const volScalarField& rho = mesh().lookupObject<volScalarField>("rho");
+            const volScalarField& gh = mesh().lookupObject<volScalarField>("gh");
+            const volScalarField& QLaser = mesh().lookupObject<volScalarField>("Q_laser");
+            tmp<volScalarField> tp(p_rgh + rho*gh);
+            const volScalarField& p = tp();
+            const volVectorField& U = mesh().lookupObject<volVectorField>("U");
+            
+            // Fix API calls
+            const scalar maxTe = gMax(Te);
+            const scalar maxTl = gMax(Tl);
+            const scalar maxTgas = gMax(T);
+            const scalar maxQLaser = gMax(QLaser);
+            const scalarField alphaVol = alpha.primitiveField() * mesh().V();
+            const scalar metalVol = gSum(alphaVol) * 1e18;
+            const scalar maxP = gMax(p);
+            const scalar minP = gMin(p);
+            
+            // Ejection velocity
+            scalar maxVel = 0.0;
+            const scalarField& alphaInternal = alpha.primitiveField();
+            const vectorField& UInternal = U.primitiveField();
+            
+            forAll(alphaInternal, cellI)
+            {
+                const scalar alphaVal = alphaInternal[cellI];
+                if (alphaVal > 0.01 && alphaVal < 0.99)
+                {
+                    maxVel = max(maxVel, mag(UInternal[cellI]));
+                }
+            }
+            reduce(maxVel, maxOp<scalar>());
+            
+            // Write CSV
+            if (Pstream::master())
+            {
+                OFstream csvFile
+                (
+                    "liftResults.csv",
+                    IOstreamOption::ASCII,
+                    IOstreamOption::UNCOMPRESSED,
+                    IOstreamOption::APPEND
+                );
+                if (!headerWritten)
+                {
+                    csvFile << "time_ps,Te_max_K,Tl_max_K,Tgas_max_K,metal_vol_um3,max_pressure_Pa,min_pressure_Pa,max_velocity_ms,laser_power_Wm3" << endl;
+                    headerWritten = true;
+                }
+                csvFile << t*1e12 << "," << maxTe << "," << maxTl << "," << maxTgas 
+                        << "," << metalVol << "," << maxP << "," << minP << "," << maxVel 
+                        << "," << maxQLaser << endl;
+            }
+        #};
+    }
+
+// Enhanced Phase transition milestones for complete LIFT process
+milestones
+{
+    type            coded;
+    libs            ("libutilityFunctionObjects.so");
+    name            milestones;
+    writeControl    timeStep;
+    writeInterval   1;
+
+    codeWrite
+    #{
+        const scalar t = mesh().time().value();
+        const volScalarField& Tl = mesh().lookupObject<volScalarField>("Tl");
+        const volScalarField& Te = mesh().lookupObject<volScalarField>("Te");
+        const volScalarField& QLaser = mesh().lookupObject<volScalarField>("Q_laser");
+        const volScalarField& alpha = mesh().lookupObject<volScalarField>("alpha.metal");
+        const volScalarField& p_rgh = mesh().lookupObject<volScalarField>("p_rgh");
+        const volScalarField& rho = mesh().lookupObject<volScalarField>("rho");
+        const volScalarField& gh = mesh().lookupObject<volScalarField>("gh");
+        const volVectorField& U = mesh().lookupObject<volVectorField>("U");
+        const volScalarField& recoilP = mesh().lookupObject<volScalarField>("recoilPressure");
+        
+        // Calculate total pressure
+        tmp<volScalarField> tp(p_rgh + rho*gh);
+        const volScalarField& p = tp();
+        
+        const scalar maxTl = gMax(Tl);
+        const scalar maxTe = gMax(Te);
+        const scalar minTl = gMin(Tl);        
+        const scalar maxQLaser = gMax(QLaser);
+        const scalar maxPressure = gMax(p);
+        const scalar maxRecoil = gMax(recoilP);
+        
+        // Calculate metal volume for tracking ablation
+        const scalarField alphaVol = alpha.primitiveField() * mesh().V();
+        const scalar currentMetalVol = gSum(alphaVol) * 1e18; // μm³
+        static scalar initialMetalVol = -1.0;
+        if (initialMetalVol < 0) initialMetalVol = currentMetalVol;
+        const scalar metalLoss = (initialMetalVol - currentMetalVol) / initialMetalVol * 100;
+        
+        // Calculate maximum velocity in metal regions
+        scalar maxEjectionVel = 0.0;
+        const scalarField& alphaInternal = alpha.primitiveField();
+        const vectorField& UInternal = U.primitiveField();
+        
+        forAll(alphaInternal, cellI)
+        {
+            if (alphaInternal[cellI] > 0.1) // Metal-rich cells
+            {
+                const scalar velMag = mag(UInternal[cellI]);
+                maxEjectionVel = max(maxEjectionVel, velMag);
+            }
+        }
+        reduce(maxEjectionVel, maxOp<scalar>());
+        
+        // Track LIFT process milestones
+        static bool laserStarted = false;
+        static bool absorptionPhase = false;
+        static bool heatingPhase = false;
+        static bool meltingPhase = false;
+        static bool vaporizationPhase = false;
+        static bool plasmaPlaquePhase = false;
+        static bool recoilPressurePhase = false;
+        static bool ejectionPhase = false;
+        static bool accelerationPhase = false;
+        static bool transferPhase = false;
+        static bool solidificationPhase = false;
+        
+            // Extended milestone tracking
+            static bool transferComplete = false;
+            static bool coolingStarted = false;
+            static bool partialSolidification = false;
+            static bool completeSolidification = false;
+            static bool thermalEquilibrium = false;
+                    
+        // Phase 1: Laser Activation (0-1 ps)
+        if (!laserStarted && maxQLaser > 1e6)
+        {
+            Info<< "*** PHASE 1: LASER ACTIVATED at t=" << t*1e12 << "ps ***" << nl
+                << "    Power: " << maxQLaser/1e12 << " TW/m³" << endl;
+            laserStarted = true;
+        }
+        
+        // Phase 2: Energy Absorption (0-10 ps)
+        if (laserStarted && !absorptionPhase && maxTe > 500)
+        {
+            Info<< "*** PHASE 2: ENERGY ABSORPTION at t=" << t*1e12 << "ps ***" << nl
+                << "    Electron temp: " << maxTe << " K" << nl
+                << "    Lattice temp: " << maxTl << " K" << endl;
+            absorptionPhase = true;
+        }
+        
+        // Phase 3: Rapid Heating (1-50 ps)
+        if (absorptionPhase && !heatingPhase && maxTl > 1000)
+        {
+            Info<< "*** PHASE 3: RAPID HEATING at t=" << t*1e12 << "ps ***" << nl
+                << "    Lattice temp: " << maxTl << " K" << nl
+                << "    Te-Tl coupling active" << endl;
+            heatingPhase = true;
+        }
+        
+        // Phase 4: Melting Onset (depends on material - Ti: 1941K)
+        if (heatingPhase && !meltingPhase && maxTl > 1941.0)
+        {
+            Info<< "*** PHASE 4: MELTING ONSET at t=" << t*1e12 << "ps ***" << nl
+                << "    Lattice temp: " << maxTl << " K" << nl
+                << "    Phase change begins" << endl;
+            meltingPhase = true;
+        }
+        
+        // Phase 5: Vaporization (Ti: 3560K)
+        if (meltingPhase && !vaporizationPhase && maxTl > 3560.0)
+        {
+            Info<< "*** PHASE 5: VAPORIZATION at t=" << t*1e12 << "ps ***" << nl
+                << "    Lattice temp: " << maxTl << " K" << nl
+                << "    Vapor generation begins" << endl;
+            vaporizationPhase = true;
+        }
+        
+        // Phase 6: Plasma Plaque Formation (high temp + high pressure)
+        if (vaporizationPhase && !plasmaPlaquePhase && maxTl > 5000 && maxPressure > 1e7)
+        {
+            Info<< "*** PHASE 6: PLASMA PLAQUE FORMATION at t=" << t*1e12 << "ps ***" << nl
+                << "    Lattice temp: " << maxTl << " K" << nl
+                << "    Pressure: " << maxPressure/1e6 << " MPa" << nl
+                << "    High-density vapor/plasma region" << endl;
+            plasmaPlaquePhase = true;
+        }
+        
+        // Phase 7: Recoil Pressure Buildup
+        if (plasmaPlaquePhase && !recoilPressurePhase && maxRecoil > 1e6)
+        {
+            Info<< "*** PHASE 7: RECOIL PRESSURE BUILDUP at t=" << t*1e12 << "ps ***" << nl
+                << "    Recoil pressure: " << maxRecoil/1e6 << " MPa" << nl
+                << "    Momentum transfer initiating" << endl;
+            recoilPressurePhase = true;
+        }
+        
+        // Phase 8: Material Ejection (velocity threshold)
+        if (recoilPressurePhase && !ejectionPhase && maxEjectionVel > 10.0)
+        {
+            Info<< "*** PHASE 8: MATERIAL EJECTION at t=" << t*1e12 << "ps ***" << nl
+                << "    Max velocity: " << maxEjectionVel << " m/s" << nl
+                << "    Metal loss: " << metalLoss << "%" << nl
+                << "    Droplet formation begins" << endl;
+            ejectionPhase = true;
+        }
+        
+        // Phase 9: Acceleration Phase (high velocity development)
+        if (ejectionPhase && !accelerationPhase && maxEjectionVel > 100.0)
+        {
+            Info<< "*** PHASE 9: ACCELERATION PHASE at t=" << t*1e12 << "ps ***" << nl
+                << "    Max velocity: " << maxEjectionVel << " m/s" << nl
+                << "    Significant momentum transfer" << endl;
+            accelerationPhase = true;
+        }
+        
+        // Phase 10: Transfer Phase (substantial material loss)
+        if (accelerationPhase && !transferPhase && metalLoss > 1.0)
+        {
+            Info<< "*** PHASE 10: TRANSFER PHASE at t=" << t*1e12 << "ps ***" << nl
+                << "    Metal loss: " << metalLoss << "%" << nl
+                << "    Material transfer in progress" << endl;
+            transferPhase = true;
+        }
+        
+        // Phase 11: Solidification (cooling phase)
+        if (transferPhase && !solidificationPhase && maxTl < 2000 && t > 40e-12)
+        {
+            Info<< "*** PHASE 11: SOLIDIFICATION PHASE at t=" << t*1e12 << "ps ***" << nl
+                << "    Lattice temp: " << maxTl << " K" << nl
+                << "    Cooling and resolidification" << endl;
+            solidificationPhase = true;
+        }
+                    // PHASE 12: Transfer completion (low velocity + cooled)
+            if (!transferComplete && t > 1e-10 && maxEjectionVel < 50 && maxTl < 2500) {
+                Info<< "*** PHASE 12: TRANSFER COMPLETE at t=" << t*1e12 << "ps ***" << nl
+                    << "    Max velocity: " << maxEjectionVel << " m/s" << nl
+                    << "    Max temperature: " << maxTl << " K" << endl;
+                transferComplete = true;
+            }
+            
+            // PHASE 13: Cooling phase starts
+            if (transferComplete && !coolingStarted && maxTl < 2000) {
+                Info<< "*** PHASE 13: COOLING PHASE at t=" << t*1e12 << "ps ***" << nl
+                    << "    Max temperature: " << maxTl << " K" << nl
+                    << "    Temperature gradient driving cooling" << endl;
+                coolingStarted = true;
+            }
+            
+            // PHASE 14: Partial solidification (some regions below melting point)
+            if (coolingStarted && !partialSolidification && minTl < 1941) {
+                Info<< "*** PHASE 14: PARTIAL SOLIDIFICATION at t=" << t*1e12 << "ps ***" << nl
+                    << "    Min temperature: " << minTl << " K" << nl
+                    << "    Max temperature: " << maxTl << " K" << nl
+                    << "    Solidification front propagating" << endl;
+                partialSolidification = true;
+            }
+            
+            // PHASE 15: Complete solidification
+            if (partialSolidification && !completeSolidification && maxTl < 1941) {
+                Info<< "*** PHASE 15: COMPLETE SOLIDIFICATION at t=" << t*1e12 << "ps ***" << nl
+                    << "    All material below melting point" << nl
+                    << "    Max temperature: " << maxTl << " K" << endl;
+                completeSolidification = true;
+            }
+            
+            // PHASE 16: Thermal equilibrium approach
+            if (completeSolidification && !thermalEquilibrium && 
+                maxTl < 400 && (maxTl - minTl) < 50) {
+                Info<< "*** PHASE 16: THERMAL EQUILIBRIUM at t=" << t*1e12 << "ps ***" << nl
+                    << "    Temperature range: " << minTl << " - " << maxTl << " K" << nl
+                    << "    LIFT process complete" << endl;
+                thermalEquilibrium = true;
+            }
+        // Additional process indicators
+        if (t > 1e-12 && (t*1e12) == int(t*1e12)) // Every picosecond
+        {
+            // Energy balance check
+            const scalar energyDensity = maxQLaser * t; // Approximate
+            const scalar expectedTemp = energyDensity / 2.5e6; // Rough estimate
+            
+            if (mag(maxTl - expectedTemp) > 500 && maxTl > 1000)
+            {
+                Info<< "*** ENERGY BALANCE DEVIATION at t=" << t*1e12 << "ps ***" << nl
+                    << "    Expected temp: ~" << expectedTemp << " K" << nl
+                    << "    Actual temp: " << maxTl << " K" << endl;
+            }
+        }
+        
+        // Critical failure warnings
+        if (maxTl > 15000)
+        {
+            WarningInFunction
+                << "CRITICAL: Temperature exceeds physical limits!" << nl
+                << "Tl_max = " << maxTl << " K at t = " << t*1e12 << " ps" << endl;
+        }
+        
+        if (maxEjectionVel > 5000)
+        {
+            WarningInFunction
+                << "CRITICAL: Velocity exceeds realistic LIFT values!" << nl
+                << "V_max = " << maxEjectionVel << " m/s at t = " << t*1e12 << " ps" << endl;
+        }
+        
+        if (metalLoss > 50.0)
+        {
+            WarningInFunction
+                << "CRITICAL: Excessive material loss!" << nl
+                << "Loss = " << metalLoss << "% at t = " << t*1e12 << " ps" << endl;
+        }
+    #};
+}
+
+
+    // Mid-plane visualization (optional)
+    midPlaneVTK
+    {
+        type            surfaces;
+        libs            ("libsampling.so");
+        writeControl    writeTime;
+        writeInterval   1;
+        surfaceFormat   vtk;
+        fields          (alpha.metal Tl Te T p_rgh U);
+
+        surfaces
+        (
+            midPlane
+            {
+                type                cuttingPlane;
+                planeType           pointAndNormal;
+                pointAndNormalDict
+                {
+                    point   (25e-6 2.00357e-05 5e-6);
+                    normal  (0 1 0);
+                }
+                interpolate         true;
+            }
+        );
+    }
+
+    // Comprehensive LIFT validation summary
+    liftValidation
+    {
+        type            coded;
+        libs            ("libutilityFunctionObjects.so");
+        name            liftValidation;
+        writeControl    timeStep;
+        writeInterval   1;
+
+        codeWrite
+        #{
+            const scalar t = mesh().time().value();
+            const volScalarField& Te = mesh().lookupObject<volScalarField>("Te");
+            const volScalarField& Tl = mesh().lookupObject<volScalarField>("Tl");
+            const volScalarField& alpha = mesh().lookupObject<volScalarField>("alpha.metal");
+            const volScalarField& p_rgh = mesh().lookupObject<volScalarField>("p_rgh");
+            const volScalarField& rho = mesh().lookupObject<volScalarField>("rho");
+            const volScalarField& gh = mesh().lookupObject<volScalarField>("gh");
+            tmp<volScalarField> tp(p_rgh + rho*gh);
+            const volScalarField& p = tp();
+            const volVectorField& U = mesh().lookupObject<volVectorField>("U");
+            
+            const scalar maxTe = gMax(Te);
+            const scalar maxTl = gMax(Tl);
+            const scalar maxP = gMax(p);
+            
+            // Calculate metal loss
+            const scalarField alphaVol = alpha.primitiveField() * mesh().V();
+            const scalar currentMetalVol = gSum(alphaVol) * 1e18; // μm³
+            static scalar initialMetalVol = currentMetalVol; // First call
+            const scalar metalLoss = (initialMetalVol - currentMetalVol) / initialMetalVol * 100;
+            
+            // Calculate ejection velocity
+            scalar maxVel = 0.0;
+            const scalarField& alphaInternal = alpha.primitiveField();
+            const vectorField& UInternal = U.primitiveField();
+            
+            forAll(alphaInternal, cellI)
+            {
+                if (alphaInternal[cellI] > 0.1)
+                {
+                    maxVel = max(maxVel, mag(UInternal[cellI]));
+                }
+            }
+            reduce(maxVel, maxOp<scalar>());
+            
+            Info<< "=== LIFT VALIDATION SUMMARY at t=" << t*1e12 << "ps ===" << endl;
+            Info<< "Temperature Assessment:" << endl;
+            Info<< "  Te_max: " << maxTe << "K (Expected: 300-15000K)" << endl;
+            Info<< "  Tl_max: " << maxTl << "K (Expected: 300-8000K)" << endl;
+            Info<< "  Phase: ";
+            if (maxTl < 1941) Info<< "SOLID";
+            else if (maxTl < 3560) Info<< "LIQUID"; 
+            else Info<< "VAPOR";
+            Info<< endl;
+            
+            Info<< "Pressure Assessment:" << endl;
+            Info<< "  P_max: " << maxP/1e6 << "MPa (Expected: 0.1-1000MPa)" << endl;
+            Info<< "  Status: ";
+            if (maxP < 1e5) Info<< "LOW - Check recoil pressure";
+            else if (maxP > 1e9) Info<< "HIGH - May indicate instability";
+            else Info<< "NORMAL";
+            Info<< endl;
+            
+            Info<< "Dynamics Assessment:" << endl;
+            Info<< "  Max velocity: " << maxVel << "m/s (Expected: 1-2000m/s)" << endl;
+            Info<< "  Metal loss: " << metalLoss << "% (Expected: 0.1-10%)" << endl;
+            Info<< "  Status: ";
+            if (maxVel < 1 && maxTl > 2000) Info<< "LOW - Check momentum transfer";
+            else if (maxVel > 2000) Info<< "HIGH - Check numerical stability";
+            else Info<< "NORMAL";
+            Info<< endl;
+            
+            Info<< "Overall Assessment: ";
+            bool isGood = (maxTe > 600 && maxTe < 15000) &&
+                         (maxTl > 600 && maxTl < 8000) &&
+                         (maxP > 1e5 && maxP < 1e9) &&
+                         (maxVel > 1 && maxVel < 2000);
+            if (isGood) Info<< "SIMULATION ON TRACK";
+            else Info<< "CHECK PARAMETERS";
+            Info<< endl;
+            Info<< "=============================================" << endl;
+        #};
+    }
+}
