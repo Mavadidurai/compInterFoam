@@ -135,42 +135,40 @@ volScalarField rAU("rAU", 1.0/A);
     }
 }
 phi = fvc::flux(U);
-// Validate the computed flux to ensure all values are finite
-{
-    const scalar minRAU = 1e-12;
+const scalar safeRAU = 1.0/diagFloor;
 
-    scalarField& rAUInternal = rAU.primitiveFieldRef();
-    bool adjustedRAU = false;
-    forAll(rAUInternal, cellI)
+scalarField& rAUInternal = rAU.primitiveFieldRef();
+bool adjustedRAU = false;
+forAll(rAUInternal, cellI)
+{
+    scalar& val = rAUInternal[cellI];
+    if (!std::isfinite(val) || val <= 0)
     {
-        scalar& val = rAUInternal[cellI];
-        if (!std::isfinite(val) || val <= minRAU)
+        val = safeRAU;
+        adjustedRAU = true;
+    }
+}
+
+volScalarField::Boundary& rAUb = rAU.boundaryFieldRef();
+forAll(rAUb, patchI)
+{
+    scalarField& patchField = rAUb[patchI];
+    forAll(patchField, faceI)
+    {
+        scalar& val = patchField[faceI];
+        if (!std::isfinite(val) || val <= 0)
         {
-            val = minRAU;
+            val = safeRAU;
             adjustedRAU = true;
         }
     }
-
-    volScalarField::Boundary& rAUb = rAU.boundaryFieldRef();
-    forAll(rAUb, patchI)
-    {
-        scalarField& patchField = rAUb[patchI];
-        forAll(patchField, faceI)
-        {
-            scalar& val = patchField[faceI];
-            if (!std::isfinite(val) || val <= minRAU)
-            {
-                val = minRAU;
-                adjustedRAU = true;
-            }
-        }
-    }
-
-    if (adjustedRAU && verbose && master)
-    {
-        WarningInFunction << "Clamped non-physical rAU entries" << endl;
-    }
 }
+
+if (adjustedRAU && verbose && master)
+{
+    WarningInFunction << "Clamped non-physical rAU entries" << endl;
+}
+
 const scalarField& phiInternal = phi.internalField();
 forAll(phiInternal, faceI)
 {

@@ -10,6 +10,7 @@ extern const bool master;
         Info<< "Solving pressure equation" << endl;
     }
 
+    const dictionary& compCoeffs = compInterFoamCoeffsDict(mesh);
     surfaceScalarField rAUf
     (
         IOobject
@@ -23,16 +24,19 @@ extern const bool master;
         fvc::interpolate(rAU)
     );
     {
-        const scalar minRAUf = 1e-12;
+        const scalar diagFloorInput =
+            compCoeffs.lookupOrDefault<scalar>("minUEqnDiag", 1e-9);
+        const scalar diagFloor = Foam::max(diagFloorInput, Foam::SMALL);
+        const scalar safeRAUf = 1.0/diagFloor;
         bool adjustedRAUf = false;
 
         scalarField& rAUfInternal = rAUf.primitiveFieldRef();
         forAll(rAUfInternal, faceI)
         {
             scalar& val = rAUfInternal[faceI];
-            if (!std::isfinite(val) || val <= minRAUf)
+            if (!std::isfinite(val) || val <= 0)
             {
-                val = minRAUf;
+                val = safeRAUf;
                 adjustedRAUf = true;
             }
         }
@@ -44,9 +48,9 @@ extern const bool master;
             forAll(patchField, faceI)
             {
                 scalar& val = patchField[faceI];
-                if (!std::isfinite(val) || val <= minRAUf)
+                if (!std::isfinite(val) || val <= 0)
                 {
-                    val = minRAUf;
+                    val = safeRAUf;
                     adjustedRAUf = true;
                 }
             }
@@ -58,7 +62,6 @@ extern const bool master;
         }
     }
     {
-        const dictionary& compCoeffs = compInterFoamCoeffsDict(mesh);
         const Switch enableClamp = compCoeffs.lookupOrDefault<Switch>("enableRAUClamp", false);
 
         if (enableClamp)
