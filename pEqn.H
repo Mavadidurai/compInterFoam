@@ -154,12 +154,6 @@ extern const bool master;
          == fvc::div(phiHbyA)
         );
         
-    if (recoilPressurePtr)
-    {
-        const scalar recoilRelaxFactor = 0.01;  // 1% per timestep
-        pEqn.source() -= recoilRelaxFactor * (*recoilPressurePtr) * mesh.V();
-    }
-
         SolverPerformance<scalar> solverPerf =
             pEqn.solve(mesh.solver(p_rgh.select(pimple.finalInnerIter())));
 

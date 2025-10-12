@@ -16,20 +16,41 @@ const scalar maxReasonableVel =
 
 if (pimple.momentumPredictor())
 {
-    solve
-    (
-        UEqn
-     ==
-        fvc::reconstruct
+    if (recoilPressurePtr)
+    {
+        solve
         (
+            UEqn
+         ==
+            fvc::reconstruct
             (
-                fvc::interpolate(mixture.sigmaK())
-              * fvc::snGrad(alpha1)
-            )*mesh.magSf()
-        )
-      - fvc::grad(p_rgh)
-      + rho*g
-    );
+                (
+                    fvc::interpolate(mixture.sigmaK())
+                  * fvc::snGrad(alpha1)
+                )*mesh.magSf()
+            )
+          - fvc::grad(p_rgh)
+          - fvc::grad(alpha1*(*recoilPressurePtr))
+          + rho*g
+        );
+    }
+    else
+    {
+        solve
+        (
+            UEqn
+         ==
+            fvc::reconstruct
+            (
+                (
+                    fvc::interpolate(mixture.sigmaK())
+                  * fvc::snGrad(alpha1)
+                )*mesh.magSf()
+            )
+          - fvc::grad(p_rgh)
+          + rho*g
+        );
+    }
 
     fvOptions.correct(U);
 
