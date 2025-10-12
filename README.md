@@ -136,3 +136,20 @@ does not change the deposited energy, only when the peak arrives during the
 * The femtosecond laser accepts `spatialIntegrationMode` to control axial
   chord estimation: `exact` (default) scans cell vertices, while `centerline`
   approximates the span from `V^(1/3)` for faster but less precise deposition.
+## `system/fvSolution:compInterFoamCoeffs`
+The solver re-reads the `compInterFoamCoeffs` sub-dictionary from
+`fvSolution` whenever it needs clamp limits or solver fallbacks. The active
+entries and their in-code defaults are:
+
+| Entry | Default | Used in |
+| --- | --- | --- |
+| `maxVelocity` | `2000` | Bounds the velocity magnitude after both the momentum predictor and the pressure correction. |
+| `minUEqnDiag` | `1e-9` | Floors the diagonal before inverting `UEqn` to form `rAU`. |
+| `enableRAUClamp` | `false` | Enables explicit `rAU`/`rAUf` bounding. |
+| `minRAU`, `maxRAU` | `1e-10`, `GREAT` | Cell-wise `rAU` clamp (only when `enableRAUClamp` is `true`). |
+| `minRAUf`, `maxRAUf` | `1e-14`, `GREAT` | Face-wise `rAUf` clamp (only when `enableRAUClamp` is `true`). |
+| `pressureClamp` | `false` | Enables bounding of `p` and `p_rgh`. |
+| `minPressure`, `maxPressure` | `-GREAT`, `GREAT` | Limits applied when `pressureClamp` is `true`. |
+
+Any other keys placed in `compInterFoamCoeffs` are ignored by the current
+code, so make sure to set the values above if you need runtime clamping.
