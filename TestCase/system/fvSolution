@@ -141,19 +141,21 @@ targetResP  0.5;
 
 compInterFoamCoeffs
 {
-    maxReasonableVelocity  1000;        // REDUCE: was 1e5
-    maxVelocity            500;         // REDUCE: was 5000
+    // CRITICAL FIX: Remove artificial velocity clamping
+    maxVelocity            -1;         // DISABLED: was causing uniform 500 m/s field
+    maxReasonableVelocity  5000;       // Keep for validation warnings only
+    
     defaultMetalDensity    4500;        
     defaultAirDensity      1.2;         
-    maxInitialResidual     10;          // REDUCE: was 1e3
+    maxInitialResidual     10;
 
     // Interface clamp settings
     enableAlphaClamp  false;
     minAlpha          0.001;
     maxAlpha          0.999;
 
-    // Pressure clamp settings
-    pressureClamp      true;
+    // CRITICAL FIX: Disable pressure clamping during active phase
+    pressureClamp      false;          // DISABLED: was distorting physics
     maxPressure        1e8;
     minPressure       -1e7;
 
@@ -162,13 +164,17 @@ compInterFoamCoeffs
     maxDensity         10000;
     minDensity         0.5;
 
-    // RAU clamp settings
+    // RAU clamp settings  
     enableRAUClamp     false;
     minRAU             1e-10;
     maxRAU             1e6;
     minRAUf            1e-14;
     maxRAUf            1e6;
 
+    // Diagonal safety (keep this)
+    minUEqnDiag        1e-9;
+
     // RELAX RESIDUAL TARGETS
-    targetResU         0.1;             // RELAX: was 0.05
+    targetResU         0.1;
+    targetResP         0.5;
 }

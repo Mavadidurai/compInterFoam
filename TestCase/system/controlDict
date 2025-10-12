@@ -290,34 +290,36 @@ liftProcessTracker
             (initialMetalVol - metalVol) / initialMetalVol * 100 : 0;
         
         // Velocity analysis
-        scalar maxVel = 0.0;
-        scalar weightedVelSum = 0.0;
-        scalar metalVolumeWeight = 0.0;
-        const scalarField& alphaInternal = alpha.primitiveField();
-        const vectorField& UInternal = U.primitiveField();
+scalar maxVel = 0.0;
+scalar weightedVelSum = 0.0;
+scalar metalVolumeWeight = 0.0;
 
-        forAll(alphaInternal, cellI)
-        {
-            if (alphaInternal[cellI] > 0.01)
-            {
-                const scalar velMag = mag(UInternal[cellI]);
-                maxVel = Foam::max(maxVel, velMag);
-                const scalar weight = alphaInternal[cellI]*cellVolumes[cellI];
-                weightedVelSum += velMag*weight;
-                metalVolumeWeight += weight;
-            }
-        }
+const scalarField& alphaInternal = alpha.primitiveField();
+const vectorField& UInternal = U.primitiveField();
+const scalarField& cellVols = mesh().V();  // ← FIX: Use field reference
 
-        reduce(maxVel, maxOp<scalar>());
-        reduce(weightedVelSum, sumOp<scalar>());
-        reduce(metalVolumeWeight, sumOp<scalar>());
+forAll(alphaInternal, cellI)
+{
+    if (alphaInternal[cellI] > 0.01)
+    {
+        const scalar velMag = mag(UInternal[cellI]);
+        maxVel = Foam::max(maxVel, velMag);
+        const scalar weight = alphaInternal[cellI] * cellVols[cellI];
+        weightedVelSum += velMag * weight;
+        metalVolumeWeight += weight;
+    }
+}
 
-        scalar avgVel = 0.0;
-        if (metalVolumeWeight > VSMALL)
-        {
-            avgVel = weightedVelSum/metalVolumeWeight;
-        }
+// CRITICAL: Proper parallel reduction
+reduce(maxVel, maxOp<scalar>());
+reduce(weightedVelSum, sumOp<scalar>());
+reduce(metalVolumeWeight, sumOp<scalar>());
 
+scalar avgVel = 0.0;
+if (metalVolumeWeight > VSMALL)
+{
+    avgVel = weightedVelSum / metalVolumeWeight;
+}
 
         // ====================================================================
         // PHASE STATE DETECTION (Results-Based)
@@ -349,34 +351,38 @@ liftProcessTracker
         const bool thermallyStable = (tempSpread < 200);
         
        // Phase detection based on live metrics
-        label detectedPhase = 0;
+label detectedPhase = 0;
 
-        if (laserActive) detectedPhase = 1;
-        if (detectedPhase >= 1 && electronHeated) detectedPhase = 2;
-        if (detectedPhase >= 2 && latticeHeating) detectedPhase = 3;
-        if (detectedPhase >= 3 && approachingMelt) detectedPhase = 4;
-        if (detectedPhase >= 4 && melting) detectedPhase = 5;
-        if (detectedPhase >= 5 && vaporizing) detectedPhase = 6;
-        if (detectedPhase >= 6 && plasmaConditions) detectedPhase = 7;
-        if (detectedPhase >= 7 && recoilSignificant) detectedPhase = 8;
-        if (detectedPhase >= 8 && ejecting) detectedPhase = 9;
-        if (detectedPhase >= 9 && accelerating) detectedPhase = 10;
-        if (detectedPhase >= 10 && significantTransfer) detectedPhase = 11;
-        if (detectedPhase >= 11 && coolingStarted) detectedPhase = 12;
-        if (detectedPhase >= 12 && belowVapor) detectedPhase = 13;
-        if (detectedPhase >= 13 && belowMelt) detectedPhase = 14;
-        if (detectedPhase >= 14 && nearAmbient) detectedPhase = 15;
-        if (detectedPhase >= 15 && thermallyStable) detectedPhase = 16;
+if (laserActive) detectedPhase = Foam::max(detectedPhase, label(1));
+if (electronHeated) detectedPhase = Foam::max(detectedPhase, label(2));
+if (latticeHeating) detectedPhase = Foam::max(detectedPhase, label(3));
+if (approachingMelt) detectedPhase = Foam::max(detectedPhase, label(4));
+if (melting) detectedPhase = Foam::max(detectedPhase, label(5));
+if (vaporizing) detectedPhase = Foam::max(detectedPhase, label(6));
+if (plasmaConditions) detectedPhase = Foam::max(detectedPhase, label(7));
+if (recoilSignificant) detectedPhase = Foam::max(detectedPhase, label(8));
+if (ejecting) detectedPhase = Foam::max(detectedPhase, label(9));
+if (accelerating) detectedPhase = Foam::max(detectedPhase, label(10));
+if (significantTransfer) detectedPhase = Foam::max(detectedPhase, label(11));
+if (coolingStarted) detectedPhase = Foam::max(detectedPhase, label(12));
+if (belowVapor && coolingStarted) detectedPhase = Foam::max(detectedPhase, label(13));
+if (belowMelt && coolingStarted) detectedPhase = Foam::max(detectedPhase, label(14));
+if (nearAmbient) detectedPhase = Foam::max(detectedPhase, label(15));
+if (thermallyStable && nearAmbient) detectedPhase = Foam::max(detectedPhase, label(16));
 
-        if (!initialised)
-        {
-            currentPhase = detectedPhase;
-            for (label i = 0; i <= currentPhase; ++i)
-            {
-                phaseReported[i] = true;
-            }
-            initialised = true;
-        }
+// Allow phase to advance only (no regression during same sim)
+detectedPhase = Foam::max(detectedPhase, currentPhase);
+
+if (!initialised)
+{
+    currentPhase = detectedPhase;
+    for (label i = 0; i <= currentPhase; ++i)
+    {
+        phaseReported[i] = true;
+    }
+    initialised = true;
+}
+
 
         // ====================================================================
         // PHASE ANNOUNCEMENT (Only when phase changes)
