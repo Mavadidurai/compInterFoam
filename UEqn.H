@@ -10,8 +10,10 @@ fvVectorMatrix UEqn
 UEqn.relax();
 fvOptions.constrain(UEqn);
 const dictionary& compCoeffs = compInterFoamCoeffsDict(mesh);
-const scalar velocityClamp =
-    compCoeffs.lookupOrDefault<scalar>("maxVelocity", 2000.0);
+// CRITICAL FIX: Only validate, don't clamp unless catastrophic
+const scalar maxReasonableVel =
+    compCoeffs.lookupOrDefault<scalar>("maxReasonableVelocity", 5000.0);
+
 if (pimple.momentumPredictor())
 {
     solve
@@ -31,27 +33,40 @@ if (pimple.momentumPredictor())
 
     fvOptions.correct(U);
 
-    if (velocityClamp > 0)
+    // CRITICAL FIX: Only catch catastrophic non-physical values
+    vectorField& Uinternal = U.primitiveFieldRef();
+    label nCatastrophic = 0;
+    
+    forAll(Uinternal, cellI)
     {
-        // Limit unphysical velocities that can destabilise the pressure solve
-        vectorField& Uinternal = U.primitiveFieldRef();
-        forAll(Uinternal, cellI)
+        vector& Ui = Uinternal[cellI];
+        const scalar magU = mag(Ui);
+        
+        if (!std::isfinite(magU))
         {
-            vector& Ui = Uinternal[cellI];
-            const scalar magU = mag(Ui);
-            if (std::isfinite(magU))
+            Ui = vector::zero;
+            nCatastrophic++;
+        }
+        else if (maxReasonableVel > 0 && magU > maxReasonableVel)
+        {
+            // WARNING only - don't clamp unless truly catastrophic
+            if (verbose && master && nCatastrophic == 0)
             {
-                if (magU > velocityClamp)
-                {
-                    Ui *= velocityClamp/magU;
-                }
+                WarningInFunction
+                    << "High velocity detected: " << magU << " m/s at cell " 
+                    << cellI << " (exceeds " << maxReasonableVel << " m/s)" 
+                    << endl;
             }
-            else
-            {
-                Ui = vector::zero;
-            }
+            nCatastrophic++;
         }
     }
+    
+    if (nCatastrophic > 0 && verbose && master)
+    {
+        Info<< "Velocity validation: " << nCatastrophic 
+            << " cells with extreme values" << endl;
+    }
+
     U.correctBoundaryConditions();
     K = 0.5*magSqr(U);
 }
