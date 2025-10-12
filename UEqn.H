@@ -7,18 +7,6 @@ fvVectorMatrix UEqn
     fvOptions(rho, U)
 );
 
-{
-    volScalarField::Internal contErr
-    (
-        (
-            fvc::ddt(rho)
-          + fvc::div(rhoPhi)
-        )()
-    );
-
-    UEqn -= fvm::Sp(contErr, U);
-}
-
 UEqn.relax();
 fvOptions.constrain(UEqn);
 
@@ -60,7 +48,7 @@ if (pimple.momentumPredictor())
             Ui = vector::zero;
         }
     }
-
+    U.correctBoundaryConditions();
     K = 0.5*magSqr(U);
 }
 

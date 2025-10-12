@@ -195,7 +195,6 @@ extern const bool master;
             phi = phiHbyA + pEqn.flux();
 
             U = HbyA + rAU*fvc::reconstruct((phig + pEqn.flux())/rAUf);
-            U.correctBoundaryConditions();
             fvOptions.correct(U);
             const scalar maxRealisticVel = 2000.0;
             vectorField& Uinternal = U.primitiveFieldRef();
@@ -215,6 +214,7 @@ extern const bool master;
                     Ui = vector::zero;
                 }
             }
+            U.correctBoundaryConditions();
             phi = fvc::flux(U);
             if (verbose && master)
             {
