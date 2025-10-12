@@ -139,7 +139,6 @@ extern const bool master;
         (
             fvc::interpolate(rho*gh)
           + fvc::interpolate(mixture.sigmaK())
-           * fvc::snGrad(alpha1)
           - ghf*fvc::snGrad(rho)
         )*rAUf*mesh.magSf()
     );
