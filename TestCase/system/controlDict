@@ -22,12 +22,12 @@ startTime       0;
 stopAt          endTime;
 endTime         1e-9;          // EXTENDED: 1 ns total for complete LIFT process
 
-deltaT          1e-13;         // Base time step (100 fs)
+deltaT          1e-15;         // Base time step (1 fs)
 adjustTimeStep  yes;           // ENABLE adaptive time stepping
 maxCo           0.05;          // Allow reasonable growth while staying stable
 maxAlphaCo      0.005;         // Aggressive interface limit
-maxDeltaT       1e-13;         // Cap adaptive growth (100 fs)
-minDeltaT       1e-15;         // Minimum 1 fs for precision
+maxDeltaT       1e-15;         // Cap adaptive growth (1 fs)
+minDeltaT       1e-17;         // Minimum 0.01 fs for precision
 
 verbose         true;
 thermalFluxRelax 0.1;          // Stronger damping of interface heat flux
@@ -233,11 +233,6 @@ functions
         );
     }
 
-// ========================================================================
-// UNIFIED LIFT PROCESS VALIDATION AND PROGRESS TRACKER
-// Results-based monitoring from laser activation through solidification
-// ========================================================================
-
 liftProcessTracker
 {
     type            coded;
@@ -281,7 +276,8 @@ liftProcessTracker
         const scalar tempSpread = maxTl - minTl;
         
         // Metal volume tracking
-        const scalarField alphaVol = alpha.primitiveField() * mesh().V();
+        const scalarField& cellVolumes = mesh().V();
+        const scalarField alphaVol = alpha.primitiveField() * cellVolumes;
         const scalar metalVol = gSum(alphaVol) * 1e18; // µm³
         static scalar initialMetalVol = -1;
         static scalar peakMetalVol = -1;
@@ -295,32 +291,40 @@ liftProcessTracker
         
         // Velocity analysis
         scalar maxVel = 0.0;
-        scalar avgVel = 0.0;
-        scalar metalCells = 0;
+        scalar weightedVelSum = 0.0;
+        scalar metalVolumeWeight = 0.0;
         const scalarField& alphaInternal = alpha.primitiveField();
         const vectorField& UInternal = U.primitiveField();
-        
+
         forAll(alphaInternal, cellI)
         {
             if (alphaInternal[cellI] > 0.01)
             {
                 const scalar velMag = mag(UInternal[cellI]);
-                maxVel = max(maxVel, velMag);
-                avgVel += velMag;
-                metalCells += 1;
+                maxVel = Foam::max(maxVel, velMag);
+                const scalar weight = alphaInternal[cellI]*cellVolumes[cellI];
+                weightedVelSum += velMag*weight;
+                metalVolumeWeight += weight;
             }
         }
-        
+
         reduce(maxVel, maxOp<scalar>());
-        reduce(avgVel, sumOp<scalar>());
-        reduce(metalCells, sumOp<scalar>());
-        if (metalCells > 0) avgVel /= metalCells;
+        reduce(weightedVelSum, sumOp<scalar>());
+        reduce(metalVolumeWeight, sumOp<scalar>());
+
+        scalar avgVel = 0.0;
+        if (metalVolumeWeight > VSMALL)
+        {
+            avgVel = weightedVelSum/metalVolumeWeight;
+        }
+
 
         // ====================================================================
         // PHASE STATE DETECTION (Results-Based)
         // ====================================================================
         static label currentPhase = 0;  // 0=IDLE, 1-16=PHASES
         static bool phaseReported[17] = {false}; // Track phase announcements
+        static bool initialised = false;
         
         // Energy metrics
         const bool laserActive = (maxQLaser > 1e6);
@@ -344,36 +348,53 @@ liftProcessTracker
         const bool nearAmbient = (maxTl < 500);
         const bool thermallyStable = (tempSpread < 200);
         
-        // Phase advancement logic
-        label newPhase = currentPhase;
-        
-        if (currentPhase == 0 && laserActive) newPhase = 1;
-        else if (currentPhase == 1 && electronHeated) newPhase = 2;
-        else if (currentPhase == 2 && latticeHeating) newPhase = 3;
-        else if (currentPhase == 3 && approachingMelt) newPhase = 4;
-        else if (currentPhase == 4 && melting) newPhase = 5;
-        else if (currentPhase == 5 && vaporizing) newPhase = 6;
-        else if (currentPhase == 6 && plasmaConditions) newPhase = 7;
-        else if (currentPhase == 7 && recoilSignificant) newPhase = 8;
-        else if (currentPhase == 8 && ejecting) newPhase = 9;
-        else if (currentPhase == 9 && accelerating) newPhase = 10;
-        else if (currentPhase == 10 && significantTransfer) newPhase = 11;
-        else if (currentPhase == 11 && coolingStarted) newPhase = 12;
-        else if (currentPhase == 12 && belowVapor) newPhase = 13;
-        else if (currentPhase == 13 && belowMelt) newPhase = 14;
-        else if (currentPhase == 14 && nearAmbient) newPhase = 15;
-        else if (currentPhase == 15 && thermallyStable) newPhase = 16;
-        
+       // Phase detection based on live metrics
+        label detectedPhase = 0;
+
+        if (laserActive) detectedPhase = 1;
+        if (detectedPhase >= 1 && electronHeated) detectedPhase = 2;
+        if (detectedPhase >= 2 && latticeHeating) detectedPhase = 3;
+        if (detectedPhase >= 3 && approachingMelt) detectedPhase = 4;
+        if (detectedPhase >= 4 && melting) detectedPhase = 5;
+        if (detectedPhase >= 5 && vaporizing) detectedPhase = 6;
+        if (detectedPhase >= 6 && plasmaConditions) detectedPhase = 7;
+        if (detectedPhase >= 7 && recoilSignificant) detectedPhase = 8;
+        if (detectedPhase >= 8 && ejecting) detectedPhase = 9;
+        if (detectedPhase >= 9 && accelerating) detectedPhase = 10;
+        if (detectedPhase >= 10 && significantTransfer) detectedPhase = 11;
+        if (detectedPhase >= 11 && coolingStarted) detectedPhase = 12;
+        if (detectedPhase >= 12 && belowVapor) detectedPhase = 13;
+        if (detectedPhase >= 13 && belowMelt) detectedPhase = 14;
+        if (detectedPhase >= 14 && nearAmbient) detectedPhase = 15;
+        if (detectedPhase >= 15 && thermallyStable) detectedPhase = 16;
+
+        if (!initialised)
+        {
+            currentPhase = detectedPhase;
+            for (label i = 0; i <= currentPhase; ++i)
+            {
+                phaseReported[i] = true;
+            }
+            initialised = true;
+        }
+
         // ====================================================================
         // PHASE ANNOUNCEMENT (Only when phase changes)
         // ====================================================================
-        if (newPhase != currentPhase && !phaseReported[newPhase])
+        if (detectedPhase > currentPhase)
         {
-            currentPhase = newPhase;
-            phaseReported[newPhase] = true;
-            
-            if (Pstream::master())
+            for (label phase = currentPhase + 1; phase <= detectedPhase; ++phase)
             {
+                currentPhase = phase;
+                if (phaseReported[currentPhase])
+                {
+                    continue;
+                }
+
+                phaseReported[currentPhase] = true;
+
+                if (Pstream::master())
+                {
                 Info<< "\n" << string(70, '=') << nl;
                 
                 switch(currentPhase)
@@ -462,6 +483,7 @@ liftProcessTracker
                 
                 Info<< "    Time: " << t*1e12 << " ps" << nl;
                 Info<< string(70, '=') << "\n" << endl;
+                }
             }
         }
         
@@ -496,36 +518,51 @@ liftProcessTracker
                 case 16: phaseName = "EQUILIBRIUM"; break;
             }
             
-            // Progress percentage (0-100%)
-            const scalar progress = min(scalar(currentPhase) / 16.0 * 100.0, 100.0);
-            
-            Info<< "\n╔════════════════════════════════════════════════════════════╗" << nl
-                << "║              LIFT PROCESS STATUS                          ║" << nl
-                << "╠════════════════════════════════════════════════════════════╣" << nl
-                << "║ Phase:    " << phaseName << "           Progress: " << label(progress) << "% ║" << nl
-                << "║ Time:     " << t*1e12 << " ps" << "                          ║" << nl
-                << "╠════════════════════════════════════════════════════════════╣" << nl
-                << "║ THERMAL STATE                                             ║" << nl
-                << "║   Te max:        " << maxTe << " K" << "                 ║" << nl
-                << "║   Tl max:        " << maxTl << " K" << "                 ║" << nl
-                << "║   Tl avg:        " << avgTl << " K" << "                 ║" << nl
-                << "║   Tl spread:     " << tempSpread << " K" << "                 ║" << nl
-                << "╠════════════════════════════════════════════════════════════╣" << nl
-                << "║ PRESSURE STATE                                            ║" << nl
-                << "║   Max pressure:  " << maxPressure/1e6 << " MPa" << "              ║" << nl
-                << "║   Recoil:        " << maxRecoil/1e6 << " MPa" << "              ║" << nl
-                << "╠════════════════════════════════════════════════════════════╣" << nl
-                << "║ MATERIAL STATE                                            ║" << nl
-                << "║   Metal volume:  " << metalVol << " µm³" << "              ║" << nl
-                << "║   Metal loss:    " << metalLoss << " %" << "                ║" << nl
-                << "╠════════════════════════════════════════════════════════════╣" << nl
-                << "║ DYNAMICS                                                  ║" << nl
-                << "║   Max velocity:  " << maxVel << " m/s" << "              ║" << nl
-                << "║   Avg velocity:  " << avgVel << " m/s" << "              ║" << nl
-                << "╠════════════════════════════════════════════════════════════╣" << nl
-                << "║ ENERGY                                                    ║" << nl
-                << "║   Laser power:   " << maxQLaser/1e12 << " TW/m³" << "            ║" << nl
-                << "╚════════════════════════════════════════════════════════════╝" << nl;
+            // Progress percentage (0-100%) with in-phase interpolation
+            scalar progressIndex = scalar(currentPhase);
+
+            if (currentPhase == 3)
+            {
+                const scalar heatingStart = 500.0;
+                const scalar heatingTarget = 1500.0;
+
+                if (heatingTarget > heatingStart)
+                {
+                    scalar heatingFraction = (maxTl - heatingStart)/(heatingTarget - heatingStart);
+                    heatingFraction = Foam::max(scalar(0), Foam::min(heatingFraction, scalar(0.999)));
+                    progressIndex = scalar(currentPhase) + heatingFraction;
+                }
+            }
+
+            const scalar progress = Foam::min(progressIndex / 16.0 * 100.0, scalar(100));
+
+          Info<< "\n╔════════════════════════════════════════════════════════════════════════════════╗" << nl
+                << "║        			      LIFT PROCESS STATUS                            ║" << nl
+                << "╠════════════════════════════════════════════════════════════════════════════════╣" << nl
+                << "║         Phase:    " << phaseName << "            Progress: " << progress << "% ║" << nl
+                << "║         Time:     " << t*1e12 << " ps" << "               		     ║" << nl
+                << "╠════════════════════════════════════════════════════════════════════════════════╣" << nl
+                << "║ 		                  THERMAL STATE                      		     ║" << nl
+                << "║  	      Te max:        " << maxTe << " K" << "         			     ║" << nl
+                << "║  	      Tl max:        " << maxTl << " K" << "         			     ║" << nl
+                << "║ 	      Tl avg:        " << avgTl << " K" << "                     	     ║" << nl
+                << "║	      Tl spread:     " << tempSpread << " K" << "	                     ║" << nl
+                << "╠════════════════════════════════════════════════════════════════════════════════╣" << nl
+                << "║ 			          PRESSURE STATE                                     ║" << nl
+                << "║		Max pressure:  " << maxPressure/1e6 << " MPa" << "                   ║" << nl
+                << "║		Recoil:        " << maxRecoil/1e6 << " MPa" << " 	             ║" << nl
+                << "╠════════════════════════════════════════════════════════════════════════════════╣" << nl
+                << "║			          MATERIAL STATE                                     ║" << nl
+                << "║  		Metal volume:  " << metalVol << " µm³" << "	                     ║" << nl
+                << "║		Metal loss:    " << metalLoss << " %" << " 	                     ║" << nl
+                << "╠════════════════════════════════════════════════════════════════════════════════╣" << nl
+                << "║			          DYNAMICS                                           ║" << nl
+                << "║  		Max velocity:  " << maxVel << " m/s" << "		             ║" << nl
+                << "║   	Avg velocity:  " << avgVel << " m/s" << "		             ║" << nl
+                << "╠════════════════════════════════════════════════════════════════════════════════╣" << nl
+                << "║			         ENERGY                                              ║" << nl
+                << "║     	Laser power:   " << maxQLaser/1e12 << " TW/m³" << "		     ║" << nl
+                << "╚════════════════════════════════════════════════════════════════════════════════╝" << nl;
             
             // Warnings based on current conditions
             if (maxTl > 15000)
@@ -591,8 +628,23 @@ liftProcessTracker
                 case 16: phaseName = "EQUILIBRIUM"; break;
             }
             
-            const scalar progress = min(scalar(currentPhase) / 16.0 * 100.0, 100.0);
-            
+            scalar progressIndex = scalar(currentPhase);
+
+            if (currentPhase == 3)
+            {
+                const scalar heatingStart = 500.0;
+                const scalar heatingTarget = 1500.0;
+
+                if (heatingTarget > heatingStart)
+                {
+                    scalar heatingFraction = (maxTl - heatingStart)/(heatingTarget - heatingStart);
+                    heatingFraction = Foam::max(scalar(0), Foam::min(heatingFraction, scalar(0.999)));
+                    progressIndex = scalar(currentPhase) + heatingFraction;
+                }
+            }
+
+            const scalar progress = Foam::min(progressIndex / 16.0 * 100.0, scalar(100));
+     
             csvFile << t*1e12 << ","
                     << phaseName << ","
                     << currentPhase << ","
