@@ -137,8 +137,7 @@ extern const bool master;
             IOobject::NO_WRITE
         ),
         (
-            fvc::interpolate(rho*gh)
-          + fvc::interpolate(mixture.sigmaK())
+            mixture.surfaceTensionForce()
           - ghf*fvc::snGrad(rho)
         )*rAUf*mesh.magSf()
     );
