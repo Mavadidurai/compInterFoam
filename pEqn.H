@@ -112,25 +112,7 @@ extern const bool master;
         ),
         constrainHbyA(rAU*UEqn.H(), U, p_rgh)
     );
-    /*
-    if (recoilPressurePtr)
-    {
-        tmp<volVectorField> tRecoilGrad = fvc::grad(*recoilPressurePtr);
-        volVectorField& recoilGrad = tRecoilGrad.ref();
 
-        const scalar maxAllowedGrad = 1e4; // Pa/m
-        forAll(recoilGrad, cellI)
-        {
-            const scalar gradMag = mag(recoilGrad[cellI]);
-            if (gradMag > maxAllowedGrad)
-            {
-                recoilGrad[cellI] *= maxAllowedGrad/gradMag;
-            }
-        }
-
-        HbyA += rAU*recoilGrad;
-    }
-    */
     surfaceScalarField phiHbyA
     (
         IOobject
@@ -155,8 +137,9 @@ extern const bool master;
             IOobject::NO_WRITE
         ),
         (
-            fvc::interpolate(mixture.sigmaK())
-          * fvc::snGrad(alpha1)
+            fvc::interpolate(rho*gh)
+          + fvc::interpolate(mixture.sigmaK())
+           * fvc::snGrad(alpha1)
           - ghf*fvc::snGrad(rho)
         )*rAUf*mesh.magSf()
     );
