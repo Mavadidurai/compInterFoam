@@ -264,13 +264,13 @@ liftProcessTracker
         // ====================================================================
         // METRICS CALCULATION
         // ====================================================================
-        const scalar maxTe = gMax(Te);
-        const scalar maxTl = gMax(Tl);
-        const scalar minTl = gMin(Tl);
-        const scalar avgTl = gAverage(Tl);
-        const scalar maxRecoil = gMax(recoilP);
-        const scalar maxQLaser = gMax(QLaser);
-        const scalar maxPressure = gMax(p);
+        const scalar maxTe = gMax(Te).value();
+        const scalar maxTl = gMax(Tl).value();
+        const scalar minTl = gMin(Tl).value();
+        const scalar avgTl = gAverage(Tl).value();
+        const scalar maxRecoil = gMax(recoilP).value();
+        const scalar maxQLaser = gMax(QLaser).value();
+        const scalar maxPressure = gMax(p).value();
         
         // Temperature spread analysis
         const scalar tempSpread = maxTl - minTl;
