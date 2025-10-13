@@ -72,29 +72,36 @@ solvers
     }
 
     // Gas T (if present)
-        T
-        {
-            solver          smoothSolver;
-            smoother        symGaussSeidel;
-            nSweeps         6;
-            maxIter         200;
-            tolerance       1e-8;
-            relTol          0;
-        }
+T
+{
+    solver          PBiCGStab;           // Better for asymmetric matrices
+    preconditioner  DILU;
+    tolerance       1e-5;                // Relaxed for extreme sources
+    relTol          0.01;                // Allow 1% relative convergence
+    maxIter         50;                  // Fail fast if diverging
+    minIter         3;                   // Force minimum iterations
+}
 
-        Te
-        {
-            $T;
-            tolerance       1e-8;
-            relTol          0;
-        }
+TFinal
+{
+    $T;
+    tolerance       1e-6;
+    relTol          0;
+}
 
-        Tl
-        {
-            $T;
-            tolerance       1e-8;
-            relTol          0;
-        }
+Te
+{
+    solver          PBiCGStab;
+    preconditioner  DILU;
+    tolerance       1e-6;
+    relTol          0.01;
+    maxIter         50;
+}
+
+Tl
+{
+    $Te;
+}
 }
 
 PIMPLE
@@ -142,8 +149,8 @@ targetResP  0.5;
 compInterFoamCoeffs
 {
     // CRITICAL FIX: Remove artificial velocity clamping
-    maxVelocity            -1;         // DISABLED: was causing uniform 500 m/s field
-    maxReasonableVelocity  5000;       // Keep for validation warnings only
+    maxVelocity            1200;         // DISABLED: was causing uniform 500 m/s field
+    maxReasonableVelocity  2000;       // Keep for validation warnings only
     
     defaultMetalDensity    4500;        
     defaultAirDensity      1.2;         

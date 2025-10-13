@@ -22,11 +22,11 @@ startTime       0;
 stopAt          endTime;
 endTime         1e-9;          // EXTENDED: 1 ns total for complete LIFT process
 
-deltaT          1e-15;         // Base time step (1 fs)
+deltaT          1e-14;         // Base time step (1 fs)
 adjustTimeStep  yes;           // ENABLE adaptive time stepping
 maxCo           0.05;          // Allow reasonable growth while staying stable
 maxAlphaCo      0.005;         // Aggressive interface limit
-maxDeltaT       1e-15;         // Cap adaptive growth (1 fs)
+maxDeltaT       1e-12;         // Cap adaptive growth (1 fs)
 minDeltaT       1e-17;         // Minimum 0.01 fs for precision
 
 verbose         true;
@@ -35,7 +35,7 @@ maxThermalCourant 0.1;         // Tightened for thermal stability
 
 // ADAPTIVE OUTPUT - more frequent during active phase, less during cooling
 writeControl    adjustableRunTime;
-writeInterval   1e-13;         // Start with 1 ps intervals
+writeInterval   1e-14;         // Start with 1 ps intervals
 purgeWrite      50;            // Keep more time directories for analysis
 writeFormat     ascii;
 writePrecision  8;
