@@ -430,26 +430,24 @@ if (verbose && master && timeIndex % 10 == 0)
     T = Foam::max(Foam::min(T, maxTDim), minTDim);
     T.correctBoundaryConditions();
 
-    tmp<volScalarField> tEnergySource(fvOptions(CvolLimited, T));
-    volScalarField& energySource = tEnergySource.ref();
-    energySource += cappedInterfaceExchange*Tl;
-
-    if (applyGasLaserHeating)
-    {
-        energySource += contactMask*mixture.Q_laser();
-    }
-
     fvScalarMatrix TEqn
     (
         fvm::ddt(CvolLimited, T)
       + fvm::div(CvolPhi, T)
       - fvm::Sp(contErr, T)
       - fvm::laplacian(transportModel.kappaEff(), T)
-      + fvm::Sp(cappedInterfaceExchange, T)
-     ==
-        tEnergySource
+      ==
+        fvOptions(CvolLimited, T)
     );
-    
+
+    TEqn += fvm::Sp(cappedInterfaceExchange, T);
+    TEqn.source() += cappedInterfaceExchange*Tl;
+
+    if (applyGasLaserHeating)
+    {
+        TEqn.source() += contactMask*mixture.Q_laser();
+    }
+
     TEqn.relax();
     fvOptions.constrain(TEqn);
 
