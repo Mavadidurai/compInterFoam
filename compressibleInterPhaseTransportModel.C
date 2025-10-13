@@ -149,15 +149,9 @@ Foam::compressibleInterPhaseTransportModel::alphaEff() const
         return tmp<volScalarField>(nullptr);
     }
 
-    // Use mixture-based approach with turbulent thermal diffusivity
-    const tmp<volScalarField> nutTmp = turbulence_->nut();
-    const volScalarField& nut = nutTmp();
-    
-    // Convert kinematic turbulent viscosity to thermal diffusivity
-    // using turbulent Prandtl number: alphat = nut/Prt
-    const scalar Prt = 0.85; // Typical turbulent Prandtl number
-    const tmp<volScalarField> alphat = nut/Prt;
-    
+    // Use mixture-based approach; turbulence model supplies alphat directly
+    const tmp<volScalarField> alphat = turbulence_->alphat();
+
     return mixture_.alphaEff(alphat());
 }
 

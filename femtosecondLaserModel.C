@@ -587,7 +587,7 @@ scalar femtosecondLaserModel::pulseNormalizationFactor() const
     if (!continuousLaser_)
     {
         const scalar sqrtPi = sqrt(constant::mathematical::pi);
-        const scalar sqrtLn2 = sqrt(constant::mathematical::lnTwo);
+        const scalar sqrtLn2 = sqrt(log(2.0));
         temporalFactor *= sqrtPi/(2.0*sqrtLn2);
     }
 
@@ -1049,7 +1049,7 @@ femtosecondLaserModel::evaluateTemporalEnvelope
         const scalar period   = 1.0/pulseFrequency_;
         const scalar onTime   = max(SMALL, pulseDutyCycle_*period);
         const scalar sigma    = pulseWidth_.value()
-            /(2.0*sqrt(2.0*constant::mathematical::lnTwo));
+            /(2.0*sqrt(2.0*log(2.0)));
         const scalar localStart = overlapStart - laserStartTime_;
         const scalar localEnd   = overlapEnd   - laserStartTime_;
 
@@ -1124,7 +1124,7 @@ femtosecondLaserModel::evaluateTemporalEnvelope
         // laserStartTime when no explicit pulseCenterTime is supplied.
 
         const scalar sigma =
-            pulseWidth_.value()/(2.0*sqrt(2.0*constant::mathematical::lnTwo));
+            pulseWidth_.value()/(2.0*sqrt(2.0*log(2.0)));
             // std dev from FWHM
         scalar center = pulseCenterTime_;
         const bool customCenter = (pulseCenterTime_ > -0.5*GREAT);
@@ -1819,7 +1819,7 @@ void femtosecondLaserModel::calculateSource() const
 
     if (singlePulse)
     {
-        sigma = pulseWidth_.value()/(2.0*sqrt(2.0*constant::mathematical::lnTwo));
+        sigma = pulseWidth_.value()/(2.0*sqrt(2.0*log(2.0)));
 
         if (pulseCenterTime_ > -0.5*GREAT)
         {

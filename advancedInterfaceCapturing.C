@@ -561,9 +561,6 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
         }
 
         const scalar rawRate = massRateField[cellI];
-        const scalar localRecoilMax = scaleRecoilMax
-            ? recoilMax_ * alphaMask
-            : recoilMax_;
 
         scalar localRecoil = 0.0;
 
@@ -578,7 +575,7 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
 
             if (clampRecoil)
             {
-                localRecoil = Foam::min(localRecoil, localRecoilMax);
+                 localRecoil = Foam::min(localRecoil, recoilMax_);
             }
         }
         else if (rawRate < -massRateEps)
@@ -591,14 +588,23 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
             const scalar tempWindow = Foam::max(evaporationOnTemp - recoilOnTemp, Foam::SMALL);
             scalar tempWeight = (localTemp - recoilOnTemp)/tempWindow;
             tempWeight = Foam::min(Foam::max(tempWeight, scalar(0)), scalar(1));
-            localRecoil = tempWeight * localRecoilMax;
+            localRecoil = tempWeight * recoilMax_;
         }
 
-        localRecoil *= alphaMask;
+        const scalar interfaceWeight = alphaMask;
+        scalar weightedRecoil = localRecoil * interfaceWeight;
+
+        if (clampRecoil)
+        {
+            const scalar recoilCap = scaleRecoilMax
+                ? recoilMax_ * interfaceWeight
+                : recoilMax_;
+            weightedRecoil = Foam::min(weightedRecoil, recoilCap);
+        }
 
         scalar limitedRecoil = clampRecoil && !scaleRecoilMax
-            ? Foam::min(localRecoil, recoilMax_)
-            : localRecoil;
+            ? Foam::min(weightedRecoil, recoilMax_)
+            : weightedRecoil;
 
         limitedRecoil *= rampFactor;
 
