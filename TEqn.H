@@ -449,7 +449,7 @@ if (verbose && master && timeIndex % 10 == 0)
     // Add volumetric laser heating [W/m^3] when enabled
     if (applyGasLaserHeating)
     {
-        TEqn.source() += activeMask*mixture.Q_laser();
+        TEqn.source() += contactMask*mixture.Q_laser();
     }
     
     TEqn.relax();
@@ -485,20 +485,31 @@ if (verbose && master && timeIndex % 10 == 0)
     const scalar Tmin = gMin(T);
     const scalar Tmax = gMax(T);
 
-    if
-    (
-        !std::isfinite(Tmin)
-     || !std::isfinite(Tmax)
-     || Tmin < minPhysicalTemp
-     || Tmax > maxPhysicalTemp
-    )
+    const bool invalidExtremes =
+        (!std::isfinite(Tmin) || !std::isfinite(Tmax));
+    const bool violatesClampBounds =
+        enableTClamp
+     && (Tmin < minPhysicalTemp || Tmax > maxPhysicalTemp);
+
+    if (invalidExtremes || violatesClampBounds)
     {
         if (verbose && master)
         {
             WarningInFunction
-                << "Gas temperature left physical bounds: Tmin=" << Tmin
-                << " K, Tmax=" << Tmax << " K. Applying automatic clamp to ["
-                << minPhysicalTemp << ", " << maxPhysicalTemp << "] K" << endl;
+                << "Gas temperature produced "
+                << (invalidExtremes ? "non-finite" : "out-of-range")
+                << " values: Tmin=" << Tmin
+                << " K, Tmax=" << Tmax << " K.";
+
+            if (enableTClamp)
+            {
+                Info<< " Enforcing clamp [" << minPhysicalTemp
+                    << ", " << maxPhysicalTemp << "] K" << endl;
+            }
+            else
+            {
+                Info<< " Resetting to fallback bounds to recover stability" << endl;
+            }
         }
 
         T = Foam::max(Foam::min(T, maxTDim), minTDim);
@@ -507,7 +518,10 @@ if (verbose && master && timeIndex % 10 == 0)
     // CRITICAL FIX: Do NOT force T = Tl in metal regions
     // This prevents the gas from having independent temperature
     // T = (scalar(1) - activeMask)*T + activeMask*Tl;  // ← REMOVED
-    T = Foam::max(Foam::min(T, maxTDim), minTDim);
+    if (enableTClamp)
+    {
+        T = Foam::max(Foam::min(T, maxTDim), minTDim);
+    }
     T.correctBoundaryConditions();
 
     mixture.correctThermo();
