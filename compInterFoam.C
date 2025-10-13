@@ -178,10 +178,24 @@ int main(int argc, char *argv[])
 
             const dimensionedScalar invMaxDeltaT(1/maxDeltaT);
 
-            const dictionary& pimpleDict = mesh.solutionDict().subDict("PIMPLE");
+            scalar maxCo = runTime.controlDict().lookupOrDefault<scalar>
+            (
+                "maxCo",
+                0.9
+            );
+            scalar maxAlphaCo = runTime.controlDict().lookupOrDefault<scalar>
+            (
+                "maxAlphaCo",
+                0.2
+            );
 
-            scalar maxCo = pimpleDict.getOrDefault<scalar>("maxCo", 0.9);
-            scalar maxAlphaCo = pimpleDict.getOrDefault<scalar>("maxAlphaCo", 0.2);
+            const dictionary& solutionDict = mesh.solutionDict();
+            if (solutionDict.found("PIMPLE"))
+            {
+                const dictionary& pimpleDict = solutionDict.subDict("PIMPLE");
+                maxCo = pimpleDict.getOrDefault<scalar>("maxCo", maxCo);
+                maxAlphaCo = pimpleDict.getOrDefault<scalar>("maxAlphaCo", maxAlphaCo);
+            }
 
             // Set reciprocal time-step from local Courant number
             rDeltaT.ref() = max

@@ -1362,7 +1362,15 @@ if (gasMetalExchangeFunction_.valid()) {
         scalar(1)
     );
 
-    coeff *= metalMask;
+    tmp<volScalarField> tGasMask(scalar(1) - metalMask);
+    volScalarField& gasMask = tGasMask.ref();
+    gasMask = Foam::min
+    (
+        Foam::max(gasMask, scalar(0)),
+        scalar(1)
+    );
+
+    coeff *= gasMask;
 
     // Suppress coupling when either phase fraction vanishes by
     // weighting the exchange coefficient with an interface indicator.

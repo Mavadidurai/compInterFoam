@@ -290,24 +290,36 @@ extern const bool master;
             return clamped;
         };
 
-        const bool pClamped = clampField(p);
         const bool pRghClamped = clampField(p_rgh);
+        if (pRghClamped)
+        {
+            // Maintain consistency: p must equal p_rgh + rho*gh
+            p_rgh.correctBoundaryConditions();
+            p = p_rgh + rho*gh;
+            p.correctBoundaryConditions();
+        }
 
-        if (pClamped || pRghClamped)
+        const bool pClamped = clampField(p);
+        if (pClamped)
         {
             p.correctBoundaryConditions();
-            p_rgh.correctBoundaryConditions();
 
-            if (master)
-            {
-                WarningInFunction
-                    << "Pressure clamp applied to "
-                    << (pClamped && pRghClamped
-                        ? "p and p_rgh"
-                        : (pClamped ? "p" : "p_rgh"))
-                    << " with limits [" << minPressure
-                    << ", " << maxPressure << "]" << endl;
-            }
+            // Recompute p_rgh from the bounded p to avoid drift between
+            // the two pressure fields.  This keeps the relationship
+            // p = p_rgh + rho*gh intact even when clamping is active.
+            p_rgh = p - rho*gh;
+            p_rgh.correctBoundaryConditions();
+        }
+
+        if ((pClamped || pRghClamped) && master)
+        {
+            WarningInFunction
+                << "Pressure clamp applied to "
+                << (pClamped && pRghClamped
+                    ? "p and p_rgh"
+                    : (pClamped ? "p" : "p_rgh"))
+                << " with limits [" << minPressure
+                << ", " << maxPressure << "]" << endl;
         }
     }
     K = 0.5*magSqr(U);
