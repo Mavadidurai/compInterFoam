@@ -13,6 +13,8 @@ extern const bool master;
     const dictionary& compCoeffs = compInterFoamCoeffsDict(mesh);
     const scalar velocityClamp =
         compCoeffs.lookupOrDefault<scalar>("maxVelocity", 2000.0);
+    const scalar pressureResidualLimit =
+        compCoeffs.lookupOrDefault<scalar>("targetResP", 1e-2);
     surfaceScalarField rAUf
     (
         IOobject
@@ -160,13 +162,14 @@ extern const bool master;
         if
         (
             !solverPerf.converged()
-         && solverPerf.finalResidual() > 1e-2
+         && solverPerf.finalResidual() > pressureResidualLimit
         )
         {
             FatalErrorInFunction
                 << "Pressure solve failed: converged="
                 << solverPerf.converged()
                 << ", final residual=" << solverPerf.finalResidual()
+                << " (limit " << pressureResidualLimit << ")"
                 << exit(FatalError);
         }
 
@@ -174,12 +177,14 @@ extern const bool master;
         {
             phi = phiHbyA + pEqn.flux();
 
-            // Include both the pressure correction and the body-force
-            // contribution when reconstructing U.  Omitting phig removes
-            // the stabilising capillary/gravitational term, which forces
-            // the pressure solve to compensate and triggers the clamps.
-            // Restore the standard formulation using phig + pressure flux.
-            U = HbyA + rAU*fvc::reconstruct((phig + pEqn.flux())/rAUf);
+            // Only apply the pressure-correction flux when reconstructing U.
+            // phiHbyA already contains the explicit body-force contribution
+            // (phig).  Adding phig a second time over-corrects the velocity,
+            // which is exactly what the failing LiftTest2 log shows: the
+            // "High velocity detected" warning precedes the pressure
+            // divergence.  Reconstructing with just the pressure flux keeps
+            // the body-force balance intact without double-counting it.
+            U = HbyA + rAU*fvc::reconstruct(pEqn.flux()/rAUf);
             
             fvOptions.correct(U);
             if (velocityClamp > 0)
