@@ -329,6 +329,7 @@ if (metalVolumeWeight > VSMALL)
         static bool initialised = false;
         static bool heatingObserved = false;
         static bool latticeExceededAmbient = false;
+        
         // Energy metrics
         const bool laserActive = (maxQLaser > 1e6);
         const bool electronHeated = (maxTe > 500);
@@ -345,7 +346,7 @@ if (metalVolumeWeight > VSMALL)
         const bool significantTransfer = (metalLoss > 2.0);
         
         // Cooling metrics
-        if (!heatingObserved && maxTl > 320)
+        if (!heatingObserved && (electronHeated || maxTl > 320))
         {
             heatingObserved = true;
         }
@@ -604,12 +605,13 @@ if (!initialised)
         {
             static bool headerWritten = false;
             
-            IOstreamOption csvOptions;
-            csvOptions.setFormat(IOstreamOption::ASCII);
-            csvOptions.setCompression(IOstreamOption::UNCOMPRESSED);
-            csvOptions.setWriteOpt(IOstreamOption::APPEND);
-
-            OFstream csvFile("liftProcessTracking.csv", csvOptions);
+            OFstream csvFile
+            (
+                "liftProcessTracking.csv",
+                IOstreamOption::ASCII,
+                IOstreamOption::UNCOMPRESSED,
+                IOstreamOption::APPEND
+            );
             
             if (!headerWritten)
             {
