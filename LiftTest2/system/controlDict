@@ -345,16 +345,21 @@ if (metalVolumeWeight > VSMALL)
         const bool significantTransfer = (metalLoss > 2.0);
         
         // Cooling metrics
-        if (!heatingObserved && (electronHeated || maxTl > 320))
+        if (!heatingObserved && maxTl > 320)
         {
             heatingObserved = true;
+        }
+
+        if (!latticeExceededAmbient && maxTl > 500)
+        {
+            latticeExceededAmbient = true;
         }
 
         const bool coolingStarted = (maxTl < 3000 && t > 5e-11);
         const bool belowVapor = (maxTl < 3560);
         const bool belowMelt = (maxTl < 1941);
-        const bool nearAmbient = (heatingObserved && maxTl < 500);
-        const bool thermallyStable = (heatingObserved && tempSpread < 200);
+        const bool nearAmbient = (heatingObserved && latticeExceededAmbient && coolingStarted && maxTl < 500);
+        const bool thermallyStable = (nearAmbient && tempSpread < 200);
         
        // Phase detection based on live metrics
 label detectedPhase = 0;
