@@ -74,7 +74,7 @@ gaussianProfile     true;
 
 // Optional intensity entry (consistent with pulseEnergy & pulseWidth)
 continuousLaser     false;
-maxVolumetricSource 0;  // [W/m³] disable cap so absorbed pulse energy is not clipped
+maxVolumetricSource 1e20;  // [W/m³] disable cap so absorbed pulse energy is not clipped
 
 // CRITICAL: Enable pulse frequency for extended operation
 //pulseFrequency      1e12;     // [1/s] 1 THz repetition rate for sustained heating
