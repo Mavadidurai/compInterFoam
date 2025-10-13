@@ -46,8 +46,8 @@ gasAbsorptionCoeff 0;     // [1/m] gas absorption (0 disables direct gas heating
 // CRITICAL: Keep pulse energy compatible with interface heat-flux limit
 // NOTE: Omit pulseCenterTime to fire the single pulse immediately after
 //       laserStartTime.  Supplying a later center delays deposition.
-pulseEnergy              3e-6;        // 300 nJ (was 3e-7, increased 10x)
-pulseWidth               2.14e-12;    // 2.14 ps (was 214 fs, increased 10x for gradual heating)
+pulseEnergy              3e-7;        // 300 nJ (restore baseline energy to avoid overdriving)
+pulseWidth               2.14e-12;    // 2.14 ps (kept within validated range)
 // --- Peak intensity (derived to match pulseEnergy exactly) ---
 //peakIntensity      9.315644e16;    // [W/m^2] expected from 300 nJ pulse
 
