@@ -72,36 +72,29 @@ solvers
     }
 
     // Gas T (if present)
-T
-{
-    solver          PBiCGStab;           // Better for asymmetric matrices
-    preconditioner  DIC;
-    tolerance       1e-5;                // Relaxed for extreme sources
-    relTol          0.01;                // Allow 1% relative convergence
-    maxIter         50;                  // Fail fast if diverging
-    minIter         3;                   // Force minimum iterations
-}
+        T
+        {
+            solver          smoothSolver;
+            smoother        symGaussSeidel;
+            nSweeps         6;
+            maxIter         200;
+            tolerance       1e-8;
+            relTol          0;
+        }
 
-TFinal
-{
-    $T;
-    tolerance       1e-6;
-    relTol          0;
-}
+        Te
+        {
+            $T;
+            tolerance       1e-8;
+            relTol          0;
+        }
 
-Te
-{
-    solver          PBiCGStab;
-    preconditioner  DIC;
-    tolerance       1e-6;
-    relTol          0.01;
-    maxIter         50;
-}
-
-Tl
-{
-    $Te;
-}
+        Tl
+        {
+            $T;
+            tolerance       1e-8;
+            relTol          0;
+        }
 }
 
 PIMPLE
