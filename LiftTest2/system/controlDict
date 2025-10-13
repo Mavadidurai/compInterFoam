@@ -95,7 +95,7 @@ advancedInterfaceCapturing
 logRecoilSuppression true;
 
 // Temperature clamping - EXTENDED RANGE
-enableTClamp    true;
+enableTClamp    false;
 minT            200;           // Allow cooling below room temp
 maxT            15000;          // Clamp high temperatures for stability
 
