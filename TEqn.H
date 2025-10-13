@@ -426,31 +426,29 @@ if (verbose && master && timeIndex % 10 == 0)
       + fvc::div(CvolPhi)
     );
     const volScalarField& contErr = tContErr();
-// CRITICAL: Bound T BEFORE solving to prevent garbage input
+
     T = Foam::max(Foam::min(T, maxTDim), minTDim);
     T.correctBoundaryConditions();
+
+    tmp<volScalarField> tEnergySource(fvOptions(CvolLimited, T));
+    volScalarField& energySource = tEnergySource.ref();
+    energySource += cappedInterfaceExchange*Tl;
+
+    if (applyGasLaserHeating)
+    {
+        energySource += contactMask*mixture.Q_laser();
+    }
+
     fvScalarMatrix TEqn
     (
         fvm::ddt(CvolLimited, T)
       + fvm::div(CvolPhi, T)
       - fvm::Sp(contErr, T)
       - fvm::laplacian(transportModel.kappaEff(), T)
-      ==
-        fvOptions(CvolLimited, T)
+      + fvm::Sp(cappedInterfaceExchange, T)
+     ==
+        tEnergySource
     );
-
-    // Add gas-metal coupling terms
-    // The exchange represents q = h (Tl - T), i.e. a sink proportional to
-    // the temperature difference.  This requires a positive diagonal
-    // contribution (+h*T) and the matching explicit source (+h*Tl).
-    TEqn += fvm::Sp(cappedInterfaceExchange, T);
-    TEqn.source() += cappedInterfaceExchange*Tl;
-    
-    // Add volumetric laser heating [W/m^3] when enabled
-    if (applyGasLaserHeating)
-    {
-        TEqn.source() += contactMask*mixture.Q_laser();
-    }
     
     TEqn.relax();
     fvOptions.constrain(TEqn);
