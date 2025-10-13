@@ -264,13 +264,13 @@ liftProcessTracker
         // ====================================================================
         // METRICS CALCULATION
         // ====================================================================
-        const scalar maxTe = gMax(Te).value();
-        const scalar maxTl = gMax(Tl).value();
-        const scalar minTl = gMin(Tl).value();
-        const scalar avgTl = gAverage(Tl).value();
-        const scalar maxRecoil = gMax(recoilP).value();
-        const scalar maxQLaser = gMax(QLaser).value();
-        const scalar maxPressure = gMax(p).value();
+        const scalar maxTe = gMax(Te);
+        const scalar maxTl = gMax(Tl);
+        const scalar minTl = gMin(Tl);
+        const scalar avgTl = gAverage(Tl);
+        const scalar maxRecoil = gMax(recoilP);
+        const scalar maxQLaser = gMax(QLaser);
+        const scalar maxPressure = gMax(p);
         
         // Temperature spread analysis
         const scalar tempSpread = maxTl - minTl;
@@ -604,13 +604,12 @@ if (!initialised)
         {
             static bool headerWritten = false;
             
-            OFstream csvFile
-            (
-                "liftProcessTracking.csv",
-                IOstreamOption::ASCII,
-                IOstreamOption::UNCOMPRESSED,
-                IOstreamOption::APPEND
-            );
+            IOstreamOption csvOptions;
+            csvOptions.setFormat(IOstreamOption::ASCII);
+            csvOptions.setCompression(IOstreamOption::UNCOMPRESSED);
+            csvOptions.setWriteOpt(IOstreamOption::APPEND);
+
+            OFstream csvFile("liftProcessTracking.csv", csvOptions);
             
             if (!headerWritten)
             {
