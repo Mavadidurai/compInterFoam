@@ -328,7 +328,7 @@ if (metalVolumeWeight > VSMALL)
         static bool phaseReported[17] = {false}; // Track phase announcements
         static bool initialised = false;
         static bool heatingObserved = false;
-        
+        static bool latticeExceededAmbient = false;
         // Energy metrics
         const bool laserActive = (maxQLaser > 1e6);
         const bool electronHeated = (maxTe > 500);
