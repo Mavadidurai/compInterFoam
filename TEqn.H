@@ -442,9 +442,9 @@ if (verbose && master && timeIndex % 10 == 0)
     // Add gas-metal coupling terms
     // The exchange represents q = h (Tl - T), i.e. a sink proportional to
     // the temperature difference.  This requires a positive diagonal
-    // contribution (+h*T) and the matching explicit source (-h*Tl).
+    // contribution (+h*T) and the matching explicit source (+h*Tl).
     TEqn += fvm::Sp(cappedInterfaceExchange, T);
-    TEqn.source() -= cappedInterfaceExchange*Tl;
+    TEqn.source() += cappedInterfaceExchange*Tl;
     
     // Add volumetric laser heating [W/m^3] when enabled
     if (applyGasLaserHeating)

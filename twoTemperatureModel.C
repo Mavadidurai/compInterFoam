@@ -1509,7 +1509,139 @@ tmp<volScalarField> Foam::twoTemperatureModel::kl() const
         scalar Tl = Tl_[cellI];
         // Apply temperature dependent correction
         if (Tl > klHighTThreshold && klExponent != 0.0)
-        {
+        {══════ ENERGY BALANCE ══════
+Metal volume: 4035.712 µm³
+Power terms [W]:
+  Laser input:        800175.52
+  e→l coupling:       6081.8669
+  Gas coupling loss:  2.2745393e-09
+Net power [W]:
+  Into electrons:     794093.66
+  Into lattice:       6081.8669
+Temperatures:
+  max(Te): 15000 K
+  max(Tl): 383.28226 K
+════════════════════════════
+--> FOAM Warning : 
+    From void Foam::twoTemperatureModel::reportEnergyViolation(const Foam::dimensionedScalar&, const Foam::dimensionedScalar&, const Foam::dimensionedScalar&, Foam::scalar, Foam::scalar, const Foam::Switch&) const
+    in file twoTemperatureModel.C at line 738
+    Energy conservation violation detected
+Error = 2.0326299 %
+Previous energy: 4.9721958e-06 J
+Source energy: 1.600351e-07 J
+Expected energy: 5.1322309e-06 J
+Current energy: 5.0279117e-06 J
+Ce = 1500000 J/m^3/K
+Cl = 2500000 J/m^3/K
+G  = 5e+16 W/m^3/K
+deltaT = 2e-13 s
+Characteristic times: Ce/G = 3e-11 s, Cl/G = 5e-11 s
+Suggested max deltaT: 6e-12 s
+Energy diagnostics:
+  Electron energy before: 1.9449028e-06 J
+  Lattice energy before: 3.027293e-06 J
+  Laser energy input: 1.600351e-07 J
+  Phase-change energy input: 0 J
+  Gas-metal coupling energy loss: 4.5490785e-22 J
+  Electron energy after: 1.9995014e-06 J
+  Lattice energy after: 3.0284103e-06 J
+  Total metal energy: 5.0279117e-06 J
+  Cumulative laser energy: 2.9492267e-07 J
+Two-temperature solve:
+  Te range: 300 - 15000 K
+  Tl range: 300 - 383.28226 K
+  Max temperature difference: 14645.835 K
+  Mean Te: 1137.7321 K
+  Mean Tl: 304.42396 K
+  Coupling residual: 14645.835
+debug: Tl range = [300, 383.28226]
+Calculating recoil pressure at t = 4e-13s, max T = 383.28226K, recoil activation T = 3580K, evaporation T = 3580K
+Temperature too low for recoil pressure
+max recoilPressure = 0 Pa
+smoothSolver:  Solving for Ux, Initial residual = 0.98650057, Final residual = 0.003422009, No Iterations 2
+smoothSolver:  Solving for Uy, Initial residual = 0.030841233, Final residual = 2.0746596e-05, No Iterations 2
+smoothSolver:  Solving for Uz, Initial residual = 0.94959751, Final residual = 0.0036133756, No Iterations 2
+Solving pressure equation
+GAMG:  Solving for p_rgh, Initial residual = 0.92198666, Final residual = 8.5906503e-09, No Iterations 84
+DIAGNOSTIC AFTER PRESSURE CORRECTION:
+  max(U) = 0.00016787646 m/s
+  max(phi) = 1.4872848e-18 m^3/s
+Pressure solve complete: max p = 33.322796 Pa, min p = -0.51181813 Pa
+Energy totals [J]: Ek=1.3051958e-24 Ee=1.999496e-06 Elattice=3.0284013e-06 Elatent=6.6568443e-06 Egas=-1.44e-09 Etot=1.1683302e-05
+Femtosecond laser model status:
+  Mode: Pulsed
+  Peak intensity: 9.315644e+16 W/m^2
+  Pulse width: 2.14e-12 s
+  Wavelength: 3.43e-07 m
+  Spot size: 6e-06 m
+  Pulse energy: 3e-06 J
+  Max volumetric source: 1e+20 W/m^3
+  Absorption coefficient: 60000000 1/m
+  Gas absorption coefficient: 0 1/m
+  Reflectivity: 0.35
+  Transmission: 0.65
+  Incidence angle: 0 rad
+  Focus: (2.5e-05 2.00357e-05 5e-06)
+  Direction: (0 -1 0)
+  Active time: 0 to 1e-10 s
+Source stats: max=9.9281673e+22 W/m^3, E(step)=1.600351e-07 J
+  Cumulative energy: 2.9492267e-07 J
+    Film cumulative: 2.9492267e-07 J
+    Gas cumulative:  0 J
+Two-temperature model:
+Parameters:
+  Ce = 1500000 J/m³/K
+  Cl = 2500000 J/m³/K
+  G = 5e+16 W/m³/K
+Field statistics:
+  Te range: 300 - 15000 K
+  Tl range: 300 - 383.28226 K
+  Mean Te: 1137.7321 K
+  Mean Tl: 304.42396 K
+Energy conservation:
+  Current total energy: 5.0279117e-06 J
+  Energy error: 1.1205481 %
+ExecutionTime = 3264.39 s  ClockTime = 3284 s
+
+Flow time scale min/max = 1e-12, 1e-12
+Time = 6e-13
+
+Laser source limited to 1e+20 W/m^3 in 337336 cells
+LASER DIAGNOSTICS:
+  Input peak intensity: 9.315644e+16 W/m^2
+  Average volumetric intensity in beam: 8.7486974e+20 W/m^3
+  Absorption coefficient (film): 60000000 1/m
+  Absorption coefficient (gas):  0 1/m
+  Spot radius: 3 µm
+  Beam area: 28.274334 µm^2
+debug: max(Q_laser) now = 1.1125047e+23
+PIMPLE: iteration 1
+Performing simplified interface capturing
+Calculating recoil pressure at t = 4.1e-13s, max T = 383.28226K, recoil activation T = 3580K, evaporation T = 3580K
+Temperature too low for recoil pressure
+Phase-1 volume fraction = 0.25166971  Min(alpha1) = 0  Max(alpha1) = 1  Max recoil pressure = 0
+alphaEqn: limiting interface compression with compressionLimiter=0.5
+DILUPBiCGStab:  Solving for alpha.metal, Initial residual = 1.337519e-13, Final residual = 1.337519e-13, No Iterations 0
+alpha1 solve: initial residual = 1.337519e-13, final residual = 1.337519e-13, iterations = 0
+MULES: Correcting alpha.metal
+Phase-1 volume fraction = 0.25166971  Min(alpha.metal) = 0  Max(alpha.metal) = 1
+Performing simplified interface capturing
+Calculating recoil pressure at t = 4.2e-13s, max T = 383.28226K, recoil activation T = 3580K, evaporation T = 3580K
+Temperature too low for recoil pressure
+Phase-1 volume fraction = 0.25166971  Min(alpha1) = 0  Max(alpha1) = 1  Max recoil pressure = 0
+alphaEqn: limiting interface compression with compressionLimiter=0.5
+DILUPBiCGStab:  Solving for alpha.metal, Initial residual = 1.337519e-13, Final residual = 1.337519e-13, No Iterations 0
+alpha1 solve: initial residual = 1.337519e-13, final residual = 1.337519e-13, iterations = 0
+MULES: Correcting alpha.metal
+Phase-1 volume fraction = 0.25166971  Min(alpha.metal) = 0  Max(alpha.metal) = 1
+Performing simplified interface capturing
+Calculating recoil pressure at t = 4.3e-13s, max T = 383.28226K, recoil activation T = 3580K, evaporation T = 3580K
+Temperature too low for recoil pressure
+Phase-1 volume fraction = 0.25166971  Min(alpha1) = 0  Max(alpha1) = 1  Max recoil pressure = 0
+alphaEqn: limiting interface compression with compressionLimiter=0.5
+^Z
+[1]+  Stopped                 compInterFoam
+
             const scalar ratio =
                 Foam::max(klHighTThreshold, VSMALL)/Foam::max(Tl, VSMALL);
             kl[cellI] *= pow(ratio, klExponent);  // High temperature correction
