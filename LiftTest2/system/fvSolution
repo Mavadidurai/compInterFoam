@@ -141,8 +141,8 @@ targetResP  0.5;
 
 compInterFoamCoeffs
 {
-    maxReasonableVelocity  1000;        // REDUCE: was 1e5
-    maxVelocity            500;         // REDUCE: was 5000
+    maxReasonableVelocity  1500;        // REDUCE: was 1e5
+    maxVelocity            1000;         // REDUCE: was 5000
     defaultMetalDensity    4500;        
     defaultAirDensity      1.2;         
     maxInitialResidual     10;          // REDUCE: was 1e3
