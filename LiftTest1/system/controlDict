@@ -327,6 +327,8 @@ if (metalVolumeWeight > VSMALL)
         static label currentPhase = 0;  // 0=IDLE, 1-16=PHASES
         static bool phaseReported[17] = {false}; // Track phase announcements
         static bool initialised = false;
+        static bool heatingObserved = false;
+        static bool latticeExceededAmbient = false;
         
         // Energy metrics
         const bool laserActive = (maxQLaser > 1e6);
@@ -344,11 +346,21 @@ if (metalVolumeWeight > VSMALL)
         const bool significantTransfer = (metalLoss > 2.0);
         
         // Cooling metrics
+        if (!heatingObserved && (electronHeated || maxTl > 320))
+        {
+            heatingObserved = true;
+        }
+
+        if (!latticeExceededAmbient && maxTl > 500)
+        {
+            latticeExceededAmbient = true;
+        }
+
         const bool coolingStarted = (maxTl < 3000 && t > 5e-11);
         const bool belowVapor = (maxTl < 3560);
         const bool belowMelt = (maxTl < 1941);
-        const bool nearAmbient = (maxTl < 500);
-        const bool thermallyStable = (tempSpread < 200);
+        const bool nearAmbient = (heatingObserved && latticeExceededAmbient && coolingStarted && maxTl < 500);
+        const bool thermallyStable = (nearAmbient && tempSpread < 200);
         
        // Phase detection based on live metrics
 label detectedPhase = 0;

@@ -75,7 +75,7 @@ solvers
 T
 {
     solver          PBiCGStab;           // Better for asymmetric matrices
-    preconditioner  DILU;
+    preconditioner  DIC;
     tolerance       1e-5;                // Relaxed for extreme sources
     relTol          0.01;                // Allow 1% relative convergence
     maxIter         50;                  // Fail fast if diverging
@@ -92,7 +92,7 @@ TFinal
 Te
 {
     solver          PBiCGStab;
-    preconditioner  DILU;
+    preconditioner  DIC;
     tolerance       1e-6;
     relTol          0.01;
     maxIter         50;
