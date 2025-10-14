@@ -304,14 +304,14 @@ if (verbose && master && timeIndex % 10 == 0)
     volScalarField& contactMask = tContactMask.ref();
     contactMask.correctBoundaryConditions();
 
-    //activeMask *= contactMask;
+    activeMask *= contactMask;
     activeMask.correctBoundaryConditions();
 
-    // Limit the gas-metal exchange to cells that actually contain gas.
-    // Without this mask the solver applies enormous coupling inside the
-    // pure-metal region (where alpha2 ≈ 0), which forces the gas equation
-    // to drive T to unphysical values (~1e19 K in the log).
-    cappedInterfaceExchange *= contactMask;
+    // Limit the gas-metal exchange to cells that contain both gas and metal.
+    // Using the gas mask alone allows the coupling to persist in pure-gas
+    // cells, which forces the gas temperature to chase the hot metal field
+    // and creates the "thermal trap" observed in the run log.
+    cappedInterfaceExchange *= activeMask;
     cappedInterfaceExchange.correctBoundaryConditions();
     
     tmp<volScalarField> tCv2 = mixture.thermo2().Cv();

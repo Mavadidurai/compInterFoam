@@ -614,6 +614,13 @@ int main(int argc, char *argv[])
         )
     );
 
+    if (Foam::Pstream::master())
+    {
+        Info<< "Lift process tracker "
+            << (enableLiftProcessTracker ? "enabled" : "disabled")
+            << " (enableLiftProcessTracker in controlDict)" << Foam::endl;
+    }
+
     runTime.functionObjects().start();
     // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
