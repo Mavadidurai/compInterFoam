@@ -278,16 +278,44 @@ liftProcessTracker
         // Metal volume tracking
         const scalarField& cellVolumes = mesh().V();
         const scalarField alphaVol = alpha.primitiveField() * cellVolumes;
-        const scalar metalVol = gSum(alphaVol) * 1e18; // µm³
+         const scalar metalVol = gSum(alphaVol) * 1e18; // µm³
+
         static scalar initialMetalVol = -1;
         static scalar peakMetalVol = -1;
-        if (initialMetalVol < 0 && metalVol > 0.1) {
-            initialMetalVol = metalVol;
+
+        if (initialMetalVol < 0)
+        {
+            IOobject alphaInitialIO
+            (
+                alpha.name(),
+                mesh().time().startTimeName(),
+                mesh(),
+                IOobject::MUST_READ,
+                IOobject::NO_WRITE
+            );
+
+            volScalarField alphaInitial(alphaInitialIO, mesh());
+            const scalarField alphaInitialVol
+            (
+                alphaInitial.primitiveField()*cellVolumes
+            );
+
+            initialMetalVol = gSum(alphaInitialVol) * 1e18;
+            peakMetalVol = initialMetalVol;
+        }
+
+        if (metalVol > peakMetalVol)
+        {
             peakMetalVol = metalVol;
         }
-        if (metalVol > peakMetalVol) peakMetalVol = metalVol;
-        const scalar metalLoss = initialMetalVol > 0 ? 
-            (initialMetalVol - metalVol) / initialMetalVol * 100 : 0;
+
+        scalar metalLoss = 0.0;
+
+        if (initialMetalVol > SMALL)
+        {
+            metalLoss = (initialMetalVol - metalVol)/initialMetalVol * 100.0;
+            metalLoss = Foam::max(metalLoss, scalar(0));
+        }
         
         // Velocity analysis
 scalar maxVel = 0.0;
@@ -555,7 +583,7 @@ if (!initialised)
             const scalar progress = Foam::min(progressIndex / 16.0 * 100.0, scalar(100));
 
           Info<< "\n╔════════════════════════════════════════════════════════════════════════════════╗" << nl
-                << "║        			      LIFT PROCESS STATUS                            ║" << nl
+                << "║        			  LIFT PROCESS STATUS                            ║" << nl
                 << "╠════════════════════════════════════════════════════════════════════════════════╣" << nl
                 << "║         Phase:    " << phaseName << "            Progress: " << progress << "% ║" << nl
                 << "║         Time:     " << t*1e12 << " ps" << "               		     ║" << nl
