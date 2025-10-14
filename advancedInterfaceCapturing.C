@@ -716,18 +716,50 @@ void Foam::advancedInterfaceCapturing::correct()
     alpha1_.correctBoundaryConditions();
     if (verbose && master)
     {
+        const word& alpha1Name = alpha1_.name();
         const scalar alpha1Avg = alpha1_.weightedAverage(mesh_.V()).value();
-        Info<< "Phase-1 volume fraction = "
+
+        Info<< "Phase-1 volume fraction (" << alpha1Name << ") = "
             << alpha1Avg
-            << "  Min(alpha1) = " << min(alpha1_).value()
-            << "  Max(alpha1) = " << max(alpha1_).value()
+            << "  Min(" << alpha1Name << ") = " << min(alpha1_).value()
+            << "  Max(" << alpha1Name << ") = " << max(alpha1_).value()
             << "  Max recoil pressure = " << max(recoilPressure_).value()
             << endl;
-        Info<< "Phase-2 volume fraction = "
-            << (scalar(1) - alpha1Avg)
-            << "  Min(alpha2) = " << min(scalar(1) - alpha1_).value()
-            << "  Max(alpha2) = " << max(scalar(1) - alpha1_).value()
-            << endl;
+
+        const volScalarField* alpha2Ptr = nullptr;
+
+        if (mesh_.foundObject<volScalarField>("alpha.air"))
+        {
+            alpha2Ptr = &mesh_.lookupObject<volScalarField>("alpha.air");
+        }
+        else if (mesh_.foundObject<volScalarField>("alpha2"))
+        {
+            alpha2Ptr = &mesh_.lookupObject<volScalarField>("alpha2");
+        }
+
+        if (alpha2Ptr)
+        {
+            const volScalarField& alpha2Field = *alpha2Ptr;
+            const word& alpha2Name = alpha2Field.name();
+
+            Info<< "Phase-2 volume fraction (" << alpha2Name << ") = "
+                << alpha2Field.weightedAverage(mesh_.V()).value()
+                << "  Min(" << alpha2Name << ") = " << min(alpha2Field).value()
+                << "  Max(" << alpha2Name << ") = " << max(alpha2Field).value()
+                << endl;
+        }
+        else
+        {
+            const scalar alpha2Avg = scalar(1) - alpha1Avg;
+
+            Info<< "Phase-2 volume fraction = "
+                << alpha2Avg
+                << "  Min(1-" << alpha1Name << ") = "
+                << min(scalar(1) - alpha1_).value()
+                << "  Max(1-" << alpha1Name << ") = "
+                << max(scalar(1) - alpha1_).value()
+                << endl;
+        }
     }
 }
 void advancedInterfaceCapturing::write() const
