@@ -566,12 +566,11 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
 
         if (rawRate > massRateEps)
         {
-            // Clamp the raw evaporation rate before scaling
-            const scalar clampedRate =
-                Foam::min(Foam::max(rawRate, scalar(0)), scalar(1e6));
+            // Only prevent negative evaporation rates; respect configured bounds
+            const scalar clampedRate = Foam::max(rawRate, scalar(0));
 
             const scalar recoilDim = pressureScale_.value()*clampedRate;
-            localRecoil = Foam::min(recoilDim, scalar(1e7));
+            localRecoil = recoilDim;
 
             if (clampRecoil)
             {
