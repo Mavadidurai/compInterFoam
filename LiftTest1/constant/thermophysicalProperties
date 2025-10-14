@@ -22,11 +22,11 @@ sigma           sigma [ 1 0 -2 0 0 0 0 ] 1.64; // surface tension
 
 thermoType
 {
-    type            heRhoThermo;
+    type            hePsiThermo;
     mixture         pureMixture;
     transport       const;
     thermo          hConst;
-    equationOfState rhoConst;    // any simple EOS is fine here
+    equationOfState perfectGas;
     specie          specie;
     energy          sensibleEnthalpy;
 }
@@ -36,6 +36,6 @@ mixture
     specie { molWeight 28.97; }
     thermodynamics { Cp 1000; Hf 0; Tref 300; Href 0; }
     transport { mu 1.8e-5; Pr 0.7; }
-    equationOfState { rho 1.2; } // not actually used by your metal/air thermos
+    equationOfState { R 287; }
 }
 // ************************************************************************* //
