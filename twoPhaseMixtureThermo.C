@@ -1235,6 +1235,19 @@ namespace
     )
     {
         Foam::scalarField T(T0);
+        const Foam::scalar minAllowedT = Foam::SMALL;
+        if (Foam::min(T) <= minAllowedT)
+        {
+            WarningInFunction
+                << "Received non-positive initial temperature guess."
+                << " Clamping to " << minAllowedT << " K to avoid"
+                << " thermo inversion failure." << Foam::endl;
+
+            forAll(T, i)
+            {
+                T[i] = Foam::max(T[i], minAllowedT);
+            }
+        }
         const Foam::label maxIter = 50;
         const Foam::scalar tol = 1e-6;
         bool converged = false;

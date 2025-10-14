@@ -472,6 +472,7 @@ if (verbose && master && timeIndex % 10 == 0)
     }
     else
     {
+        T = Foam::max(T, minTDim);
         T.correctBoundaryConditions();
     }
     // Automatically enforce physical gas-temperature bounds when the
@@ -517,6 +518,10 @@ if (verbose && master && timeIndex % 10 == 0)
     if (enableTClamp)
     {
         T = Foam::max(Foam::min(T, maxTDim), minTDim);
+    }
+    else
+    {
+        T = Foam::max(T, minTDim);
     }
     T.correctBoundaryConditions();
 
