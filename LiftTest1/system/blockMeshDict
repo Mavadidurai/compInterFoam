@@ -47,8 +47,8 @@ blocks
     hex ( 0  3  2  1   4  7  6  5)   ( 80 400  40)  simpleGrading (1 1 1)  // Substrate (receiver)
     hex ( 4  7  6  5   8 11 10  9)   ( 80 400  60)  simpleGrading (1 1 1)  // Air gap (12 µm)
     // limit the y-resolution (global y = block k-direction) so neighbouring layers stay comparable
-    // (80 x 16 x 32 produces ~4.5 nm thick layers across the 71.4 nm film)
-    hex ( 8 11 10  9  12 15 14 13)   ( 80  16  32)  simpleGrading (1 1 1)  // Ti film (71.4 nm, thin layer)
+    // (80 x 400 x 16 produces ~4.5 nm thick layers across the 71.4 nm film)
+    hex ( 8 11 10  9  12 15 14 13)   ( 80 400  16)  simpleGrading (1 1 1)  // Ti film (71.4 nm, thin layer)
     hex (12 15 14 13  16 19 18 17)   ( 80 400  60)  simpleGrading (1 1 1)  // Donor glass (12 µm)
 );
 edges ();
