@@ -39,15 +39,6 @@ minRefinementCells   0;
 
 refinementRegions
 {
-    donorFilmBox
-    {
-        mode inside;
-        levels ((1e15 3));
-        box
-        {
-            min (0 19.99 0);
-            max (50 20.0814 10);
-        }
-    }
+  // With the film resolved directly in blockMesh, no additional refinement is required.
 }
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
