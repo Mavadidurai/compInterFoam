@@ -387,7 +387,12 @@ namespace
         static Foam::label reportCounter = 0;
         ++reportCounter;
 
-        if (reportCounter % 10 == 0 && Foam::Pstream::master())
+        if
+        (
+            (reportCounter == 1 || reportCounter % 10 == 0)
+         && Foam::Pstream::master()
+        )
+
         {
             Foam::word phaseName("UNKNOWN");
             switch (currentPhase)

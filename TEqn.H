@@ -440,7 +440,16 @@ if (verbose && master && timeIndex % 10 == 0)
         fvc::ddt(CvolLimited)
       + fvc::div(CvolPhi)
     );
-    const volScalarField& contErr = tContErr();
+    volScalarField& contErr = tContErr.ref();
+
+    const dimensionedScalar zeroContErr
+    (
+        "zeroContErr",
+        contErr.dimensions(),
+        0.0
+    );
+
+    contErr = Foam::min(contErr, zeroContErr);
 
     T = Foam::max(Foam::min(T, maxTDim), minTDim);
     T.correctBoundaryConditions();

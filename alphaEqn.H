@@ -343,5 +343,10 @@ extern const bool master;
             << "  Min(" << alpha1.name() << ") = " << min(alpha1).value()
             << "  Max(" << alpha1.name() << ") = " << max(alpha1).value()
             << endl;
+        Info<< "Phase-2 volume fraction = "
+            << alpha2.weightedAverage(mesh.V()).value()
+            << "  Min(" << alpha2.name() << ") = " << min(alpha2).value()
+            << "  Max(" << alpha2.name() << ") = " << max(alpha2).value()
+            << endl;
     }
 }

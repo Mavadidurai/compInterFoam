@@ -716,11 +716,17 @@ void Foam::advancedInterfaceCapturing::correct()
     alpha1_.correctBoundaryConditions();
     if (verbose && master)
     {
+        const scalar alpha1Avg = alpha1_.weightedAverage(mesh_.V()).value();
         Info<< "Phase-1 volume fraction = "
-            << alpha1_.weightedAverage(mesh_.V()).value()
+            << alpha1Avg
             << "  Min(alpha1) = " << min(alpha1_).value()
             << "  Max(alpha1) = " << max(alpha1_).value()
             << "  Max recoil pressure = " << max(recoilPressure_).value()
+            << endl;
+        Info<< "Phase-2 volume fraction = "
+            << (scalar(1) - alpha1Avg)
+            << "  Min(alpha2) = " << min(scalar(1) - alpha1_).value()
+            << "  Max(alpha2) = " << max(scalar(1) - alpha1_).value()
             << endl;
     }
 }
