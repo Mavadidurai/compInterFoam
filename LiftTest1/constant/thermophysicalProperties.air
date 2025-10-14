@@ -18,11 +18,11 @@ FoamFile
 
 thermoType
 {
-    type            hePsiThermo;
+    type            heRhoThermo;     // was hePsiThermo  ← FIX
     mixture         pureMixture;
     transport       const;
     thermo          hConst;
-    equationOfState perfectGas;
+    equationOfState rhoConst;
     specie          specie;
     energy          sensibleEnthalpy;
 }
@@ -51,7 +51,7 @@ mixture
 
     equationOfState
     {
-        R           287;                // J/kg·K - Specific gas constant for air
+        rho         1.2;                // kg/m³ - ✅ FIXED: Constant air density
     }
 }
 
