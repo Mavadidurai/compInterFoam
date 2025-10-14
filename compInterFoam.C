@@ -293,99 +293,68 @@ int main(int argc, char *argv[])
         mixture.setClTTM(ttm.Cl());
 
     // --- Pressure-velocity PIMPLE corrector loop
-        while (pimple.loop())
+
+while (pimple.loop())
+{
+    mixture.correct();  // Update phase fractions
+
+    #include "compressibleAlphaEqnSubCycle.H"
+    transportModel.correctPhasePhi();
+    mixture.correct();
+
+    // ✅ UPDATE TEMPERATURES FIRST
+    const label nThermalCouplingIter =
+        runTime.controlDict().lookupOrDefault<label>("nThermalCouplingIter", 1);
+
+    for (label thermalIter = 0; thermalIter < nThermalCouplingIter; ++thermalIter)
+    {
+        #include "TEqn.H"
+
+        ttm.solve
+        (
+            QLaser,
+            phaseChangeSource,
+            phaseChangeRelaxCoeff,
+            gasMetalHeatFlux
+        );
+        
+        mixture.setClTTM(ttm.Cl());
+    }
+
+    // ✅ UPDATE PHASE CHANGE WITH LATEST TEMPERATURES
+    mixture.correct();
+
+    // ✅ CALCULATE RECOIL PRESSURE *BEFORE* MOMENTUM EQUATION
+    if (useAdvancedCapturing && pInterfaceCapturing.valid())
+    {
+        pInterfaceCapturing->calculateRecoilPressure();
+        
+        if (verbose && master && runTime.timeIndex() % 10 == 0)
         {
-            mixture.correct();
-
-            const volScalarField& phaseChangeSource = mixture.phaseChangeSource();
-            const volScalarField& phaseChangeRelaxCoeff =
-                mixture.phaseChangeRelaxCoeff();
-
-#include "compressibleAlphaEqnSubCycle.H"
-
-            transportModel.correctPhasePhi();
-            mixture.correct();
-
-            const scalar tnow = runTime.value();
-            if (tnow >= laser.laserStartTime() && tnow <= laser.laserEndTime())
-            {
-                const dimensionedScalar maxQL = gMax(QLaser);
-                if (laser.activeThisStep() && maxQL.value() < 1e-6)
-                {
-                    WarningInFunction
-                        << "Maximum Q_laser (" << maxQL.value()
-                        << ") below threshold 1e-6" << endl;
-                }
-
-            if (verbose && master)
-                {
-                    Info<< "max(Q_laser) = " << maxQL.value()
-                        << ", max(Tl) = " << max(ttm.Tl()).value() << endl;
-                }
-            }
-
-            const dictionary& thermalCouplingDict = runTime.controlDict();
-            const label nThermalCouplingIter =
-                thermalCouplingDict.lookupOrDefault<label>("nThermalCouplingIter", 1);
-
-            for (label thermalIter = 0; thermalIter < nThermalCouplingIter; ++thermalIter)
-            {
-                if (master && verbose && nThermalCouplingIter > 1)
-                {
-                    Info<< "  Thermal coupling iteration " << thermalIter + 1
-                        << " / " << nThermalCouplingIter << endl;
-                }
-                
-#include "TEqn.H"
-
-                ttm.solve
-                (
-                    QLaser,
-                    phaseChangeSource,
-                    phaseChangeRelaxCoeff,
-                    gasMetalHeatFlux
-                );
-                mixture.setClTTM(ttm.Cl());
-
-                if (verbose && master)
-                {
-                    const dimensionedScalar TlMin = gMin(ttm.Tl());
-                    const dimensionedScalar TlMax = gMax(ttm.Tl());
-                    Info<< "debug: Tl range = [" << TlMin.value()
-                        << ", " << TlMax.value() << "]" << nl;
-                }
-            }
-            // Refresh phase-change fields so dgdt reflects the latest Tl update
-            mixture.correct();
-            if (useAdvancedCapturing && pInterfaceCapturing.valid())
-            {
-                pInterfaceCapturing->calculateRecoilPressure();
-
-            }
-            else if (legacyRecoilPressure.valid())
-            {
-                refreshLegacyRecoilPressure(legacyRecoilPressure.ptr());
-            }
-
-            if (master && verbose && recoilPressurePtr)
-            {
-                Info<< "max recoilPressure = "
-                    << max(*recoilPressurePtr).value()
-                    << " Pa" << endl;
-            }
-
-#include "UEqn.H"
-
-            while (pimple.correct())
-            {
-                #include "pEqn.H"
-            }
-
-            if (pimple.turbCorr())
-            {
-                transportModel.correct();
-            }
+            Info<< "    Max recoil pressure: "
+                << max(pInterfaceCapturing->recoilPressure()).value()/1e6
+                << " MPa" << endl;
         }
+    }
+    else if (legacyRecoilPressure.valid())
+    {
+        refreshLegacyRecoilPressure(legacyRecoilPressure.ptr());
+    }
+
+    // ✅ NOW SOLVE MOMENTUM WITH CORRECT RECOIL
+    #include "UEqn.H"
+
+    // Pressure-velocity coupling
+    while (pimple.correct())
+    {
+        #include "pEqn.H"
+    }
+
+    if (pimple.turbCorr())
+    {
+        transportModel.correct();
+    }
+}
 
         dimensionedScalar Ek = fvc::domainIntegrate(0.5*rho*magSqr(U));
         tmp<volScalarField> tCe = ttm.electronHeatCapacity();
@@ -399,7 +368,8 @@ int main(int argc, char *argv[])
         const dimensionedScalar L = mixture.latentHeat();
         dimensionedScalar El = fvc::domainIntegrate(alpha1*rho1*L);
         const volScalarField& he2 = mixture.thermo2().he();
-        dimensionedScalar Egas = fvc::domainIntegrate(alpha2*rho2*(he2 - p/rho2));
+        dimensionedScalar Egas =
+            fvc::domainIntegrate(alpha2*rho2*he2 - alpha2*p);
 
         dimensionedScalar Etot = Ek + Ee + Elattice + El + Egas;
 
