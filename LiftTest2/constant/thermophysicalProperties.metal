@@ -24,7 +24,7 @@ thermoType
     mixture         pureMixture;
     transport       const;
     thermo          hConst;
-    equationOfState rPolynomial;    // Polynomial density representation
+    equationOfState rhoConst;
     specie          specie;
     energy          sensibleEnthalpy;
 }
@@ -50,13 +50,10 @@ mixture
         Pr              0.03;           // Prandtl number (liquid metals)
     }
     
-	equationOfState
-	{
-	    // rPolynomial expects the specific volume fit 1/ρ = Σ Ci T^i (T in K)
-	    // Fitted to (T, ρ) = [(300 K, 4500 kg/m3), (1200 K, 4300 kg/m3),
-	    // (1941 K, 4100 kg/m3), (3200 K, 3400 kg/m3)]
-	    C (0.0002172169461 1.922024813e-08 -9.483330982e-12 3.433386724e-15 0);
-	}
+    equationOfState
+    {
+        rho             4515;           // kg/m3 - use stable constant density
+    }
 }
 
 // LIFT-specific properties
