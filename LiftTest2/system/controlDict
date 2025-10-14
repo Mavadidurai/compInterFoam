@@ -288,7 +288,7 @@ liftProcessTracker
             IOobject alphaInitialIO
             (
                 alpha.name(),
-                mesh().time().startTimeName(),
+                mesh().time().timeName(mesh().time().startTime()),
                 mesh(),
                 IOobject::MUST_READ,
                 IOobject::NO_WRITE
