@@ -152,7 +152,7 @@ namespace
             Foam::IOobject alphaInitialIO
             (
                 alpha1.name(),
-                runTime.timeName(runTime.startTime()),
+                runTime.timeName(runTime.startTime().value()),
                 mesh,
                 Foam::IOobject::MUST_READ,
                 Foam::IOobject::NO_WRITE

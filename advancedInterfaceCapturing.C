@@ -566,10 +566,10 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
 
         if (rawRate > massRateEps)
         {
-            // Only prevent negative evaporation rates; respect configured bounds
-            const scalar clampedRate = Foam::max(rawRate, scalar(0));
-
-            const scalar recoilDim = pressureScale_.value()*clampedRate;
+            // Use the physical evaporation rate without imposing an artificial
+            // upper cap. The sign check above already excludes negative
+            // condensation contributions.
+            const scalar recoilDim = pressureScale_.value()*rawRate;
             localRecoil = recoilDim;
 
             if (clampRecoil)
@@ -584,10 +584,18 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
         }
         else
         {
-            const scalar tempWindow = Foam::max(evaporationOnTemp - recoilOnTemp, Foam::SMALL);
-            scalar tempWeight = (localTemp - recoilOnTemp)/tempWindow;
-            tempWeight = Foam::min(Foam::max(tempWeight, scalar(0)), scalar(1));
-            localRecoil = tempWeight * recoilMax_;
+            // When the evaporation rate is effectively zero we must not
+            // fabricate recoil from temperature alone.  The previous logic
+            // blended towards recoilMax_ based purely on temperature once the
+            // cell exceeded the activation threshold.  This created a
+            // sizeable recoil pressure even in quiescent regions, which in
+            // turn injected spurious momentum into the flow and manifested in
+            // the log as velocity growth “without recoil pressure”.
+            //
+            // Treat negligible mass transfer as no recoil so the momentum
+            // equation only sees recoil when the evaporation model delivers a
+            // positive flux.
+            localRecoil = 0.0;
         }
 
         const scalar interfaceWeight = alphaMask;

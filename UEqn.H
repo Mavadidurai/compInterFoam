@@ -12,22 +12,15 @@ fvOptions.constrain(UEqn);
 
 if (pimple.momentumPredictor())
 {
-    // ═══════════════════════════════════════════════════════════
-    // CRITICAL FIX: Assemble ALL momentum sources BEFORE solve
-    // ═══════════════════════════════════════════════════════════
-    
-    tmp<volVectorField> tCapillaryForce
-    (
-        fvc::reconstruct
-        (
-            (
-                fvc::interpolate(mixture.sigmaK())
-              * fvc::snGrad(alpha1)
-            )*mesh.magSf()
-        )
-    );
-    
-    // Start with basic forces
+    // The capillary force already appears in phig within pEqn.H via
+    // mixture.surfaceTensionForce().  Including it here as well was
+    // double-counting the surface-tension contribution, which the run
+    // logs revealed as steadily increasing velocities even when the
+    // recoil pressure field remained identically zero.  Only assemble
+    // the forces that are not already handled through the pressure
+    // correction stage.
+
+    // Start with the forces that are *not* treated in phig
     volVectorField momentumSource
     (
         IOobject
@@ -38,12 +31,10 @@ if (pimple.momentumPredictor())
             IOobject::NO_READ,
             IOobject::NO_WRITE
         ),
-        tCapillaryForce()
-      - fvc::grad(p_rgh)
+        - fvc::grad(p_rgh)
       + rho*g
     );
 
-    // ✅ ADD RECOIL PRESSURE *BEFORE* SOLVE
     if (recoilPressurePtr)
     {
         const volScalarField& recoilP = *recoilPressurePtr;
