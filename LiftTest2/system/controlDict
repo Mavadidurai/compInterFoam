@@ -31,7 +31,7 @@ minDeltaT       1e-17;         // Minimum 0.01 fs for precision
 
 verbose         true;
 thermalFluxRelax 0.1;          // Stronger damping of interface heat flux
-maxThermalCourant 0.1;         // Tightened for thermal stability
+maxThermalCourant 0.05;         // Tightened for thermal stability
 
 // ADAPTIVE OUTPUT - more frequent during active phase, less during cooling
 writeControl    adjustableRunTime;
@@ -45,6 +45,7 @@ timePrecision   8;             // Increased precision for longer runs
 fileHandler     uncollated;
 
 runTimeModifiable yes;
+enableLiftProcessTracker true;
 
 // EXTENDED PHASE-CHANGE - longer activation for complete process
 phaseChangeCoeffs
@@ -95,9 +96,9 @@ advancedInterfaceCapturing
 logRecoilSuppression true;
 
 // Temperature clamping - EXTENDED RANGE
-enableTClamp    false;
+enableTClamp    true;
 minT            200;           // Allow cooling below room temp
-maxT            15000;          // Clamp high temperatures for stability
+maxT           5000;          // Clamp high temperatures for stability
 
 // Two-temperature model properties - OPTIMIZED FOR EXTENDED RUNS
 twoTemperatureProperties
@@ -107,10 +108,12 @@ twoTemperatureProperties
     G   [1 -1 -3 -1 0 0 0] 5e17;
     De  [0  2 -1  0 0 0 0] 1e-4;
 
-    gasMetalExchangeCoeff [1 -1 -3 -1 0 0 0] 1e10;
-    minGasMetalExchangeCoeff [1 -1 -3 -1 0 0 0] 0;
-    maxGasMetalExchangeCoeff [1 -1 -3 -1 0 0 0] 1e13;
-    maxGasMetalHeatFlux    1e12;
+    applyGasLaserHeating    false;
+
+    gasMetalExchangeCoeff [1 -1 -3 -1 0 0 0] 1e7;
+    minGasMetalExchangeCoeff [1 -1 -3 -1 0 0 0] 1e5;
+    maxGasMetalExchangeCoeff [1 -1 -3 -1 0 0 0] 1e10;
+    maxGasMetalHeatFlux    1e9;
     minTe 200;             // Allow cooling
     maxTe 15000;
     ambientTemperature 300;
