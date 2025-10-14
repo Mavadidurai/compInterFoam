@@ -306,6 +306,17 @@ twoPhaseMixtureThermo mixture(U, phi);
 volScalarField& alpha1 = mixture.alpha1();  // This is alpha.metal
 volScalarField& alpha2 = mixture.alpha2();  // This is alpha.air
 
+const scalar metalFractionTol = 1e-6;
+const scalar alphaMax = gMax(alpha1);
+
+if (Foam::Pstream::master() && alphaMax < metalFractionTol)
+{
+    FatalErrorInFunction
+        << "The donor metal film is empty (max(alpha.metal) = " << alphaMax
+        << "). Please run setFields or provide a valid alpha.metal field "
+        << "before restarting." << Foam::exit(Foam::FatalError);
+}
+
 // Ensure proper field registration
 if (alpha1.timeIndex() > 0)
 {
