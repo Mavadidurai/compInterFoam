@@ -556,24 +556,22 @@ if (verbose && master && timeIndex % 10 == 0)
     const volScalarField& limitedFlux = tRawFlux();
 
     tmp<volScalarField> tMaskedFlux(contactMask*limitedFlux);
-    volScalarField& metalToGasFlux = tMetalToGasFlux.ref();
+    volScalarField& maskedFlux = tMaskedFlux.ref();
 
     const dimensionedScalar maxLocalFlux
     (
         "maxLocalFlux",
-        metalToGasFlux.dimensions(),
+        maskedFlux.dimensions(),
         1e10  // 10 GW/m^3 cap applied before any relaxation blending
     );
 
-    metalToGasFlux = Foam::min
+    maskedFlux = Foam::min
     (
-        Foam::max(metalToGasFlux, -maxLocalFlux),
+        Foam::max(maskedFlux, -maxLocalFlux),
         maxLocalFlux
     );
 
-    tmp<volScalarField> tMetalToGasFlux(maskedFlux);
-    const volScalarField& metalToGasFlux = tMetalToGasFlux();
-
+    const volScalarField& metalToGasFlux = tMaskedFlux();
     if (fluxRelax < 1.0 - SMALL)
     {
         gasMetalHeatFlux =

@@ -213,7 +213,11 @@ public:
     const dimensionedScalar& wavelength()    const { return wavelength_; }
     const dimensionedScalar& spotSize()      const { return spotSize_; }
     const dimensionedScalar& pulseEnergy()   const { return pulseEnergy_; }
-    const dimensionedScalar& maxVolumetricSource() const {        return maxVolumetricSource_;    }    
+    const dimensionedScalar& maxVolumetricSource() const {        return maxVolumetricSource_;    }
+    const dimensionedScalar& gasAbsorptionCoeff() const
+    {
+        return gasAbsorptionCoeff_;
+    }  
     const point&              focus()        const { return focus_; }
     const vector&             direction()    const { return direction_; }
     scalar laserStartTime() const { return laserStartTime_; }
