@@ -115,14 +115,29 @@ extern const bool master;
     const dictionary twoTemperatureDict =
         ctrl.subOrEmptyDict("twoTemperatureProperties");
 
-    const Switch applyGasLaserHeating
+    const Switch userGasLaserHeating
     (
         twoTemperatureDict.lookupOrDefault<Switch>
         (
             "applyGasLaserHeating",
-            Switch(twoTemperatureDict.size() == 0)
+            false
         )
     );
+
+    const bool laserSupportsGasHeating =
+        laser.gasAbsorptionCoeff().value() > VSMALL;
+
+    const bool applyGasLaserHeating =
+        userGasLaserHeating && laserSupportsGasHeating;
+
+    if (userGasLaserHeating && !laserSupportsGasHeating && verbose && master)
+    {
+        WarningInFunction
+            << "applyGasLaserHeating requested but gasAbsorptionCoeff ≈ 0;"
+            << " skipping direct gas heating."
+            << endl;
+    }
+
 
     const dimensionedScalar minCoeffDefault
     (
@@ -485,8 +500,7 @@ if (verbose && master && timeIndex % 10 == 0)
     const bool invalidExtremes =
         (!std::isfinite(Tmin) || !std::isfinite(Tmax));
     const bool violatesClampBounds =
-        enableTClamp
-     && (Tmin < minPhysicalTemp || Tmax > maxPhysicalTemp);
+        (Tmin < minPhysicalTemp || Tmax > maxPhysicalTemp);
 
     if (invalidExtremes || violatesClampBounds)
     {
@@ -542,7 +556,20 @@ if (verbose && master && timeIndex % 10 == 0)
     const volScalarField& limitedFlux = tRawFlux();
 
     tmp<volScalarField> tMaskedFlux(contactMask*limitedFlux);
-    const volScalarField& maskedFlux = tMaskedFlux();
+    volScalarField& metalToGasFlux = tMetalToGasFlux.ref();
+
+    const dimensionedScalar maxLocalFlux
+    (
+        "maxLocalFlux",
+        metalToGasFlux.dimensions(),
+        1e10  // 10 GW/m^3 cap applied before any relaxation blending
+    );
+
+    metalToGasFlux = Foam::min
+    (
+        Foam::max(metalToGasFlux, -maxLocalFlux),
+        maxLocalFlux
+    );
 
     tmp<volScalarField> tMetalToGasFlux(maskedFlux);
     const volScalarField& metalToGasFlux = tMetalToGasFlux();
@@ -554,11 +581,7 @@ if (verbose && master && timeIndex % 10 == 0)
     }
     else
     {
-        const scalar maxLocalFlux = 1e10;  // 10 GW/m³ cap
-	gasMetalHeatFlux = Foam::min(
-    Foam::max(metalToGasFlux, -maxLocalFlux), 
-    maxLocalFlux
-);
+        gasMetalHeatFlux = metalToGasFlux;
     }
 
     if (qCap > 0)
