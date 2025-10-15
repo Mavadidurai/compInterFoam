@@ -469,7 +469,34 @@ if (verbose && master && timeIndex % 10 == 0)
 
     if (applyGasLaserHeating)
     {
-        TEqn.source() += contactMask*mixture.Q_laser();
+        const scalar metalFractionCutoff =
+            twoTemperatureDict.lookupOrDefault<scalar>
+            (
+                "metalFractionCutoff",
+                twoTemperatureDict.lookupOrDefault<scalar>
+                (
+                    "metalFractionFloor",
+                    1e-6
+                )
+            );
+
+        const dimensionedScalar metalCutoffDim
+        (
+            "metalFractionCutoff",
+            dimless,
+            Foam::max(metalFractionCutoff, Foam::SMALL)
+        );
+
+        const volScalarField& metalFraction = mixture.alpha1();
+
+        tmp<volScalarField> tGasLaserMask
+        (
+            Foam::pos(metalCutoffDim - metalFraction)
+        );
+
+        const volScalarField& gasLaserMask = tGasLaserMask();
+
+        TEqn.source() += contactMask*gasLaserMask*mixture.Q_laser();
     }
 
     TEqn.relax();

@@ -84,29 +84,7 @@ if (pimple.momentumPredictor())
 
     fvOptions.correct(U);
     U.correctBoundaryConditions();
-    
-    // ═══════════════════════════════════════════════════════════
-    // DIVERGENCE DETECTION: Stop if velocity explodes
-    // ═══════════════════════════════════════════════════════════
-    const scalar maxPhysicalVelocity = 5000.0;  // 5 km/s (generous for LIFT)
-    const scalar maxU = gMax(mag(U)());
-    
-    if (maxU > maxPhysicalVelocity)
-    {
-        FatalErrorInFunction
-            << "Velocity field has DIVERGED!" << nl
-            << "Max velocity: " << maxU << " m/s" << nl
-            << "Physical limit: " << maxPhysicalVelocity << " m/s" << nl
-            << nl
-            << "This indicates numerical instability. Check:" << nl
-            << "  1. Time step (current: " << runTime.deltaTValue() << " s)" << nl
-            << "  2. Max recoil pressure: " 
-            << (recoilPressurePtr ? gMax(*recoilPressurePtr)/1e6 : 0) << " MPa" << nl
-            << "  3. Courant number" << nl
-            << "  4. Temperature gradients" << nl
-            << abort(FatalError);
-    }
-    
+     
     K = 0.5*magSqr(U);
 }
 

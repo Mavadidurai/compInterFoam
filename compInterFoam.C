@@ -114,9 +114,24 @@ namespace
         const Foam::Switch trackerEnabled
     )
     {
+        static bool statusPrinted = false;
+
         if (!trackerEnabled)
         {
+            if (!statusPrinted && Foam::Pstream::master())
+            {
+                Info<< "Lift process tracker disabled by controlDict entry"
+                    << " (enableLiftProcessTracker = false)" << Foam::endl;
+                statusPrinted = true;
+            }
             return;
+        }
+
+        if (!statusPrinted && Foam::Pstream::master())
+        {
+            Info<< "Lift process tracker enabled"
+                << " (enableLiftProcessTracker = true)" << Foam::endl;
+            statusPrinted = true;
         }
 
         const Foam::scalar t = runTime.value();
