@@ -22,11 +22,11 @@ startTime       0;
 stopAt          endTime;
 endTime         1e-9;          // EXTENDED: 1 ns total for complete LIFT process
 
-deltaT          1e-14;         // Base time step (1 fs)
+deltaT          1e-15;         // Base time step (1 fs)
 adjustTimeStep  yes;           // ENABLE adaptive time stepping
-maxCo           0.05;          // Allow reasonable growth while staying stable
-maxAlphaCo      0.005;         // Aggressive interface limit
-maxDeltaT       1e-12;         // Cap adaptive growth (1 fs)
+maxCo           0.02;          // Allow reasonable growth while staying stable
+maxAlphaCo      0.002;         // Aggressive interface limit
+maxDeltaT       5e-14;         // Cap adaptive growth (1 fs)
 minDeltaT       1e-17;         // Minimum 0.01 fs for precision
 
 verbose         true;
@@ -54,10 +54,10 @@ phaseChangeCoeffs
     hf                  hf  [0 2 -2 0 0 0 0] 3.65e5;
     Tsol                Tsol [0 0 0 1 0 0 0] 1941;
     Tvap                Tvap [0 0 0 1 0 0 0] 3560;
-    windowWidth         50;
+    windowWidth         100;
     dtFloor             1e-15;         // Reduced for precision
-    relaxationTime      1e-12;        // Faster response for femtosecond dynamics
-    maxSource           1e10;          // Allow sufficient heating-driven mass transfer
+    relaxationTime      5e-12;        // Faster response for femtosecond dynamics
+    maxSource           1e9;          // Allow sufficient heating-driven mass transfer
     minCoefficient      1e7;          // Reduced for gradual cooling
     onlyAboveVapor      true;
     metalFractionCutoff 1e-6;
@@ -82,23 +82,22 @@ useAdvancedInterfaceCapturing  true;
 advancedInterfaceCapturing
 {
     pressureScale         1;
-    recoilMax             1e7;
+    recoilMax             5e6;      // ✅ REDUCE from 1e7 (5 MPa max)
     clampRecoil           true;
-    scaleRecoilMax        true;
-    recoilTempOffset      20;
-    phaseChangeTempOffset 20;
-    recoilRelax           0.1;
+    scaleRecoilMax        false;    // ✅ DISABLE scaling (let physics control it)
+    recoilTempOffset      100;      // ✅ INCREASE from 20 (smoother activation)
+    phaseChangeTempOffset 100;      // ✅ INCREASE from 20
+    recoilRelax           0.3;      // ✅ INCREASE from 0.1 (more damping)
     alphaMin              0.05;
     alphaMax              0.95;
     maxPhysicalTemperature 5000;    
 }
-
 logRecoilSuppression true;
 
 // Temperature clamping - EXTENDED RANGE
-enableTClamp    false;
+enableTClamp    true;
 minT            200;           // Allow cooling below room temp
-maxT            15000;          // Clamp high temperatures for stability
+maxT            3500;          // Clamp high temperatures for stability
 
 // Two-temperature model properties - OPTIMIZED FOR EXTENDED RUNS
 twoTemperatureProperties
