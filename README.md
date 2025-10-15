@@ -143,7 +143,7 @@ entries and their in-code defaults are:
 
 | Entry | Default | Used in |
 | --- | --- | --- |
-| `maxVelocity` | `2000` | Bounds the velocity magnitude after both the momentum predictor and the pressure correction. |
+| `maxVelocity` | `500` | Bounds the velocity magnitude after the pressure correction. |
 | `minUEqnDiag` | `1e-9` | Floors the diagonal before inverting `UEqn` to form `rAU`. |
 | `enableRAUClamp` | `false` | Enables explicit `rAU`/`rAUf` bounding. |
 | `minRAU`, `maxRAU` | `1e-10`, `GREAT` | Cell-wise `rAU` clamp (only when `enableRAUClamp` is `true`). |
