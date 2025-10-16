@@ -120,6 +120,9 @@ twoTemperatureModel::twoTemperatureModel
     CeFunction_(nullptr),
     GFunction_(nullptr),
     gasMetalExchangeFunction_(nullptr),
+    useKapitzaExchange_(false),
+    kapitzaZMetal_(0.0),
+    kapitzaZGas_(0.0),
     cumulativeLaserEnergy_
     (
         "cumulativeLaserEnergy",
@@ -236,14 +239,42 @@ twoTemperatureModel::twoTemperatureModel
     {
         if (dict_.isDict("gasMetalExchangeCoeff"))
         {
-            gasMetalExchangeFunction_.reset
-            (
-                Function1<scalar>::New
+            const dictionary& gasMetalDict =
+                dict_.subDict("gasMetalExchangeCoeff");
+
+            word modelType("constant");
+
+            if (gasMetalDict.found("type"))
+            {
+                gasMetalDict.lookup("type") >> modelType;
+            }
+
+            if (modelType == "kapitza" || modelType == "Kapitza")
+            {
+                useKapitzaExchange_ = true;
+                gasMetalExchangeFunction_.clear();
+                kapitzaZMetal_ = gasMetalDict.lookupOrDefault<scalar>
                 (
-                    "gasMetalExchangeCoeff",
-                     dict_
-                ).ptr()
-            );
+                    "Z_metal",
+                    2.3e7
+                );
+                kapitzaZGas_ = gasMetalDict.lookupOrDefault<scalar>
+                (
+                    "Z_gas",
+                    383.0
+                );
+            }
+            else
+            {
+                gasMetalExchangeFunction_.reset
+                (
+                    Function1<scalar>::New
+                    (
+                        "gasMetalExchangeCoeff",
+                        dict_
+                    ).ptr()
+                );
+            }
         }
         else
         {
@@ -1401,40 +1432,42 @@ tmp<volScalarField> twoTemperatureModel::gasMetalExchangeCoeffField() const
     
     volScalarField& coeff = tCoeff.ref();
 
-    // Gas-metal Kapitza conductance based on acoustic mismatch
-    const volScalarField& Tl = Tl_;
-    const volScalarField& alpha1 = metalFraction_;
-
-    const scalar rhoTi = 4500.0;   // kg/m3
-    const scalar cTi = 5090.0;     // m/s
-    const scalar rhoAr = 1.2;      // kg/m3
-    const scalar cAr = 319.0;      // m/s
-
-    const scalar zTi = rhoTi*cTi;
-    const scalar zAr = rhoAr*cAr;
-    const scalar zRatio = zAr/(zTi + VSMALL);
-    const scalar tau = 4.0*zRatio/sqr(1.0 + zRatio);
-
-    const scalar kB = 1.38e-23;
-    const scalar hBar = 1.055e-34;
-    const scalar pi = 3.141592653589793;
-    const scalar prefactor = (kB*kB)/(6.0*sqr(pi)*Foam::pow3(hBar));
-    const scalar delta = 1e-9;  // m
-
-    forAll(coeff, cellI)
+    if (useKapitzaExchange_)
     {
-        const scalar T = Foam::max(Tl[cellI], scalar(0));
-        const scalar alpha = Foam::min(Foam::max(alpha1[cellI], scalar(0)), scalar(1));
+        // Gas-metal Kapitza conductance based on acoustic mismatch
+        const volScalarField& Tl = Tl_;
+        const volScalarField& alpha1 = metalFraction_;
 
-        const scalar hK = prefactor*tau*T*T*T;
-        const scalar hVol = hK/delta;
-        const scalar interfaceWeight = 4.0*alpha*(1.0 - alpha);
+        const scalar zTi = kapitzaZMetal_;
+        const scalar zAr = kapitzaZGas_;
+        const scalar zRatio = zAr/(zTi + VSMALL);
+        const scalar tau = 4.0*zRatio/sqr(1.0 + zRatio);
 
-        scalar val = hVol*interfaceWeight;
-        val = Foam::min(val, scalar(1e14));
-        val = Foam::max(val, scalar(0));
+        const scalar kB = 1.38e-23;
+        const scalar hBar = 1.055e-34;
+        const scalar pi = 3.141592653589793;
+        const scalar prefactor = (kB*kB)/(6.0*sqr(pi)*Foam::pow3(hBar));
+        const scalar delta = 1e-9;  // m
 
-        coeff[cellI] = val;
+        forAll(coeff, cellI)
+        {
+            const scalar T = Foam::max(Tl[cellI], scalar(0));
+            const scalar alpha = Foam::min
+            (
+                Foam::max(alpha1[cellI], scalar(0)),
+                scalar(1)
+            );
+
+            const scalar hK = prefactor*tau*T*T*T;
+            const scalar hVol = hK/delta;
+            const scalar interfaceWeight = 4.0*alpha*(1.0 - alpha);
+
+            scalar val = hVol*interfaceWeight;
+            val = Foam::min(val, scalar(1e14));
+            val = Foam::max(val, scalar(0));
+
+            coeff[cellI] = val;
+        }
     }
 
     coeff.correctBoundaryConditions();

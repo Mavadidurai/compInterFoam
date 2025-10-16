@@ -96,6 +96,11 @@ private:
         autoPtr<Function1<scalar>> GFunction_;
         //- Optional gas-metal exchange coefficient variation
         autoPtr<Function1<scalar>> gasMetalExchangeFunction_;
+        //- Flag for Kapitza-style gas-metal exchange computation
+        bool useKapitzaExchange_;
+        //- Acoustic impedances supplied for the Kapitza model
+        scalar kapitzaZMetal_;
+        scalar kapitzaZGas_;
         //- Energy Conservation Tracking
         mutable dimensionedScalar cumulativeLaserEnergy_; //- Cumulative laser energy input [J]
         mutable dimensionedScalar lastTotalEnergy_;      //- Previous total energy [J]
