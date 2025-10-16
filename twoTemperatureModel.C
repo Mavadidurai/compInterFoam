@@ -217,6 +217,35 @@ twoTemperatureModel::twoTemperatureModel
         if (dict_.isDict("G"))
         {
             GFunction_.reset(Function1<scalar>::New("G", dict_).ptr());
+            const scalar minTemp = dict_.lookupOrDefault<scalar>
+            (
+                "minTl",
+                dict_.lookupOrDefault<scalar>("minTe", ambientTemperature_.value())
+            );
+
+            const scalar maxTemp = dict_.lookupOrDefault<scalar>
+            (
+                "maxTl",
+                dict_.lookupOrDefault<scalar>("maxTe", ambientTemperature_.value())
+            );
+
+            scalar refTemp = ambientTemperature_.value();
+            refTemp = Foam::max(minTemp, Foam::min(maxTemp, refTemp));
+
+            const scalar GAtMin = GFunction_->value(minTemp);
+            const scalar GAtMax = GFunction_->value(maxTemp);
+            const scalar GAtRef = GFunction_->value(refTemp);
+
+            if (GAtMin <= SMALL || GAtMax <= SMALL || GAtRef <= SMALL)
+            {
+                FatalIOErrorInFunction(dict_)
+                    << "G Function1 must remain positive between "
+                    << "minTl/maxTl (" << minTemp << "-" << maxTemp
+                    << " K) and at the reference temperature " << refTemp << " K"
+                    << exit(FatalIOError);
+            }
+
+            G_ = dimensionedScalar(G_.name(), G_.dimensions(), GAtRef);
         }
         else
         {
