@@ -112,12 +112,18 @@ maxT            3500;          // Clamp high temperatures for stability
 // Two-temperature model properties - OPTIMIZED FOR EXTENDED RUNS
 twoTemperatureProperties
 {
+    
     // Linear electronic heat capacity: Ce = γTe
-    Ce polynomial
-    (
-        (0   0)    // Constant term = 0
-        (630 1)    // Linear term: Ce = 630 · Te [J/m³/K²]
-    );
+    Ce
+    {
+        type        polynomial;
+        value       0;
+        coeffs
+        (
+            (0   0)  // Constant term = 0
+            (630 1)  // Linear term: Ce = 630 · Te [J/m³/K²]
+        );
+    }
     
     // Temperature-dependent coupling
     G
@@ -132,8 +138,7 @@ twoTemperatureProperties
             (5000   6e17)
             (10000  7.5e17)
         );
-    }
-    
+    } 
     Cl  [1 -1 -2 -1 0 0 0] 2.5e6;
     De  [0  2 -1  0 0 0 0] 1e-4;
 
