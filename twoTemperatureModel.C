@@ -150,7 +150,7 @@ twoTemperatureModel::twoTemperatureModel
         if (dict_.isDict("Ce"))
         {
             const dictionary& CeDict = dict_.subDict("Ce");
-            CeFunction_.reset(Function1<scalar>::New("Ce", CeDict).ptr());
+            CeFunction_.reset(Function1<scalar>::New("Ce", dict_).ptr());
 
             const scalar minTe = dict_.lookupOrDefault<scalar>("minTe", 300.0);
             const scalar maxTe = dict_.lookupOrDefault<scalar>("maxTe", 4000.0);
@@ -191,6 +191,7 @@ twoTemperatureModel::twoTemperatureModel
 
             CeLogTe = refTe;
         }
+
         else
         {
             dict_.lookup("Ce") >> Ce_;
@@ -212,7 +213,7 @@ twoTemperatureModel::twoTemperatureModel
     {
         if (dict_.isDict("G"))
         {
-            GFunction_.reset(Function1<scalar>::New("G", dict_.subDict("G")).ptr());
+            GFunction_.reset(Function1<scalar>::New("G", dict_).ptr());
         }
         else
         {
@@ -240,7 +241,7 @@ twoTemperatureModel::twoTemperatureModel
                 Function1<scalar>::New
                 (
                     "gasMetalExchangeCoeff",
-                    dict_.subDict("gasMetalExchangeCoeff")
+                     dict_
                 ).ptr()
             );
         }
