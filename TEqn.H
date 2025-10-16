@@ -449,7 +449,7 @@ if (verbose && master && timeIndex % 10 == 0)
         0.0
     );
 
-    contErr = Foam::min(contErr, zeroContErr);
+    //contErr = Foam::min(contErr, zeroContErr);
 
     T = Foam::max(Foam::min(T, maxTDim), minTDim);
     T.correctBoundaryConditions();

@@ -462,8 +462,11 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
             workingField = updatedField;
         }
 
-        recoilField = workingField;
+      recoilField = workingField;
     }
+
+    const scalar recoilRelax = recoilRelax_;
+    const bool applyRelaxation = recoilRelax < (1.0 - Foam::SMALL);
     if (applyRelaxation)
     {
         if (!havePreviousRecoil_)
@@ -486,14 +489,8 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
     {
         previousRecoilPressure_ = recoilField;
         havePreviousRecoil_ = true;
-    }   
-    if (logRecoilSuppression && suppressedCondensationCells > 0 && master)
-    {
-        Info<< "advancedInterfaceCapturing: suppressed recoil in "
-            << suppressedCondensationCells
-            << " cells due to condensation mass flux." << endl;
     }
-    // Ensure boundary conditions are correct
+
     recoilPressure_.correctBoundaryConditions();
 }
 void Foam::advancedInterfaceCapturing::correct()
