@@ -113,11 +113,11 @@ maxT            3500;          // Clamp high temperatures for stability
 twoTemperatureProperties
 {
     // Linear electronic heat capacity: Ce = γTe
-    Ce
-    {
-        type        polynomial;
-        coeffs      (0 630);  // Ce = 630·Te [J/m³/K²]
-    }
+    Ce polynomial
+    (
+        (0   0)    // Constant term = 0
+        (630 1)    // Linear term: Ce = 630 · Te [J/m³/K²]
+    );
     
     // Temperature-dependent coupling
     G
