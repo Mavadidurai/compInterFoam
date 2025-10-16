@@ -88,12 +88,26 @@ p_rgh.correctBoundaryConditions();
 p.correctBoundaryConditions();
 
 const Foam::dictionary& solverCoeffs = compInterFoamCoeffsDict(mesh);
-const scalar maxPhysicalVelocity = solverCoeffs.lookupOrDefault<Foam::scalar>
+const Foam::scalar maxPhysicalVelocity = solverCoeffs.lookupOrDefault<Foam::scalar>
 (
     "maxVelocity",
     500.0
 );
+
 const Foam::scalar maxU = gMax(mag(U)());
+const Foam::scalar maxRecoilPa = recoilPressurePtr ? gMax(*recoilPressurePtr) : 0.0;
+
+Foam::scalar recoilVelocityScale = 0.0;
+
+if (maxRecoilPa > 0)
+{
+    const Foam::scalar rhoLiquid = gMax(rho1);
+
+    if (rhoLiquid > SMALL)
+    {
+        recoilVelocityScale = Foam::sqrt(2.0*maxRecoilPa/rhoLiquid);
+    }
+}
 
 if (maxU > maxPhysicalVelocity)
 {
@@ -104,8 +118,9 @@ if (maxU > maxPhysicalVelocity)
         << nl
         << "This indicates numerical instability. Check:" << nl
         << "  1. Time step (current: " << runTime.deltaTValue() << " s)" << nl
-        << "  2. Max recoil pressure: "
-        << (recoilPressurePtr ? gMax(*recoilPressurePtr)/1e6 : 0) << " MPa" << nl
+        << "  2. Max recoil pressure: " << maxRecoilPa/1e6 << " MPa" << nl
+        << "     Ideal recoil-driven jet speed sqrt(2*deltaP/rho_liquid): "
+        << recoilVelocityScale << " m/s" << nl
         << "  3. Courant number" << nl
         << "  4. Temperature gradients" << nl
         << abort(FatalError);

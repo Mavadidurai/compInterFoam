@@ -88,7 +88,31 @@ if (pimple.momentumPredictor())
     K = 0.5*magSqr(U);
 }
 
-volScalarField rAU("rAU", 1.0/UEqn.A());
+tmp<volScalarField> tUEqnDiag = UEqn.A();
+volScalarField& UEqnDiag = tUEqnDiag.ref();
+
+const Foam::dictionary& solverCoeffs = compInterFoamCoeffsDict(mesh);
+const scalar minUEqnDiagVal = solverCoeffs.lookupOrDefault<scalar>
+(
+    "minUEqnDiag",
+    1e-9
+);
+
+if (minUEqnDiagVal > 0)
+{
+    UEqnDiag = Foam::max
+    (
+        UEqnDiag,
+        dimensionedScalar
+        (
+            "minUEqnDiag",
+            UEqnDiag.dimensions(),
+            minUEqnDiagVal
+        )
+    );
+}
+
+volScalarField rAU("rAU", 1.0/tUEqnDiag());
 
 phi = fvc::flux(U);
 rhoPhi = fvc::interpolate(rho)*phi;
