@@ -115,8 +115,12 @@ twoTemperatureProperties
     // Linear electronic heat capacity: Ce = γTe
     Ce
     {
-        type        polynomial;
-        coeffs      (0 630);  // Ce = 630·Te [J/m³/K²]
+        type    polynomial;
+        coefficients
+        (
+            (0 0)
+            (1 630)
+        );
     }
     
     // Temperature-dependent coupling
