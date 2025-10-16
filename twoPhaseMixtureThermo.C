@@ -635,316 +635,66 @@ Foam::twoPhaseMixtureThermo::sigma() const
 }
 void Foam::twoPhaseMixtureThermo::computePhaseChange()
 {
-    // Reset source terms without triggering dimension checks that can fail when
-    // older restart data carried incorrect dimensions.
     phaseChangeSource_.primitiveFieldRef() = 0.0;
-    // Reset the implicit relaxation coefficient
     phaseChangeRelaxCoeff_.primitiveFieldRef() = 0.0;
-    const bool master = Pstream::master();
+
     const fvMesh& mesh = T_.mesh();
-    // Access coefficients from transportProperties
-    const dictionary& transportDict = mesh.lookupObject<dictionary>("transportProperties");
-    const dictionary& controlDict = mesh.time().controlDict();
 
-    const volScalarField* TlPtr = nullptr;
-    autoPtr<volScalarField> TlTmp;
-
-    if (mesh.foundObject<volScalarField>("Tl"))
-    {
-        TlPtr = &mesh.lookupObject<volScalarField>("Tl");
-    }
-    else
-    {
-        IOobject TlHeader
-        (
-            "Tl",
-            mesh.time().timeName(),
-            mesh,
-            IOobject::READ_IF_PRESENT,
-            IOobject::NO_WRITE,
-            false
-        );
-
-        if (TlHeader.typeHeaderOk<volScalarField>())
-        {
-            TlTmp.reset(new volScalarField(TlHeader, mesh));
-            TlPtr = TlTmp.ptr();
-        }
-    }
+    const volScalarField* TlPtr = mesh.foundObject<volScalarField>("Tl")
+        ? &mesh.lookupObject<volScalarField>("Tl")
+        : nullptr;
 
     if (!TlPtr)
     {
-        static bool warnedMissingTl = false;
-        if (!warnedMissingTl && master)
-        {
-            WarningInFunction
-                << "Lattice temperature field 'Tl' not available;"
-                << " skipping phase-change update until it is created." << endl;
-            warnedMissingTl = true;
-        }
-
         return;
     }
 
     const volScalarField& Tl = *TlPtr;
-    const dictionary* pcPtr = nullptr;
-    word pcLocation("phaseChangeCoeffs");
-    if (controlDict.found("phaseChangeCoeffs"))
-    {
-        pcPtr = &controlDict.subDict("phaseChangeCoeffs");
-        pcLocation = "controlDict.phaseChangeCoeffs";
-    }
-    else if (transportDict.found("phaseChangeCoeffs"))
-    {
-        pcPtr = &transportDict.subDict("phaseChangeCoeffs");
-        pcLocation = "transportProperties.phaseChangeCoeffs";
-    }
+    const volScalarField& p = mesh.lookupObject<volScalarField>("p");
 
-    if (!pcPtr)
-    {
-        FatalErrorInFunction
-            << "phaseChangeCoeffs not found in controlDict or transportProperties" << nl
-            << "Supply a phaseChangeCoeffs sub-dictionary or disable phase change." << nl
-            << exit(FatalError);
+    const scalar L = latentHeat_;
+    const scalar R = 8.314/0.04787;
+    const scalar T_vap = T_vapor_;
+    const scalar p_ref = 101325;
 
-    }
-    const dictionary& pc = *pcPtr;
-    auto readTemperatureEntry =
-        [&](const word& entryName, scalar& value) -> bool
-        {
-            if (!pc.found(entryName))
-            {
-                return false;
-            }
+    const scalarField& alpha1Field = alpha1().primitiveField();
+    const scalarField& TlField = Tl.primitiveField();
+    const scalarField& pField = p.primitiveField();
 
-            try
-            {
-                const dimensionedScalar dimValue(entryName, pc);
-                value = dimValue.value();
-            }
-            catch (const Foam::IOerror&)
-            {
-                value = pc.lookupOrDefault<scalar>(entryName, value);
-            }
+    forAll(TlField, cellI)
+    {
+        const scalar T_local = TlField[cellI];
+        const scalar p_local = pField[cellI];
+        const scalar alpha = alpha1Field[cellI];
 
-            return true;
-        };
+        if (alpha < 0.01 || alpha > 0.99)
+        {
+            continue;
+        }
 
-    scalar Tvapor = T_vapor_;
-    if
-    (
-        !readTemperatureEntry("Tvapor", Tvapor)
-     && !readTemperatureEntry("Tvap", Tvapor)
-    )
-    {
-        Tvapor = T_vapor_;
-    }
-    const scalar windowWidth = pc.lookupOrDefault<scalar>("windowWidth", 0.0);
-    dtFloor_ = pc.lookupOrDefault<scalar>("dtFloor", dtFloor_);
-    scalar relaxationRate = pc.lookupOrDefault<scalar>("relaxationRate", -1.0);
-    if (relaxationRate < 0)
-    {
-        const scalar relaxationTime = pc.lookupOrDefault<scalar>("relaxationTime", -1.0);
-        if (relaxationTime > 0)
-        {
-            relaxationRate = 1.0/relaxationTime;
-        }
-    }
-    if (relaxationRate < 0)
-    {
-        FatalErrorInFunction
-            << "phaseChangeCoeffs requires either 'relaxationRate' [1/s]"
-            << " or 'relaxationTime' [s] to be specified" << nl
-            << exit(FatalError);
-    }
-    const word maxSourceDefaultKey("phaseChangeMaxSourceDefault");
-    const bool hasTransportDefault = transportDict.found(maxSourceDefaultKey);
-    scalar defaultMaxSource = transportDict.lookupOrDefault<scalar>(maxSourceDefaultKey, 1e7);
-    scalar maxSource = defaultMaxSource;
-    bool usingDefaultMaxSource = false;
-    if (pc.found("maxSource"))
-    {
-        maxSource = pc.lookupOrDefault<scalar>("maxSource", defaultMaxSource);
-    }
-    else if (pc.found("minCoefficient"))
-    {
-        maxSource = readScalar(pc.lookup("minCoefficient"));
-    }
-    else
-    {
-        usingDefaultMaxSource = true;
-    }
-    if (usingDefaultMaxSource)
-    {
-        static bool defaultMaxSourceWarned = false;
-        if (!defaultMaxSourceWarned)
-        {
-            if (master)
-            {
-                WarningInFunction
-                    << pcLocation << ":maxSource not specified; using "
-                    << (hasTransportDefault
-                        ? "transportProperties entry 'phaseChangeMaxSourceDefault'"
-                        : "internal fallback")
-                    << " = " << maxSource << " [K/s]" << endl;
-            }
-            defaultMaxSourceWarned = true;
-        }
-    }
-    const bool limitSource = (maxSource > 0 && maxSource < GREAT);
-    scalar metalCutoff = -1.0;
-    if (pc.found("phaseChangeMetalCutoff"))
-    {
-        metalCutoff = pc.lookupOrDefault<scalar>("phaseChangeMetalCutoff", metalCutoff);
-    }
-    else if (transportDict.found("phaseChangeMetalCutoff"))
-    {
-        metalCutoff = transportDict.lookupOrDefault<scalar>
-        (
-            "phaseChangeMetalCutoff",
-            metalCutoff
-        );
-    }
-    if (metalCutoff < 0)
-    {
-        const Time& time = T_.mesh().time();
-        if (time.controlDict().found("twoTemperatureProperties"))
-        {
-            const dictionary& twoTempDict =
-                time.controlDict().subDict("twoTemperatureProperties");
-            const scalar metalFloor =
-                twoTempDict.lookupOrDefault<scalar>("metalFractionFloor", 1e-6);
-            metalCutoff = twoTempDict.lookupOrDefault<scalar>
-            (
-                "metalFractionCutoff",
-                metalFloor
-            );
-        }
-        else
-        {
-            metalCutoff = 1e-6;
-        }
-    }
-    metalCutoff = Foam::max(metalCutoff, 0.0);    
-    const Switch onlyAboveVapor
-    (
-        pc.lookupOrDefault<Switch>("onlyAboveVapor", false)
-    );
-    List<Tuple2<scalar, scalar>> actTimes;
-    if (pc.found("activationTime"))
-    {
-        pc.lookup("activationTime") >> actTimes;
-    }
-    // Log the coefficients only once
-    static bool loggedPhaseChange = false;
-    if (!loggedPhaseChange)
-    {
-        if (master)
-        {
-            Info<< "phaseChangeCoeffs:" << nl
-                << "    Tvapor        " << Tvapor << nl
-                << "    windowWidth   " << windowWidth << nl
-                << "    dtFloor       " << dtFloor_ << nl
-                << "    relaxationRate " << relaxationRate << nl
-                << "    relaxationTime "
-                << (relaxationRate > SMALL ? 1.0/relaxationRate : GREAT) << nl
-                << "    maxSource     " << maxSource << nl
-                << "    metalCutoff   " << metalCutoff << nl
-                << "    onlyAboveVapor " << onlyAboveVapor << nl;
-            if (actTimes.size())
-            {
-                Info<< "    activationTime";
-                forAll(actTimes, i)
-                {
-                    Info<< " (" << actTimes[i].first() << ' ' << actTimes[i].second() << ')';
-                }
-                Info<< nl;
-            }
-            else
-            {
-                Info<< "    activationTime none" << nl;
-            }
-        }
-        loggedPhaseChange = true;
-    }
-    bool active = true;
-    if (actTimes.size())
-    {
-        active = false;
-        const scalar timeVal = T_.time().value();
-        forAll(actTimes, i)
-        {
-            if
-            (
-                timeVal >= actTimes[i].first()
-             && timeVal <= actTimes[i].second()
-            )
-            {
-                active = true;
-                break;
-            }
-        }
-        if (!active)
-        {
-            if (master)
-            {
-                Info<< "phaseChangeCoeffs inactive at time " << timeVal << nl;
-            }
-            return;
-        }
-    }
-    const scalar minAlpha = 0.0;
-    const scalar maxAlpha = 1.0;
-    const scalar localRateMax = 1.0/Foam::max(dtFloor_, SMALL);    
-    forAll(Tl, cellI)
-    {
-        const scalar a1 = Foam::min(Foam::max(alpha1()[cellI], minAlpha), maxAlpha);
-        const scalar Tcell = Tl[cellI];
-        const bool metalActive = (a1 > metalCutoff);
-        scalar available = 0.0;
-        if (metalActive)
-        {
-            if (Tcell > Tvapor)
-            {
-                available = a1;
-            }
-            else if (Tcell < Tvapor)
-            {
-                available = 1.0 - a1;
-            }
-        }
-        scalar localRate = relaxationRate*available;
-        if (windowWidth > SMALL)
-        {
-            localRate *= Foam::min(Foam::mag(Tcell - Tvapor)/windowWidth, 1.0);
-        }
-        scalar sourceVal = localRate*(Tvapor - Tcell);
-        if (limitSource)
-        {
-            sourceVal = Foam::max(Foam::min(sourceVal, maxSource), -maxSource);
+        const scalar inv_T = 1.0/Foam::max(T_local, 100.0);
+        const scalar inv_Tvap = 1.0/T_vap;
+        const scalar p_vapor = p_ref*std::exp(L/R*(inv_Tvap - inv_T));
 
-            if (Foam::mag(Tvapor - Tcell) > SMALL)
-            {
-                localRate = Foam::mag(sourceVal)/(Foam::mag(Tvapor - Tcell));
-            }
-            else
-            {
-                localRate = 0.0;
-            }
-        }
-        if (onlyAboveVapor && Tcell < Tvapor)
-        {
-            localRate = 0.0;
-            sourceVal = 0.0;
-        }
-        if (!metalActive)
-        {
-            localRate = 0.0;
-            sourceVal = 0.0;
-        }
-        localRate = Foam::min(localRate, localRateMax);
-        phaseChangeRelaxCoeff_[cellI] = localRate;
-        phaseChangeSource_[cellI] = sourceVal;
+        const scalar sqrt_T = std::sqrt(Foam::max(T_local, 1.0));
+        const scalar sqrt_2piR = std::sqrt(2.0*3.14159*R);
+
+        const scalar evap_coeff = 0.18;
+        const scalar j_evap = evap_coeff*p_vapor/(sqrt_2piR*sqrt_T);
+        const scalar j_cond = evap_coeff*p_local/(sqrt_2piR*sqrt_T);
+
+        const scalar j_net = j_evap - j_cond;
+
+        const scalar rho_liquid = rho1_.value();
+        const scalar Cl = ClTTM_.value();
+
+        const scalar rate = j_net*L/(rho_liquid*Cl);
+
+        const scalar relaxTime = 1e-12;
+        const scalar relax = 1.0/relaxTime;
+
+        phaseChangeRelaxCoeff_[cellI] = relax;
+        phaseChangeSource_[cellI] = rate + relax*T_local;
     }
 }
 Foam::tmp<Foam::volScalarField>

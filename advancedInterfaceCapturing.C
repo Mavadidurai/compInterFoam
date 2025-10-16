@@ -334,305 +334,99 @@ advancedInterfaceCapturing::advancedInterfaceCapturing
 }
 void advancedInterfaceCapturing::calculateRecoilPressure()
 {
-    // Check field validity using size and dimensions
-    if (T_.size() != mesh_.nCells() || alpha1_.size() != mesh_.nCells())
+    const volScalarField* TlPtr = TlPtr_;
+    if (!TlPtr)
+    {
+        recoilPressure_ = dimensionedScalar("zero", dimPressure, 0.0);
+        previousRecoilPressure_.setSize(mesh_.nCells());
+        previousRecoilPressure_ = 0.0;
+        havePreviousRecoil_ = false;
+        recoilPressure_.correctBoundaryConditions();
+        return;
+    }
+
+    const volScalarField& Tl = *TlPtr;
+    const volScalarField& massRate = mixture_.dgdt();
+
+    if
+    (
+        Tl.size() != mesh_.nCells()
+     || massRate.size() != mesh_.nCells()
+     || alpha1_.size() != mesh_.nCells()
+    )
     {
         FatalErrorIn("advancedInterfaceCapturing::calculateRecoilPressure()")
-            << "Field size mismatch detected: T:" << T_.size() 
-            << " alpha1:" << alpha1_.size()
-            << " mesh:" << mesh_.nCells()
+            << "Field size mismatch detected. Tl: " << Tl.size()
+            << " massRate: " << massRate.size()
+            << " alpha1: " << alpha1_.size()
+            << " mesh: " << mesh_.nCells()
             << abort(FatalError);
     }
 
-    // Ensure cached storage matches current mesh size
     if (previousRecoilPressure_.size() != mesh_.nCells())
     {
         previousRecoilPressure_.setSize(mesh_.nCells());
         previousRecoilPressure_ = 0.0;
         havePreviousRecoil_ = false;
     }
-    const dictionary& aicDict =
-        mesh_.time().controlDict().subOrEmptyDict("advancedInterfaceCapturing");
-    const scalar maxPhysicalTemp =
-        aicDict.lookupOrDefault<scalar>("maxPhysicalTemperature", 5000.0);
 
-    // OPTIMIZED: Calculate once, reuse multiple times
-    const scalar currentTime = mesh_.time().value();
-    const bool master = Pstream::master();
-    const scalarField& gasTField = T_.primitiveField();
+    recoilPressure_ = dimensionedScalar("zero", dimPressure, 0.0);
+    scalarField& recoilField = recoilPressure_.primitiveFieldRef();
+
     const scalarField& alpha1Field = alpha1_.primitiveField();
-    const volScalarField& massRate = mixture_.dgdt();
-    const scalarField* TlFieldPtr = nullptr;
-    if (TlPtr_)
-    {
-        TlFieldPtr = &TlPtr_->primitiveField();
-        if (TlFieldPtr->size() != gasTField.size())
-        {
-            FatalErrorIn("advancedInterfaceCapturing::calculateRecoilPressure()")
-                << "Lattice temperature field size (" << TlFieldPtr->size()
-                << ") does not match gas temperature size ("
-                << gasTField.size() << ")"
-                << abort(FatalError);
-        }
-    }
-
-    if
-    (
-        massRate.size() != mesh_.nCells()
-     || massRate.size() != gasTField.size()
-     || massRate.size() != alpha1Field.size()
-    )
-    {
-        FatalErrorIn("advancedInterfaceCapturing::calculateRecoilPressure()")
-            << "Field size mismatch detected. massRate: " << massRate.size()
-            << " T: " << gasTField.size()
-            << " alpha1: " << alpha1Field.size()
-            << " mesh: " << mesh_.nCells()
-            << abort(FatalError);
-    }
-
+    const scalarField& TlField = Tl.primitiveField();
     const scalarField& massRateField = massRate.primitiveField();
 
     const scalar alphaWindow = Foam::max(alphaMax_ - alphaMin_, Foam::SMALL);
-    const scalar recoilOnTemp = vaporTemp_.value() + recoilTempOffset_.value();
-    const scalar evaporationOnTemp = vaporTemp_.value() + phaseChangeTempOffset_.value();    
-    
-    bool haveMetalCell = false;
-    scalar maxTemp = 0.0;
-    const scalar metalAlphaCutoff = metalAlphaCutoff_;
-    forAll(gasTField, cellI)
-    {
-        const scalar alpha = alpha1Field[cellI];
-        const scalar gasT = gasTField[cellI];
-
-        if (!std::isfinite(gasT))
-        {
-            FatalErrorIn("advancedInterfaceCapturing::calculateRecoilPressure()")
-                << "Non-finite gas temperature value detected at cell " << cellI
-                << ". Value: " << gasT
-                << abort(FatalError);
-        }
-
-        if (TlFieldPtr)
-        {
-            const scalar latticeT = (*TlFieldPtr)[cellI];
-            if (!std::isfinite(latticeT))
-            {
-                FatalErrorIn("advancedInterfaceCapturing::calculateRecoilPressure()")
-                    << "Non-finite lattice temperature value detected at cell "
-                    << cellI << ". Value: " << latticeT
-                    << abort(FatalError);
-            }
-        }
-
-
-        if (!std::isfinite(alpha))
-        {
-            FatalErrorIn("advancedInterfaceCapturing::calculateRecoilPressure()")
-                << "Non-finite alpha1 value detected at cell " << cellI
-                << ". Value: " << alpha
-                << abort(FatalError);
-        }
-        scalar Tval = gasT;
-        if (TlFieldPtr && alpha > metalAlphaCutoff)
-        {
-            Tval = (*TlFieldPtr)[cellI];
-        }
-        Tval = Foam::min(Tval, maxPhysicalTemp);
-        if (alpha > metalAlphaCutoff)
-        {
-            if (!haveMetalCell || Tval > maxTemp)
-            {
-                maxTemp = Tval;
-            }
-            haveMetalCell = true;
-        }
-    }
-    const bool verbose = mesh_.time().controlDict().lookupOrDefault<Switch>("verbose", false);
-    const bool recoilActive = haveMetalCell && maxTemp >= recoilOnTemp;
-    if (verbose && master)
-    {
-        Info<< "Calculating recoil pressure at t = " << currentTime
-            << "s, max T = " << maxTemp
-            << "K, recoil activation T = " << recoilOnTemp << "K"
-            << ", evaporation T = " << evaporationOnTemp << "K" << endl;
-    }
-    // OPTIMIZED: Early exit using cached values
-    if (!recoilActive)
-    {
-        // OPTIMIZED: Use cached zero value instead of creating new one
-        recoilPressure_ = dimensionedScalar("zero", dimPressure, 0.0);
-        rampProgress_ = 0.0;
-        if (verbose && master)
-        {
-            Info<< "Temperature too low for recoil pressure" << endl;
-        }
-        previousRecoilPressure_ = recoilPressure_.primitiveField();
-        havePreviousRecoil_ = true;
-        recoilPressure_.correctBoundaryConditions();
-        return;
-    }
-    rampProgress_ = Foam::min(rampProgress_ + rampIncrement_, scalar(1));
-    const scalar rampFactor = rampProgress_;
-    // Initialize recoil pressure field
-    recoilPressure_ = dimensionedScalar("zero", dimPressure, 0.0);
-    // Constants for recoil pressure model sourced from dictionaries
-
-    const bool clampRecoil = clampRecoil_;
-    const bool scaleRecoilMax = scaleRecoilMax_;
-    const scalar recoilRelax = recoilRelax_;
-    const bool applyRelaxation = recoilRelax < (1.0 - Foam::SMALL);
-    const scalar massRateEps = massRateEps_;
-    const bool limitRecoilChange = recoilMaxDelta_ > SMALL;
-    const scalar maxDeltaPerStep = limitRecoilChange
-        ? recoilMaxDelta_ * mesh_.time().deltaTValue()
-        : scalar(0);
-    // Access fields only once for efficiency and validate sizes
-    scalarField& recoilField = recoilPressure_.primitiveFieldRef();
-    const labelListList& cellCells = mesh_.cellCells();
-    
-    const bool logRecoilSuppression =
-        mesh_.time().controlDict().lookupOrDefault<Switch>
-        (
-            "logRecoilSuppression",
-            false
-        );
     const scalar invAlphaWindow = 1.0/alphaWindow;
-    label suppressedCondensationCells = 0;
 
-    // Compute recoil pressure based on evaporation rate
-    forAll(gasTField, cellI)
+    const scalar k_B = 1.38e-23;      // Boltzmann constant [J/K]
+    const scalar m_Ti = 7.95e-26;     // Titanium atom mass [kg]
+    const scalar betaMomentum = 0.18; // Momentum accommodation coefficient
+    const scalar rhoLiquid = mixture_.rho1().value();
+
+    forAll(recoilField, cellI)
     {
         const scalar alpha = alpha1Field[cellI];
+
+        if (alpha < alphaMin_ || alpha > alphaMax_)
+        {
+            recoilField[cellI] = 0.0;
+            continue;
+        }
+
+        const scalar mDot = massRateField[cellI];
+        if (mDot < massRateEps_)
+        {
+            recoilField[cellI] = 0.0;
+            continue;
+        }
+
+        const scalar Tlocal = Foam::max(TlField[cellI], scalar(0));
+        const scalar vThermal = sqrt(k_B*Tlocal/m_Ti);
+
+        const scalar pRecoil = rhoLiquid*Foam::mag(mDot)*vThermal*(1.0 - betaMomentum);
+
         scalar alphaMask = (alpha - alphaMin_)*invAlphaWindow;
         alphaMask = Foam::min(Foam::max(alphaMask, scalar(0)), scalar(1));
 
-        if (alphaMask <= SMALL)
+        recoilField[cellI] = pRecoil*alphaMask;
+
+        if (recoilField[cellI] > 1e8)
         {
-            if (massRateField[cellI] < -massRateEps)
-            {
-                ++suppressedCondensationCells;
-            }
-            continue;
+            WarningInFunction
+                << "Recoil pressure " << recoilField[cellI]/1e6
+                << " MPa exceeds physical limit at cell " << cellI
+                << endl;
+            recoilField[cellI] = 1e8;
         }
-
-        if (alphaMask >= (1.0 - SMALL))
-        {
-            bool treatAsInterface = false;
-
-            if (massRateField[cellI] > massRateEps)
-            {
-                const labelList& neighbours = cellCells[cellI];
-                forAll(neighbours, nbrI)
-                {
-                    const label nbrCellI = neighbours[nbrI];
-                    if (alpha1Field[nbrCellI] < alphaMax_)
-                    {
-                        treatAsInterface = true;
-                        break;
-                    }
-                }
-            }
-
-            if (!treatAsInterface)
-            {
-                if (massRateField[cellI] < -massRateEps)
-                {
-                    ++suppressedCondensationCells;
-                }
-                continue;
-            }
-
-            alphaMask = scalar(1.0 - SMALL);
-        }
-
-
-        scalar localTemp = gasTField[cellI];
-
-        if (TlFieldPtr && alpha > metalAlphaCutoff)
-        {
-            localTemp = (*TlFieldPtr)[cellI];
-        }
-        localTemp = Foam::min(localTemp, maxPhysicalTemp);
-
-        if (localTemp < recoilOnTemp)
-        {
-            continue;
-        }
-
-        const scalar rawRate = massRateField[cellI];
-
-        scalar localRecoil = 0.0;
-
-        if (rawRate > massRateEps)
-        {
-            // Use the physical evaporation rate without imposing an artificial
-            // upper cap. The sign check above already excludes negative
-            // condensation contributions.
-            const scalar recoilDim = pressureScale_.value()*rawRate;
-            localRecoil = recoilDim;
-
-            if (clampRecoil)
-            {
-                 localRecoil = Foam::min(localRecoil, recoilMax_);
-            }
-        }
-        else if (rawRate < -massRateEps)
-        {
-            ++suppressedCondensationCells;
-            continue;
-        }
-        else
-        {
-            // When the evaporation rate is effectively zero we must not
-            // fabricate recoil from temperature alone.  The previous logic
-            // blended towards recoilMax_ based purely on temperature once the
-            // cell exceeded the activation threshold.  This created a
-            // sizeable recoil pressure even in quiescent regions, which in
-            // turn injected spurious momentum into the flow and manifested in
-            // the log as velocity growth “without recoil pressure”.
-            //
-            // Treat negligible mass transfer as no recoil so the momentum
-            // equation only sees recoil when the evaporation model delivers a
-            // positive flux.
-            localRecoil = 0.0;
-        }
-
-        const scalar interfaceWeight = alphaMask;
-        scalar weightedRecoil = localRecoil * interfaceWeight;
-
-        if (clampRecoil)
-        {
-            const scalar recoilCap = scaleRecoilMax
-                ? recoilMax_ * interfaceWeight
-                : recoilMax_;
-            weightedRecoil = Foam::min(weightedRecoil, recoilCap);
-        }
-
-        scalar limitedRecoil = clampRecoil && !scaleRecoilMax
-            ? Foam::min(weightedRecoil, recoilMax_)
-            : weightedRecoil;
-
-        limitedRecoil *= rampFactor;
-
-        if (limitRecoilChange && maxDeltaPerStep > SMALL)
-        {
-            const scalar previousValue = previousRecoilPressure_[cellI];
-            const scalar delta = limitedRecoil - previousValue;
-            if (delta > maxDeltaPerStep)
-            {
-                limitedRecoil = previousValue + maxDeltaPerStep;
-            }
-            else if (delta < -maxDeltaPerStep)
-            {
-                limitedRecoil = previousValue - maxDeltaPerStep;
-            }
-        }
-
-        recoilField[cellI] = limitedRecoil;
     }
+
+    rampProgress_ = 1.0;
+
     if (recoilSmoothCoeff_ > SMALL && recoilSmoothIters_ > 0)
     {
+        const labelListList& cellCells = mesh_.cellCells();
         const scalar coeff = Foam::min(Foam::max(recoilSmoothCoeff_, scalar(0)), scalar(1));
         scalarField workingField(recoilField);
         scalarField updatedField(recoilField.size(), 0.0);

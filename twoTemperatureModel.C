@@ -1299,9 +1299,20 @@ tmp<volScalarField> twoTemperatureModel::electronHeatCapacity() const
     {
         forAll(CeField, cellI)
         {
-            CeField[cellI] = CeFunction_->value(Te_[cellI]);
+            const scalar Te = Te_[cellI];
+            const scalar gamma = 630.0;
+            const scalar CeValue = Foam::max(gamma*Te, scalar(1e4));
+            CeField[cellI] = CeValue;
         }
     }
+    else
+    {
+        const scalar CeConst = Foam::max(Ce_.value(), scalar(1e4));
+        CeField = dimensionedScalar(Ce_.name(), Ce_.dimensions(), CeConst);
+    }
+
+    CeField.correctBoundaryConditions();
+
     return tCe;
 }
 tmp<volScalarField> twoTemperatureModel::electronPhononCoupling() const
@@ -1329,9 +1340,42 @@ tmp<volScalarField> twoTemperatureModel::electronPhononCoupling() const
     {
         forAll(GField, cellI)
         {
-            GField[cellI] = GFunction_->value(Te_[cellI]);
+            const scalar Te = Te_[cellI];
+            const scalar Tl = Tl_[cellI];
+            const scalar TlSafe = Foam::max(Tl, scalar(1.0));
+
+            scalar baseG = GFunction_->value(TlSafe);
+            if (baseG <= SMALL)
+            {
+                baseG = 5e17;
+            }
+
+            const scalar TRatio = Foam::max(Te/TlSafe, scalar(1.0));
+            scalar GValue = baseG * Foam::sqrt(TRatio);
+
+            GValue = Foam::min(GValue, scalar(1e19));
+            GField[cellI] = Foam::max(GValue, scalar(1e15));
         }
     }
+    else
+    {
+        const scalar baseG = G_.value();
+        forAll(GField, cellI)
+        {
+            const scalar Te = Te_[cellI];
+            const scalar Tl = Tl_[cellI];
+            const scalar TlSafe = Foam::max(Tl, scalar(1.0));
+
+            const scalar TRatio = Foam::max(Te/TlSafe, scalar(1.0));
+            scalar GValue = baseG * Foam::sqrt(TRatio);
+
+            GValue = Foam::min(GValue, scalar(1e19));
+            GField[cellI] = Foam::max(GValue, scalar(1e15));
+        }
+    }
+
+    GField.correctBoundaryConditions();
+
     return tG;
 }
 tmp<volScalarField> twoTemperatureModel::gasMetalExchangeCoeffField() const
@@ -1353,96 +1397,45 @@ tmp<volScalarField> twoTemperatureModel::gasMetalExchangeCoeffField() const
             gasMetalExchangeCoeff_
         )
     );
+    
     volScalarField& coeff = tCoeff.ref();
-if (gasMetalExchangeFunction_.valid()) {
-    forAll(coeff, cellI) {
-        scalar val = gasMetalExchangeFunction_->value(Tl_[cellI]);
-        // CRITICAL: Hard bounds on function output
-        val = Foam::min(Foam::max(val, scalar(0)), scalar(1e15));
+
+    // Gas-metal Kapitza conductance based on acoustic mismatch
+    const volScalarField& Tl = Tl_;
+    const volScalarField& alpha1 = metalFraction_;
+
+    const scalar rhoTi = 4500.0;   // kg/m3
+    const scalar cTi = 5090.0;     // m/s
+    const scalar rhoAr = 1.2;      // kg/m3
+    const scalar cAr = 319.0;      // m/s
+
+    const scalar zTi = rhoTi*cTi;
+    const scalar zAr = rhoAr*cAr;
+    const scalar zRatio = zAr/(zTi + VSMALL);
+    const scalar tau = 4.0*zRatio/sqr(1.0 + zRatio);
+
+    const scalar kB = 1.38e-23;
+    const scalar hBar = 1.055e-34;
+    const scalar pi = 3.141592653589793;
+    const scalar prefactor = (kB*kB)/(6.0*sqr(pi)*Foam::pow3(hBar));
+    const scalar delta = 1e-9;  // m
+
+    forAll(coeff, cellI)
+    {
+        const scalar T = Foam::max(Tl[cellI], scalar(0));
+        const scalar alpha = Foam::min(Foam::max(alpha1[cellI], scalar(0)), scalar(1));
+
+        const scalar hK = prefactor*tau*T*T*T;
+        const scalar hVol = hK/delta;
+        const scalar interfaceWeight = 4.0*alpha*(1.0 - alpha);
+
+        scalar val = hVol*interfaceWeight;
+        val = Foam::min(val, scalar(1e14));
+        val = Foam::max(val, scalar(0));
+
         coeff[cellI] = val;
     }
-}
-    const scalar metalFractionFloor =
-        dict_.lookupOrDefault<scalar>("metalFractionFloor", 1e-6);
 
-    const dimensionedScalar minExchangeDim(
-        dict_.lookupOrDefault<dimensionedScalar>
-        (
-            "minGasMetalExchangeCoeff",
-            dimensionedScalar
-            (
-                "minGasMetalExchangeCoeff",
-                coeff.dimensions(),
-                0.0
-            )
-        )
-    );
-    const dimensionedScalar maxExchangeDim(
-        dict_.lookupOrDefault<dimensionedScalar>
-        (
-            "maxGasMetalExchangeCoeff",
-            dimensionedScalar
-            (
-                "maxGasMetalExchangeCoeff",
-                coeff.dimensions(),
-                1e18
-            )
-        )
-    );
-    coeff = Foam::max(Foam::min(coeff, maxExchangeDim), minExchangeDim);
-
-    tmp<volScalarField> tMetalMask =
-        metalActiveMask(Foam::max(metalFractionFloor, VSMALL));
-    volScalarField& metalMask = tMetalMask.ref();
-    metalMask = Foam::min
-    (
-        Foam::max(metalMask, scalar(0)),
-        scalar(1)
-    );
-
-    tmp<volScalarField> tGasMask(scalar(1) - metalMask);
-    volScalarField& gasMask = tGasMask.ref();
-    gasMask = Foam::min
-    (
-        Foam::max(gasMask, scalar(0)),
-        scalar(1)
-    );
-
-    coeff *= gasMask;
-
-    // Suppress coupling when either phase fraction vanishes by
-    // weighting the exchange coefficient with an interface indicator.
-    const dimensionedScalar zero("zero", dimless, 0.0);
-    const dimensionedScalar one("one", dimless, 1.0);
-
-    tmp<volScalarField> tMetalClamp
-    (
-        Foam::min(Foam::max(metalFraction_, zero), one)
-    );
-    const volScalarField& metalClamp = tMetalClamp();
-
-    tmp<volScalarField> tGasClamp(one - metalClamp);
-    const volScalarField& gasClamp = tGasClamp();
-
-    tmp<volScalarField> tInterfaceWeight(Foam::min(metalClamp, gasClamp));
-    volScalarField& interfaceWeight = tInterfaceWeight.ref();
-    interfaceWeight *= scalar(2);
-    interfaceWeight = Foam::min(interfaceWeight, scalar(1));
-    tmp<volScalarField> tNeighbourGas(fvc::average(gasClamp));
-    volScalarField& neighbourGas = tNeighbourGas.ref();
-    neighbourGas = Foam::min
-    (
-        Foam::max(neighbourGas, scalar(0)),
-        scalar(1)
-    );
-
-    interfaceWeight = Foam::max(interfaceWeight, neighbourGas);
-    interfaceWeight = Foam::min
-    (
-        Foam::max(interfaceWeight, scalar(0)),
-        scalar(1)
-    );
-    coeff *= interfaceWeight;
     coeff.correctBoundaryConditions();
     return tCoeff;
 }

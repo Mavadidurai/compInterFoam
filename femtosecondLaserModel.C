@@ -1191,11 +1191,41 @@ femtosecondLaserModel::applySpatialWeighting
     metrics.maxSourceCap = maxVolumetricSource_.value();
     metrics.limitSource = metrics.maxSourceCap > SMALL;
 
+    // Fresnel reflection at the air-metal interface (normal incidence)
+    // Empirical optical constants for Ti at 343 nm
+    const scalar n_metal = 2.0;
+    const scalar k_metal = 2.8;
+    const scalar n_air = 1.0;
+
+    const scalar num_real = n_air - n_metal;
+    const scalar num_imag = -k_metal;
+    const scalar den_real = n_air + n_metal;
+    const scalar den_imag = k_metal;
+
+    const scalar R_fresnel =
+        (sqr(num_real) + sqr(num_imag)) /
+        (sqr(den_real) + sqr(den_imag));
+
+    const scalar T_interface = 1.0 - R_fresnel;
+
+    const scalar filmThickness = Foam::max(filmYMax_ - filmYMin_, scalar(0));
+    const scalar alpha_abs = absorptionCoeff_.value();
+    const scalar opticalDepth = alpha_abs * filmThickness;
+    const scalar R_back = R_fresnel;
+    const scalar denom = 1.0 - R_back*R_back*exp(-2.0*opticalDepth);
+    const scalar multipleReflFactor =
+        (mag(denom) > VSMALL) ? (1.0/denom) : 1.0;
+
+    const scalar interfaceTransmissionFresnel =
+        T_interface * multipleReflFactor;
+
+    Info<< "Fresnel reflection: R = " << R_fresnel
+        << ", T = " << T_interface << endl;
+
     const scalar beamRadius = spotSize_.value()/2.0;
     const scalar radialHalfWidth = 3.0*beamRadius; // ~3-sigma laterally
 
-    const scalar filmHalfThickness =
-        0.5*Foam::max(filmYMax_ - filmYMin_, scalar(0));
+    const scalar filmHalfThickness = 0.5*filmThickness;
 
     scalar axialHalfLength = Foam::max(filmHalfThickness, beamRadius);
 
@@ -1455,7 +1485,7 @@ femtosecondLaserModel::applySpatialWeighting
         }        
         // reflectivity_ is defined at the film interface, so the transmission
         // derived from it attenuates the beam prior to entering either phase.
-        const scalar interfaceTransmission = effectiveTransmission(reflectivity_);
+        const scalar interfaceTransmission = interfaceTransmissionFresnel;
 
         scalar transmissionFactor = interfaceTransmission;
 
