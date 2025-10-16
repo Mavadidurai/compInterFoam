@@ -20,13 +20,13 @@ application     compInterFoam;
 startFrom       latestTime;
 startTime       0;
 stopAt          endTime;
-endTime         1e-9;          // EXTENDED: 1 ns total for complete LIFT process
+endTime         5e-10;          // EXTENDED: 1 ns total for complete LIFT process
 
-deltaT          1e-15;         // Base time step (1 fs)
+deltaT          1e-16;         // Base time step (1 fs)
 adjustTimeStep  yes;           // ENABLE adaptive time stepping
 maxCo           0.02;          // Allow reasonable growth while staying stable
-maxAlphaCo      0.002;         // Aggressive interface limit
-maxDeltaT       5e-14;         // Cap adaptive growth (1 fs)
+maxAlphaCo      0.005;         // Aggressive interface limit
+maxDeltaT       1e-13;         // Cap adaptive growth (1 fs)
 minDeltaT       1e-17;         // Minimum 0.01 fs for precision
 
 verbose         true;
@@ -50,11 +50,16 @@ enableLiftProcessTracker true;
 // EXTENDED PHASE-CHANGE - longer activation for complete process
 phaseChangeCoeffs
 {
-    model               temperatureWindow;
-    hf                  hf  [0 2 -2 0 0 0 0] 3.65e5;
-    Tsol                Tsol [0 0 0 1 0 0 0] 1941;
-    Tvap                Tvap [0 0 0 1 0 0 0] 3560;
-    windowWidth         100;
+    model               clausius_clapeyron;  // Not temperature window!
+    hf                  [0 2 -2 0 0 0 0] 3.65e5;  // J/kg (Ti)
+    Tsol                [0 0 0 1 0 0 0] 1941;     // K
+    Tvap                [0 0 0 1 0 0 0] 3560;     // K
+    
+    // Kinetic theory parameters
+    stickingCoeff       0.18;     // Ti evaporation coefficient
+    momentumAccom       0.18;     // Momentum accommodation
+    
+    //windowWidth         100;
     dtFloor             1e-15;         // Reduced for precision
     relaxationTime      5e-12;        // Faster response for femtosecond dynamics
     maxSource           1e9;          // Allow sufficient heating-driven mass transfer
@@ -81,7 +86,10 @@ laserEndTime    1e-10;
 useAdvancedInterfaceCapturing  true;
 advancedInterfaceCapturing
 {
-    pressureScale         1;
+    model               kinetic_theory;  // Not arbitrary scaling!
+    stickingCoeff       0.18;
+    momentumAccom       0.18;
+    //pressureScale         1;
     recoilMax             5e6;      // ✅ REDUCE from 1e7 (5 MPa max)
     clampRecoil           true;
     scaleRecoilMax        false;    // ✅ DISABLE scaling (let physics control it)
@@ -90,7 +98,9 @@ advancedInterfaceCapturing
     recoilRelax           0.3;      // ✅ INCREASE from 0.1 (more damping)
     alphaMin              0.05;
     alphaMax              0.95;
-    maxPhysicalTemperature 5000;    
+    maxPhysicalTemperature 5000;
+        // Physical limits
+    maxRecoilPressure   1e8;    // 100 MPa absolute max
 }
 logRecoilSuppression true;
 
@@ -102,24 +112,50 @@ maxT            3500;          // Clamp high temperatures for stability
 // Two-temperature model properties - OPTIMIZED FOR EXTENDED RUNS
 twoTemperatureProperties
 {
-    Ce  [1 -1 -2 -1 0 0 0] 1.5e6;
+    // Linear electronic heat capacity: Ce = γTe
+    Ce
+    {
+        type        polynomial;
+        coeffs      (0 630);  // Ce = 630·Te [J/m³/K²]
+    }
+    
+    // Temperature-dependent coupling
+    G
+    {
+        type        table;
+        values
+        (
+            (300    3e17)
+            (1000   4.2e17)
+            (2000   4.8e17)
+            (3000   5.2e17)
+            (5000   6e17)
+            (10000  7.5e17)
+        );
+    }
+    
     Cl  [1 -1 -2 -1 0 0 0] 2.5e6;
-    G   [1 -1 -3 -1 0 0 0] 5e16;
     De  [0  2 -1  0 0 0 0] 1e-4;
 
-    gasMetalExchangeCoeff [1 -1 -3 -1 0 0 0] 1e10;
+    gasMetalExchangeCoeff
+    {
+        type        kapitza;    // Use acoustic mismatch model
+        Z_metal     2.3e7;      // Ti acoustic impedance [Pa·s/m]
+        Z_gas       383;        // Ar acoustic impedance [Pa·s/m]
+    }
     minGasMetalExchangeCoeff [1 -1 -3 -1 0 0 0] 0;
     maxGasMetalExchangeCoeff [1 -1 -3 -1 0 0 0] 1e13;
     maxGasMetalHeatFlux    1e12;
-    minTe 200;             // Allow cooling
-    maxTe 15000;
+    minTe           200;
+    maxTe           20000;      // Allow hot electrons
+    maxTl           5000;       // Physical melting limit
     ambientTemperature 300;
 
     // ADAPTIVE MICRO-STEPPING
     electronSubCycles        1;
     minElectronSubCycles     1;
     maxElectronSubCycles     20;     // Allow rapid transients
-    maxElectronDeltaT        [0 0 1 0 0 0 0] 1e-14;  // Guard rapid transients
+    maxElectronDeltaT        [0 0 1 0 0 0 0] 1e-15;  // Guard rapid transients
 
     nInnerCouplingSweeps         3;  // More coupling iterations
     innerCouplingResidualTol     1e-4; // Enable convergence check
