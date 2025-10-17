@@ -71,38 +71,51 @@ solvers
 	    maxIter     200;
     }
 
-    // Gas T (if present)
-        T
-        {
-            solver          smoothSolver;
-            smoother        symGaussSeidel;
-            nSweeps         6;
-            maxIter         200;
-            tolerance       1e-8;
-            relTol          0;
-        }
+    T
+    {
+        solver          PCG;              // Changed to PCG for better convergence
+        preconditioner  DIC;              // Diagonal incomplete Cholesky
+        tolerance       1e-8;
+        relTol          0.01;             // Allow 1% relative convergence
+        maxIter         1000;             // Increased iteration limit
+        minIter         3;                // Ensure minimum work
+    }
 
-        Te
-        {
-            $T;
-            tolerance       1e-8;
-            relTol          0;
-        }
+    TFinal
+    {
+        $T;
+        tolerance       1e-9;
+        relTol          0;
+        maxIter         1000;
+    }
 
-        Tl
-        {
-            $T;
-            tolerance       1e-8;
-            relTol          0;
-        }
+    Te
+    {
+        solver          PCG;
+        preconditioner  DIC;
+        tolerance       1e-8;
+        relTol          0;
+        maxIter         1000;
+        minIter         3;
+    }
+
+    Tl
+    {
+        solver          PCG;
+        preconditioner  DIC;
+        tolerance       1e-8;
+        relTol          0;
+        maxIter         1000;
+        minIter         3;
+    }
 }
 
 PIMPLE
 {
     momentumPredictor           true;
     nOuterCorrectors            1;           // REDUCE: was 2 (emergency mode)
-    nCorrectors                 1;
-    nNonOrthogonalCorrectors    0;
+    nCorrectors                 2;
+    nNonOrthogonalCorrectors    1;
 
     residualControl
     {
@@ -111,7 +124,7 @@ PIMPLE
         U         { tolerance 1e-6;  relTol 0.01; }
         Te        { tolerance 5e-9;  relTol 0.0;  }   // thermal is stiff; be stricter
         Tl        { tolerance 5e-9;  relTol 0.0;  }
-        T         { tolerance 1e-8;  relTol 0.0;  }   // if gas T exists
+        T         { tolerance 1e-8;  relTol 0.01;  }   // if gas T exists
     }
     
     p_rghRefCell                0;
@@ -128,11 +141,11 @@ relaxationFactors
     equations
     {
         U               0.7;
-        T               0.2;
-        Te              0.4;
-        Tl              0.4;
+        T               0.5;
+        Te              0.6;
+        Tl              0.6;
         "alpha.*"       0.5;
-        ".*Final"       0.8;
+        ".*Final"       0.9;
     }
 }
 
@@ -142,8 +155,8 @@ targetResP  0.5;
 compInterFoamCoeffs
 {
     // CRITICAL FIX: Remove artificial velocity clamping
-    maxVelocity            300;         // DISABLED: was causing uniform 500 m/s field
-    maxReasonableVelocity  500;       // Keep for validation warnings only
+    maxVelocity            800;         // DISABLED: was causing uniform 500 m/s field
+    maxReasonableVelocity  800;       // Keep for validation warnings only
     
     defaultMetalDensity    4500;        
     defaultAirDensity      1.2;         
