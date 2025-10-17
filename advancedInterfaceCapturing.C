@@ -419,15 +419,41 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
         scalar alphaMask = (alpha - alphaMin_)*invAlphaWindow;
         alphaMask = Foam::min(Foam::max(alphaMask, scalar(0)), scalar(1));
 
-        recoilField[cellI] = pRecoil*alphaMask;
-        if (recoilField[cellI] > 1e8)
+              const scalar unclampedRecoil = pRecoil*alphaMask;
+
+        // Honour the dictionary controlled clamp instead of a hard-coded ceiling.
+        if (clampRecoil_)
         {
-            WarningInFunction
-                << "Recoil pressure " << recoilField[cellI]/1e6
-                << " MPa exceeds physical limit at cell " << cellI
-                << endl;
-            recoilField[cellI] = 1e8;
+            scalar localMax = recoilMax_;
+            if (scaleRecoilMax_)
+            {
+                localMax *= alphaMask;
+            }
+
+            localMax = Foam::max(localMax, scalar(0));
+
+            if (localMax > SMALL && Foam::mag(unclampedRecoil) > localMax)
+            {
+                WarningInFunction
+                    << "Recoil pressure magnitude "
+                    << Foam::mag(unclampedRecoil)/1e6
+                    << " MPa exceeds configured limit at cell " << cellI
+                    << ". Limiting to " << localMax/1e6 << " MPa." << endl;
+                recoilField[cellI] = Foam::min
+                (
+                    Foam::max(unclampedRecoil, -localMax),
+                    localMax
+                );
+            }
+            else
+            {
+                recoilField[cellI] = unclampedRecoil;
+            }
         }
+        else
+        {
+            recoilField[cellI] = unclampedRecoil;
+            }
     }
 
     rampProgress_ = 1.0;
