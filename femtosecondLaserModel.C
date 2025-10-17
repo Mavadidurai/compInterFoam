@@ -334,8 +334,8 @@ femtosecondLaserModel::femtosecondLaserModel
             << "  Wavelength: " << wavelength_.value() << " m" << nl
             << "  Spot size: " << spotSize_.value() << " m" << nl
             << "  Pulse energy: " << pulseEnergy_.value() << " J" << nl
-            << "  Max volumetric source: " << maxVolumetricSource_.value()
-            << " W/m^3" << nl            
+            << "  Max volumetric source cap: " << maxVolumetricSource_.value()
+            << " W/m^3" << nl
             << "  Focus: " << focus_ << nl
             << "  Direction: " << direction_ << nl
             << "  Active time: " << laserStartTime_ << " to "
@@ -2100,10 +2100,18 @@ void femtosecondLaserModel::write() const
             << "  Wavelength: " << wavelength_.value() << " m" << nl
             << "  Spot size: " << spotSize_.value() << " m" << nl
             << "  Pulse energy: " << pulseEnergy_.value() << " J" << nl
-            << "  Max volumetric source: " << maxVolumetricSource_.value()
-            << " W/m^3" << nl
-            << "  Absorption coefficient: " << absorptionCoeff_.value() << " 1/m" << nl
-            << "  Gas absorption coefficient: " << gasAbsorptionCoeff_.value() << " 1/m" << nl         
+            << "  Max volumetric source cap: " << maxVolumetricSource_.value()
+            << " W/m^3" << nl;
+
+        if (tSource_.valid())
+        {
+            const dimensionedScalar currentMax = max(tSource_());
+            Info<< "  Current max volumetric source: "
+                << currentMax.value() << " W/m^3" << nl;
+        }
+
+        Info<< "  Absorption coefficient: " << absorptionCoeff_.value() << " 1/m" << nl
+            << "  Gas absorption coefficient: " << gasAbsorptionCoeff_.value() << " 1/m" << nl
             << "  Reflectivity: " << reflectivity_ << nl
             << "  Transmission: " << (transmission_ >= 0
                                       ? transmission_ : (1.0 - reflectivity_)) << nl

@@ -1489,9 +1489,20 @@ tmp<volScalarField> twoTemperatureModel::gasMetalExchangeCoeffField() const
 
             const scalar hK = prefactor*tau*T*T*T;
             const scalar hVol = hK/delta;
-            const scalar interfaceWeight = 4.0*alpha*(1.0 - alpha);
 
-            scalar val = hVol*interfaceWeight;
+            // The interfacial conductance must remain active even when the
+            // volume fraction has been clipped to 0 or 1 by MULES.  The
+            // additional 4α(1-α) weighting that was introduced earlier drove
+            // the coefficient to zero in precisely those sharply resolved
+            // interface cells, which is why the runtime log reported a
+            // vanishing "mean exchange coeff" and "max |q_gm|".  With the
+            // conductance quenched, the gas never absorbed energy from the
+            // hot lattice and the simulation ran away thermally.  Removing the
+            // spurious weight restores the expected Kapitza exchange whenever
+            // both phases occupy the cell, leaving the masking in TEqn.H to
+            // gate the coupling elsewhere.
+
+            scalar val = hVol;
             val = Foam::min(val, scalar(1e14));
             val = Foam::max(val, scalar(0));
 
