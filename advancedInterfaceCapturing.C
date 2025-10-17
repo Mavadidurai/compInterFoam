@@ -372,10 +372,19 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
 
     recoilPressure_ = dimensionedScalar("zero", dimPressure, 0.0);
     scalarField& recoilField = recoilPressure_.primitiveFieldRef();
-
     const scalarField& alpha1Field = alpha1_.primitiveField();
     const scalarField& TlField = Tl.primitiveField();
     const scalarField& massRateField = massRate.primitiveField();
+
+    const scalar latentHeat = mixture_.latentHeat().value();
+    const scalar rhoLiquid = mixture_.rho1().value();
+    const scalar Cl = mixture_.ClTTM().value();
+
+    scalar jNetScale = 0.0;
+    if (Cl > Foam::SMALL)
+    {
+        jNetScale = latentHeat*rhoLiquid/Cl;
+    }
 
     const scalar alphaWindow = Foam::max(alphaMax_ - alphaMin_, Foam::SMALL);
     const scalar invAlphaWindow = 1.0/alphaWindow;
@@ -383,7 +392,6 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
     const scalar k_B = 1.38e-23;      // Boltzmann constant [J/K]
     const scalar m_Ti = 7.95e-26;     // Titanium atom mass [kg]
     const scalar betaMomentum = 0.18; // Momentum accommodation coefficient
-    const scalar rhoLiquid = mixture_.rho1().value();
 
     forAll(recoilField, cellI)
     {
@@ -395,8 +403,8 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
             continue;
         }
 
-        const scalar mDot = massRateField[cellI];
-        if (mDot < massRateEps_)
+        const scalar dgdtVal = massRateField[cellI];
+        if (dgdtVal < massRateEps_ || jNetScale == 0.0)
         {
             recoilField[cellI] = 0.0;
             continue;
@@ -405,13 +413,13 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
         const scalar Tlocal = Foam::max(TlField[cellI], scalar(0));
         const scalar vThermal = sqrt(k_B*Tlocal/m_Ti);
 
-        const scalar pRecoil = rhoLiquid*Foam::mag(mDot)*vThermal*(1.0 - betaMomentum);
+        const scalar jNet = dgdtVal*jNetScale;
+        const scalar pRecoil = jNet*vThermal*(1.0 - betaMomentum);
 
         scalar alphaMask = (alpha - alphaMin_)*invAlphaWindow;
         alphaMask = Foam::min(Foam::max(alphaMask, scalar(0)), scalar(1));
 
         recoilField[cellI] = pRecoil*alphaMask;
-
         if (recoilField[cellI] > 1e8)
         {
             WarningInFunction

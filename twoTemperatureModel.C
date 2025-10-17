@@ -1405,17 +1405,12 @@ tmp<volScalarField> twoTemperatureModel::electronPhononCoupling() const
             const scalar Tl = Tl_[cellI];
             const scalar TlSafe = Foam::max(Tl, scalar(1.0));
 
-            scalar baseG = GFunction_->value(TlSafe);
-            if (baseG <= SMALL)
-            {
-                baseG = 5e17;
-            }
+            const scalar baseG = GFunction_->value(TlSafe);
 
             const scalar TRatio = Foam::max(Te/TlSafe, scalar(1.0));
             scalar GValue = baseG * Foam::sqrt(TRatio);
 
-            GValue = Foam::min(GValue, scalar(1e19));
-            GField[cellI] = Foam::max(GValue, scalar(1e15));
+            GField[cellI] = Foam::min(GValue, scalar(1e19));
         }
     }
     else
@@ -1430,8 +1425,7 @@ tmp<volScalarField> twoTemperatureModel::electronPhononCoupling() const
             const scalar TRatio = Foam::max(Te/TlSafe, scalar(1.0));
             scalar GValue = baseG * Foam::sqrt(TRatio);
 
-            GValue = Foam::min(GValue, scalar(1e19));
-            GField[cellI] = Foam::max(GValue, scalar(1e15));
+            GField[cellI] = Foam::min(GValue, scalar(1e19));
         }
     }
 
@@ -1481,11 +1475,6 @@ tmp<volScalarField> twoTemperatureModel::gasMetalExchangeCoeffField() const
         forAll(coeff, cellI)
         {
             const scalar T = Foam::max(Tl[cellI], scalar(0));
-            const scalar alpha = Foam::min
-            (
-                Foam::max(alpha1[cellI], scalar(0)),
-                scalar(1)
-            );
 
             const scalar hK = prefactor*tau*T*T*T;
             const scalar hVol = hK/delta;

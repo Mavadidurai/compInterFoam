@@ -20,7 +20,10 @@ if (pimple.momentumPredictor())
     // the forces that are not already handled through the pressure
     // correction stage.
 
-    // Start with the forces that are *not* treated in phig
+    // Start with the forces that are *not* treated in phig.  Gravity is
+    // already accounted for through the -ghf*fvc::snGrad(rho) contribution
+    // inside phig in pEqn.H, so including rho*g here would double-count it
+    // and steadily accelerate the flow even in the absence of recoil.
     volVectorField momentumSource
     (
         IOobject
@@ -32,7 +35,7 @@ if (pimple.momentumPredictor())
             IOobject::NO_WRITE
         ),
         - fvc::grad(p_rgh)
-      + rho*g
+
     );
 
     if (recoilPressurePtr)

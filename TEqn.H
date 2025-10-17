@@ -449,7 +449,7 @@ if (verbose && master && timeIndex % 10 == 0)
         0.0
     );
 
-    //contErr = Foam::min(contErr, zeroContErr);
+    contErr = Foam::min(contErr, zeroContErr);
 
     T = Foam::max(Foam::min(T, maxTDim), minTDim);
     T.correctBoundaryConditions();
@@ -591,7 +591,7 @@ if (verbose && master && timeIndex % 10 == 0)
 
     const volScalarField& limitedFlux = tRawFlux();
 
-    tmp<volScalarField> tMaskedFlux(contactMask*limitedFlux);
+    tmp<volScalarField> tMaskedFlux(limitedFlux);
     volScalarField& maskedFlux = tMaskedFlux.ref();
 
     const dimensionedScalar maxLocalFlux
@@ -624,7 +624,6 @@ if (verbose && master && timeIndex % 10 == 0)
             Foam::min(Foam::max(gasMetalHeatFlux, -qCapDim), qCapDim);
     }
 
-    gasMetalHeatFlux *= contactMask;
     gasMetalHeatFlux.correctBoundaryConditions();
 
     if (verbose && master)

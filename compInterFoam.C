@@ -69,6 +69,8 @@ Description
 #include "OFstream.H"
 #include <cmath>
 #include <string>
+#include <iomanip>
+#include <sstream>
 extern const bool master = Foam::Pstream::master();
 Foam::Switch verbose(false);
 namespace
@@ -446,35 +448,73 @@ namespace
                 }
             }
 
-            const Foam::scalar progress = Foam::min(progressIndex/16.0*100.0, Foam::scalar(100));
+             const Foam::scalar progress = Foam::min(progressIndex/16.0*100.0, Foam::scalar(100));
 
-            Info<< "\n╔════════════════════════════════════════════════════════════════════════════════╗" << Foam::nl
-                << "║                             LIFT PROCESS STATUS                            ║" << Foam::nl
-                << "╠════════════════════════════════════════════════════════════════════════════════╣" << Foam::nl
-                << "║         Phase:    " << phaseName << "            Progress: " << progress << "% ║" << Foam::nl
-                << "║         Time:     " << t*1e12 << " ps" << "                                    ║" << Foam::nl
-                << "╠════════════════════════════════════════════════════════════════════════════════╣" << Foam::nl
-                << "║                             THERMAL STATE                                      ║" << Foam::nl
-                << "║         Te max:        " << maxTe << " K" << "                                 ║" << Foam::nl
-                << "║         Tl max:        " << maxTl << " K" << "                                 ║" << Foam::nl
-                << "║         Tl avg:        " << avgTl << " K" << "                                 ║" << Foam::nl
-                << "║         Tl spread:     " << tempSpread << " K" << "                            ║" << Foam::nl
-                << "╠════════════════════════════════════════════════════════════════════════════════╣" << Foam::nl
-                << "║                             PRESSURE STATE                                     ║" << Foam::nl
-                << "║           Max pressure:  " << maxPressure/1e6 << " MPa" << "                   ║" << Foam::nl
-                << "║           Recoil:        " << maxRecoil/1e6 << " MPa" << "                     ║" << Foam::nl
-                << "╠════════════════════════════════════════════════════════════════════════════════╣" << Foam::nl
-                << "║                             MATERIAL STATE                                     ║" << Foam::nl
-                << "║           Metal volume:  " << metalVol << " µm³" << "                          ║" << Foam::nl
-                << "║           Metal loss:    " << metalLoss << " %" << "                           ║" << Foam::nl
-                << "╠═══════════════════════════════════════════════════════════════════════════════╣" << Foam::nl
-                << "║                             DYNAMICS                                           ║" << Foam::nl
-                << "║           Max velocity:  " << maxVel << " m/s" << "                            ║" << Foam::nl
-                << "║           Avg velocity:  " << avgVel << " m/s" << "                            ║" << Foam::nl
-                << "╠════════════════════════════════════════════════════════════════════════════════╣" << Foam::nl
-                << "║                            ENERGY                                              ║" << Foam::nl
-                << "║           Laser power:   " << maxQLaser/1e12 << " TW/m³" << "                  ║" << Foam::nl
-                << "╚════════════════════════════════════════════════════════════════════════════════╝" << Foam::nl;
+            const int frameWidth = 80;
+            const int innerWidth = frameWidth - 2;
+            const int labelWidth = 30;
+            const int valueWidth = innerWidth - labelWidth - 2;
+
+            auto centeredLine = [&](const std::string& text)
+            {
+                const std::size_t textLen = text.size();
+                const int paddingTotal = innerWidth - static_cast<int>(textLen);
+                const int paddingLeft = Foam::max(paddingTotal/2, 0);
+                const int paddingRight = Foam::max(paddingTotal - paddingLeft, 0);
+                Info<< "║" << std::string(paddingLeft, ' ')
+                    << text
+                    << std::string(paddingRight, ' ') << "║" << Foam::nl;
+            };
+
+            auto formattedRow = [&](const std::string& label, const std::string& value)
+            {
+                std::ostringstream rowStream;
+                rowStream << "║ "
+                          << std::left << std::setw(labelWidth) << label
+                          << std::right << std::setw(valueWidth) << value
+                          << " ║";
+                Info<< rowStream.str() << Foam::nl;
+            };
+
+            auto scalarValue = [&](Foam::scalar val, const std::string& unit)
+            {
+                std::ostringstream valueStream;
+                valueStream << std::fixed << std::setprecision(2) << val;
+                if (!unit.empty())
+                {
+                    valueStream << ' ' << unit;
+                }
+                return valueStream.str();
+            };
+
+            Info<< "\n╔════════════════════════════════════════════════════════════════════════════════╗" << Foam::nl;
+            centeredLine("LIFT PROCESS STATUS");
+            Info<< "╠════════════════════════════════════════════════════════════════════════════════╣" << Foam::nl;
+            formattedRow("Phase:", std::string(phaseName));
+            formattedRow("Progress:", scalarValue(progress, "%"));
+            formattedRow("Time:", scalarValue(t*1e12, "ps"));
+            Info<< "╠════════════════════════════════════════════════════════════════════════════════╣" << Foam::nl;
+            centeredLine("THERMAL STATE");
+            formattedRow("Te max:", scalarValue(maxTe, "K"));
+            formattedRow("Tl max:", scalarValue(maxTl, "K"));
+            formattedRow("Tl avg:", scalarValue(avgTl, "K"));
+            formattedRow("Tl spread:", scalarValue(tempSpread, "K"));
+            Info<< "╠════════════════════════════════════════════════════════════════════════════════╣" << Foam::nl;
+            centeredLine("PRESSURE STATE");
+            formattedRow("Max pressure:", scalarValue(maxPressure/1e6, "MPa"));
+            formattedRow("Recoil:", scalarValue(maxRecoil/1e6, "MPa"));
+            Info<< "╠════════════════════════════════════════════════════════════════════════════════╣" << Foam::nl;
+            centeredLine("MATERIAL STATE");
+            formattedRow("Metal volume:", scalarValue(metalVol, "µm³"));
+            formattedRow("Metal loss:", scalarValue(metalLoss, "%"));
+            Info<< "╠════════════════════════════════════════════════════════════════════════════════╣" << Foam::nl;
+            centeredLine("DYNAMICS");
+            formattedRow("Max velocity:", scalarValue(maxVel, "m/s"));
+            formattedRow("Avg velocity:", scalarValue(avgVel, "m/s"));
+            Info<< "╠════════════════════════════════════════════════════════════════════════════════╣" << Foam::nl;
+            centeredLine("ENERGY");
+            formattedRow("Laser power:", scalarValue(maxQLaser/1e12, "TW/m³"));
+            Info<< "╚════════════════════════════════════════════════════════════════════════════════╝" << Foam::nl;
 
             if (maxTl > 15000)
             {
