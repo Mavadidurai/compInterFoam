@@ -73,8 +73,9 @@ solvers
 
     T
     {
-        solver          PCG;              // Changed to PCG for better convergence
-        preconditioner  DIC;              // Diagonal incomplete Cholesky
+        solver          smoothSolver;
+        smoother        symGaussSeidel;
+        nSweeps         6;
         tolerance       1e-8;
         relTol          0.01;             // Allow 1% relative convergence
         maxIter         1000;             // Increased iteration limit
@@ -91,8 +92,9 @@ solvers
 
     Te
     {
-        solver          PCG;
-        preconditioner  DIC;
+         solver          smoothSolver;
+        smoother        symGaussSeidel;
+        nSweeps         6;
         tolerance       1e-8;
         relTol          0;
         maxIter         1000;
@@ -101,8 +103,9 @@ solvers
 
     Tl
     {
-        solver          PCG;
-        preconditioner  DIC;
+        solver          smoothSolver;
+        smoother        symGaussSeidel;
+        nSweeps         6;
         tolerance       1e-8;
         relTol          0;
         maxIter         1000;
