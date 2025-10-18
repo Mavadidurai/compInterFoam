@@ -587,9 +587,9 @@ if (verbose && master && timeIndex % 10 == 0)
         T = Foam::max(Foam::min(T, maxTDim), minTDim);
         T.correctBoundaryConditions();
     }
-    // CRITICAL FIX: Do NOT force T = Tl in metal regions
-    // This prevents the gas from having independent temperature
-    // T = (scalar(1) - activeMask)*T + activeMask*Tl;  // ← REMOVED
+    // Enforce lattice temperature inside metal-rich cells so the gas field
+    // remains tied to the solid where appropriate.
+    T = (scalar(1) - activeMask)*T + activeMask*Tl;
     if (enableTClamp)
     {
         T = Foam::max(Foam::min(T, maxTDim), minTDim);

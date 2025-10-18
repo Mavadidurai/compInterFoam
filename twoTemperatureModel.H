@@ -123,8 +123,8 @@ private:
         bool validateFields() const;
         //- Active-metal mask used for bounds and coupling
         tmp<volScalarField> metalActiveMask(scalar cutoff) const;
-        //- Metal indicator clamped for energy weighting
-        tmp<volScalarField> clampedMetalFraction() const;        
+        //- Metal indicator clamped to physical range for energy weighting
+        tmp<volScalarField> clampedMetalFraction() const;
         //- Apply temperature bounds using algebraic masking
         void applyTemperatureBounds
         (
@@ -139,6 +139,7 @@ private:
         void solveLatticeEquation
         (
             const volScalarField& metalEff,
+            const volScalarField& metalPhysical,
             const volScalarField& G,
             const volScalarField& klField,
             const volScalarField& phaseChangeRelaxCoeff,
@@ -152,6 +153,7 @@ private:
         void solveElectronEquation
         (
             const volScalarField& metalEff,
+            const volScalarField& metalPhysical,
             const volScalarField& Ce,
             const volScalarField& ke,
             const volScalarField& G,
