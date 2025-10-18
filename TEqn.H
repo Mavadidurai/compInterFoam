@@ -297,14 +297,26 @@ if (verbose && master && timeIndex % 10 == 0)
 
     const volScalarField& gasFraction = mixture.alpha2();
 
-    tmp<volScalarField> tContactMask
+    tmp<volScalarField> tGasMask
     (
         Foam::min(Foam::max(gasFraction, scalar(0)), scalar(1))
     );
+    const volScalarField& gasMask = tGasMask();
+
+    tmp<volScalarField> tNeighbourGas(fvc::average(gasFraction));
+    volScalarField& neighbourGas = tNeighbourGas.ref();
+    neighbourGas = Foam::min(Foam::max(neighbourGas, scalar(0)), scalar(1));
+
+    tmp<volScalarField> tContactMask(Foam::max(gasMask, neighbourGas));
     volScalarField& contactMask = tContactMask.ref();
+    contactMask = Foam::min(Foam::max(contactMask, scalar(0)), scalar(1));
     contactMask.correctBoundaryConditions();
 
-    activeMask *= contactMask;
+    activeMask = Foam::min
+    (
+        Foam::max(activeMask*contactMask, scalar(0)),
+        scalar(1)
+    );
     activeMask.correctBoundaryConditions();
 
     // Limit the gas-metal exchange to cells that contain both gas and metal.
