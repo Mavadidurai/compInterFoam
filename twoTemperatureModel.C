@@ -1459,7 +1459,6 @@ tmp<volScalarField> twoTemperatureModel::gasMetalExchangeCoeffField() const
     {
         // Gas-metal Kapitza conductance based on acoustic mismatch
         const volScalarField& Tl = Tl_;
-        const volScalarField& alpha1 = metalFraction_;
 
         const scalar zTi = kapitzaZMetal_;
         const scalar zAr = kapitzaZGas_;

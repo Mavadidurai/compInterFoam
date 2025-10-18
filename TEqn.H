@@ -310,20 +310,33 @@ if (verbose && master && timeIndex % 10 == 0)
     tmp<volScalarField> tContactMask(Foam::max(gasMask, neighbourGas));
     volScalarField& contactMask = tContactMask.ref();
     contactMask = Foam::min(Foam::max(contactMask, scalar(0)), scalar(1));
-    contactMask.correctBoundaryConditions();
+     contactMask.correctBoundaryConditions();
 
-    activeMask = Foam::min
+    tmp<volScalarField> tNeighbourMetal(fvc::average(metalFraction));
+    volScalarField& neighbourMetal = tNeighbourMetal.ref();
+    neighbourMetal = Foam::min
     (
-        Foam::max(activeMask*contactMask, scalar(0)),
+        Foam::max(neighbourMetal, scalar(0)),
         scalar(1)
     );
-    activeMask.correctBoundaryConditions();
 
-    // Limit the gas-metal exchange to cells that contain both gas and metal.
-    // Using the gas mask alone allows the coupling to persist in pure-gas
-    // cells, which forces the gas temperature to chase the hot metal field
-    // and creates the "thermal trap" observed in the run log.
-    cappedInterfaceExchange *= activeMask;
+    tmp<volScalarField> tInterfaceMask
+    (
+        Foam::max(activeMask, neighbourMetal)
+    );
+    volScalarField& interfaceMask = tInterfaceMask.ref();
+    interfaceMask = Foam::min(Foam::max(interfaceMask, scalar(0)), scalar(1));
+    interfaceMask = Foam::min
+    (
+        Foam::max(interfaceMask*contactMask, scalar(0)),
+        scalar(1)
+    );
+    interfaceMask.correctBoundaryConditions();
+
+    // Limit the gas-metal exchange to cells where gas contacts metal. Include
+    // a neighbour-weighted metal mask so pure-gas cells adjacent to metal
+    // retain a non-zero coupling weight.
+    cappedInterfaceExchange *= interfaceMask;
     cappedInterfaceExchange.correctBoundaryConditions();
     
     tmp<volScalarField> tCv2 = mixture.thermo2().Cv();
@@ -603,7 +616,7 @@ if (verbose && master && timeIndex % 10 == 0)
 
     const volScalarField& limitedFlux = tRawFlux();
 
-    tmp<volScalarField> tMaskedFlux(limitedFlux);
+    tmp<volScalarField> tMaskedFlux(new volScalarField(limitedFlux));
     volScalarField& maskedFlux = tMaskedFlux.ref();
 
     const dimensionedScalar maxLocalFlux

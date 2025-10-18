@@ -404,7 +404,7 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
         }
 
         const scalar dgdtVal = massRateField[cellI];
-        if (dgdtVal < massRateEps_ || jNetScale == 0.0)
+        if (Foam::mag(dgdtVal) <= massRateEps_ || jNetScale == 0.0)
         {
             recoilField[cellI] = 0.0;
             continue;

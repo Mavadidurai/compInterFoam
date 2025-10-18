@@ -109,7 +109,7 @@ if (maxRecoilPa > 0)
     }
 }
 
-if (maxU > maxPhysicalVelocity)
+if (maxPhysicalVelocity > 0 && maxU > maxPhysicalVelocity)
 {
     FatalErrorInFunction
         << "Velocity field has DIVERGED!" << nl

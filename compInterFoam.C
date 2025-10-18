@@ -520,9 +520,42 @@ namespace
             {
                 Info<< "⚠  WARNING: Temperature exceeds physical limits!" << Foam::endl;
             }
-            if (maxVel > 5000)
+            const Foam::dictionary& solverCoeffs = compInterFoamCoeffsDict(mesh);
+            Foam::scalar realismLimit = solverCoeffs.lookupOrDefault<Foam::scalar>
+            (
+                "maxReasonableVelocity",
+                0.0
+            );
+
+            if (realismLimit <= Foam::SMALL)
             {
-                Info<< "⚠  WARNING: Velocity exceeds realistic LIFT range!" << Foam::endl;
+                realismLimit = 5000.0;
+            }
+
+            if (maxVel > realismLimit)
+            {
+                Info<< "⚠  WARNING: Velocity exceeds realistic LIFT range!" << Foam::nl
+                    << "       Limit: " << realismLimit << " m/s" << Foam::nl
+                    << "       Observed: " << maxVel << " m/s" << Foam::nl;
+
+                const Foam::scalar rhoLiquid = mixture.rho1().value();
+                Foam::scalar recoilDrivenSpeed = 0.0;
+
+                if (rhoLiquid > Foam::SMALL && maxRecoil > 0)
+                {
+                    recoilDrivenSpeed = Foam::sqrt(2.0*maxRecoil/rhoLiquid);
+                }
+
+                Info<< "       Max recoil pressure: " << maxRecoil/1e6 << " MPa" << Foam::nl;
+
+                if (recoilDrivenSpeed > 0)
+                {
+                    Info<< "       Ideal recoil jet speed sqrt(2*deltaP/rho): "
+                        << recoilDrivenSpeed << " m/s" << Foam::nl;
+                }
+
+                Info<< "       Time step: " << runTime.deltaTValue() << " s" << Foam::nl
+                    << "       Tl spread: " << tempSpread << " K" << Foam::endl;
             }
             if (metalLoss > 50)
             {
