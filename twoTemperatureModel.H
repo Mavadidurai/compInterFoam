@@ -37,8 +37,12 @@ SourceFiles
     Dictionary entries:
         energyTolerance   Relative energy conservation tolerance used by
                           checkEnergyConservation
-        minTe             Minimum temperature bound for Te and Tl [K]
-        maxTe             Maximum temperature bound for Te and Tl [K]
+        minTe             Minimum temperature bound for Te [K]
+        maxTe             Maximum temperature bound for Te [K]
+        minTl             Minimum temperature bound for Tl [K] (optional,
+                          defaults to minTe)
+        maxTl             Maximum temperature bound for Tl [K] (optional,
+                          defaults to maxTe)
         metalAmbientBlendWidth
                           Width of the metal/ambient blending layer used when
                           applying temperature bounds (optional, default 1e-3)
@@ -125,8 +129,10 @@ private:
         void applyTemperatureBounds
         (
             const volScalarField& activeMask,
-            const dimensionedScalar& minTemp,
-            const dimensionedScalar& maxTemp,
+            const dimensionedScalar& minTe,
+            const dimensionedScalar& maxTe,
+            const dimensionedScalar& minTl,
+            const dimensionedScalar& maxTl,
             const dimensionedScalar& ambient
         );
         //- Assemble, relax, solve, and correct the lattice equation

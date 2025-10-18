@@ -552,13 +552,15 @@ tmp<volScalarField> twoTemperatureModel::clampedMetalFraction() const
 void twoTemperatureModel::applyTemperatureBounds
 (
     const volScalarField& activeMask,
-    const dimensionedScalar& minTemp,
-    const dimensionedScalar& maxTemp,
+    const dimensionedScalar& minTe,
+    const dimensionedScalar& maxTe,
+    const dimensionedScalar& minTl,
+    const dimensionedScalar& maxTl,
     const dimensionedScalar& ambient
 )
 {
-    tmp<volScalarField> tBoundTe = Foam::max(Foam::min(Te_, maxTemp), minTemp);
-    tmp<volScalarField> tBoundTl = Foam::max(Foam::min(Tl_, maxTemp), minTemp);
+    tmp<volScalarField> tBoundTe = Foam::max(Foam::min(Te_, maxTe), minTe);
+    tmp<volScalarField> tBoundTl = Foam::max(Foam::min(Tl_, maxTl), minTl);
     const volScalarField& boundTe = tBoundTe();
     const volScalarField& boundTl = tBoundTl();
 
@@ -981,17 +983,29 @@ void twoTemperatureModel::solve
         Foam::min(Foam::max(metal, metalFloor), metalCeiling);
     const volScalarField& metalEff = tMetalEff();
 
-    const dimensionedScalar minTemp
+    const dimensionedScalar minTe
     (
-        "minTemp",
+        "minTe",
         dimTemperature,
         dict_.lookupOrDefault<scalar>("minTe", 300.0)
     );
-    const dimensionedScalar maxTemp
+    const dimensionedScalar maxTe
     (
-        "maxTemp",
+        "maxTe",
         dimTemperature,
         dict_.lookupOrDefault<scalar>("maxTe", 3500.0)
+    );
+    const dimensionedScalar minTl
+    (
+        "minTl",
+        dimTemperature,
+        dict_.lookupOrDefault<scalar>("minTl", minTe.value())
+    );
+    const dimensionedScalar maxTl
+    (
+        "maxTl",
+        dimTemperature,
+        dict_.lookupOrDefault<scalar>("maxTl", maxTe.value())
     );
 
     const Switch energyDiagnostics
@@ -1018,7 +1032,7 @@ void twoTemperatureModel::solve
     }
     tmp<volScalarField> tActiveMask = metalActiveMask(metalCutoff);
     const volScalarField& activeMask = tActiveMask();
-    applyTemperatureBounds(activeMask, minTemp, maxTemp, ambientDim);
+    applyTemperatureBounds(activeMask, minTe, maxTe, minTl, maxTl, ambientDim);
 
     // Recompute the baseline energy after enforcing bounds so that
     // redistribution caused by updated metal fractions does not appear
@@ -1147,7 +1161,7 @@ void twoTemperatureModel::solve
                 TlPrev
             );
             tmp<volScalarField> tTlClamped =
-                Foam::max(Foam::min(Tl_, maxTemp), minTemp);
+                Foam::max(Foam::min(Tl_, maxTl), minTl);
             const volScalarField& TlClamped = tTlClamped();
             tmp<volScalarField> tTlDelta = Tl_ - TlClamped;
             const volScalarField& TlDelta = tTlDelta();
@@ -1176,7 +1190,7 @@ void twoTemperatureModel::solve
             tmp<volScalarField> tCeClamp = electronHeatCapacity();
             const volScalarField& CeClamp = tCeClamp();
             tmp<volScalarField> tTeClamped =
-                Foam::max(Foam::min(Te_, maxTemp), minTemp);
+                Foam::max(Foam::min(Te_, maxTe), minTe);
             const volScalarField& TeClamped = tTeClamped();
             tmp<volScalarField> tTeDelta = Te_ - TeClamped;
             const volScalarField& TeDelta = tTeDelta();
@@ -1243,7 +1257,7 @@ void twoTemperatureModel::solve
     }
 
     const dimensionedScalar energyBeforeFinalClamp = currentTotalEnergy();
-    applyTemperatureBounds(activeMask, minTemp, maxTemp, ambientDim);
+    applyTemperatureBounds(activeMask, minTe, maxTe, minTl, maxTl, ambientDim);
     const dimensionedScalar energyAfterFinalClamp = currentTotalEnergy();
     clampEnergyCorrection += energyBeforeFinalClamp - energyAfterFinalClamp;
     residual = gMax(mag(Te_ - Tl_)().internalField());

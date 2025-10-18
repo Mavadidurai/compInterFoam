@@ -76,6 +76,24 @@ Foam::twoPhaseMixtureThermo::twoPhaseMixtureThermo
         U.mesh(),
         dimensionedScalar("dgdt", dimless/dimTime, 0.0)
     ),
+    phaseChangeMassFlux_
+    (
+        IOobject
+        (
+            "phaseChangeMassFlux",
+            U.mesh().time().timeName(),
+            U.mesh(),
+            IOobject::NO_READ,
+            IOobject::AUTO_WRITE
+        ),
+        U.mesh(),
+        dimensionedScalar
+        (
+            "massFlux",
+            dimensionSet(1, -2, -1, 0, 0, 0, 0),
+            0.0
+        )
+    ),
     nu1_("nu1", dimViscosity, 0.0),
     nu2_("nu2", dimViscosity, 0.0),
     rho1_("rho1", dimDensity, 0.0),
@@ -498,6 +516,7 @@ void Foam::twoPhaseMixtureThermo::correct()
     computePhaseChange();
     phaseChangeSource_.correctBoundaryConditions();
     phaseChangeRelaxCoeff_.correctBoundaryConditions();
+    phaseChangeMassFlux_.correctBoundaryConditions();
     // Compute mass-transfer rate [1/s]
     dgdt_ = computeMassTransfer()();
     dgdt_.correctBoundaryConditions();
@@ -637,6 +656,8 @@ void Foam::twoPhaseMixtureThermo::computePhaseChange()
 {
     phaseChangeSource_.primitiveFieldRef() = 0.0;
     phaseChangeRelaxCoeff_.primitiveFieldRef() = 0.0;
+    phaseChangeMassFlux_.primitiveFieldRef() = 0.0;
+    phaseChangeMassFlux_.boundaryFieldRef() = 0.0;
 
     const fvMesh& mesh = T_.mesh();
 
@@ -695,6 +716,7 @@ void Foam::twoPhaseMixtureThermo::computePhaseChange()
 
         phaseChangeRelaxCoeff_[cellI] = relax;
         phaseChangeSource_[cellI] = rate + relax*T_local;
+        phaseChangeMassFlux_[cellI] = j_net;
     }
 }
 Foam::tmp<Foam::volScalarField>
@@ -825,13 +847,11 @@ Foam::twoPhaseMixtureThermo::computeMassTransfer() const
     // Retrieve phase-1 density field and store temporary to avoid referencing
     // destroyed objects
     const tmp<volScalarField> rho1Tmp = thermo1_->rho();
-    const volScalarField& rho1Field = rho1Tmp();
     scalar rho1Ref = rho1_.value();
     if (rho1Ref <= SMALL)
     {
-        rho1Ref = Foam::gMax(rho1Field.internalField());
+        rho1Ref = Foam::gMax(rho1Tmp().internalField());
     }
-    const scalar rho1Min = Foam::max(1e-6*rho1Ref, SMALL);
     forAll(dgdt, cellI)
     {
         const scalar source = phaseChangeSource_[cellI];
@@ -840,9 +860,7 @@ Foam::twoPhaseMixtureThermo::computeMassTransfer() const
             dgdt[cellI] = 0.0;
             continue;
         }
-        scalar localRate =
-            -(ClVal*source)
-            /(LVal*max(rho1Field[cellI], rho1Min));
+        scalar localRate = -(ClVal*source)/(LVal*rho1Ref);
         if (rateMax > 0)
         {
             localRate = max(min(localRate, rateMax), -rateMax);

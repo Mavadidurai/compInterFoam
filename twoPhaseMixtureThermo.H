@@ -55,6 +55,8 @@ class twoPhaseMixtureThermo
         volScalarField phaseChangeRelaxCoeff_;
         //- Mass-transfer rate due to phase change [1/s]
         volScalarField dgdt_;
+        //- Physical phase-change mass flux [kg/(m^2 s)]
+        volScalarField phaseChangeMassFlux_;
         //- Kinematic viscosity of each phase from transportProperties
         dimensionedScalar nu1_;
         dimensionedScalar nu2_;
@@ -158,11 +160,16 @@ public:
         const volScalarField& phaseChangeRelaxCoeff() const
         {
             return phaseChangeRelaxCoeff_;
-        }        
-	 //- Access dg/dt field [1/s]
+        }
+        //- Access dg/dt field [1/s]
         const volScalarField& dgdt() const
         {
             return dgdt_;
+        }
+        //- Access physical phase-change mass flux [kg/(m^2 s)]
+        const volScalarField& phaseChangeMassFlux() const
+        {
+            return phaseChangeMassFlux_;
         }
         //- Return surface tension coefficient
         tmp<volScalarField> sigma() const;

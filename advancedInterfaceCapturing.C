@@ -346,18 +346,18 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
     }
 
     const volScalarField& Tl = *TlPtr;
-    const volScalarField& massRate = mixture_.dgdt();
+    const volScalarField& massFlux = mixture_.phaseChangeMassFlux();
 
     if
     (
         Tl.size() != mesh_.nCells()
-     || massRate.size() != mesh_.nCells()
+     || massFlux.size() != mesh_.nCells()
      || alpha1_.size() != mesh_.nCells()
     )
     {
         FatalErrorIn("advancedInterfaceCapturing::calculateRecoilPressure()")
             << "Field size mismatch detected. Tl: " << Tl.size()
-            << " massRate: " << massRate.size()
+            << " massFlux: " << massFlux.size()
             << " alpha1: " << alpha1_.size()
             << " mesh: " << mesh_.nCells()
             << abort(FatalError);
@@ -374,17 +374,7 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
     scalarField& recoilField = recoilPressure_.primitiveFieldRef();
     const scalarField& alpha1Field = alpha1_.primitiveField();
     const scalarField& TlField = Tl.primitiveField();
-    const scalarField& massRateField = massRate.primitiveField();
-
-    const scalar latentHeat = mixture_.latentHeat().value();
-    const scalar rhoLiquid = mixture_.rho1().value();
-    const scalar Cl = mixture_.ClTTM().value();
-
-    scalar jNetScale = 0.0;
-    if (Cl > Foam::SMALL)
-    {
-        jNetScale = latentHeat*rhoLiquid/Cl;
-    }
+    const scalarField& massFluxField = massFlux.primitiveField();
 
     const scalar alphaWindow = Foam::max(alphaMax_ - alphaMin_, Foam::SMALL);
     const scalar invAlphaWindow = 1.0/alphaWindow;
@@ -403,8 +393,8 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
             continue;
         }
 
-        const scalar dgdtVal = massRateField[cellI];
-        if (Foam::mag(dgdtVal) <= massRateEps_ || jNetScale == 0.0)
+        const scalar jNet = massFluxField[cellI];
+        if (Foam::mag(jNet) <= massRateEps_)
         {
             recoilField[cellI] = 0.0;
             continue;
@@ -413,7 +403,6 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
         const scalar Tlocal = Foam::max(TlField[cellI], scalar(0));
         const scalar vThermal = sqrt(k_B*Tlocal/m_Ti);
 
-        const scalar jNet = dgdtVal*jNetScale;
         const scalar pRecoil = jNet*vThermal*(1.0 - betaMomentum);
 
         scalar alphaMask = (alpha - alphaMin_)*invAlphaWindow;
