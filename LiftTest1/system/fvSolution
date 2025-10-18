@@ -158,7 +158,7 @@ targetResP  0.5;
 compInterFoamCoeffs
 {
     // CRITICAL FIX: Remove artificial velocity clamping
-    maxVelocity            800;         // DISABLED: was causing uniform 500 m/s field
+    maxVelocity            0;         // DISABLED: was causing uniform 500 m/s field
     maxReasonableVelocity  800;       // Keep for validation warnings only
     
     defaultMetalDensity    4500;        
