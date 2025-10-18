@@ -100,9 +100,15 @@ solvers
 PIMPLE
 {
     momentumPredictor           true;
-    nOuterCorrectors            1;           // REDUCE: was 2 (emergency mode)
+    nOuterCorrectors            3;           // REDUCE: was 2 (emergency mode)
     nCorrectors                 3;
-    nNonOrthogonalCorrectors    0;
+    nNonOrthogonalCorrectors    2;
+
+    outerCorrectorResidualControl
+    {
+        p_rgh { tolerance 1e-6; relTol 0.01; }
+        U     { tolerance 1e-6; relTol 0.01; }
+    }
 
     residualControl
     {
@@ -141,8 +147,8 @@ targetResP  0.5;
 
 compInterFoamCoeffs
 {
-    maxReasonableVelocity  500;
-    maxVelocity            300;
+    maxReasonableVelocity  800;
+    maxVelocity            800;
     defaultMetalDensity    4500;        
     defaultAirDensity      1.2;         
     maxInitialResidual     10;          // REDUCE: was 1e3
