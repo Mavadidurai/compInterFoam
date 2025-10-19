@@ -715,7 +715,7 @@ void Foam::twoPhaseMixtureThermo::computePhaseChange()
         const scalar relax = 1.0/relaxTime;
 
         phaseChangeRelaxCoeff_[cellI] = relax;
-        phaseChangeSource_[cellI] = rate + relax*T_local;
+        phaseChangeSource_[cellI] = rate;
         phaseChangeMassFlux_[cellI] = j_net;
     }
 }

@@ -709,6 +709,40 @@ void twoTemperatureModel::writeEnergyDiagnostics
         << (electronEnergyAfter + latticeEnergyAfter).value() << " J" << nl
         << "  Cumulative laser energy: "
         << cumulativeLaserEnergy_.value() << " J" << endl;
+        
+    const scalar laserEnergyValue = laserEnergy.value();
+    const scalar phaseChangeEnergyValue = phaseChangeEnergy.value();
+
+    Info<< "  Phase-change/Laser energy ratio: ";
+    if (mag(laserEnergyValue) > SMALL)
+    {
+        const scalar ratio = phaseChangeEnergyValue/laserEnergyValue;
+        Info<< ratio << nl;
+
+        if (ratio > 2.0)
+        {
+            WarningInFunction
+                << "Phase-change energy input exceeds twice the laser energy input." << nl
+                << "  Phase-change energy: " << phaseChangeEnergyValue << " J" << nl
+                << "  Laser energy: " << laserEnergyValue << " J" << nl
+                << "Verify phase-change settings and source implementation." << endl;
+        }
+    }
+    else if (mag(phaseChangeEnergyValue) > SMALL)
+    {
+        Info<< "undefined (laser energy ≈ 0)" << nl;
+        WarningInFunction
+            << "Non-negligible phase-change energy reported while laser energy is near zero." << nl
+            << "  Phase-change energy: " << phaseChangeEnergyValue << " J" << endl;
+        return;
+    }
+    else
+    {
+        Info<< "undefined (laser energy ≈ 0)" << nl;
+        return;
+    }
+
+    Info<< flush;
 }
 
 void twoTemperatureModel::writeSolveStatistics
