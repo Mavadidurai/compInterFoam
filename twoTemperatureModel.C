@@ -1518,11 +1518,24 @@ tmp<volScalarField> twoTemperatureModel::gasMetalExchangeCoeffField() const
         const scalar hBar = 1.055e-34;
         const scalar pi = 3.141592653589793;
         const scalar prefactor = (kB*kB)/(6.0*sqr(pi)*Foam::pow3(hBar));
-        const scalar delta = 1e-9;  // m
+
+        tmp<volVectorField> tGradAlpha(fvc::grad(metalFraction_));
+        const volVectorField& gradAlpha = tGradAlpha();
 
         forAll(coeff, cellI)
         {
+            const scalar cellVolume = mesh_.V()[cellI];
             const scalar T = Foam::max(Tl[cellI], scalar(0));
+
+            scalar interfaceArea = mag(gradAlpha[cellI])*cellVolume;
+            const scalar geometricArea = Foam::pow(cellVolume, scalar(2.0/3.0));
+
+            if (interfaceArea <= SMALL)
+            {
+                interfaceArea = Foam::max(geometricArea, SMALL);
+            }
+
+            const scalar delta = Foam::max(cellVolume/interfaceArea, SMALL);
 
             const scalar hK = prefactor*tau*T*T*T;
             const scalar hVol = hK/delta;

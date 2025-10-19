@@ -187,41 +187,9 @@ extern const bool master;
     const dimensionedScalar qCapDim
     (
         "maxGasMetalHeatFlux",
-        interfaceExchange.dimensions()*dimTemperature,
+        dimPower/dimArea,
         qCap
     );
-
-    if (qCap > 0)
-    {
-        const scalar tempDiffFloorValue =
-            twoTemperatureDict.lookupOrDefault<scalar>
-            (
-                "temperatureDifferenceFloor",
-                1e-3
-            );
-
-        const dimensionedScalar tempDiffFloor
-        (
-            "temperatureDifferenceFloor",
-            dimTemperature,
-            Foam::max(tempDiffFloorValue, SMALL)
-        );
-
-        tmp<volScalarField> tTempDiff(mag(T - Tl));
-        volScalarField& tempDiff = tTempDiff.ref();
-        tempDiff = Foam::max(tempDiff, tempDiffFloor);
-
-        tmp<volScalarField> tCoeffCap(qCapDim/tempDiff);
-        const volScalarField& coeffCap = tCoeffCap();
-
-        cappedInterfaceExchange =
-            Foam::min
-            (
-                Foam::max(cappedInterfaceExchange, -coeffCap),
-                coeffCap
-            );
-        cappedInterfaceExchange.correctBoundaryConditions();
-    }
     
     const label timeIndex = runTime.timeIndex();
     const dimensionedScalar maxTlDim = gMax(Tl);
@@ -338,7 +306,90 @@ if (verbose && master && timeIndex % 10 == 0)
     // retain a non-zero coupling weight.
     cappedInterfaceExchange *= interfaceMask;
     cappedInterfaceExchange.correctBoundaryConditions();
-    
+
+    tmp<volVectorField> tGradMetal(fvc::grad(metalFraction));
+    const volVectorField& gradMetal = tGradMetal();
+
+    tmp<volScalarField> tInterfaceDelta
+    (
+        new volScalarField
+        (
+            IOobject
+            (
+                "gasMetalInterfaceThickness",
+                mesh.time().timeName(),
+                mesh,
+                IOobject::NO_READ,
+                IOobject::NO_WRITE,
+                false
+            ),
+            mesh,
+            dimensionedScalar
+            (
+                "gasMetalInterfaceThickness",
+                dimLength,
+                1e-9
+            )
+        )
+    );
+    volScalarField& interfaceDelta = tInterfaceDelta.ref();
+
+    scalarField& deltaInternal = interfaceDelta.primitiveFieldRef();
+
+    forAll(deltaInternal, cellI)
+    {
+        const scalar cellVolume = mesh.V()[cellI];
+        scalar interfaceArea = mag(gradMetal[cellI])*cellVolume;
+        const scalar geometricArea = Foam::pow(cellVolume, scalar(2.0/3.0));
+
+        if (interfaceArea <= SMALL)
+        {
+            interfaceArea = Foam::max(geometricArea, SMALL);
+        }
+
+        deltaInternal[cellI] = Foam::max(cellVolume/interfaceArea, SMALL);
+    }
+
+    interfaceDelta.correctBoundaryConditions();
+
+    tmp<volScalarField> tSurfaceExchange(cappedInterfaceExchange*interfaceDelta);
+    volScalarField& surfaceExchange = tSurfaceExchange.ref();
+
+    if (qCap > 0)
+    {
+        const scalar tempDiffFloorValue =
+            twoTemperatureDict.lookupOrDefault<scalar>
+            (
+                "temperatureDifferenceFloor",
+                1e-3
+            );
+
+        const dimensionedScalar tempDiffFloor
+        (
+            "temperatureDifferenceFloor",
+            dimTemperature,
+            Foam::max(tempDiffFloorValue, SMALL)
+        );
+
+        tmp<volScalarField> tTempDiff(mag(T - Tl));
+        volScalarField& tempDiff = tTempDiff.ref();
+        tempDiff = Foam::max(tempDiff, tempDiffFloor);
+
+        tmp<volScalarField> tCoeffCap(qCapDim/tempDiff);
+        const volScalarField& coeffCap = tCoeffCap();
+
+        surfaceExchange =
+            Foam::min
+            (
+                Foam::max(surfaceExchange, -coeffCap),
+                coeffCap
+            );
+        surfaceExchange.correctBoundaryConditions();
+    }
+
+    cappedInterfaceExchange = surfaceExchange/interfaceDelta;
+    cappedInterfaceExchange.correctBoundaryConditions();
+
     tmp<volScalarField> tCv2 = mixture.thermo2().Cv();
     tmp<volScalarField> tRho2 = mixture.thermo2().rho();
 
@@ -489,12 +540,10 @@ if (verbose && master && timeIndex % 10 == 0)
         fvOptions(CvolLimited, T)
     );
 
-const bool laserActive = laser.activeThisStep();
-if (!laserActive)
-{
+
     TEqn += fvm::Sp(cappedInterfaceExchange, T);
     TEqn.source() += cappedInterfaceExchange*Tl;
-}
+
 
     if (applyGasLaserHeating)
     {
@@ -598,28 +647,21 @@ if (!laserActive)
     tmp<volScalarField> tRawFlux(cappedInterfaceExchange*(Tl - T));
     volScalarField& rawFlux = tRawFlux.ref();
 
+    tmp<volScalarField> tSurfaceFlux(rawFlux*interfaceDelta);
+    volScalarField& surfaceFlux = tSurfaceFlux.ref();
+
     if (qCap > 0)
     {
-        rawFlux = Foam::min(Foam::max(rawFlux, -qCapDim), qCapDim);
+        surfaceFlux = Foam::min(Foam::max(surfaceFlux, -qCapDim), qCapDim);
+        surfaceFlux.correctBoundaryConditions();
     }
+
+    rawFlux = surfaceFlux/interfaceDelta;
 
     const volScalarField& limitedFlux = tRawFlux();
 
     tmp<volScalarField> tMaskedFlux(new volScalarField(limitedFlux));
     volScalarField& maskedFlux = tMaskedFlux.ref();
-
-    const dimensionedScalar maxLocalFlux
-    (
-        "maxLocalFlux",
-        maskedFlux.dimensions(),
-        1e10  // 10 GW/m^3 cap applied before any relaxation blending
-    );
-
-    maskedFlux = Foam::min
-    (
-        Foam::max(maskedFlux, -maxLocalFlux),
-        maxLocalFlux
-    );
 
     const volScalarField& metalToGasFlux = tMaskedFlux();
 
@@ -635,8 +677,18 @@ if (!laserActive)
 
     if (qCap > 0)
     {
-        gasMetalHeatFlux =
-            Foam::min(Foam::max(gasMetalHeatFlux, -qCapDim), qCapDim);
+        tmp<volScalarField> tRelaxedSurfaceFlux(gasMetalHeatFlux*interfaceDelta);
+        volScalarField& relaxedSurfaceFlux = tRelaxedSurfaceFlux.ref();
+
+        relaxedSurfaceFlux =
+            Foam::min
+            (
+                Foam::max(relaxedSurfaceFlux, -qCapDim),
+                qCapDim
+            );
+        relaxedSurfaceFlux.correctBoundaryConditions();
+
+        gasMetalHeatFlux = relaxedSurfaceFlux/interfaceDelta;
     }
 
     gasMetalHeatFlux.correctBoundaryConditions();
@@ -646,9 +698,17 @@ if (!laserActive)
         Info<< "    min(T) = " << min(T).value()
             << "  max(T) = " << max(T).value()
             << "  mean(T) = " << gAverage(T) << endl;
-        Info<< "    mean exchange coeff = "
+
+        tmp<volScalarField> tDiagSurfaceFlux(gasMetalHeatFlux*interfaceDelta);
+        const volScalarField& diagSurfaceFlux = tDiagSurfaceFlux();
+
+        Info<< "    mean exchange coeff (vol) = "
             << gAverage(interfaceExchange)
-            << "  max |q_gm| = "
+            << "  mean q_gm (surface) = "
+            << gAverage(diagSurfaceFlux) << endl;
+        Info<< "    max |q_gm| (surface) = "
+            << gMax(mag(diagSurfaceFlux)().internalField())
+            << "  max |q_gm| (vol) = "
             << gMax(mag(gasMetalHeatFlux)().internalField()) << endl;
 
         // Diagnostic: Total heat flux from metal to gas
