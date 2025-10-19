@@ -1410,8 +1410,8 @@ tmp<volScalarField> twoTemperatureModel::electronHeatCapacity() const
         forAll(CeField, cellI)
         {
             const scalar Te = Te_[cellI];
-            const scalar gamma = 630.0;
-            const scalar CeValue = Foam::max(gamma*Te, scalar(1e4));
+            const scalar evaluated = CeFunction_->value(Te);
+            const scalar CeValue = Foam::max(evaluated, scalar(1e4));
             CeField[cellI] = CeValue;
         }
     }

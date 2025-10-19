@@ -587,21 +587,6 @@ if (verbose && master && timeIndex % 10 == 0)
         T = Foam::max(Foam::min(T, maxTDim), minTDim);
         T.correctBoundaryConditions();
     }
-    // Enforce lattice temperature inside metal-rich cells so the gas field
-    // remains tied to the solid where appropriate.
-    T = (scalar(1) - activeMask)*T + activeMask*Tl;
-    if (enableTClamp)
-    {
-        T = Foam::max(Foam::min(T, maxTDim), minTDim);
-    }
-    else
-    {
-        T = Foam::max(T, minTDim);
-    }
-    T.correctBoundaryConditions();
-
-    mixture.correctThermo();
-    mixture.correct();
 
     const scalar fluxRelax =
         Foam::max(scalar(0), Foam::min(scalar(1), thermalFluxRelax));
@@ -633,6 +618,7 @@ if (verbose && master && timeIndex % 10 == 0)
     );
 
     const volScalarField& metalToGasFlux = tMaskedFlux();
+
     if (fluxRelax < 1.0 - SMALL)
     {
         gasMetalHeatFlux =
@@ -660,13 +646,13 @@ if (verbose && master && timeIndex % 10 == 0)
             << gAverage(interfaceExchange)
             << "  max |q_gm| = "
             << gMax(mag(gasMetalHeatFlux)().internalField()) << endl;
-        
+
         // Diagnostic: Total heat flux from metal to gas
-        const dimensionedScalar totalHeatOut = 
+        const dimensionedScalar totalHeatOut =
             fvc::domainIntegrate(gasMetalHeatFlux);
-        Info<< "    net heat flux metal→gas: " 
+        Info<< "    net heat flux metal→gas: "
             << totalHeatOut.value() << " W" << endl;
-            
+
         if (enableTClamp)
         {
             const scalar denom = Foam::max(scalar(1), totalCellsClamped);
@@ -674,6 +660,22 @@ if (verbose && master && timeIndex % 10 == 0)
                 << "  high=" << totalHighClamped/denom << endl;
         }
     }
+
+    // Enforce lattice temperature inside metal-rich cells so the gas field
+    // remains tied to the solid where appropriate.
+    T = (scalar(1) - activeMask)*T + activeMask*Tl;
+    if (enableTClamp)
+    {
+        T = Foam::max(Foam::min(T, maxTDim), minTDim);
+    }
+    else
+    {
+        T = Foam::max(T, minTDim);
+    }
+    T.correctBoundaryConditions();
+
+    mixture.correctThermo();
+    mixture.correct();
 }
 
 // ************************************************************************* //
