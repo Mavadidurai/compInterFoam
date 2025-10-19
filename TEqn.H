@@ -355,38 +355,8 @@ if (verbose && master && timeIndex % 10 == 0)
     tmp<volScalarField> tSurfaceExchange(cappedInterfaceExchange*interfaceDelta);
     volScalarField& surfaceExchange = tSurfaceExchange.ref();
 
-    if (qCap > 0)
-    {
-        const scalar tempDiffFloorValue =
-            twoTemperatureDict.lookupOrDefault<scalar>
-            (
-                "temperatureDifferenceFloor",
-                1e-3
-            );
-
-        const dimensionedScalar tempDiffFloor
-        (
-            "temperatureDifferenceFloor",
-            dimTemperature,
-            Foam::max(tempDiffFloorValue, SMALL)
-        );
-
-        tmp<volScalarField> tTempDiff(mag(T - Tl));
-        volScalarField& tempDiff = tTempDiff.ref();
-        tempDiff = Foam::max(tempDiff, tempDiffFloor);
-
-        tmp<volScalarField> tCoeffCap(qCapDim/tempDiff);
-        const volScalarField& coeffCap = tCoeffCap();
-
-        surfaceExchange =
-            Foam::min
-            (
-                Foam::max(surfaceExchange, -coeffCap),
-                coeffCap
-            );
-        surfaceExchange.correctBoundaryConditions();
-    }
-
+    surfaceExchange.correctBoundaryConditions();
+    
     cappedInterfaceExchange = surfaceExchange/interfaceDelta;
     cappedInterfaceExchange.correctBoundaryConditions();
 
@@ -658,12 +628,7 @@ if (verbose && master && timeIndex % 10 == 0)
 
     rawFlux = surfaceFlux/interfaceDelta;
 
-    const volScalarField& limitedFlux = tRawFlux();
-
-    tmp<volScalarField> tMaskedFlux(new volScalarField(limitedFlux));
-    volScalarField& maskedFlux = tMaskedFlux.ref();
-
-    const volScalarField& metalToGasFlux = tMaskedFlux();
+    const volScalarField& metalToGasFlux = tRawFlux();
 
     if (fluxRelax < 1.0 - SMALL)
     {
@@ -673,22 +638,6 @@ if (verbose && master && timeIndex % 10 == 0)
     else
     {
         gasMetalHeatFlux = metalToGasFlux;
-    }
-
-    if (qCap > 0)
-    {
-        tmp<volScalarField> tRelaxedSurfaceFlux(gasMetalHeatFlux*interfaceDelta);
-        volScalarField& relaxedSurfaceFlux = tRelaxedSurfaceFlux.ref();
-
-        relaxedSurfaceFlux =
-            Foam::min
-            (
-                Foam::max(relaxedSurfaceFlux, -qCapDim),
-                qCapDim
-            );
-        relaxedSurfaceFlux.correctBoundaryConditions();
-
-        gasMetalHeatFlux = relaxedSurfaceFlux/interfaceDelta;
     }
 
     gasMetalHeatFlux.correctBoundaryConditions();
