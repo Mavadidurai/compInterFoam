@@ -489,8 +489,12 @@ if (verbose && master && timeIndex % 10 == 0)
         fvOptions(CvolLimited, T)
     );
 
+const bool laserActive = laser.activeThisStep();
+if (!laserActive)
+{
     TEqn += fvm::Sp(cappedInterfaceExchange, T);
     TEqn.source() += cappedInterfaceExchange*Tl;
+}
 
     if (applyGasLaserHeating)
     {
@@ -661,9 +665,22 @@ if (verbose && master && timeIndex % 10 == 0)
         }
     }
 
-    // Enforce lattice temperature inside metal-rich cells so the gas field
-    // remains tied to the solid where appropriate.
-    T = (scalar(1) - activeMask)*T + activeMask*Tl;
+    // Enforce lattice temperature only in cells that are overwhelmingly metal.
+    const scalar strictMetalThreshold = 0.9;
+    const dimensionedScalar strictMetalDim
+    (
+        "strictMetalThreshold",
+        dimless,
+        strictMetalThreshold
+    );
+
+    tmp<volScalarField> tPureMetal
+    (
+        Foam::pos(metalFraction - strictMetalDim)
+    );
+    const volScalarField& pureMetal = tPureMetal();
+
+    T = (scalar(1) - pureMetal)*T + pureMetal*Tl;
     if (enableTClamp)
     {
         T = Foam::max(Foam::min(T, maxTDim), minTDim);
