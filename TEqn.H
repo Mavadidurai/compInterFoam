@@ -46,7 +46,8 @@ extern const bool master;
     
     const scalar thermalFluxRelax =
         ctrl.lookupOrDefault<scalar>("thermalFluxRelax", 1.0);
-    
+    const scalar fluxRelax =
+        Foam::max(scalar(0), Foam::min(scalar(1), thermalFluxRelax));
     scalar totalCellsClamped = 0.0;
     scalar totalLowClamped = 0.0;
     scalar totalHighClamped = 0.0;
@@ -476,10 +477,45 @@ if (verbose && master && timeIndex % 10 == 0)
         cappedInterfaceExchange.correctBoundaryConditions();
     }
 
+    if (fluxRelax < 1.0 - SMALL)
+    {
+        tmp<volScalarField> tDeltaTmag(mag(Tl - T));
+        volScalarField& deltaTmag = tDeltaTmag.ref();
+
+        const dimensionedScalar deltaTFloor
+        (
+            "deltaTFloor",
+            dimTemperature,
+            SMALL
+        );
+
+        deltaTmag = Foam::max(deltaTmag, deltaTFloor);
+
+        tmp<volScalarField> tPrevCoeff(gasMetalHeatFlux/deltaTmag);
+        volScalarField& prevCoeff = tPrevCoeff.ref();
+
+        prevCoeff =
+            Foam::min
+            (
+                Foam::max(prevCoeff, minCoeff),
+                maxCoeff
+            );
+        prevCoeff.correctBoundaryConditions();
+
+        cappedInterfaceExchange =
+            fluxRelax*cappedInterfaceExchange
+          + (scalar(1) - fluxRelax)*prevCoeff;
+
+        cappedInterfaceExchange.correctBoundaryConditions();
+    }
+
     interfaceExchange = cappedInterfaceExchange;
     interfaceExchange.correctBoundaryConditions();
 
+    const volScalarField& relaxedInterfaceExchange = interfaceExchange;
+
     tmp<surfaceScalarField> tCvolPhi(fvc::interpolate(CvolLimited)*phi);
+
     const surfaceScalarField& CvolPhi = tCvolPhi();
     tmp<volScalarField> tContErr
     (
@@ -510,10 +546,8 @@ if (verbose && master && timeIndex % 10 == 0)
         fvOptions(CvolLimited, T)
     );
 
-
-    TEqn += fvm::Sp(cappedInterfaceExchange, T);
-    TEqn.source() += cappedInterfaceExchange*Tl;
-
+    TEqn += fvm::Sp(relaxedInterfaceExchange, T);
+    TEqn.source() += relaxedInterfaceExchange*Tl;
 
     if (applyGasLaserHeating)
     {
@@ -611,10 +645,7 @@ if (verbose && master && timeIndex % 10 == 0)
         T.correctBoundaryConditions();
     }
 
-    const scalar fluxRelax =
-        Foam::max(scalar(0), Foam::min(scalar(1), thermalFluxRelax));
-
-    tmp<volScalarField> tRawFlux(cappedInterfaceExchange*(Tl - T));
+    tmp<volScalarField> tRawFlux(relaxedInterfaceExchange*(Tl - T));
     volScalarField& rawFlux = tRawFlux.ref();
 
     tmp<volScalarField> tSurfaceFlux(rawFlux*interfaceDelta);
@@ -630,15 +661,7 @@ if (verbose && master && timeIndex % 10 == 0)
 
     const volScalarField& metalToGasFlux = tRawFlux();
 
-    if (fluxRelax < 1.0 - SMALL)
-    {
-        gasMetalHeatFlux =
-            fluxRelax*metalToGasFlux + (1.0 - fluxRelax)*gasMetalHeatFlux;
-    }
-    else
-    {
-        gasMetalHeatFlux = metalToGasFlux;
-    }
+    gasMetalHeatFlux = metalToGasFlux;
 
     gasMetalHeatFlux.correctBoundaryConditions();
 
