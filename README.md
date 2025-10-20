@@ -4,7 +4,12 @@ The extended `compInterFoam` solver introduces several optional dictionaries and
 switches to control the laser, two-temperature, and phase-change models. The
 following tables summarize the key entries, their purpose, and in-code defaults.
 ## Building the solver
-
+## RealisticLIFT restart policy
+The `RealisticLIFT/system/controlDict` case disables `purgeWrite` so every
+checkpoint directory is preserved until post-processing. This keeps restart
+points consistent with the archived log. If you must re-enable purging for
+storage reasons, also change `startFrom` to `startTime` so the solver always
+restarts from a clean state rather than a potentially pruned intermediate time.
 The code relies on OpenFOAM's `wmake` build system. To avoid the
 `bash: command not found: wmake` error, first source the OpenFOAM
 environment (replace the path with the one that matches your installation):
