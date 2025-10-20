@@ -105,6 +105,10 @@ to the main run controls.
 | `phaseChangeMetalCutoff` | `metalFractionCutoff` | Minimum metal fraction for source activation (falls back to `twoTemperatureProperties`). |
 | `onlyAboveVapor` | `false` | Disable phase-change source below `Tvapor`. |
 | `activationTime` | – | List of `(start stop)` time windows when the source is active. |
+| `gasConstant` | `173.7 J/(kg·K)` | Hertz–Knudsen gas constant. Supply as a dimensioned scalar with units `[0 2 -2 -1 0 0 0]`. |
+| `evaporationCoeff` | `0.18` | Evaporation/condensation accommodation coefficient (dimensionless, > 0). |
+| `evapRelaxationTime` | `1e-12 s` | Sets the implicit relaxation time applied to the net evaporation source (`> 0`). |
+| `alphaMin` / `alphaMax` | `0.01` / `0.99` | Bounding phase-fraction window for evaluating evaporation (`0 ≤ alphaMin < alphaMax ≤ 1`). |
 
 ### `massTransferCoeffs`
 Optional bulk mass-transfer limiter for the gas phase. Relocating this
