@@ -82,6 +82,9 @@ Defines parameters for the recoil-pressure helper used when
 | `clampRecoil` | `true` | Enables capping of recoil pressure. |
 | `scaleRecoilMax` | `false` | Scales `recoilMax` with interface weighting. |
 | `recoilRelax` | `1.0` | Temporal relaxation factor (`relaxFactor` supported for backward compatibility). |
+| `boltzmannConstant` | `1.38e-23 J/K` (`[1 2 -2 -1 0 0 0]`) | Boltzmann constant used in recoil pressure; must be positive. |
+| `vaporParticleMass` | `7.95e-26 kg` (`[1 0 0 0 0 0 0]`) | Mass of the evaporated species for the recoil model; must be positive. |
+| `momentumAccommodationCoeff` | `0.18` | Momentum accommodation coefficient applied to the recoil pressure; constrained to `[0, 1]`. |
 | `alphaMin` / `alphaMax` | `0.001` / `0.999` | Valid phase-fraction window for recoil evaluation.
 
 ## `system/controlDict`
