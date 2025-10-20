@@ -517,7 +517,8 @@ namespace
             Info<< "╠════════════════════════════════════════════════════════════════════════════════╣" << Foam::nl;
             centeredLine("ENERGY");
             formattedRow("Laser power:", scalarValue(laserPowerMetal, "W"));
-            formattedRow("Peak volumetric source:", scalarValue(peakQLaser/1e12, "TW/m³")); "╚════════════════════════════════════════════════════════════════════════════════╝" << Foam::nl;
+            formattedRow("Peak volumetric source:", scalarValue(peakQLaser/1e12, "TW/m³"));
+            Info<< "╚════════════════════════════════════════════════════════════════════════════════╝" << Foam::nl;
 
             if (maxTl > 15000)
             {
