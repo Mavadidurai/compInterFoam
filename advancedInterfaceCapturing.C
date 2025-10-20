@@ -118,7 +118,26 @@ advancedInterfaceCapturing::advancedInterfaceCapturing
     rampIncrement_(1.0),
     recoilMaxDelta_(0.0),
     recoilSmoothCoeff_(0.0),
-    recoilSmoothIters_(0)
+    recoilSmoothIters_(0),
+    boltzmannConstant_
+    (
+        dimensionedScalar
+        (
+            "boltzmannConstant",
+            dimensionSet(1, 2, -2, -1, 0, 0, 0),
+            1.38e-23
+        )
+    ),
+    vaporParticleMass_
+    (
+        dimensionedScalar
+        (
+            "vaporParticleMass",
+            dimensionSet(1, 0, 0, 0, 0, 0, 0),
+            7.95e-26
+        )
+    ),
+    momentumAccommodationCoeff_(0.18)
 {
     const dictionary& aicDict =
         mesh.time().controlDict().subOrEmptyDict("advancedInterfaceCapturing");
@@ -320,6 +339,72 @@ advancedInterfaceCapturing::advancedInterfaceCapturing
         aicDict.lookupOrDefault<label>("recoilSmoothIters", recoilSmoothIters_),
         label(0)
     );
+    const dimensionedScalar defaultBoltzmann(boltzmannConstant_);
+    const dimensionedScalar rawBoltzmann =
+        aicDict.lookupOrDefault<dimensionedScalar>
+        (
+            "boltzmannConstant",
+            defaultBoltzmann
+        );
+
+    if (rawBoltzmann.dimensions() != defaultBoltzmann.dimensions())
+    {
+        FatalIOErrorInFunction(aicDict)
+            << "Entry 'boltzmannConstant' has dimensions "
+            << rawBoltzmann.dimensions()
+            << ", expected " << defaultBoltzmann.dimensions()
+            << exit(FatalIOError);
+    }
+    if (rawBoltzmann.value() <= SMALL)
+    {
+        FatalErrorInFunction
+            << "boltzmannConstant (" << rawBoltzmann.value()
+            << ") must be positive"
+            << abort(FatalError);
+    }
+    boltzmannConstant_ = rawBoltzmann;
+
+    const dimensionedScalar defaultParticleMass(vaporParticleMass_);
+    const dimensionedScalar rawParticleMass =
+        aicDict.lookupOrDefault<dimensionedScalar>
+        (
+            "vaporParticleMass",
+            defaultParticleMass
+        );
+
+    if (rawParticleMass.dimensions() != defaultParticleMass.dimensions())
+    {
+        FatalIOErrorInFunction(aicDict)
+            << "Entry 'vaporParticleMass' has dimensions "
+            << rawParticleMass.dimensions()
+            << ", expected " << defaultParticleMass.dimensions()
+            << exit(FatalIOError);
+    }
+    if (rawParticleMass.value() <= SMALL)
+    {
+        FatalErrorInFunction
+            << "vaporParticleMass (" << rawParticleMass.value()
+            << ") must be positive"
+            << abort(FatalError);
+    }
+    vaporParticleMass_ = rawParticleMass;
+
+    momentumAccommodationCoeff_ = aicDict.lookupOrDefault<scalar>
+    (
+        "momentumAccommodationCoeff",
+        momentumAccommodationCoeff_
+    );
+    if
+    (
+        momentumAccommodationCoeff_ < scalar(0)
+     || momentumAccommodationCoeff_ > scalar(1)
+    )
+    {
+        FatalErrorInFunction
+            << "momentumAccommodationCoeff (" << momentumAccommodationCoeff_
+            << ") must lie in [0, 1]"
+            << abort(FatalError);
+    }
     if (alphaMin_ >= alphaMax_)
     {
         FatalErrorInFunction
@@ -379,9 +464,19 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
     const scalar alphaWindow = Foam::max(alphaMax_ - alphaMin_, Foam::SMALL);
     const scalar invAlphaWindow = 1.0/alphaWindow;
 
-    const scalar k_B = 1.38e-23;      // Boltzmann constant [J/K]
-    const scalar m_Ti = 7.95e-26;     // Titanium atom mass [kg]
-    const scalar betaMomentum = 0.18; // Momentum accommodation coefficient
+    const scalar k_B = boltzmannConstant_.value();
+    const scalar particleMass = vaporParticleMass_.value();
+    const scalar betaMomentum = momentumAccommodationCoeff_;
+
+    const bool verbose =
+        mesh_.time().controlDict().lookupOrDefault<Switch>("verbose", false);
+    const bool master = Pstream::master();
+
+    label clampCount = 0;
+    scalar maxOvershootAmount = 0.0;
+    scalar maxOvershootMag = 0.0;
+    scalar maxOvershootLimit = 0.0;
+    label maxOvershootCell = -1;
 
     forAll(recoilField, cellI)
     {
@@ -401,14 +496,14 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
         }
 
         const scalar Tlocal = Foam::max(TlField[cellI], scalar(0));
-        const scalar vThermal = sqrt(k_B*Tlocal/m_Ti);
+        const scalar vThermal = sqrt(k_B*Tlocal/particleMass);
 
         const scalar pRecoil = jNet*vThermal*(1.0 - betaMomentum);
 
         scalar alphaMask = (alpha - alphaMin_)*invAlphaWindow;
         alphaMask = Foam::min(Foam::max(alphaMask, scalar(0)), scalar(1));
 
-              const scalar unclampedRecoil = pRecoil*alphaMask;
+        const scalar unclampedRecoil = pRecoil*alphaMask;
 
         // Honour the dictionary controlled clamp instead of a hard-coded ceiling.
         if (clampRecoil_)
@@ -421,13 +516,21 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
 
             localMax = Foam::max(localMax, scalar(0));
 
-            if (localMax > SMALL && Foam::mag(unclampedRecoil) > localMax)
+            const scalar unclampedMag = Foam::mag(unclampedRecoil);
+
+            if (localMax > SMALL && unclampedMag > localMax)
             {
-                WarningInFunction
-                    << "Recoil pressure magnitude "
-                    << Foam::mag(unclampedRecoil)/1e6
-                    << " MPa exceeds configured limit at cell " << cellI
-                    << ". Limiting to " << localMax/1e6 << " MPa." << endl;
+                ++clampCount;
+
+                const scalar overshootAmount = unclampedMag - localMax;
+                if (overshootAmount > maxOvershootAmount)
+                {
+                    maxOvershootAmount = overshootAmount;
+                    maxOvershootMag = unclampedMag;
+                    maxOvershootLimit = localMax;
+                    maxOvershootCell = cellI;
+                }
+
                 recoilField[cellI] = Foam::min
                 (
                     Foam::max(unclampedRecoil, -localMax),
@@ -442,8 +545,24 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
         else
         {
             recoilField[cellI] = unclampedRecoil;
-            }
+        }
     }
+
+    if (clampCount > 0 && verbose && master)
+    {
+        Ostream& warn = WarningInFunction;
+        warn    << clampCount
+                << " recoil pressure value(s) exceeded the configured limit."
+                << " Peak request " << maxOvershootMag/1e6
+                << " MPa vs limit " << maxOvershootLimit/1e6
+                << " MPa (overshoot " << maxOvershootAmount/1e6 << " MPa)";
+
+        if (maxOvershootCell >= 0)
+        {
+            warn << " (e.g. cell " << maxOvershootCell << ')';
+        }
+
+        warn << ". Values were clamped." << endl;    }
 
     rampProgress_ = 1.0;
 

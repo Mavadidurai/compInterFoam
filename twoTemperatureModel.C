@@ -1168,6 +1168,31 @@ void twoTemperatureModel::solve
     scalar residual = gMax(mag(Te_ - Tl_)().internalField());
     const volScalarField& TlOld = Tl_.oldTime();
 
+    auto updateElectronHeatCapacityField = [&](volScalarField& field)
+    {
+        if (CeFunction_.valid())
+        {
+            forAll(field, cellI)
+            {
+                const scalar TeVal = Te_[cellI];
+                const scalar evaluated = CeFunction_->value(TeVal);
+                field[cellI] = Foam::max(evaluated, scalar(1e4));
+            }
+        }
+        else
+        {
+            const scalar CeConst = Foam::max(Ce_.value(), scalar(1e4));
+            field = dimensionedScalar(Ce_.name(), Ce_.dimensions(), CeConst);
+        }
+
+        field.correctBoundaryConditions();
+    };
+
+    tmp<volScalarField> tG;
+    tmp<volScalarField> tkl;
+    tmp<volScalarField> tke;
+    tmp<volScalarField> tCe;
+
     for (label sweep = 0; sweep < nInnerSweeps; ++sweep)
     {
         TePrev = Te_.oldTime();
@@ -1175,10 +1200,10 @@ void twoTemperatureModel::solve
 
         for (label sub = 0; sub < nElectronSubCycles; ++sub)
         {
-            tmp<volScalarField> tG = electronPhononCoupling();
+            tG = electronPhononCoupling();
             const volScalarField& G = tG();
 
-            tmp<volScalarField> tkl = kl();
+            tkl = kl();
             const volScalarField& klField = tkl();
 
             solveLatticeEquation
@@ -1205,10 +1230,11 @@ void twoTemperatureModel::solve
             Tl_.correctBoundaryConditions();
             TlPrev = Tl_;
 
-            tmp<volScalarField> tke = electronThermalConductivity();
+            tke = electronThermalConductivity();
             const volScalarField& keField = tke();
 
-            tmp<volScalarField> tCe = electronHeatCapacity();
+            tCe = electronHeatCapacity();
+            volScalarField& CeMutable = tCe.ref();
             const volScalarField& CeField = tCe();
 
             solveElectronEquation
@@ -1222,15 +1248,14 @@ void twoTemperatureModel::solve
                 dtSub,
                 TePrev
             );
-            tmp<volScalarField> tCeClamp = electronHeatCapacity();
-            const volScalarField& CeClamp = tCeClamp();
+            updateElectronHeatCapacityField(CeMutable);
             tmp<volScalarField> tTeClamped =
                 Foam::max(Foam::min(Te_, maxTe), minTe);
             const volScalarField& TeClamped = tTeClamped();
             tmp<volScalarField> tTeDelta = Te_ - TeClamped;
             const volScalarField& TeDelta = tTeDelta();
             clampEnergyCorrection +=
-                fvc::domainIntegrate(metalPhysical*(CeClamp*TeDelta));
+                fvc::domainIntegrate(metalPhysical*(CeField*TeDelta));
             Te_ = TeClamped;
             Te_.correctBoundaryConditions();
             TePrev = Te_;
@@ -1249,7 +1274,7 @@ void twoTemperatureModel::solve
             break;
         }
     }
- // Energy balance diagnostics
+    // Energy balance diagnostics
     if (verbose && Pstream::master())
     {
         tmp<volScalarField> tCeFinal = electronHeatCapacity();

@@ -52,6 +52,11 @@ Foam::twoPhaseMixtureThermo::twoPhaseMixtureThermo
     T_melt_(0.0),
     T_vapor_(0.0),
     dtFloor_(1e-12),
+    gasConstant_(8.314/0.04787),
+    evaporationCoeff_(0.18),
+    relaxationTime_(1e-12),
+    alphaMin_(0.01),
+    alphaMax_(0.99),
     Q_laser_
     (
         IOobject("Q_laser", U.mesh().time().timeName(), U.mesh(), IOobject::READ_IF_PRESENT, IOobject::AUTO_WRITE),
@@ -354,6 +359,137 @@ Foam::twoPhaseMixtureThermo::twoPhaseMixtureThermo
             << ")"
             << exit(FatalIOError);
     }
+    
+    const dictionary& phaseChangeDict = *phaseChangeDictPtr;
+
+    auto checkDimensions =
+        [&](const word& entryName,
+            const dimensionedScalar& value,
+            const dimensionSet& expected) -> void
+        {
+            if (value.dimensions() != expected)
+            {
+                FatalIOErrorInFunction(phaseChangeDict)
+                    << "Entry '" << entryName << "' in "
+                    << phaseChangeDictDisplay
+                    << " has dimensions " << value.dimensions()
+                    << " but expected " << expected
+                    << exit(FatalIOError);
+            }
+        };
+
+    auto ensureFinite =
+        [&](const word& entryName, const scalar value) -> void
+        {
+            if (!std::isfinite(value))
+            {
+                FatalIOErrorInFunction(phaseChangeDict)
+                    << "Entry '" << entryName << "' in "
+                    << phaseChangeDictDisplay
+                    << " must be finite"
+                    << exit(FatalIOError);
+            }
+        };
+
+    if (phaseChangeDict.found("gasConstant"))
+    {
+        const dimensionedScalar value("gasConstant", phaseChangeDict);
+        checkDimensions("gasConstant", value, dimEnergy/dimMass/dimTemperature);
+        const scalar val = value.value();
+        ensureFinite("gasConstant", val);
+
+        if (val <= SMALL)
+        {
+            FatalIOErrorInFunction(phaseChangeDict)
+                << "Entry 'gasConstant' in " << phaseChangeDictDisplay
+                << " must be positive"
+                << exit(FatalIOError);
+        }
+
+        gasConstant_ = val;
+    }
+
+    if (phaseChangeDict.found("evaporationCoeff"))
+    {
+        const dimensionedScalar value("evaporationCoeff", phaseChangeDict);
+        checkDimensions("evaporationCoeff", value, dimless);
+        const scalar val = value.value();
+        ensureFinite("evaporationCoeff", val);
+
+        if (val <= SMALL)
+        {
+            FatalIOErrorInFunction(phaseChangeDict)
+                << "Entry 'evaporationCoeff' in " << phaseChangeDictDisplay
+                << " must be positive"
+                << exit(FatalIOError);
+        }
+
+        evaporationCoeff_ = val;
+    }
+
+    if (phaseChangeDict.found("evapRelaxationTime"))
+    {
+        const dimensionedScalar value("evapRelaxationTime", phaseChangeDict);
+        checkDimensions("evapRelaxationTime", value, dimTime);
+        const scalar val = value.value();
+        ensureFinite("evapRelaxationTime", val);
+
+        if (val <= SMALL)
+        {
+            FatalIOErrorInFunction(phaseChangeDict)
+                << "Entry 'evapRelaxationTime' in " << phaseChangeDictDisplay
+                << " must be positive"
+                << exit(FatalIOError);
+        }
+
+        relaxationTime_ = val;
+    }
+
+    if (phaseChangeDict.found("alphaMin"))
+    {
+        const dimensionedScalar value("alphaMin", phaseChangeDict);
+        checkDimensions("alphaMin", value, dimless);
+        const scalar val = value.value();
+        ensureFinite("alphaMin", val);
+
+        if (val < 0 || val >= 1)
+        {
+            FatalIOErrorInFunction(phaseChangeDict)
+                << "Entry 'alphaMin' in " << phaseChangeDictDisplay
+                << " must satisfy 0 <= alphaMin < 1"
+                << exit(FatalIOError);
+        }
+
+        alphaMin_ = val;
+    }
+
+    if (phaseChangeDict.found("alphaMax"))
+    {
+        const dimensionedScalar value("alphaMax", phaseChangeDict);
+        checkDimensions("alphaMax", value, dimless);
+        const scalar val = value.value();
+        ensureFinite("alphaMax", val);
+
+        if (val <= 0 || val > 1)
+        {
+            FatalIOErrorInFunction(phaseChangeDict)
+                << "Entry 'alphaMax' in " << phaseChangeDictDisplay
+                << " must satisfy 0 < alphaMax <= 1"
+                << exit(FatalIOError);
+        }
+
+        alphaMax_ = val;
+    }
+
+    if (alphaMin_ >= alphaMax_)
+    {
+        FatalIOErrorInFunction(phaseChangeDict)
+            << "Expected alphaMin < alphaMax in " << phaseChangeDictDisplay
+            << ". Received alphaMin=" << alphaMin_
+            << " and alphaMax=" << alphaMax_
+            << exit(FatalIOError);
+    }
+
     if (debug)
     {
         const Switch writePhaseTemperatures =
@@ -674,7 +810,7 @@ void Foam::twoPhaseMixtureThermo::computePhaseChange()
     const volScalarField& p = mesh.lookupObject<volScalarField>("p");
 
     const scalar L = latentHeat_;
-    const scalar R = 8.314/0.04787;
+    const scalar R = gasConstant_;
     const scalar T_vap = T_vapor_;
     const scalar p_ref = 101325;
 
@@ -688,7 +824,7 @@ void Foam::twoPhaseMixtureThermo::computePhaseChange()
         const scalar p_local = pField[cellI];
         const scalar alpha = alpha1Field[cellI];
 
-        if (alpha < 0.01 || alpha > 0.99)
+        if (alpha < alphaMin_ || alpha > alphaMax_)
         {
             continue;
         }
@@ -700,9 +836,8 @@ void Foam::twoPhaseMixtureThermo::computePhaseChange()
         const scalar sqrt_T = std::sqrt(Foam::max(T_local, 1.0));
         const scalar sqrt_2piR = std::sqrt(2.0*3.14159*R);
 
-        const scalar evap_coeff = 0.18;
-        const scalar j_evap = evap_coeff*p_vapor/(sqrt_2piR*sqrt_T);
-        const scalar j_cond = evap_coeff*p_local/(sqrt_2piR*sqrt_T);
+        const scalar j_evap = evaporationCoeff_*p_vapor/(sqrt_2piR*sqrt_T);
+        const scalar j_cond = evaporationCoeff_*p_local/(sqrt_2piR*sqrt_T);
 
         const scalar j_net = j_evap - j_cond;
 
@@ -711,8 +846,7 @@ void Foam::twoPhaseMixtureThermo::computePhaseChange()
 
         const scalar rate = j_net*L/(rho_liquid*Cl);
 
-        const scalar relaxTime = 1e-12;
-        const scalar relax = 1.0/relaxTime;
+        const scalar relax = 1.0/relaxationTime_;
 
         phaseChangeRelaxCoeff_[cellI] = relax;
         phaseChangeSource_[cellI] = rate;

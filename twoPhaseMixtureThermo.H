@@ -44,7 +44,19 @@ class twoPhaseMixtureThermo
         //- Minimum permissible time-step for phase change (s)
         mutable scalar dtFloor_;
 
+        //- Ideal-gas constant used in Hertz-Knudsen relation [J/(kg K)]
+        scalar gasConstant_;
 
+        //- Accommodation coefficient for evaporation/condensation []
+        scalar evaporationCoeff_;
+
+        //- Relaxation time applied to the explicit source term [s]
+        scalar relaxationTime_;
+
+        //- Phase-fraction window for evaluating evaporation []
+        scalar alphaMin_;
+        scalar alphaMax_;
+        
         //- Laser volumetric heat source (W/m^3)
         volScalarField Q_laser_;
 

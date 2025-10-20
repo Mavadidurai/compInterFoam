@@ -60,7 +60,7 @@ if (pimple.momentumPredictor())
         {
             scalar& val = g[cmpt];
 
-            if (!Foam::isfinite(val))
+            if (!std::isfinite(val))
             {
                 val = 0.0;
                 nonFiniteGrad = true;
@@ -91,7 +91,7 @@ if (pimple.momentumPredictor())
             {
                 scalar& val = g[cmpt];
 
-                if (!Foam::isfinite(val))
+                if (!std::isfinite(val))
                 {
                     val = 0.0;
                     nonFiniteGrad = true;
@@ -233,7 +233,7 @@ if (maxUEqnVelocity < Foam::GREAT)
         vector& Ui = UInternal[celli];
         scalar magUi = Foam::mag(Ui);
 
-        if (!Foam::isfinite(magUi))
+        if (!std::isfinite(magUi))
         {
             Ui = vector::zero;
             velocityLimited = true;
@@ -256,7 +256,7 @@ if (maxUEqnVelocity < Foam::GREAT)
             vector& Ui = Up[facei];
             scalar magUi = Foam::mag(Ui);
 
-            if (!Foam::isfinite(magUi))
+            if (!std::isfinite(magUi))
             {
                 Ui = vector::zero;
                 velocityLimited = true;

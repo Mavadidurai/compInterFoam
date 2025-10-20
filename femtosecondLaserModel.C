@@ -1223,23 +1223,26 @@ femtosecondLaserModel::applySpatialWeighting
     const bool transmissionOverride = transmission_ >= 0;
     const bool reflectivityConfigured = dict_.found("reflectivity");
 
-    Info<< "Interface transmission factor applied = "
-        << interfaceTransmission;
+   if (verbose && Pstream::master())
+    {
+        Info<< "Interface transmission factor applied = "
+            << interfaceTransmission;
 
-    if (transmissionOverride)
-    {
-        Info<< " (user transmission override)";
-    }
-    else if (reflectivityConfigured)
-    {
-        Info<< " (from reflectivity = " << reflectivity_ << ")";
-    }
-    else
-    {
-        Info<< " (default Fresnel interface model)";
-    }
+        if (transmissionOverride)
+        {
+            Info<< " (user transmission override)";
+        }
+        else if (reflectivityConfigured)
+        {
+            Info<< " (from reflectivity = " << reflectivity_ << ")";
+        }
+        else
+        {
+            Info<< " (default Fresnel interface model)";
+        }
 
-    Info<< endl;
+        Info<< endl;
+    }
 
     const scalar filmThickness = Foam::max(filmYMax_ - filmYMin_, scalar(0));
     const scalar beamRadius = spotSize_.value()/2.0;
