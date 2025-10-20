@@ -70,6 +70,35 @@ while (pimple.correctNonOrthogonal())
 
     if (pimple.finalNonOrthogonalIter())
     {
+        const Foam::dictionary& clampCoeffs = compInterFoamCoeffsDict(mesh);
+        const Foam::Switch pressureClamp
+        (
+            clampCoeffs.lookupOrDefault<Foam::Switch>("pressureClamp", false)
+        );
+
+        if (pressureClamp)
+        {
+            const Foam::scalar minPressure = clampCoeffs.lookupOrDefault<Foam::scalar>
+            (
+                "minPressure",
+                -Foam::GREAT
+            );
+            const Foam::scalar maxPressure = clampCoeffs.lookupOrDefault<Foam::scalar>
+            (
+                "maxPressure",
+                Foam::GREAT
+            );
+
+            Foam::tmp<Foam::volScalarField> tpTmp = p_rgh + rho*gh;
+            Foam::volScalarField& pTmp = tpTmp.ref();
+
+            pTmp = Foam::max(pTmp, minPressure);
+            pTmp = Foam::min(pTmp, maxPressure);
+
+            p_rgh = pTmp - rho*gh;
+            p_rgh.correctBoundaryConditions();
+        }
+
         phi = phiHbyA + pEqn.flux();
 
         U = HbyA + rAU*fvc::reconstruct((phig + pEqn.flux())/rAUf);

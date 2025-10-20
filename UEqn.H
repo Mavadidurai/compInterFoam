@@ -10,6 +10,8 @@ fvVectorMatrix UEqn
 UEqn.relax();
 fvOptions.constrain(UEqn);
 
+const Foam::dictionary& solverCoeffs = compInterFoamCoeffsDict(mesh);
+
 if (pimple.momentumPredictor())
 {
     // The capillary force already appears in phig within pEqn.H via
@@ -24,6 +26,104 @@ if (pimple.momentumPredictor())
     // already accounted for through the -ghf*fvc::snGrad(rho) contribution
     // inside phig in pEqn.H, so including rho*g here would double-count it
     // and steadily accelerate the flow even in the absence of recoil.
+    tmp<volVectorField> tGradPrgh = fvc::grad(p_rgh);
+    volVectorField gradPrgh
+    (
+        IOobject
+        (
+            "grad(p_rgh)",
+            runTime.timeName(),
+            mesh,
+            IOobject::NO_READ,
+            IOobject::NO_WRITE
+        ),
+        tGradPrgh()
+    );
+    tGradPrgh.clear();
+
+    const Foam::scalar gradLimit = solverCoeffs.lookupOrDefault<Foam::scalar>
+    (
+        "maxPressureGradient",
+        Foam::GREAT
+    );
+
+    bool nonFiniteGrad = false;
+    bool gradClamped = false;
+
+    vectorField& gradInternal = gradPrgh.internalFieldRef();
+
+    forAll(gradInternal, celli)
+    {
+        vector& g = gradInternal[celli];
+
+        for (direction cmpt = 0; cmpt < vector::nComponents; ++cmpt)
+        {
+            scalar& val = g[cmpt];
+
+            if (!Foam::isfinite(val))
+            {
+                val = 0.0;
+                nonFiniteGrad = true;
+            }
+        }
+
+        if (gradLimit < Foam::GREAT)
+        {
+            const scalar magG = Foam::mag(g);
+
+            if (magG > gradLimit && magG > SMALL)
+            {
+                g *= gradLimit/magG;
+                gradClamped = true;
+            }
+        }
+    }
+
+    forAll(gradPrgh.boundaryField(), patchi)
+    {
+        vectorField& gradPatch = gradPrgh.boundaryFieldRef()[patchi];
+
+        forAll(gradPatch, facei)
+        {
+            vector& g = gradPatch[facei];
+
+            for (direction cmpt = 0; cmpt < vector::nComponents; ++cmpt)
+            {
+                scalar& val = g[cmpt];
+
+                if (!Foam::isfinite(val))
+                {
+                    val = 0.0;
+                    nonFiniteGrad = true;
+                }
+            }
+
+            if (gradLimit < Foam::GREAT)
+            {
+                const scalar magG = Foam::mag(g);
+
+                if (magG > gradLimit && magG > SMALL)
+                {
+                    g *= gradLimit/magG;
+                    gradClamped = true;
+                }
+            }
+        }
+    }
+
+    if (nonFiniteGrad)
+    {
+        WarningInFunction
+            << "Non-finite entries detected in grad(p_rgh); resetting to zero"
+            << nl;
+    }
+
+    if (gradClamped)
+    {
+        Info<< "    grad(p_rgh) limited to max magnitude "
+            << gradLimit << " Pa/m" << endl;
+    }
+
     volVectorField momentumSource
     (
         IOobject
@@ -34,7 +134,7 @@ if (pimple.momentumPredictor())
             IOobject::NO_READ,
             IOobject::NO_WRITE
         ),
-        - fvc::grad(p_rgh)
+        -gradPrgh
 
     );
 
@@ -94,7 +194,12 @@ if (pimple.momentumPredictor())
 tmp<volScalarField> tUEqnDiag = UEqn.A();
 volScalarField& UEqnDiag = tUEqnDiag.ref();
 
-const Foam::dictionary& solverCoeffs = compInterFoamCoeffsDict(mesh);
+const Foam::scalar maxUEqnVelocity = solverCoeffs.lookupOrDefault<Foam::scalar>
+(
+    "maxUEqnVelocity",
+    Foam::GREAT
+);
+
 const scalar minUEqnDiagVal = solverCoeffs.lookupOrDefault<scalar>
 (
     "minUEqnDiag",
@@ -116,6 +221,62 @@ if (minUEqnDiagVal > 0)
 }
 
 volScalarField rAU("rAU", 1.0/tUEqnDiag());
+
+if (maxUEqnVelocity < Foam::GREAT)
+{
+    bool velocityLimited = false;
+
+    vectorField& UInternal = U.primitiveFieldRef();
+
+    forAll(UInternal, celli)
+    {
+        vector& Ui = UInternal[celli];
+        scalar magUi = Foam::mag(Ui);
+
+        if (!Foam::isfinite(magUi))
+        {
+            Ui = vector::zero;
+            velocityLimited = true;
+            continue;
+        }
+
+        if (magUi > maxUEqnVelocity && magUi > SMALL)
+        {
+            Ui *= maxUEqnVelocity/magUi;
+            velocityLimited = true;
+        }
+    }
+
+    forAll(U.boundaryField(), patchi)
+    {
+        vectorField& Up = U.boundaryFieldRef()[patchi];
+
+        forAll(Up, facei)
+        {
+            vector& Ui = Up[facei];
+            scalar magUi = Foam::mag(Ui);
+
+            if (!Foam::isfinite(magUi))
+            {
+                Ui = vector::zero;
+                velocityLimited = true;
+                continue;
+            }
+
+            if (magUi > maxUEqnVelocity && magUi > SMALL)
+            {
+                Ui *= maxUEqnVelocity/magUi;
+                velocityLimited = true;
+            }
+        }
+    }
+
+    if (velocityLimited)
+    {
+        Info<< "    Velocity field limited to max magnitude "
+            << maxUEqnVelocity << " m/s before computing flux" << endl;
+    }
+}
 
 phi = fvc::flux(U);
 rhoPhi = fvc::interpolate(rho)*phi;

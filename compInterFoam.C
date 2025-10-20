@@ -149,7 +149,9 @@ namespace
         const Foam::scalar minTl = Foam::gMin(Tl);
         const Foam::scalar avgTl = Foam::gAverage(Tl);
         const Foam::scalar maxRecoil = recoilPressurePtr ? Foam::gMax(*recoilPressurePtr) : 0.0;
-        const Foam::scalar maxQLaser = Foam::gMax(QLaser);
+        const Foam::scalar peakQLaser = Foam::gMax(QLaser);
+        const Foam::scalar laserPowerMetal =
+            fvc::domainIntegrate(alpha1*QLaser).value();
         const Foam::scalar maxPressure = Foam::gMax(p);
         const Foam::scalar tempSpread = maxTl - minTl;
 
@@ -234,7 +236,7 @@ namespace
         static bool heatingObserved = false;
         static bool latticeExceededAmbient = false;
 
-        const bool laserActive = (maxQLaser > 1e6);
+        const bool laserActive = (peakQLaser > 1e6);
         const bool electronHeated = (maxTe > 500);
         const bool latticeHeating = (maxTl > 500);
         const bool approachingMelt = (maxTl > 1500);
@@ -313,7 +315,8 @@ namespace
                     {
                         case 1:
                             Info<< ">>> PHASE 1: LASER ACTIVATION" << Foam::nl
-                                << "    Laser power: " << maxQLaser/1e12 << " TW/m³" << Foam::endl;
+                                << "    Laser power: " << laserPowerMetal << " W" << Foam::nl
+                                << "    Peak volumetric source: " << peakQLaser/1e12 << " TW/m³" << Foam::endl;
                             break;
                         case 2:
                             Info<< ">>> PHASE 2: ELECTRON ABSORPTION" << Foam::nl
@@ -513,8 +516,8 @@ namespace
             formattedRow("Avg velocity:", scalarValue(avgVel, "m/s"));
             Info<< "╠════════════════════════════════════════════════════════════════════════════════╣" << Foam::nl;
             centeredLine("ENERGY");
-            formattedRow("Laser power:", scalarValue(maxQLaser/1e12, "TW/m³"));
-            Info<< "╚════════════════════════════════════════════════════════════════════════════════╝" << Foam::nl;
+            formattedRow("Laser power:", scalarValue(laserPowerMetal, "W"));
+            formattedRow("Peak volumetric source:", scalarValue(peakQLaser/1e12, "TW/m³")); "╚════════════════════════════════════════════════════════════════════════════════╝" << Foam::nl;
 
             if (maxTl > 15000)
             {
@@ -591,7 +594,7 @@ namespace
                         << "P_max_MPa,recoil_MPa,"
                         << "metal_vol_um3,metal_loss_pct,"
                         << "vel_max_ms,vel_avg_ms,"
-                        << "laser_TW_m3" << Foam::endl;
+                        << "laserPower_W,peakQLaser_TWm3" << Foam::endl;
                 headerWritten = true;
             }
 
@@ -648,7 +651,8 @@ namespace
                     << metalLoss << ","
                     << maxVel << ","
                     << avgVel << ","
-                    << maxQLaser/1e12 << Foam::endl;
+                    << laserPowerMetal << ","
+                    << peakQLaser/1e12 << Foam::endl;
         }
 
         pTmp.clear();
