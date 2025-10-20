@@ -31,7 +31,7 @@ minDeltaT       1e-17;         // Minimum 0.01 fs for precision
 
 verbose         true;
 thermalFluxRelax 0.1;          // Stronger damping of interface heat flux
-maxThermalCourant 0.02;         // Tightened for thermal stability
+maxThermalCourant 0.001;         // Tightened for thermal stability
 
 // ADAPTIVE OUTPUT - more frequent during active phase, less during cooling
 writeControl    adjustableRunTime;
@@ -105,7 +105,7 @@ logRecoilSuppression true;
 // Temperature clamping - EXTENDED RANGE
 enableTClamp    true;
 minT            200;           // Allow cooling below room temp
-maxT            6000;          // Clamp high temperatures in line with lattice limit
+maxT            8000;          // Clamp high temperatures in line with lattice limit
 
 // Two-temperature model properties - OPTIMIZED FOR EXTENDED RUNS
 twoTemperatureProperties
@@ -147,8 +147,8 @@ twoTemperatureProperties
         Z_gas       383;        // Ar acoustic impedance [Pa·s/m]
     }
     minGasMetalExchangeCoeff [1 -1 -3 -1 0 0 0] 1e8;
-    maxGasMetalExchangeCoeff [1 -1 -3 -1 0 0 0] 5e9;
-    maxGasMetalHeatFlux    5e9;
+    maxGasMetalExchangeCoeff [1 -1 -3 -1 0 0 0] 1e14;   // ≈1e10 W/m²/K over 1 nm
+    maxGasMetalHeatFlux    1e11;   // Surface heat flux cap [W/m²]
     minTe           200;
     maxTe           20000;      // Allow hot electrons
     maxTl           5000;       // Physical melting limit
@@ -170,7 +170,7 @@ twoTemperatureProperties
     metalFractionCutoff     1e-6;
     metalAmbientBlendWidth  1e-3;
  // ✅ CRITICAL: Added missing gas volume heat capacity floor
-    CvolGasFloor            1e6;     // J/m³/K minimum for gas
+    CvolGasFloor            1e4;     // J/m³/K minimum for gas
     
     energyTolerance         0.05;    // Relaxed for long runs
     energyDiagnostics       true;
