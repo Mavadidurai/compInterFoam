@@ -1537,12 +1537,13 @@ tmp<volScalarField> twoTemperatureModel::gasMetalExchangeCoeffField() const
 
             const scalar delta = Foam::max(cellVolume/interfaceArea, SMALL);
 
-            const scalar hK = prefactor*tau*T*T*T;
+            const scalar Tsafe = Foam::min(T, scalar(3000));
+            const scalar hK = prefactor*tau*Tsafe*Tsafe*Tsafe;
             scalar hSurface = Foam::max(hK, scalar(0));
 
             // Cap the Kapitza conductance in surface units so the limiter in
             // TEqn.H can operate on a single, physically meaningful value.
-            hSurface = Foam::min(hSurface, scalar(1e9));
+            hSurface = Foam::min(hSurface, scalar(1e7));
 
             coeff[cellI] = hSurface/delta;
         }
