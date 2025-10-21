@@ -70,13 +70,11 @@ gaussianProfile     true;
 
 // Optional intensity entry (consistent with pulseEnergy & pulseWidth)
 continuousLaser     false;
-maxVolumetricSource 0;  // [W/m³] disable cap so absorbed pulse energy is not clipped
+maxVolumetricSource 1.3e23;  // [W/m³] ≈α·I_peak = 1.5e7 1/m × 8.5e15 W/m² → limiter kicks in before nonphysical spikes
 
 // CRITICAL: Enable pulse frequency for extended operation
-//pulseFrequency      1e12;     // [1/s] 1 THz repetition rate for sustained heating
-//pulseDutyCycle      0.1;      // 10% duty cycle
-pulseFrequency      0;        // [1/s] disabled for single pulse operation
-pulseDutyCycle      0;        // [-] duty cycle unused when pulses disabled
+pulseFrequency      1e12;     // [1/s] 1 THz repetition rate (1 ps period)
+pulseDutyCycle      0.2;      // 20% duty cycle → 200 fs on-time matching pulseWidth
 
 // Energy tolerance for validation
 pulseEnergyToleranceRel 0.05; // 5% relative tolerance

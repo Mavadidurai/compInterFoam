@@ -23,7 +23,7 @@ dynamicRefineFvMeshCoeffs
     refineInterval   1;
     lowerRefineLevel 0.05;
     upperRefineLevel 0.98;
-    unrefineLevel    0.001;
+    unrefineLevel    0.02;
     nBufferLayers    2;
     maxRefinement    4;
     maxCells         30000000;

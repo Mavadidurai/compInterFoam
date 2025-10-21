@@ -15,14 +15,12 @@ FoamFile
 }
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 // LIFT operates at microscale with high viscosity - typically laminar
+simulationType  laminar;    // Switch to RAS and set turbulence on to enable SST before running
 
-simulationType  laminar;
-/*
-// Alternative: If high velocities develop during ejection
 RAS
 {
     model           kOmegaSST;      // ✅ Standard k-omega SST model
-    turbulence      off;            // Start with off, enable if needed
+    turbulence      off;            // Toggle to on when simulationType is set to RAS
     printCoeffs     on;
 
     kOmegaSSTCoeffs
@@ -43,7 +41,7 @@ RAS
         F3              false;
     }
 }
-// LES not needed for basic test case
+
 LES
 {
     model           Smagorinsky;
@@ -57,5 +55,5 @@ LES
         Pr              0.7;
     }
 }
-*/
+
 // ************************************************************************* //
