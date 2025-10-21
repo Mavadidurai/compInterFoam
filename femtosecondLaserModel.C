@@ -1794,6 +1794,7 @@ void femtosecondLaserModel::calculateSource() const
     lastTimeIndex_ = timeIndex;
 
     const bool singlePulse = (!continuousLaser_ && pulseFrequency_ <= SMALL);
+    const bool multiPulse  = (!continuousLaser_ && pulseFrequency_ > SMALL);
 
     if (singlePulse && pulseCompleted_)
     {
@@ -1927,7 +1928,54 @@ void femtosecondLaserModel::calculateSource() const
             haveOverlap
          && t >= laserStartTime_
          && t <= comparisonLaserEnd;
+        if (withinActiveWindow && multiPulse)
+        {
+            bool overlapsPulseWindow = false;
 
+            const scalar period = 1.0/pulseFrequency_;
+            const scalar onTime = max(SMALL, pulseDutyCycle_*period);
+
+            if (onTime > VSMALL)
+            {
+                const scalar localStart = Foam::max(0.0, overlapStart - laserStartTime_);
+                const scalar localEnd   = Foam::max(localStart, overlapEnd - laserStartTime_);
+
+                label periodIndex = 0;
+
+                if (localStart > SMALL)
+                {
+                    periodIndex = static_cast<label>(std::floor(localStart/period));
+                }
+
+                for
+                (
+                    scalar windowStart = periodIndex*period;
+                    windowStart < localEnd + period;
+                    windowStart += period
+                )
+                {
+                    const scalar windowEnd = windowStart + onTime;
+
+                    if (windowEnd <= localStart)
+                    {
+                        continue;
+                    }
+
+                    if (windowStart >= localEnd)
+                    {
+                        break;
+                    }
+
+                    overlapsPulseWindow = true;
+                    break;
+                }
+            }
+
+            if (!overlapsPulseWindow)
+            {
+                withinActiveWindow = false;
+            }
+        }
         if (singlePulse && outsidePulseWindow)
         {
             withinActiveWindow = false;
