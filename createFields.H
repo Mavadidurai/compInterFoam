@@ -46,7 +46,7 @@ if (LTS)
     
 }
 
-    if (verbose && Foam::Pstream::master())
+if (verbose && Foam::Pstream::master())
 {
     Info<< "Reading field p_rgh\n" << endl;
 }
@@ -63,7 +63,7 @@ volScalarField p_rgh
     mesh
 );
 
-    if (verbose && Foam::Pstream::master())
+if (verbose && Foam::Pstream::master())
 {
     Info<< "Reading field U\n" << endl;
 }
@@ -80,7 +80,7 @@ volVectorField U
     mesh
 );
 
-    if (verbose && Foam::Pstream::master())
+if (verbose && Foam::Pstream::master())
 {
     Info<< "Reading/calculating face flux field phi\n" << endl;
 }
@@ -96,7 +96,7 @@ surfaceScalarField phi
     ),
     fvc::flux(U)
 );
-    if (verbose && Foam::Pstream::master())
+if (verbose && Foam::Pstream::master())
 {
     Info<< "Reading field T\n" << endl;
 }
@@ -133,7 +133,7 @@ volScalarField gasMetalHeatFlux
     )
 );
 // Create the thermo system - this will create alpha.metal and alpha.air fields
-    if (verbose && Foam::Pstream::master())
+if (verbose && Foam::Pstream::master())
 {
     Info<< "Constructing twoPhaseMixtureThermo\n" << endl;
 }
@@ -260,7 +260,7 @@ if (!mesh.foundObject<volScalarField>(gasTName))
 
 twoPhaseMixtureThermo mixture(U, phi);
 // Set verbosity flag from controlDict now that runTime is available
-
+if (verbose && Foam::Pstream::master())
 {
     Foam::tmp<Foam::volScalarField> tsig = mixture.sigma();
     const Foam::volScalarField& sig = tsig();

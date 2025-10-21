@@ -841,11 +841,27 @@ void Foam::twoPhaseMixtureThermo::computePhaseChange()
 
         const scalar j_net = j_evap - j_cond;
 
-        const scalar rho_liquid = rho1_.value();
         const scalar Cl = ClTTM_.value();
 
-        const scalar rate = j_net*L/(rho_liquid*Cl);
+        if (Cl <= SMALL)
+        {
+            continue;
+        }
 
+        const scalar heatFlux = j_net*L;  // [W/m^2]
+        const scalar cellVolume = mesh.V()[cellI];
+        const scalar metalVolume = alpha*cellVolume;
+
+        if (metalVolume <= VSMALL)
+        {
+            continue;
+        }
+
+        const scalar areaScale = std::pow(cellVolume, 2.0/3.0);
+        const scalar effectiveThickness = Foam::max(metalVolume/areaScale, VSMALL);
+        const scalar volumetricHeat = heatFlux/effectiveThickness;  // [W/m^3]
+
+        const scalar rate = volumetricHeat/Cl;
         const scalar relax = 1.0/relaxationTime_;
 
         phaseChangeRelaxCoeff_[cellI] = relax;

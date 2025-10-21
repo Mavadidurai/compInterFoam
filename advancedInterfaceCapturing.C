@@ -355,7 +355,7 @@ advancedInterfaceCapturing::advancedInterfaceCapturing
             << ", expected " << defaultBoltzmann.dimensions()
             << exit(FatalIOError);
     }
-    if (rawBoltzmann.value() <= SMALL)
+    if (rawBoltzmann.value() <= 0)
     {
         FatalErrorInFunction
             << "boltzmannConstant (" << rawBoltzmann.value()
@@ -380,7 +380,7 @@ advancedInterfaceCapturing::advancedInterfaceCapturing
             << ", expected " << defaultParticleMass.dimensions()
             << exit(FatalIOError);
     }
-    if (rawParticleMass.value() <= SMALL)
+    if (rawParticleMass.value() <= 0)
     {
         FatalErrorInFunction
             << "vaporParticleMass (" << rawParticleMass.value()
