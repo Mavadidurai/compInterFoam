@@ -62,13 +62,13 @@ solvers
     }
     
     "U.*"
-   {
-            solver      smoothSolver;
-            smoother    symGaussSeidel;
-	    nSweeps     2;
-	    tolerance   1e-04;
-	    relTol      0.5;
-	    maxIter     200;
+    {
+        solver      smoothSolver;
+        smoother    symGaussSeidel;
+        nSweeps     2;
+        tolerance   1e-06;
+        relTol      0.05;
+        maxIter     200;
     }
 
     T
@@ -191,6 +191,6 @@ compInterFoamCoeffs
     minUEqnDiag        1e-9;
 
     // RELAX RESIDUAL TARGETS
-    targetResU         0.1;
-    targetResP         0.5;
+    targetResU         0.01;
+    targetResP         0.01;
 }

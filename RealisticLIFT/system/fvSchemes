@@ -48,9 +48,9 @@ divSchemes
     // Momentum - could be more conservative
     div(rhoPhi,U)                    Gauss linearUpwind grad(U); // IMPROVE: Add gradient limiting
     
-    div(phi,T)       Gauss upwind;           // Changed from limitedLinear
-    div(phi,Te)      Gauss upwind;           // Changed from limitedLinear
-    div(phi,Tl)      Gauss upwind;           // Changed from limitedLinear
+    div(phi,T)       Gauss limitedLinearV 1;
+    div(phi,Te)      Gauss limitedLinearV 1;
+    div(phi,Tl)      Gauss limitedLinearV 1;
     
     // Pressure gradient - good change
     div(phi,p_rgh)                   Gauss upwind;           // ✓ GOOD change from linear
