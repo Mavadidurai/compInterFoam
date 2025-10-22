@@ -850,16 +850,22 @@ void Foam::twoPhaseMixtureThermo::computePhaseChange()
 
         const scalar heatFlux = j_net*L;  // [W/m^2]
         const scalar cellVolume = mesh.V()[cellI];
-        const scalar metalVolume = alpha*cellVolume;
 
-        if (metalVolume <= VSMALL)
+        if (cellVolume <= VSMALL)
         {
             continue;
         }
 
-        const scalar areaScale = std::pow(cellVolume, 2.0/3.0);
-        const scalar effectiveThickness = Foam::max(metalVolume/areaScale, VSMALL);
-        const scalar volumetricHeat = heatFlux/effectiveThickness;  // [W/m^3]
+        const scalar metalFraction = Foam::max(alpha, scalar(0));
+
+        if (metalFraction <= VSMALL)
+        {
+            continue;
+        }
+
+        const scalar cellLength = std::pow(cellVolume, 1.0/3.0);
+        const scalar meltThickness = Foam::max(metalFraction*cellLength, VSMALL);
+        const scalar volumetricHeat = heatFlux/meltThickness;  // [W/m^3]
 
         const scalar rate = volumetricHeat/Cl;
         const scalar relax = 1.0/relaxationTime_;

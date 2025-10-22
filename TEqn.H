@@ -137,6 +137,7 @@ extern const bool master;
         dimPower/dimArea,
         qCap
     );
+    const bool applyHeatFluxCap = qCap > 0;
     
     const label timeIndex = runTime.timeIndex();
     const dimensionedScalar maxTlDim = gMax(Tl);
@@ -307,6 +308,32 @@ if (verbose && master && timeIndex % 10 == 0)
     cappedInterfaceExchange = surfaceExchange/interfaceDelta;
     cappedInterfaceExchange.correctBoundaryConditions();
 
+
+    tmp<volScalarField> tMaxInterfaceExchange;
+    const volScalarField* maxInterfaceExchangePtr = nullptr;
+
+    if (applyHeatFluxCap)
+    {
+        const dimensionedScalar unitTemperature
+        (
+            "unitTemperature",
+            dimTemperature,
+            1.0
+        );
+
+        tMaxInterfaceExchange = (qCapDim/unitTemperature)/interfaceDelta;
+        const volScalarField& maxInterfaceExchange = tMaxInterfaceExchange();
+        maxInterfaceExchangePtr = &maxInterfaceExchange;
+
+        cappedInterfaceExchange =
+            Foam::min
+            (
+                cappedInterfaceExchange,
+                maxInterfaceExchange
+            );
+        cappedInterfaceExchange.correctBoundaryConditions();
+    }
+
     tmp<volScalarField> tCv2 = mixture.thermo2().Cv();
     tmp<volScalarField> tRho2 = mixture.thermo2().rho();
 
@@ -352,6 +379,11 @@ if (verbose && master && timeIndex % 10 == 0)
     auto projectTemperature =
         [&](const word& stage)
         {
+            if (!enableTClamp)
+            {
+                return;
+            }
+
             const scalarField TintPre(T.internalField());
             label nLow = 0;
             label nHigh = 0;
@@ -726,16 +758,43 @@ if (verbose && master && timeIndex % 10 == 0)
                 Foam::max(prevCoeff, minCoeff),
                 maxCoeff
             );
+
+        if (maxInterfaceExchangePtr)
+        {
+            prevCoeff = Foam::min(prevCoeff, *maxInterfaceExchangePtr);
+        }
+
         prevCoeff.correctBoundaryConditions();
 
         cappedInterfaceExchange =
             fluxRelax*cappedInterfaceExchange
           + (scalar(1) - fluxRelax)*prevCoeff;
 
+        if (maxInterfaceExchangePtr)
+        {
+            cappedInterfaceExchange =
+                Foam::min
+                (
+                    cappedInterfaceExchange,
+                    *maxInterfaceExchangePtr
+                );
+        }
+
         cappedInterfaceExchange.correctBoundaryConditions();
     }
 
     interfaceExchange = cappedInterfaceExchange;
+
+    if (maxInterfaceExchangePtr)
+    {
+        interfaceExchange =
+            Foam::min
+            (
+                interfaceExchange,
+                *maxInterfaceExchangePtr
+            );
+    }
+
     interfaceExchange.correctBoundaryConditions();
 
     const volScalarField& relaxedInterfaceExchange = interfaceExchange;

@@ -117,6 +117,91 @@ p_rgh.correctBoundaryConditions();
 p.correctBoundaryConditions();
 
 const Foam::dictionary& solverCoeffs = compInterFoamCoeffsDict(mesh);
+const Foam::Switch pressureClamp =
+    solverCoeffs.lookupOrDefault<Foam::Switch>("pressureClamp", false);
+
+Foam::scalar minPressure =
+    solverCoeffs.lookupOrDefault<Foam::scalar>
+    (
+        "minPressure",
+        -Foam::GREAT
+    );
+
+Foam::scalar maxPressure =
+    solverCoeffs.lookupOrDefault<Foam::scalar>
+    (
+        "maxPressure",
+        Foam::GREAT
+    );
+
+const Foam::scalar fallbackMinPressure = -1e7;
+const Foam::scalar fallbackMaxPressure = 1e9;
+
+if (minPressure <= -0.99*Foam::GREAT)
+{
+    minPressure = fallbackMinPressure;
+}
+
+if (maxPressure >= 0.99*Foam::GREAT)
+{
+    maxPressure = fallbackMaxPressure;
+}
+
+const Foam::scalar observedMinP = Foam::gMin(p);
+const Foam::scalar observedMaxP = Foam::gMax(p);
+
+const bool pressureNonFinite =
+    (!Foam::isfinite(observedMinP) || !Foam::isfinite(observedMaxP));
+
+const bool pressureOutOfBounds =
+    (observedMinP < minPressure || observedMaxP > maxPressure);
+
+if (!pressureClamp && (pressureNonFinite || pressureOutOfBounds))
+{
+    WarningInFunction
+        << "Pressure field exceeded physical range while pressureClamp=false"
+        << Foam::nl
+        << "    min(p) = " << observedMinP << " Pa, max(p) = "
+        << observedMaxP << " Pa" << Foam::nl
+        << "    Applying emergency clamp to [" << minPressure << ", "
+        << maxPressure << "] Pa" << Foam::endl;
+
+    Foam::scalarField& pInternal = p.primitiveFieldRef();
+
+    forAll(pInternal, celli)
+    {
+        Foam::scalar& val = pInternal[celli];
+
+        if (!Foam::isfinite(val))
+        {
+            val = 0.0;
+        }
+
+        val = Foam::max(minPressure, Foam::min(val, maxPressure));
+    }
+
+    forAll(p.boundaryField(), patchi)
+    {
+        Foam::scalarField& patchField = p.boundaryFieldRef()[patchi];
+
+        forAll(patchField, facei)
+        {
+            Foam::scalar& val = patchField[facei];
+
+            if (!Foam::isfinite(val))
+            {
+                val = 0.0;
+            }
+
+            val = Foam::max(minPressure, Foam::min(val, maxPressure));
+        }
+    }
+
+    p_rgh = p - rho*gh;
+    p_rgh.correctBoundaryConditions();
+    p.correctBoundaryConditions();
+}
+
 const Foam::scalar maxPhysicalVelocity = solverCoeffs.lookupOrDefault<Foam::scalar>
 (
     "maxVelocity",
