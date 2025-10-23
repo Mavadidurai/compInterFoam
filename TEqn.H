@@ -18,7 +18,7 @@ extern const bool master;
         ctrl.lookupOrDefault<scalar>("minT", 0.0),
         Foam::SMALL
     );
-    const scalar maxPhysicalTemp = ctrl.lookupOrDefault<scalar>
+    scalar maxPhysicalTemp = ctrl.lookupOrDefault<scalar>
     (
         "maxT",
         Foam::GREAT
@@ -30,12 +30,33 @@ extern const bool master;
         minPhysicalTemp
     );
 
-    const dimensionedScalar maxTDim
-    (
-        "maxT",
-        dimTemperature,
-        maxPhysicalTemp
-    );
+    const dictionary twoTemperatureDict =
+        ctrl.subOrEmptyDict("twoTemperatureProperties");
+
+    if (enableTClamp && !ctrl.found("maxT"))
+    {
+        if (twoTemperatureDict.found("maxTl"))
+        {
+            maxPhysicalTemp = twoTemperatureDict.lookup<scalar>("maxTl");
+
+            if (verbose && master)
+            {
+                WarningInFunction
+                    << "enableTClamp active without controlDict maxT;"
+                    << " falling back to twoTemperatureProperties.maxTl="
+                    << maxPhysicalTemp
+                    << endl;
+            }
+        }
+        else
+        {
+            FatalErrorInFunction
+                << "enableTClamp requires controlDict entry maxT or"
+                << " twoTemperatureProperties.maxTl"
+                << abort(FatalError);
+        }
+    }
+
     if (enableTClamp && maxPhysicalTemp <= minPhysicalTemp)
     {
         FatalErrorInFunction
@@ -43,6 +64,13 @@ extern const bool master;
             << " must be less than maxT=" << maxPhysicalTemp
             << abort(FatalError);
     }
+
+    const dimensionedScalar maxTDim
+    (
+        "maxT",
+        dimTemperature,
+        maxPhysicalTemp
+    );
     
     const scalar thermalFluxRelax =
         ctrl.lookupOrDefault<scalar>("thermalFluxRelax", 1.0);
@@ -61,9 +89,6 @@ extern const bool master;
     tmp<volScalarField> tCappedInterfaceExchange(interfaceExchange.clone());
     volScalarField& cappedInterfaceExchange = tCappedInterfaceExchange.ref();
     
-    const dictionary twoTemperatureDict =
-        ctrl.subOrEmptyDict("twoTemperatureProperties");
-
     const Switch userGasLaserHeating
     (
         twoTemperatureDict.lookupOrDefault<Switch>
