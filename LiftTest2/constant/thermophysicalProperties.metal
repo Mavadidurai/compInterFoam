@@ -15,18 +15,19 @@ FoamFile
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
 // METAL PHASE PROPERTIES for LIFT Test Case
-// Density is now temperature dependent via a polynomial relation derived from
+// Density is treated with a linear thermal expansion (Boussinesq) fit to
 // representative solid/liquid titanium data (ρ ≈ 4500 kg/m3 at 300 K decreasing
-// to ≈ 3400 kg/m3 in the high-temperature liquid state).
+// to ≈ 3400 kg/m3 near vaporisation).
 thermoType
 {
     type            heRhoThermo;
     mixture         pureMixture;
     transport       const;
     thermo          hConst;
-    equationOfState rhoConst;
+    equationOfState Boussinesq;
     specie          specie;
     energy          sensibleEnthalpy;
+
 }
 
 mixture
@@ -52,7 +53,9 @@ mixture
     
     equationOfState
     {
-        rho             4515;           // kg/m3 - use stable constant density
+        rho0            4515;           // kg/m3 at reference temperature
+        beta            7.6e-5;         // 1/K thermal expansion coefficient
+        T0              300;            // Reference temperature [K]
     }
 }
 

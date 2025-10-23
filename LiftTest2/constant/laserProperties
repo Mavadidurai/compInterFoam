@@ -70,11 +70,9 @@ gaussianProfile     true;
 
 // Optional intensity entry (consistent with pulseEnergy & pulseWidth)
 continuousLaser     false;
-maxVolumetricSource 0;  // [W/m³] disable cap so absorbed pulse energy is not clipped
+maxVolumetricSource 2e23;  // [W/m³] physical safeguard just above pulse peak
 
-// CRITICAL: Enable pulse frequency for extended operation
-//pulseFrequency      1e12;     // [1/s] 1 THz repetition rate for sustained heating
-//pulseDutyCycle      0.1;      // 10% duty cycle
+// Single-pulse configuration aligned with controlDict laser window
 pulseFrequency      0;        // [1/s] disabled for single pulse operation
 pulseDutyCycle      0;        // [-] duty cycle unused when pulses disabled
 
