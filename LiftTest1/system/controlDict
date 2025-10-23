@@ -30,8 +30,8 @@ maxDeltaT       1e-13;         // Cap adaptive growth (1 fs)
 minDeltaT       1e-17;         // Minimum 0.01 fs for precision
 
 verbose         true;
-thermalFluxRelax 0.3;          // Stronger damping of interface heat flux
-maxThermalCourant 0.05;         // Tightened for thermal stability
+thermalFluxRelax 0.1;          // Stronger damping of interface heat flux
+maxThermalCourant 0.02;         // Tightened for thermal stability
 
 // ADAPTIVE OUTPUT - more frequent during active phase, less during cooling
 writeControl    adjustableRunTime;
@@ -105,7 +105,7 @@ logRecoilSuppression true;
 // Temperature clamping - EXTENDED RANGE
 enableTClamp    true;
 minT            200;           // Allow cooling below room temp
-//maxT            5000;          // Clamp high temperatures in line with lattice limit
+maxT            6000;          // Clamp high temperatures in line with lattice limit
 
 // Two-temperature model properties - OPTIMIZED FOR EXTENDED RUNS
 twoTemperatureProperties
@@ -147,13 +147,13 @@ twoTemperatureProperties
         Z_gas       383;        // Ar acoustic impedance [Pa·s/m]
     }
     minGasMetalExchangeCoeff [1 -1 -3 -1 0 0 0] 1e8;
-    maxGasMetalExchangeCoeff [1 -1 -3 -1 0 0 0] 1e12;
-    maxGasMetalHeatFlux    1e11;
+    maxGasMetalExchangeCoeff [1 -1 -3 -1 0 0 0] 1e11;
+    maxGasMetalHeatFlux    1e10;
     minTe           200;
     maxTe           20000;      // Allow hot electrons
     maxTl           5000;       // Physical melting limit
     ambientTemperature 300;
-
+    temperatureDifferenceFloor 10.0;                     // ← MISSING (causes singularities)
     // ADAPTIVE MICRO-STEPPING
     electronSubCycles        1;
     minElectronSubCycles     1;
