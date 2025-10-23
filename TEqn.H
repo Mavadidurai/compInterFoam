@@ -274,18 +274,9 @@ if (verbose && master && timeIndex % 10 == 0)
     );
     interfaceMask.correctBoundaryConditions();
 
-    // Limit the gas-metal exchange to cells where gas contacts metal. Include
-    // a neighbour-weighted metal mask so pure-gas cells adjacent to metal
-    // retain a non-zero coupling weight.
-    tmp<volScalarField> tNeighbourExchange
-    (
-        fvc::average(cappedInterfaceExchange)
-    );
-    const volScalarField& neighbourExchange = tNeighbourExchange();
-
-    cappedInterfaceExchange =
-        interfaceMask*cappedInterfaceExchange
-      + (scalar(1) - interfaceMask)*neighbourExchange;
+    // Limit the gas-metal exchange strictly to the identified interface cells
+    // so that pure-gas regions do not inherit a neighbour-averaged coupling.
+    cappedInterfaceExchange = interfaceMask*cappedInterfaceExchange;
     cappedInterfaceExchange.correctBoundaryConditions();
 
     tmp<volVectorField> tGradMetal(fvc::grad(metalFraction));

@@ -1548,9 +1548,31 @@ tmp<volScalarField> twoTemperatureModel::gasMetalExchangeCoeffField() const
         tmp<volVectorField> tGradAlpha(fvc::grad(metalFraction_));
         const volVectorField& gradAlpha = tGradAlpha();
 
+        const scalar metalActiveThreshold =
+            Foam::max
+            (
+                dict_.lookupOrDefault<scalar>("metalFractionFloor", 1e-6),
+                VSMALL
+            );
+
         forAll(coeff, cellI)
         {
             const scalar cellVolume = mesh_.V()[cellI];
+            const scalar cellLength = Foam::pow(cellVolume, scalar(1.0/3.0));
+            const scalar gradMag = mag(gradAlpha[cellI]);
+            const scalar interfaceIndicator = gradMag*cellLength;
+            const scalar metal = Foam::max
+            (
+                Foam::min(metalFraction_[cellI], scalar(1)),
+                scalar(0)
+            );
+
+            if (metal < metalActiveThreshold &&
+                interfaceIndicator < metalActiveThreshold)
+            {
+                coeff[cellI] = scalar(0);
+                continue;
+            }
             const scalar T = Foam::max(Tl[cellI], scalar(0));
 
             scalar interfaceArea = mag(gradAlpha[cellI])*cellVolume;
