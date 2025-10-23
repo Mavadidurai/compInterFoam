@@ -21,6 +21,9 @@ const Foam::scalar kineticEnergyCeiling =
 
 if (kineticEnergyCeiling > 0 && kineticEnergyCeiling < Foam::GREAT)
 {
+    // 0.5*rho*|U|^2 has SI units of J/m^3; it is the kinetic energy stored in
+    // a unit volume of the flow.  Checking it before the predictor prevents
+    // unphysical velocities from entering the momentum solve.
     tmp<volScalarField> tKineticEnergyDensity(0.5*rho*magSqr(U));
     const volScalarField& kineticEnergyDensity = tKineticEnergyDensity();
     const dimensionedScalar maxKineticEnergyDensity =

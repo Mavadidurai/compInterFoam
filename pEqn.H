@@ -78,15 +78,25 @@ while (pimple.correctNonOrthogonal())
 
         if (pressureClamp)
         {
-            const Foam::scalar minPressure = clampCoeffs.lookupOrDefault<Foam::scalar>
+             const Foam::dimensionedScalar minPressure
             (
                 "minPressure",
-                -Foam::GREAT
+                Foam::dimPressure,
+                clampCoeffs.lookupOrDefault<Foam::scalar>
+                (
+                    "minPressure",
+                    -Foam::GREAT
+                )
             );
-            const Foam::scalar maxPressure = clampCoeffs.lookupOrDefault<Foam::scalar>
+            const Foam::dimensionedScalar maxPressure
             (
                 "maxPressure",
-                Foam::GREAT
+                Foam::dimPressure,
+                clampCoeffs.lookupOrDefault<Foam::scalar>
+                (
+                    "maxPressure",
+                    Foam::GREAT
+                )
             );
 
             Foam::tmp<Foam::volScalarField> tpTmp = p_rgh + rho*gh;
@@ -120,51 +130,69 @@ const Foam::dictionary& solverCoeffs = compInterFoamCoeffsDict(mesh);
 const Foam::Switch pressureClamp =
     solverCoeffs.lookupOrDefault<Foam::Switch>("pressureClamp", false);
 
-Foam::scalar minPressure =
+Foam::dimensionedScalar minPressure
+(
+    "minPressure",
+    Foam::dimPressure,
     solverCoeffs.lookupOrDefault<Foam::scalar>
     (
         "minPressure",
         -Foam::GREAT
-    );
+    )
+);
 
-Foam::scalar maxPressure =
+Foam::dimensionedScalar maxPressure
+(
+    "maxPressure",
+    Foam::dimPressure,
     solverCoeffs.lookupOrDefault<Foam::scalar>
     (
         "maxPressure",
         Foam::GREAT
-    );
+    )
+);
 
-const Foam::scalar fallbackMinPressure = -1e7;
-const Foam::scalar fallbackMaxPressure = 1e9;
+const Foam::dimensionedScalar fallbackMinPressure
+(
+    "fallbackMinPressure",
+    Foam::dimPressure,
+    -1e7
+);
+const Foam::dimensionedScalar fallbackMaxPressure
+(
+    "fallbackMaxPressure",
+    Foam::dimPressure,
+    1e9
+);
 
-if (minPressure <= -0.99*Foam::GREAT)
+if (minPressure.value() <= -0.99*Foam::GREAT)
 {
     minPressure = fallbackMinPressure;
 }
 
-if (maxPressure >= 0.99*Foam::GREAT)
+if (maxPressure.value() >= 0.99*Foam::GREAT)
 {
     maxPressure = fallbackMaxPressure;
 }
 
-const Foam::scalar observedMinP = Foam::gMin(p);
-const Foam::scalar observedMaxP = Foam::gMax(p);
+const Foam::dimensionedScalar observedMinP = Foam::gMin(p);
+const Foam::dimensionedScalar observedMaxP = Foam::gMax(p);
 
 const bool pressureNonFinite =
-    (!std::isfinite(observedMinP) || !std::isfinite(observedMaxP));
+    (!std::isfinite(observedMinP.value()) || !std::isfinite(observedMaxP.value()));
 
 const bool pressureOutOfBounds =
-    (observedMinP < minPressure || observedMaxP > maxPressure);
+    (observedMinP.value() < minPressure.value() || observedMaxP.value() > maxPressure.value());
 
 if (!pressureClamp && (pressureNonFinite || pressureOutOfBounds))
 {
     WarningInFunction
         << "Pressure field exceeded physical range while pressureClamp=false"
         << Foam::nl
-        << "    min(p) = " << observedMinP << " Pa, max(p) = "
-        << observedMaxP << " Pa" << Foam::nl
-        << "    Applying emergency clamp to [" << minPressure << ", "
-        << maxPressure << "] Pa" << Foam::endl;
+        << "    min(p) = " << observedMinP.value() << " Pa, max(p) = "
+        << observedMaxP.value() << " Pa" << Foam::nl
+        << "    Applying emergency clamp to [" << minPressure.value() << ", "
+        << maxPressure.value() << "] Pa" << Foam::endl;
 
     Foam::scalarField& pInternal = p.primitiveFieldRef();
 
@@ -177,7 +205,7 @@ if (!pressureClamp && (pressureNonFinite || pressureOutOfBounds))
             val = 0.0;
         }
 
-        val = Foam::max(minPressure, Foam::min(val, maxPressure));
+        val = Foam::max(minPressure.value(), Foam::min(val, maxPressure.value()));
     }
 
     forAll(p.boundaryField(), patchi)
@@ -193,7 +221,7 @@ if (!pressureClamp && (pressureNonFinite || pressureOutOfBounds))
                 val = 0.0;
             }
 
-            val = Foam::max(minPressure, Foam::min(val, maxPressure));
+            val = Foam::max(minPressure.value(), Foam::min(val, maxPressure.value()));
         }
     }
 

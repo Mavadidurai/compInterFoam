@@ -893,6 +893,24 @@ if (verbose && master && timeIndex % 10 == 0)
 
     projectTemperature("post-solve");
 
+    // Enforce lattice temperature only in cells that are overwhelmingly metal.
+    const scalar strictMetalThreshold = 0.9;
+    const dimensionedScalar strictMetalDim
+    (
+        "strictMetalThreshold",
+        dimless,
+        strictMetalThreshold
+    );
+
+    tmp<volScalarField> tPureMetal
+    (
+        Foam::pos(metalFraction - strictMetalDim)
+    );
+    const volScalarField& pureMetal = tPureMetal();
+
+    T = (scalar(1) - pureMetal)*T + pureMetal*Tl;
+    projectTemperature("post-metal");
+
     tmp<volScalarField> tRawFlux(relaxedInterfaceExchange*(Tl - T));
     volScalarField& rawFlux = tRawFlux.ref();
 
@@ -903,7 +921,7 @@ if (verbose && master && timeIndex % 10 == 0)
         interfaceMask*rawFlux
       + (scalar(1) - interfaceMask)*neighbourRawFlux;
     rawFlux.correctBoundaryConditions();
-    
+
     const scalar dtVal = Foam::max(dt.value(), SMALL);
 
     scalarField& rawFluxInternal = rawFlux.primitiveFieldRef();
@@ -1017,24 +1035,6 @@ if (verbose && master && timeIndex % 10 == 0)
                 << "  high=" << totalHighProjected/denom << endl;
         }
     }
-
-    // Enforce lattice temperature only in cells that are overwhelmingly metal.
-    const scalar strictMetalThreshold = 0.9;
-    const dimensionedScalar strictMetalDim
-    (
-        "strictMetalThreshold",
-        dimless,
-        strictMetalThreshold
-    );
-
-    tmp<volScalarField> tPureMetal
-    (
-        Foam::pos(metalFraction - strictMetalDim)
-    );
-    const volScalarField& pureMetal = tPureMetal();
-
-    T = (scalar(1) - pureMetal)*T + pureMetal*Tl;
-    projectTemperature("post-metal");
 
     mixture.correctThermo();
     mixture.correct();
