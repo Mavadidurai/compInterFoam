@@ -42,9 +42,9 @@ solvers
     {
         solver          GAMG;
         smoother        DICGaussSeidel;
-        tolerance       1e-8;
-        relTol          0;
-        maxIter         100;
+        tolerance       1e-6;
+        relTol          1e-3;
+        maxIter         200;
         nPreSweeps      0;
         nPostSweeps     2;
         cacheAgglomeration true;
@@ -65,22 +65,22 @@ solvers
    {
             solver      smoothSolver;
             smoother    symGaussSeidel;
-	    nSweeps     2;
-	    tolerance   1e-04;
-	    relTol      0.5;
-	    maxIter     200;
+            nSweeps     2;
+            tolerance   1e-06;
+            relTol      0.1;
+            maxIter     200;
     }
 
-    // Gas T (if present)
-        T
-        {
-            solver          smoothSolver;
-            smoother        symGaussSeidel;
-            nSweeps         6;
-            maxIter         200;
-            tolerance       1e-8;
-            relTol          0;
-        }
+    T
+    {
+        solver          smoothSolver;
+        smoother        symGaussSeidel;
+        nSweeps         6;
+        tolerance       1e-8;
+        relTol          0.001;             // Tightened relative convergence
+        maxIter         1000;             // Increased iteration limit
+        minIter         3;                // Ensure minimum work
+    }
 
         Te
         {
@@ -127,7 +127,7 @@ relaxationFactors
     }
     equations
     {
-        U               0.7;
+        U               0.5;
         T               0.2;
         Te              0.4;
         Tl              0.4;
@@ -137,7 +137,7 @@ relaxationFactors
 }
 
 // Pressure relaxation control
-targetResP  0.5;
+targetResP  0.05;
 
 compInterFoamCoeffs
 {
@@ -170,5 +170,6 @@ compInterFoamCoeffs
     maxRAUf            1e6;
 
     // RELAX RESIDUAL TARGETS
-    targetResU         0.1;             // RELAX: was 0.05
+    targetResU         0.02;
+    targetResP         0.05;
 }

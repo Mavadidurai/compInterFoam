@@ -17,25 +17,25 @@ FoamFile
 
 application     compInterFoam;
 
-startFrom       latestTime;
+startFrom       startTime;
 startTime       0;
 stopAt          endTime;
-endTime         5e-10;          // EXTENDED: 1 ns total for complete LIFT process
+endTime         2e-9;           // Observation window through plume relaxation
 
 deltaT          1e-16;         // Base time step (1 fs)
 adjustTimeStep  yes;           // ENABLE adaptive time stepping
-maxCo           0.02;          // Allow reasonable growth while staying stable
-maxAlphaCo      0.005;         // Aggressive interface limit
-maxDeltaT       1e-13;         // Cap adaptive growth (1 fs)
+maxCo           0.01;          // Tighter limit to suppress rapid growth
+maxAlphaCo      0.002;         // Stricter interface Courant cap
+maxDeltaT       1e-15;         // Cap adaptive growth (1 fs)
 minDeltaT       1e-17;         // Minimum 0.01 fs for precision
 
 verbose         true;
 thermalFluxRelax 0.1;          // Stronger damping of interface heat flux
-maxThermalCourant 0.1;         // Tightened for thermal stability
+maxThermalCourant 0.001;         // Tightened for thermal stability
 
 // ADAPTIVE OUTPUT - more frequent during active phase, less during cooling
 writeControl    adjustableRunTime;
-writeInterval   1e-14;         // Start with 1 ps intervals
+writeInterval   1e-13;         // Start with 0.1 ps intervals to reduce churn
 purgeWrite      50;            // Keep more time directories for analysis
 writeFormat     ascii;
 writePrecision  8;
@@ -67,20 +67,20 @@ phaseChangeCoeffs
     onlyAboveVapor      true;
     metalFractionCutoff 1e-6;
     // EXTENDED ACTIVATION - through transfer and cooling
-    activationTime      ((0 2e-10));  // Active through 400 ps
+    activationTime      ((0 4e-10));  // Active through 400 ps as intended
 }
 
 // EXTENDED MASS TRANSFER - through solidification
 massTransferCoeffs
 {
     tStart  (0);
-    tEnd    (2e-10);   // Active through 400 ps
-    rateMax 1e12;      // Reduced for later phase stability
+    tEnd    (4e-10);   // Active through 400 ps
+    rateMax 1e11;      // Reduced for later phase stability
 }
 
 // LASER TIMING - shorter pulse, longer observation
 laserStartTime      0;
-laserEndTime    1e-10;
+laserEndTime    2e-10;
 
 // Advanced interface capturing - TUNED FOR EXTENDED SIMULATION
 useAdvancedInterfaceCapturing  true;
@@ -89,8 +89,7 @@ advancedInterfaceCapturing
     model               kinetic_theory;  // Not arbitrary scaling!
     stickingCoeff       0.18;
     momentumAccom       0.18;
-    //pressureScale         1;
-    recoilMax             5e6;      // ✅ REDUCE from 1e7 (5 MPa max)
+    recoilMax             5e7;      // ✅ REDUCE from 1e7 (5 MPa max)
     clampRecoil           true;
     scaleRecoilMax        false;    // ✅ DISABLE scaling (let physics control it)
     recoilTempOffset      100;      // ✅ INCREASE from 20 (smoother activation)
@@ -107,7 +106,7 @@ logRecoilSuppression true;
 // Temperature clamping - EXTENDED RANGE
 enableTClamp    true;
 minT            200;           // Allow cooling below room temp
-maxT            3500;          // Clamp high temperatures for stability
+//maxT            5000;          // Clamp high temperatures in line with lattice limit
 
 // Two-temperature model properties - OPTIMIZED FOR EXTENDED RUNS
 twoTemperatureProperties
@@ -150,15 +149,16 @@ twoTemperatureProperties
     }
     minGasMetalExchangeCoeff [1 -1 -3 -1 0 0 0] 0;
     maxGasMetalExchangeCoeff [1 -1 -3 -1 0 0 0] 1e13;
-    maxGasMetalHeatFlux    1e12;
+    maxGasMetalHeatFlux    5e11;   // Surface heat flux cap [W/m²]
     minTe           200;
     maxTe           20000;      // Allow hot electrons
     maxTl           5000;       // Physical melting limit
     ambientTemperature 300;
-
+    temperatureDifferenceFloor 10.0;                     // Guard against Te/Tl collapse
+    
     // ADAPTIVE MICRO-STEPPING
-    electronSubCycles        1;
-    minElectronSubCycles     1;
+    electronSubCycles        4;
+    minElectronSubCycles     2;
     maxElectronSubCycles     20;     // Allow rapid transients
     maxElectronDeltaT        [0 0 1 0 0 0 0] 1e-15;  // Guard rapid transients
 
@@ -181,73 +181,6 @@ twoTemperatureProperties
 // Clean monitoring functions
 functions
 {
-  // Adaptive output frequency based on simulation phase
-    phaseAdaptiveOutput
-    {
-        type            coded;
-        libs            ("libutilityFunctionObjects.so");
-        name            phaseAdaptiveOutput;
-        writeControl    timeStep;
-        writeInterval   1;
-
-        codeWrite
-        #{
-            const scalar t = mesh().time().value();
-            static scalar activeWriteInterval = -1;
-            static scalar nextWriteTime = -1;
-            scalar newInterval = 1e-12;  // Default 1 ps
-
-            if (t < 1e-10)       newInterval = 1e-12;  // 1 ps
-            else if (t < 3e-10)  newInterval = 2e-12;  // 2 ps
-            else if (t < 5e-10)  newInterval = 5e-12;  // 5 ps
-            else                 newInterval = 1e-11;  // 10 ps
-
-            Time& runTime = const_cast<Time&>(mesh().time());
-            const scalar currentDeltaT = runTime.deltaTValue();
-
-            if
-            (
-                activeWriteInterval < 0
-             || mag(newInterval - activeWriteInterval) > 0.1e-12
-            )
-            {
-                activeWriteInterval = newInterval;
-
-                label completedSteps = 0;
-                if (activeWriteInterval > 0)
-                {
-                    completedSteps = label(t/activeWriteInterval);
-                }
-
-                nextWriteTime = (completedSteps + 1)*activeWriteInterval;
-
-                if (nextWriteTime <= t + 0.5*currentDeltaT)
-                {
-                    nextWriteTime += activeWriteInterval;
-                }
-
-                if (Pstream::master()) {
-                    Info<< "Adaptive output: Changed write interval to "
-                        << activeWriteInterval*1e12 << " ps at t="
-                        << t*1e12 << " ps" << endl;
-                }
-            }
-
-            const scalar writeTolerance = 0.5*currentDeltaT;
-
-            if (nextWriteTime >= 0 && t + writeTolerance >= nextWriteTime) {
-                const scalar originalTime = t;
-                const label originalIndex = runTime.timeIndex();
-
-                runTime.setTime(nextWriteTime, originalIndex);
-                runTime.writeNow();
-                runTime.setTime(originalTime, originalIndex);
-
-                nextWriteTime += activeWriteInterval;
-                }
-        #};
-    }
-
     // Mid-plane visualization (optional)
     midPlaneVTK
     {
