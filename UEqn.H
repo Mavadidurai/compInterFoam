@@ -12,6 +12,38 @@ fvOptions.constrain(UEqn);
 
 const Foam::dictionary& solverCoeffs = compInterFoamCoeffsDict(mesh);
 
+const Foam::scalar kineticEnergyCeiling =
+    solverCoeffs.lookupOrDefault<Foam::scalar>
+    (
+        "maxKineticEnergyDensity",
+        1e12
+    );
+
+if (kineticEnergyCeiling > 0 && kineticEnergyCeiling < Foam::GREAT)
+{
+    tmp<volScalarField> tKineticEnergyDensity(0.5*rho*magSqr(U));
+    const volScalarField& kineticEnergyDensity = tKineticEnergyDensity();
+    const dimensionedScalar maxKineticEnergyDensity =
+        gMax(kineticEnergyDensity);
+    const scalar maxKineticEnergyDensityValue =
+        maxKineticEnergyDensity.value();
+
+    if
+    (
+        !std::isfinite(maxKineticEnergyDensityValue)
+     || maxKineticEnergyDensityValue > kineticEnergyCeiling
+    )
+    {
+        FatalErrorInFunction
+            << "Maximum kinetic energy density "
+            << maxKineticEnergyDensityValue
+            << " J/m^3 exceeds limit "
+            << kineticEnergyCeiling
+            << " J/m^3. Velocity field has become unphysical."
+            << exit(FatalError);
+    }
+}
+
 if (pimple.momentumPredictor())
 {
     // The capillary force already appears in phig within pEqn.H via

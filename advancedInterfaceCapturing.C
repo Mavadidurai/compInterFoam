@@ -96,7 +96,7 @@ advancedInterfaceCapturing::advancedInterfaceCapturing
     recoilRelax_(1.0),
     // Relaxed default bounds to reduce clipping of interface values
     alphaMin_(0.001),
-    alphaMax_(0.999),
+    alphaMax_(1.0),
     massRateEps_(1e-12),
     metalAlphaCutoff_(0.01),
     recoilPressure_
@@ -478,11 +478,13 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
     scalar maxOvershootLimit = 0.0;
     label maxOvershootCell = -1;
 
+    const bool enforceUpper = alphaMax_ < (scalar(1) - Foam::SMALL);
+
     forAll(recoilField, cellI)
     {
         const scalar alpha = alpha1Field[cellI];
 
-        if (alpha < alphaMin_ || alpha > alphaMax_)
+        if (alpha < alphaMin_ || (enforceUpper && alpha > alphaMax_))
         {
             recoilField[cellI] = 0.0;
             continue;

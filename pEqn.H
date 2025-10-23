@@ -151,7 +151,7 @@ const Foam::scalar observedMinP = Foam::gMin(p);
 const Foam::scalar observedMaxP = Foam::gMax(p);
 
 const bool pressureNonFinite =
-    (!Foam::isfinite(observedMinP) || !Foam::isfinite(observedMaxP));
+    (!std::isfinite(observedMinP) || !std::isfinite(observedMaxP));
 
 const bool pressureOutOfBounds =
     (observedMinP < minPressure || observedMaxP > maxPressure);
@@ -172,7 +172,7 @@ if (!pressureClamp && (pressureNonFinite || pressureOutOfBounds))
     {
         Foam::scalar& val = pInternal[celli];
 
-        if (!Foam::isfinite(val))
+        if (!std::isfinite(val))
         {
             val = 0.0;
         }
@@ -188,7 +188,7 @@ if (!pressureClamp && (pressureNonFinite || pressureOutOfBounds))
         {
             Foam::scalar& val = patchField[facei];
 
-            if (!Foam::isfinite(val))
+            if (!std::isfinite(val))
             {
                 val = 0.0;
             }

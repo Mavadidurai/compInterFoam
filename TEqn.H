@@ -252,7 +252,15 @@ if (verbose && master && timeIndex % 10 == 0)
     // Limit the gas-metal exchange to cells where gas contacts metal. Include
     // a neighbour-weighted metal mask so pure-gas cells adjacent to metal
     // retain a non-zero coupling weight.
-    cappedInterfaceExchange *= interfaceMask;
+    tmp<volScalarField> tNeighbourExchange
+    (
+        fvc::average(cappedInterfaceExchange)
+    );
+    const volScalarField& neighbourExchange = tNeighbourExchange();
+
+    cappedInterfaceExchange =
+        interfaceMask*cappedInterfaceExchange
+      + (scalar(1) - interfaceMask)*neighbourExchange;
     cappedInterfaceExchange.correctBoundaryConditions();
 
     tmp<volVectorField> tGradMetal(fvc::grad(metalFraction));
@@ -888,6 +896,14 @@ if (verbose && master && timeIndex % 10 == 0)
     tmp<volScalarField> tRawFlux(relaxedInterfaceExchange*(Tl - T));
     volScalarField& rawFlux = tRawFlux.ref();
 
+    tmp<volScalarField> tNeighbourRawFlux(fvc::average(rawFlux));
+    const volScalarField& neighbourRawFlux = tNeighbourRawFlux();
+
+    rawFlux =
+        interfaceMask*rawFlux
+      + (scalar(1) - interfaceMask)*neighbourRawFlux;
+    rawFlux.correctBoundaryConditions();
+    
     const scalar dtVal = Foam::max(dt.value(), SMALL);
 
     scalarField& rawFluxInternal = rawFlux.primitiveFieldRef();
@@ -947,6 +963,14 @@ if (verbose && master && timeIndex % 10 == 0)
 
     tmp<volScalarField> tSurfaceFlux(rawFlux*interfaceDelta);
     volScalarField& surfaceFlux = tSurfaceFlux.ref();
+
+    tmp<volScalarField> tNeighbourSurfaceFlux(fvc::average(surfaceFlux));
+    const volScalarField& neighbourSurfaceFlux = tNeighbourSurfaceFlux();
+
+    surfaceFlux =
+        interfaceMask*surfaceFlux
+      + (scalar(1) - interfaceMask)*neighbourSurfaceFlux;
+    surfaceFlux.correctBoundaryConditions();
 
     if (qCap > 0)
     {

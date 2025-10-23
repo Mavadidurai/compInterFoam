@@ -56,7 +56,7 @@ Foam::twoPhaseMixtureThermo::twoPhaseMixtureThermo
     evaporationCoeff_(0.18),
     relaxationTime_(1e-12),
     alphaMin_(0.01),
-    alphaMax_(0.99),
+    alphaMax_(1.0),
     Q_laser_
     (
         IOobject("Q_laser", U.mesh().time().timeName(), U.mesh(), IOobject::READ_IF_PRESENT, IOobject::AUTO_WRITE),
@@ -818,13 +818,15 @@ void Foam::twoPhaseMixtureThermo::computePhaseChange()
     const scalarField& TlField = Tl.primitiveField();
     const scalarField& pField = p.primitiveField();
 
+    const bool enforceUpper = alphaMax_ < (scalar(1) - Foam::SMALL);
+
     forAll(TlField, cellI)
     {
         const scalar T_local = TlField[cellI];
         const scalar p_local = pField[cellI];
         const scalar alpha = alpha1Field[cellI];
 
-        if (alpha < alphaMin_ || alpha > alphaMax_)
+        if (alpha < alphaMin_ || (enforceUpper && alpha > alphaMax_))
         {
             continue;
         }
