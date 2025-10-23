@@ -156,6 +156,7 @@ entries and their in-code defaults are:
 | Entry | Default | Used in |
 | --- | --- | --- |
 | `maxPressureGradient` | `GREAT` | Caps `∇p_rgh` used in the momentum predictor and zeroes non-finite components. |
+| `maxKineticEnergyDensity` | `1e12` | Aborts the run when `0.5*rho*|U|^2` exceeds the ceiling before solving `UEqn`. |
 | `maxUEqnVelocity` | `GREAT` | Limits `U` before computing `phi = fvc::flux(U)` to prevent runaway mass flux. |
 | `maxVelocity` | `500` | Bounds the velocity magnitude after the pressure correction. |
 | `minUEqnDiag` | `1e-9` | Floors the diagonal before inverting `UEqn` to form `rAU`. |
