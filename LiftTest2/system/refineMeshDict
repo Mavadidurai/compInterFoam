@@ -25,7 +25,8 @@ globalCoeffs
     normal (0 1 0);   // y-direction (film thickness)
 }
 
-// Re-enable refinement along the film normal to capture the thin layers.
+// BlockMesh now resolves the Ti film thickness, so keep refineMesh as a
+// pass-through to avoid reintroducing ultra-thin slices.
 directions           (normal);
 
 useHexTopology      no;
@@ -42,7 +43,7 @@ refinementRegions
     donorFilmBox
     {
         mode inside;
-        levels ((1e15 3));
+        levels ((1e15 0));
         box
         {
             min (0 19.99 0);

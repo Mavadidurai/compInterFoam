@@ -17,7 +17,7 @@ FoamFile
 
 application     compInterFoam;
 
-startFrom       startTime;
+startFrom       latestTime;
 startTime       0;
 stopAt          endTime;
 endTime         2e-9;           // Observation window through plume relaxation
@@ -96,7 +96,7 @@ advancedInterfaceCapturing
     phaseChangeTempOffset 100;      // ✅ INCREASE from 20
     recoilRelax           0.3;      // ✅ INCREASE from 0.1 (more damping)
     alphaMin              0.05;
-    alphaMax              0.95;
+    alphaMax              1;
     maxPhysicalTemperature 5000;
         // Physical limits
     maxRecoilPressure   1e8;    // 100 MPa absolute max
@@ -106,7 +106,7 @@ logRecoilSuppression true;
 // Temperature clamping - EXTENDED RANGE
 enableTClamp    true;
 minT            200;           // Allow cooling below room temp
-//maxT            5000;          // Clamp high temperatures in line with lattice limit
+maxT            15000;          // Clamp high temperatures in line with lattice limit
 
 // Two-temperature model properties - OPTIMIZED FOR EXTENDED RUNS
 twoTemperatureProperties
@@ -152,7 +152,7 @@ twoTemperatureProperties
     maxGasMetalHeatFlux    5e11;   // Surface heat flux cap [W/m²]
     minTe           200;
     maxTe           20000;      // Allow hot electrons
-    maxTl           5000;       // Physical melting limit
+    maxTl           8000;       // Physical melting limit
     ambientTemperature 300;
     temperatureDifferenceFloor 10.0;                     // Guard against Te/Tl collapse
     
