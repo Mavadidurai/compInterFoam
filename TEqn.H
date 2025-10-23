@@ -37,7 +37,7 @@ extern const bool master;
     {
         if (twoTemperatureDict.found("maxTl"))
         {
-            maxPhysicalTemp = twoTemperatureDict.lookup<scalar>("maxTl");
+            maxPhysicalTemp = readScalar(twoTemperatureDict.lookup("maxTl"));
 
             if (verbose && master)
             {
