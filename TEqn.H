@@ -930,12 +930,8 @@ if (verbose && master && timeIndex % 10 == 0)
     tmp<volScalarField> tRawFlux(relaxedInterfaceExchange*(Tl - T));
     volScalarField& rawFlux = tRawFlux.ref();
 
-    tmp<volScalarField> tNeighbourRawFlux(fvc::average(rawFlux));
-    const volScalarField& neighbourRawFlux = tNeighbourRawFlux();
+    rawFlux *= interfaceMask;
 
-    rawFlux =
-        interfaceMask*rawFlux
-      + (scalar(1) - interfaceMask)*neighbourRawFlux;
     rawFlux.correctBoundaryConditions();
 
     const scalar dtVal = Foam::max(dt.value(), SMALL);
@@ -998,12 +994,8 @@ if (verbose && master && timeIndex % 10 == 0)
     tmp<volScalarField> tSurfaceFlux(rawFlux*interfaceDelta);
     volScalarField& surfaceFlux = tSurfaceFlux.ref();
 
-    tmp<volScalarField> tNeighbourSurfaceFlux(fvc::average(surfaceFlux));
-    const volScalarField& neighbourSurfaceFlux = tNeighbourSurfaceFlux();
+    surfaceFlux *= interfaceMask;
 
-    surfaceFlux =
-        interfaceMask*surfaceFlux
-      + (scalar(1) - interfaceMask)*neighbourSurfaceFlux;
     surfaceFlux.correctBoundaryConditions();
 
     if (qCap > 0)
@@ -1016,7 +1008,7 @@ if (verbose && master && timeIndex % 10 == 0)
 
     const volScalarField& metalToGasFlux = tRawFlux();
 
-    gasMetalHeatFlux = metalToGasFlux;
+    gasMetalHeatFlux = interfaceMask*metalToGasFlux;
 
     gasMetalHeatFlux.correctBoundaryConditions();
 
