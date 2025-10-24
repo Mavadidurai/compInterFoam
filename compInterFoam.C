@@ -243,7 +243,7 @@ namespace
         const bool melting = (maxTl > 1941);
         const bool vaporizing = (maxTl > 3560);
         const bool plasmaConditions = (maxTl > 5000 && maxPressure > 1e7);
-        const bool recoilSignificant = (maxRecoil > 1e6);
+        const bool recoilSignificant = (maxRecoil > 1e7);
         const bool ejecting = (maxVel > 10);
         const bool accelerating = (maxVel > 100);
         const bool significantTransfer = (metalLoss > 2.0);
