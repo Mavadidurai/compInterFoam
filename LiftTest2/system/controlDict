@@ -24,10 +24,10 @@ endTime         2e-9;           // Observation window through plume relaxation
 
 deltaT          1e-16;         // Base time step (1 fs)
 adjustTimeStep  yes;           // ENABLE adaptive time stepping
-maxCo           0.01;          // Tighter limit to suppress rapid growth
-maxAlphaCo      0.002;         // Stricter interface Courant cap
-maxDeltaT       1e-15;         // Cap adaptive growth (1 fs)
-minDeltaT       1e-17;         // Minimum 0.01 fs for precision
+maxCo           0.05;          // Relaxed slightly to avoid needless clipping
+maxAlphaCo      0.01;          // Allow modest interface Courant growth
+maxDeltaT       5e-15;         // Permit limited step growth when flow is calm
+minDeltaT       5e-17;         // Keep floor above numerical noise threshold
 
 verbose         true;
 thermalFluxRelax 0.1;          // Stronger damping of interface heat flux
@@ -35,7 +35,7 @@ maxThermalCourant 0.001;         // Tightened for thermal stability
 
 // ADAPTIVE OUTPUT - more frequent during active phase, less during cooling
 writeControl    adjustableRunTime;
-writeInterval   1e-14;         // Start with 0.1 ps intervals to reduce churn
+writeInterval   1e-12;         // Start with 0.1 ps intervals to reduce churn
 purgeWrite      50;            // Keep more time directories for analysis
 writeFormat     ascii;
 writePrecision  8;
@@ -89,7 +89,7 @@ advancedInterfaceCapturing
     model               kinetic_theory;  // Not arbitrary scaling!
     stickingCoeff       0.18;
     momentumAccom       0.18;
-    recoilMax             5e7;      // ✅ REDUCE from 1e7 (5 MPa max)
+    recoilMax             5e8;      // ✅ REDUCE from 1e7 (5 MPa max)
     clampRecoil           true;
     scaleRecoilMax        false;    // ✅ DISABLE scaling (let physics control it)
     recoilTempOffset      100;      // ✅ INCREASE from 20 (smoother activation)
