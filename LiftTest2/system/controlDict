@@ -35,7 +35,7 @@ maxThermalCourant 0.001;         // Tightened for thermal stability
 
 // ADAPTIVE OUTPUT - more frequent during active phase, less during cooling
 writeControl    adjustableRunTime;
-writeInterval   1e-13;         // Start with 0.1 ps intervals to reduce churn
+writeInterval   1e-14;         // Start with 0.1 ps intervals to reduce churn
 purgeWrite      50;            // Keep more time directories for analysis
 writeFormat     ascii;
 writePrecision  8;
@@ -171,6 +171,7 @@ twoTemperatureProperties
     metalFractionFloor      1e-6;
     metalFractionCutoff     1e-6;
     metalAmbientBlendWidth  1e-3;
+    CvolGasFloor    1e6;  // J/m^3/K floor for gas cells
 
     energyTolerance         0.02;    // Relaxed for long runs
     energyDiagnostics       true;
