@@ -51,7 +51,7 @@ enableLiftProcessTracker true;
 phaseChangeCoeffs
 {
     model               clausius_clapeyron;  // Not temperature window!
-    hf                  [0 2 -2 0 0 0 0] 3.65e5;  // J/kg (Ti)
+    hf                  [0 2 -2 0 0 0 0] 9.1e6;   // J/kg (Ti vaporisation)
     Tsol                [0 0 0 1 0 0 0] 1941;     // K
     Tvap                [0 0 0 1 0 0 0] 3560;     // K
     
@@ -153,12 +153,12 @@ twoTemperatureProperties
     }
     minGasMetalExchangeCoeff [1 -1 -3 -1 0 0 0] 0;
     maxGasMetalExchangeCoeff [1 -1 -3 -1 0 0 0] 1e13;
-    maxGasMetalHeatFlux    5e11;   // Surface heat flux cap [W/m²]
+    maxGasMetalHeatFlux    1e7;   // Surface heat flux cap [W/m²]
     
     // ✅ ADJUSTED: Allow higher lattice temperatures now that coupling works
     minTe           200;
     maxTe           25000;      // 🔥 Increased from 20000 (electrons can go hotter)
-    maxTl           5000;       // 🔥 Increased from 8000 (will see plasma temps)
+    maxTl           15000;       // 🔥 Increased from 8000 (will see plasma temps)
     ambientTemperature 300;
     temperatureDifferenceFloor 10.0;                     // Guard against Te/Tl collapse
     
