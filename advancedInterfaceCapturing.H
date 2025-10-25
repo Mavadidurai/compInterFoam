@@ -28,7 +28,9 @@ Class
 
 Description
     Helper class for applying recoil pressure limits and diagnostics for
-    Laser-Induced Forward Transfer (LIFT) simulations.
+    Laser-Induced Forward Transfer (LIFT) simulations. Supports optional
+    ramping and per-step change limiting of the recoil load to avoid sudden
+    jumps during start-up.
 \*---------------------------------------------------------------------------*/
 #ifndef advancedInterfaceCapturing_H
 #define advancedInterfaceCapturing_H
@@ -46,7 +48,7 @@ private:
     volScalarField& alpha1_;         // Phase fraction
     const twoPhaseMixtureThermo& mixture_;
     const volScalarField& T_;        // Gas temperature field (fallback)
-    const volScalarField* TlPtr_;    // Optional lattice temperature field
+    const volScalarField* TlPtr_;    // Optional lattice temperature field (falls back to T_)
     // Phase-change parameters provided by twoPhaseMixtureThermo
     dimensionedScalar meltingTemp_;             // Melting temperature (Tsol)
     dimensionedScalar vaporTemp_;               // Vaporization temperature (Tvap)

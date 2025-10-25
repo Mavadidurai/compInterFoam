@@ -52,7 +52,7 @@ Foam::twoPhaseMixtureThermo::twoPhaseMixtureThermo
     T_melt_(0.0),
     T_vapor_(0.0),
     dtFloor_(1e-12),
-    gasConstant_(8.314/0.04787),
+    gasConstant_(0.0),  // Populated from controlDict.phaseChangeCoeffs (required)
     evaporationCoeff_(0.18),
     relaxationTime_(1e-12),
     alphaMin_(0.01),
@@ -474,6 +474,14 @@ Foam::twoPhaseMixtureThermo::twoPhaseMixtureThermo
         }
 
         gasConstant_ = val;
+    }
+    else
+    {
+        FatalIOErrorInFunction(phaseChangeDict)
+            << "Missing required entry 'gasConstant' in "
+            << phaseChangeDictDisplay
+            << ". Specify a material-appropriate value as a dimensioned scalar"
+            << exit(FatalIOError);
     }
 
     if (phaseChangeDict.found("evaporationCoeff"))
@@ -1131,10 +1139,12 @@ Foam::twoPhaseMixtureThermo::computeMassTransfer() const
     // Retrieve phase-1 density field and store temporary to avoid referencing
     // destroyed objects
     const tmp<volScalarField> rho1Tmp = thermo1_->rho();
+    const volScalarField& rho1Field = rho1Tmp();
+    const scalarField& rho1Internal = rho1Field.internalField();
     scalar rho1Ref = rho1_.value();
     if (rho1Ref <= SMALL)
     {
-        rho1Ref = Foam::gMax(rho1Tmp().internalField());
+        rho1Ref = Foam::gMax(rho1Internal);
     }
     forAll(dgdt, cellI)
     {
@@ -1144,7 +1154,13 @@ Foam::twoPhaseMixtureThermo::computeMassTransfer() const
             dgdt[cellI] = 0.0;
             continue;
         }
-        scalar localRate = -(ClVal*source)/(LVal*rho1Ref);
+        scalar rhoCell = rho1Internal[cellI];
+        if (rhoCell <= SMALL)
+        {
+            rhoCell = max(rho1Ref, Foam::SMALL);
+        }
+        rhoCell = max(rhoCell, Foam::SMALL);
+        scalar localRate = -(ClVal*source)/(LVal*rhoCell);
         if (rateMax > 0)
         {
             localRate = max(min(localRate, rateMax), -rateMax);

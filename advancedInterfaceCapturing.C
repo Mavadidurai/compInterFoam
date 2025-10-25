@@ -419,18 +419,19 @@ advancedInterfaceCapturing::advancedInterfaceCapturing
 }
 void advancedInterfaceCapturing::calculateRecoilPressure()
 {
-    const volScalarField* TlPtr = TlPtr_;
-    if (!TlPtr)
+    const volScalarField* temperaturePtr = TlPtr_ ? TlPtr_ : &T_;
+    if (!temperaturePtr)
     {
         recoilPressure_ = dimensionedScalar("zero", dimPressure, 0.0);
         previousRecoilPressure_.setSize(mesh_.nCells());
         previousRecoilPressure_ = 0.0;
         havePreviousRecoil_ = false;
+        rampProgress_ = 0.0;
         recoilPressure_.correctBoundaryConditions();
         return;
     }
 
-    const volScalarField& Tl = *TlPtr;
+    const volScalarField& temperature = *temperaturePtr;
     const volScalarField& massFlux = mixture_.phaseChangeMassFlux();
 
     const Time& time = mesh_.time();
@@ -445,19 +446,20 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
         previousRecoilPressure_.setSize(mesh_.nCells());
         previousRecoilPressure_ = 0.0;
         havePreviousRecoil_ = false;
+        rampProgress_ = 0.0;
         recoilPressure_.correctBoundaryConditions();
         return;
     }
     
     if
     (
-        Tl.size() != mesh_.nCells()
+        temperature.size() != mesh_.nCells()
      || massFlux.size() != mesh_.nCells()
      || alpha1_.size() != mesh_.nCells()
     )
     {
         FatalErrorIn("advancedInterfaceCapturing::calculateRecoilPressure()")
-            << "Field size mismatch detected. Tl: " << Tl.size()
+            << "Field size mismatch detected. temperature: " << temperature.size()
             << " massFlux: " << massFlux.size()
             << " alpha1: " << alpha1_.size()
             << " mesh: " << mesh_.nCells()
@@ -471,10 +473,23 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
         havePreviousRecoil_ = false;
     }
 
+    if (rampProgress_ < scalar(1))
+    {
+        // Progressively enable recoil according to the configured ramp steps.
+        rampProgress_ = Foam::min(rampProgress_ + rampIncrement_, scalar(1));
+    }
+    else
+    {
+        rampProgress_ = scalar(1);
+    }
+
+    const scalar rampFactor = rampProgress_;
+    const bool applyRamp = rampFactor < (scalar(1) - Foam::SMALL);
+
     recoilPressure_ = dimensionedScalar("zero", dimPressure, 0.0);
     scalarField& recoilField = recoilPressure_.primitiveFieldRef();
     const scalarField& alpha1Field = alpha1_.primitiveField();
-    const scalarField& TlField = Tl.primitiveField();
+    const scalarField& temperatureField = temperature.primitiveField();
     const scalarField& massFluxField = massFlux.primitiveField();
 
     const scalar alphaWindow = Foam::max(alphaMax_ - alphaMin_, Foam::SMALL);
@@ -513,7 +528,7 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
             continue;
         }
 
-        const scalar Tlocal = Foam::max(TlField[cellI], scalar(0));
+        const scalar Tlocal = Foam::max(temperatureField[cellI], scalar(0));
         const scalar vThermal = sqrt(k_B*Tlocal/particleMass);
 
         const scalar pRecoil = jNet*vThermal*(1.0 - betaMomentum);
@@ -565,7 +580,15 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
             recoilField[cellI] = unclampedRecoil;
         }
     }
-
+    
+    if (applyRamp)
+    {
+        forAll(recoilField, cellI)
+        {
+            recoilField[cellI] *= rampFactor;
+        }
+    }
+    
     if (clampCount > 0 && verbose && master)
     {
         Ostream& warn = WarningInFunction;
@@ -581,8 +604,6 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
         }
 
         warn << ". Values were clamped." << endl;    }
-
-    rampProgress_ = 1.0;
 
     if (recoilSmoothCoeff_ > SMALL && recoilSmoothIters_ > 0)
     {
@@ -624,7 +645,35 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
 
       recoilField = workingField;
     }
+    scalar maxDeltaPerStep = 0.0;
+    bool limitRecoilChange = false;
+    if (recoilMaxDelta_ > SMALL)
+    {
+        const scalar deltaT = mesh_.time().deltaTValue();
+        if (deltaT > SMALL)
+        {
+            // Convert the user-supplied change rate [Pa/s] into a per-step limit.
+            maxDeltaPerStep = recoilMaxDelta_*deltaT;
+            limitRecoilChange = maxDeltaPerStep > SMALL;
+        }
+    }
 
+    if (limitRecoilChange)
+    {
+        forAll(recoilField, cellI)
+        {
+            const scalar prevValue = previousRecoilPressure_[cellI];
+            const scalar delta = recoilField[cellI] - prevValue;
+
+            if (Foam::mag(delta) > maxDeltaPerStep)
+            {
+                // Restrict how quickly the recoil can deviate from its previous value.
+                const scalar limitedDelta =
+                    (delta >= 0) ? maxDeltaPerStep : -maxDeltaPerStep;
+                recoilField[cellI] = prevValue + limitedDelta;
+            }
+        }
+    }
     const scalar recoilRelax = recoilRelax_;
     const bool applyRelaxation = recoilRelax < (1.0 - Foam::SMALL);
     if (applyRelaxation)

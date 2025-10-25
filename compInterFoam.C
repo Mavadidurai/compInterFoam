@@ -165,6 +165,7 @@ namespace
 
         static Foam::scalar initialMetalVol = -1.0;
         static Foam::scalar peakMetalVol = -1.0;
+        static bool missingStartFieldWarned = false;
 
         if (initialMetalVol < 0)
         {
@@ -173,19 +174,42 @@ namespace
                 alpha1.name(),
                 runTime.timeName(runTime.startTime().value()),
                 mesh,
-                Foam::IOobject::MUST_READ,
+                Foam::IOobject::READ_IF_PRESENT,
                 Foam::IOobject::NO_WRITE
             );
 
-            Foam::volScalarField alphaInitial(alphaInitialIO, mesh);
-            Foam::scalarField alphaInitialVol(alphaInitial.primitiveField());
-            forAll(alphaInitialVol, cellI)
+            if (alphaInitialIO.headerOk())
             {
-                alphaInitialVol[cellI] *= cellVolumes[cellI];
-            }
+                Foam::volScalarField alphaInitial(alphaInitialIO, mesh);
+                Foam::scalarField alphaInitialVol(alphaInitial.primitiveField());
+                forAll(alphaInitialVol, cellI)
+                {
+                    alphaInitialVol[cellI] *= cellVolumes[cellI];
+                }
 
-            initialMetalVol = Foam::gSum(alphaInitialVol)*1e18;
-            peakMetalVol = initialMetalVol;
+                initialMetalVol = Foam::gSum(alphaInitialVol)*1e18;
+                peakMetalVol = initialMetalVol;
+            }
+            else
+            {
+                // Regression: continue tracking when the start-time directory
+                // was purged and the initial field is unavailable.
+                initialMetalVol = metalVol;
+                peakMetalVol = metalVol;
+
+                if (!missingStartFieldWarned)
+                {
+                    missingStartFieldWarned = true;
+
+                    if (Foam::Pstream::master())
+                    {
+                        WarningInFunction
+                            << "Start-time field '" << alpha1.name() << "' not found in "
+                            << runTime.timeName(runTime.startTime().value())
+                            << "; using current field as initial state." << Foam::endl;
+                    }
+                }
+            }
         }
 
         if (metalVol > peakMetalVol)

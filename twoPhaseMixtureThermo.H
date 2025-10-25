@@ -46,6 +46,7 @@ class twoPhaseMixtureThermo
         mutable scalar dtFloor_;
 
         //- Ideal-gas constant used in Hertz-Knudsen relation [J/(kg K)]
+        //  Must be supplied via controlDict.phaseChangeCoeffs
         scalar gasConstant_;
 
         //- Accommodation coefficient for evaporation/condensation []

@@ -1295,7 +1295,7 @@ void twoTemperatureModel::solve
                 fvc::domainIntegrate(metalPhysical*Cl_*TlDelta);
             Tl_ = TlClamped;
             Tl_.correctBoundaryConditions();
-            TlPrev = Tl_;
+            TlPrev = TlClamped;
 
             tke = electronThermalConductivity();
             const volScalarField& keField = tke();
@@ -1600,7 +1600,16 @@ tmp<volScalarField> twoTemperatureModel::gasMetalExchangeCoeffField() const
     
     volScalarField& coeff = tCoeff.ref();
 
-    if (useKapitzaExchange_)
+    if (gasMetalExchangeFunction_.valid())
+    {
+        const volScalarField& Tl = Tl_;
+
+        forAll(coeff, cellI)
+        {
+            coeff[cellI] = gasMetalExchangeFunction_->value(Tl[cellI]);
+        }
+    }
+    else if (useKapitzaExchange_)
     {
         // Gas-metal Kapitza conductance based on acoustic mismatch
         const volScalarField& Tl = Tl_;
