@@ -397,6 +397,7 @@ if (verbose && master && timeIndex % 10 == 0)
 
     tmp<volScalarField> tCvolLimited(Foam::max(CvolGas, cvolFloor));
     const volScalarField& CvolLimited = tCvolLimited();
+    const scalar capThreshold = 10.0*cvolFloor.value();
 
     const volScalarField& Told = T.oldTime();
 
@@ -463,6 +464,7 @@ if (verbose && master && timeIndex % 10 == 0)
                 scalar& Tcell = Tint[cellI];
                 scalar& Ecell = energyInternal[cellI];
                 const scalar cap = capInternal[cellI];
+                const bool lowCap = cap < capThreshold;
 
                 const bool badT =
                     (!std::isfinite(Tcell)
@@ -491,32 +493,43 @@ if (verbose && master && timeIndex % 10 == 0)
                     {
                         candidateT = minPhysicalTemp;
                     }
+
                     candidateT = Foam::min
                     (
                         Foam::max(candidateT, minPhysicalTemp),
                         maxPhysicalTemp
                     );
 
-                    scalar candidateEnergy = neighbourCapInternal[cellI]*candidateT;
-                    if (!std::isfinite(candidateEnergy))
+                    if (lowCap)
                     {
-                        candidateEnergy = cap*candidateT;
+                        Tcell = candidateT;
+                        Ecell = cap*candidateT;
+                        corrected = true;
                     }
+                    else
+                    {
+                        scalar candidateEnergy =
+                            neighbourCapInternal[cellI]*candidateT;
+                        if (!std::isfinite(candidateEnergy))
+                        {
+                            candidateEnergy = cap*candidateT;
+                        }
 
-                    const scalar energyFloor = cap*minPhysicalTemp;
-                    const scalar energyCeil = cap*maxPhysicalTemp;
+                        const scalar energyFloor = cap*minPhysicalTemp;
+                        const scalar energyCeil = cap*maxPhysicalTemp;
 
-                    candidateEnergy = Foam::min
-                    (
-                        Foam::max(candidateEnergy, energyFloor),
-                        energyCeil
-                    );
+                        candidateEnergy = Foam::min
+                        (
+                            Foam::max(candidateEnergy, energyFloor),
+                            energyCeil
+                        );
 
-                    Ecell = candidateEnergy;
-                    Tcell = candidateEnergy/Foam::max(cap, VSMALL);
-                    corrected = true;
+                        Ecell = candidateEnergy;
+                        Tcell = candidateEnergy/Foam::max(cap, VSMALL);
+                        corrected = true;
+                    }
                 }
-                else
+                else if (!lowCap)
                 {
                     const scalar energyFloor = cap*minPhysicalTemp;
                     const scalar energyCeil = cap*maxPhysicalTemp;
@@ -533,6 +546,22 @@ if (verbose && master && timeIndex % 10 == 0)
                     }
 
                     Tcell = Ecell/Foam::max(cap, VSMALL);
+                }
+
+                else
+                {
+                    scalar limitedT = Foam::min
+                    (
+                        Foam::max(Tcell, minPhysicalTemp),
+                        maxPhysicalTemp
+                    );
+
+                    if (limitedT != Tcell || !std::isfinite(Tcell))
+                    {
+                        Tcell = limitedT;
+                        Ecell = cap*limitedT;
+                        corrected = true;
+                    }
                 }
 
                 if (!std::isfinite(Tcell))
@@ -583,6 +612,7 @@ if (verbose && master && timeIndex % 10 == 0)
                     scalar& Tface = Tp[faceI];
                     scalar& Eface = Ep[faceI];
                     const scalar cap = CapP[faceI];
+                    const bool lowCap = cap < capThreshold;
 
                     const bool badT =
                         (!std::isfinite(Tface)
@@ -613,25 +643,52 @@ if (verbose && master && timeIndex % 10 == 0)
                             maxPhysicalTemp
                         );
 
-                        Eface = cap*candidateT;
-                        corrected = true;
+                        if (lowCap)
+                        {
+                            Tface = candidateT;
+                            Eface = cap*candidateT;
+                            corrected = true;
+                        }
+                        else
+                        {
+                            Eface = cap*candidateT;
+                            corrected = true;
+                        }
                     }
 
-                    const scalar energyFloor = cap*minPhysicalTemp;
-                    const scalar energyCeil = cap*maxPhysicalTemp;
-                    const scalar limitedEnergy = Foam::min
-                    (
-                        Foam::max(Eface, energyFloor),
-                        energyCeil
-                    );
-
-                    if (limitedEnergy != Eface)
+                    if (!lowCap)
                     {
-                        Eface = limitedEnergy;
-                        corrected = true;
-                    }
+                        const scalar energyFloor = cap*minPhysicalTemp;
+                        const scalar energyCeil = cap*maxPhysicalTemp;
+                        const scalar limitedEnergy = Foam::min
+                        (
+                            Foam::max(Eface, energyFloor),
+                            energyCeil
+                        );
 
-                    Tface = Eface/Foam::max(cap, VSMALL);
+                        if (limitedEnergy != Eface)
+                        {
+                            Eface = limitedEnergy;
+                            corrected = true;
+                        }
+
+                        Tface = Eface/Foam::max(cap, VSMALL);
+                    }
+                    else
+                    {
+                        scalar limitedT = Foam::min
+                        (
+                            Foam::max(Tface, minPhysicalTemp),
+                            maxPhysicalTemp
+                        );
+
+                        if (limitedT != Tface || !std::isfinite(Tface))
+                        {
+                            Tface = limitedT;
+                            Eface = cap*limitedT;
+                            corrected = true;
+                        }
+                    }
 
                     if (!std::isfinite(Tface))
                     {
