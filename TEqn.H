@@ -930,8 +930,6 @@ if (verbose && master && timeIndex % 10 == 0)
     tmp<volScalarField> tRawFlux(relaxedInterfaceExchange*(Tl - T));
     volScalarField& rawFlux = tRawFlux.ref();
 
-    rawFlux *= interfaceMask;
-
     rawFlux.correctBoundaryConditions();
 
     const scalar dtVal = Foam::max(dt.value(), SMALL);

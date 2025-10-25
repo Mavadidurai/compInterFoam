@@ -796,7 +796,17 @@ void Foam::twoPhaseMixtureThermo::computePhaseChange()
     phaseChangeMassFlux_.boundaryFieldRef() = 0.0;
 
     const fvMesh& mesh = T_.mesh();
+    const Time& time = mesh.time();
+    const scalar currentTime = time.value();
+    const scalar laserEnd =
+        time.controlDict().lookupOrDefault<scalar>("laserEndTime", GREAT);
+    const scalar phaseChangeGrace = 10.0*relaxationTime_;
 
+    if (currentTime > laserEnd + phaseChangeGrace)
+    {
+        return;
+    }
+    
     const volScalarField* TlPtr = mesh.foundObject<volScalarField>("Tl")
         ? &mesh.lookupObject<volScalarField>("Tl")
         : nullptr;

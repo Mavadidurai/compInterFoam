@@ -433,6 +433,22 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
     const volScalarField& Tl = *TlPtr;
     const volScalarField& massFlux = mixture_.phaseChangeMassFlux();
 
+    const Time& time = mesh_.time();
+    const scalar currentTime = time.value();
+    const scalar laserEnd =
+        time.controlDict().lookupOrDefault<scalar>("laserEndTime", GREAT);
+    const scalar recoilGrace = 5e-12;
+
+    if (currentTime > laserEnd + recoilGrace)
+    {
+        recoilPressure_ = dimensionedScalar("zero", dimPressure, 0.0);
+        previousRecoilPressure_.setSize(mesh_.nCells());
+        previousRecoilPressure_ = 0.0;
+        havePreviousRecoil_ = false;
+        recoilPressure_.correctBoundaryConditions();
+        return;
+    }
+    
     if
     (
         Tl.size() != mesh_.nCells()
