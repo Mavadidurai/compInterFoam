@@ -553,9 +553,9 @@ void twoTemperatureModel::applyTemperatureBounds
 )
 {
     tmp<volScalarField> tBoundTe = Foam::max(Foam::min(Te_, maxTe), minTe);
-    tmp<volScalarField> tBoundTl = Foam::max(Foam::min(Tl_, maxTl), minTl);
+    tmp<volScalarField> tLowerTl = Foam::max(Tl_, minTl);
     const volScalarField& boundTe = tBoundTe();
-    const volScalarField& boundTl = tBoundTl();
+    const volScalarField& lowerTl = tLowerTl();
 
     const dimensionedScalar activeThreshold
     (
@@ -571,7 +571,7 @@ void twoTemperatureModel::applyTemperatureBounds
     const volScalarField& inactiveMask = tInactiveMask();
 
     Te_ = binaryActive*boundTe + inactiveMask*ambient;
-    Tl_ = binaryActive*boundTl + inactiveMask*ambient;
+    Tl_ = binaryActive*lowerTl + inactiveMask*ambient;
 
     Te_.correctBoundaryConditions();
     Tl_.correctBoundaryConditions();
@@ -755,6 +755,7 @@ void twoTemperatureModel::writeEnergyDiagnostics
         
     const scalar laserEnergyValue = laserEnergy.value();
     const scalar phaseChangeEnergyValue = phaseChangeEnergy.value();
+    const scalar cumulativeLaserEnergyValue = cumulativeLaserEnergy_.value();
 
     Info<< "  Phase-change/Laser energy ratio (signed, negative = cooling): ";
     if (mag(laserEnergyValue) > SMALL)
@@ -771,17 +772,26 @@ void twoTemperatureModel::writeEnergyDiagnostics
                 << "Verify phase-change settings and source implementation." << endl;
         }
     }
-    else if (mag(phaseChangeEnergyValue) > SMALL)
+    else if (mag(cumulativeLaserEnergyValue) <= SMALL)
     {
-        Info<< "undefined (laser energy ≈ 0)" << nl;
-        WarningInFunction
-            << "Non-negligible phase-change energy reported while laser energy is near zero." << nl
-            << "  Phase-change energy: " << phaseChangeEnergyValue << " J" << endl;
-        return;
+        if (mag(phaseChangeEnergyValue) > SMALL)
+        {
+            Info<< "undefined (laser energy ≈ 0)" << nl;
+            WarningInFunction
+                << "Non-negligible phase-change energy reported while laser energy is near zero." << nl
+                << "  Phase-change energy: " << phaseChangeEnergyValue << " J" << endl;
+            return;
+        }
+        else
+        {
+            Info<< "undefined (laser energy ≈ 0)" << nl;
+            return;
+        }
     }
     else
     {
-        Info<< "undefined (laser energy ≈ 0)" << nl;
+        Info<< "undefined (current laser energy ≈ 0, cumulative laser energy = "
+            << cumulativeLaserEnergyValue << " J)" << nl;
         return;
     }
 
@@ -1262,8 +1272,23 @@ void twoTemperatureModel::solve
                 dtSub,
                 TlPrev
             );
+            tmp<volScalarField> tLowerTl = Foam::max(Tl_, minTl);
+            const volScalarField& lowerTl = tLowerTl();
+            const dimensionedScalar activeThreshold
+            (
+                "activeThresholdClamp",
+                dimless,
+                VSMALL
+            );
+            tmp<volScalarField> tBinaryActive =
+                pos(activeMask - activeThreshold);
+            const volScalarField& binaryActive = tBinaryActive();
+            tmp<volScalarField> tInactiveMask = scalar(1) - binaryActive;
+            const volScalarField& inactiveMask = tInactiveMask();
+            tmp<volScalarField> tUpperTl = Foam::min(lowerTl, maxTl);
+            const volScalarField& upperTl = tUpperTl();
             tmp<volScalarField> tTlClamped =
-                Foam::max(Foam::min(Tl_, maxTl), minTl);
+                binaryActive*lowerTl + inactiveMask*upperTl;
             const volScalarField& TlClamped = tTlClamped();
             tmp<volScalarField> tTlDelta = Tl_ - TlClamped;
             const volScalarField& TlDelta = tTlDelta();

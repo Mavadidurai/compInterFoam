@@ -482,7 +482,15 @@ namespace
             auto scalarValue = [&](Foam::scalar val, const std::string& unit)
             {
                 std::ostringstream valueStream;
-                valueStream << std::fixed << std::setprecision(2) << val;
+                Foam::scalar absVal = val >= 0 ? val : -val;
+                unsigned int precision = 2;
+
+                if (absVal < 1.0)
+                {
+                    precision = (absVal < 0.01) ? 4 : 3;
+                }
+
+                valueStream << std::fixed << std::setprecision(precision) << val;
                 if (!unit.empty())
                 {
                     valueStream << ' ' << unit;

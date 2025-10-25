@@ -224,14 +224,36 @@ if (verbose && master && timeIndex % 10 == 0)
 {
     // Calculate cooling rate
     static scalar lastMaxTl = maxTl;
-    const scalar coolingRate = (lastMaxTl - maxTl) / dt.value();
+    static scalar lastSampleTime = runTime.value();
+    const scalar currentTime = runTime.value();
+    const scalar elapsed = currentTime - lastSampleTime;
 
-    Info<< "Thermal diagnostics:" << nl
-        << "  Cooling rate: " << coolingRate << " K/s" << nl
-        << "  Expected equilibrium time: "
-        << (maxTl - 300.0) / max(coolingRate, SMALL) << " s" << endl;
+    Info<< "Thermal diagnostics:" << nl;
+
+    if (elapsed > SMALL)
+    {
+        const scalar coolingRate = (lastMaxTl - maxTl)/elapsed;
+
+        Info<< "  Cooling rate: " << coolingRate << " K/s" << nl;
+
+        if (coolingRate > 0)
+        {
+            Info<< "  Expected equilibrium time: "
+                << (maxTl - 300.0)/coolingRate << " s" << endl;
+        }
+        else
+        {
+            Info<< "  Cooling rate ≤ 0 (heating or steady); skipping equilibrium"
+                " estimate." << endl;
+        }
+    }
+    else
+    {
+        Info<< "  Cooling rate unavailable (elapsed time too small)." << endl;
+    }
 
     lastMaxTl = maxTl;
+    lastSampleTime = currentTime;
 }
     volScalarField& activeMask = tActiveMask.ref();
     activeMask = Foam::min(Foam::max(activeMask, scalar(0)), scalar(1));
