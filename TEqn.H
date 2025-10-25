@@ -378,7 +378,7 @@ if (verbose && master && timeIndex % 10 == 0)
     tmp<volScalarField> tRhoGasCore(Foam::max(tRho2(), rhoFloor));
     const volScalarField& rhoGasCore = tRhoGasCore();
 
-    tmp<volScalarField> tCvolGas(alpha2*rhoGasCore*CvGas);
+    tmp<volScalarField> tCvolGas(gasFraction*rhoGasCore*CvGas);
 
     const volScalarField& CvolGas = tCvolGas();
     const scalar cvolFloorValue =
@@ -806,7 +806,7 @@ if (verbose && master && timeIndex % 10 == 0)
 
         tmp<volScalarField> tLimiterActive
         (
-            Foam::pos(alpha2 - alphaLimiterFloor)
+            Foam::pos(gasFraction - alphaLimiterFloor)
         );
         const volScalarField& limiterActive = tLimiterActive();
 
@@ -965,6 +965,11 @@ if (verbose && master && timeIndex % 10 == 0)
     fvOptions.correct(T);
 
     projectTemperature("post-solve");
+    
+    // Preserve the gas temperature prior to enforcing the metal projection so
+    // that interfacial fluxes use the true post-solve gas state.
+    tmp<volScalarField> tInterfaceTemperature(T.clone());
+    const volScalarField& interfaceTemperature = tInterfaceTemperature();
 
     // Enforce lattice temperature only in cells that are overwhelmingly metal.
     const scalar strictMetalThreshold = 0.9;
@@ -984,7 +989,10 @@ if (verbose && master && timeIndex % 10 == 0)
     T = (scalar(1) - pureMetal)*T + pureMetal*Tl;
     projectTemperature("post-metal");
 
-    tmp<volScalarField> tRawFlux(relaxedInterfaceExchange*(Tl - T));
+    tmp<volScalarField> tRawFlux
+    (
+        relaxedInterfaceExchange*(Tl - interfaceTemperature)
+    );
     volScalarField& rawFlux = tRawFlux.ref();
 
     rawFlux.correctBoundaryConditions();
@@ -1021,7 +1029,7 @@ if (verbose && master && timeIndex % 10 == 0)
     {
         scalarField& fluxPatch = rawFlux.boundaryFieldRef()[patchI];
         const scalarField& capPatch = CvolLimited.boundaryField()[patchI];
-        const scalarField& Tpatch = T.boundaryField()[patchI];
+        const scalarField& Tpatch = interfaceTemperature.boundaryField()[patchI];
 
         forAll(fluxPatch, faceI)
         {
