@@ -1597,6 +1597,7 @@ tmp<volScalarField> twoTemperatureModel::gasMetalExchangeCoeffField() const
                 dict_.lookupOrDefault<scalar>("metalFractionFloor", 1e-6),
                 VSMALL
             );
+        const scalar interfaceActiveThreshold = SMALL;
 
         forAll(coeff, cellI)
         {
@@ -1611,7 +1612,7 @@ tmp<volScalarField> twoTemperatureModel::gasMetalExchangeCoeffField() const
             );
 
             if (metal < metalActiveThreshold &&
-                interfaceIndicator < metalActiveThreshold)
+                interfaceIndicator < interfaceActiveThreshold)
             {
                 coeff[cellI] = scalar(0);
                 continue;
