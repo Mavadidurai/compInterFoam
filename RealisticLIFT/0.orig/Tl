@@ -37,8 +37,8 @@ boundaryField
     // TOP - donor (transparent glass) - weaker thermal effect
     donor
     {
-        type            zeroGradient;  // OR fixedValue with higher temp
-        // Alternative: type fixedValue; value uniform 320;
+        type            fixedValue;
+        value           uniform 300;
     }
 }
 
