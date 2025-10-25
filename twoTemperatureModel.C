@@ -578,10 +578,10 @@ void twoTemperatureModel::applyTemperatureBounds
 }
 
 void twoTemperatureModel::solveLatticeEquation
-(
-    const volScalarField& metalEff,
-    const volScalarField& metalPhysical,
-    const volScalarField& G,
+  (
+      const volScalarField& metalEff,
+      const volScalarField& metalPhysical,
+      const volScalarField& G,
     const volScalarField& klField,
     const volScalarField& phaseChangeRelaxCoeff,
     const volScalarField& phaseChangeSource,
@@ -589,61 +589,103 @@ void twoTemperatureModel::solveLatticeEquation
     const volScalarField& gasMetalHeatFlux,
     const dimensionedScalar& dtSub,
     const volScalarField& TlPrev
-)
-{
-    tmp<volScalarField> tCap = metalEff*Cl_;
-    const volScalarField& capacity = tCap();
+  )
+  {
+     const scalar metalCutoff = metalValidationThreshold();
+     const dimensionedScalar metalCutoffDim
+     (
+         "metalCutoffSolveLattice",
+         dimless,
+         metalCutoff
+     );
 
-    fvScalarMatrix TlEqn
-    (
-        fvm::Sp(capacity/dtSub, Tl_)
-      - fvm::laplacian(metalEff*klField, Tl_)
-      + fvm::Sp(metalEff*G, Tl_)
-      + fvm::Sp(metalEff*Cl_*phaseChangeRelaxCoeff, Tl_)
-    ==
-        (capacity/dtSub)*TlPrev
-      + metalPhysical*G*Te_
-      // Signed so evaporation (j_net > 0) is negative and cools the lattice.
-      + metalPhysical*Cl_*phaseChangeSource
-      + metalPhysical*Cl_*phaseChangeRelaxCoeff*TlOld
-      - metalPhysical*gasMetalHeatFlux
-    );
+     tmp<volScalarField> tActiveMask = pos(metalPhysical - metalCutoffDim);
+     const volScalarField& activeMask = tActiveMask();
 
-    TlEqn.relax();
-    TlEqn.solve(mesh_.solver("Tl"));
-    Tl_.correctBoundaryConditions();
+     const dimensionedScalar one("one", dimless, 1.0);
+     tmp<volScalarField> tInactiveMask = one - activeMask;
+     const volScalarField& inactiveMask = tInactiveMask();
+
+     tmp<volScalarField> tMetalEffActive = metalEff*activeMask;
+     const volScalarField& metalEffActive = tMetalEffActive();
+
+     tmp<volScalarField> tMetalPhysicalActive = metalPhysical*activeMask;
+     const volScalarField& metalPhysicalActive = tMetalPhysicalActive();
+
+     tmp<volScalarField> tCap = (metalEffActive + inactiveMask)*Cl_;
+     const volScalarField& capacity = tCap();
+
+     fvScalarMatrix TlEqn
+     (
+         fvm::Sp(capacity/dtSub, Tl_)
+       - fvm::laplacian(metalEffActive*klField, Tl_)
+       + fvm::Sp(metalEffActive*G, Tl_)
+       + fvm::Sp(metalEffActive*Cl_*phaseChangeRelaxCoeff, Tl_)
+     ==
+         (capacity/dtSub)*TlPrev
+       + metalPhysicalActive*G*Te_
+        // Signed so evaporation (j_net > 0) is negative and cools the lattice.
+       + metalPhysicalActive*Cl_*phaseChangeSource
+       + metalPhysicalActive*Cl_*phaseChangeRelaxCoeff*TlOld
+       - metalPhysicalActive*gasMetalHeatFlux
+     );
+
+     TlEqn.relax();
+     TlEqn.solve(mesh_.solver("Tl"));
+     Tl_.correctBoundaryConditions();
 }
 
 void twoTemperatureModel::solveElectronEquation
-(
-    const volScalarField& metalEff,
-    const volScalarField& metalPhysical,
-    const volScalarField& Ce,
-    const volScalarField& ke,
+  (
+      const volScalarField& metalEff,
+      const volScalarField& metalPhysical,
+      const volScalarField& Ce,
+      const volScalarField& ke,
     const volScalarField& G,
     const volScalarField& laserSource,
     const dimensionedScalar& dtSub,
     const volScalarField& TePrev
-)
-{
-    tmp<volScalarField> tCap = metalEff*Ce;
-    const volScalarField& capacity = tCap();
+  )
+  {
+     const scalar metalCutoff = metalValidationThreshold();
+     const dimensionedScalar metalCutoffDim
+     (
+         "metalCutoffSolveElectron",
+         dimless,
+         metalCutoff
+     );
 
-    fvScalarMatrix TeEqn
-    (
-        fvm::Sp(capacity/dtSub, Te_)
-      - fvm::laplacian(metalEff*ke, Te_)
-      + fvm::Sp(metalEff*G, Te_)
-    ==
-        (capacity/dtSub)*TePrev
-      + metalPhysical*laserSource
-      + metalPhysical*G*Tl_
-    );
+     tmp<volScalarField> tActiveMask = pos(metalPhysical - metalCutoffDim);
+     const volScalarField& activeMask = tActiveMask();
 
-    TeEqn.relax();
-    TeEqn.solve(mesh_.solver("Te"));
-    Te_.correctBoundaryConditions();
-}
+     const dimensionedScalar one("one", dimless, 1.0);
+     tmp<volScalarField> tInactiveMask = one - activeMask;
+     const volScalarField& inactiveMask = tInactiveMask();
+
+     tmp<volScalarField> tMetalEffActive = metalEff*activeMask;
+     const volScalarField& metalEffActive = tMetalEffActive();
+
+     tmp<volScalarField> tMetalPhysicalActive = metalPhysical*activeMask;
+     const volScalarField& metalPhysicalActive = tMetalPhysicalActive();
+
+     tmp<volScalarField> tCap = Ce*(metalEffActive + inactiveMask);
+     const volScalarField& capacity = tCap();
+
+     fvScalarMatrix TeEqn
+     (
+         fvm::Sp(capacity/dtSub, Te_)
+       - fvm::laplacian(metalEffActive*ke, Te_)
+       + fvm::Sp(metalEffActive*G, Te_)
+     ==
+         (capacity/dtSub)*TePrev
+       + metalPhysicalActive*laserSource
+       + metalPhysicalActive*G*Tl_
+     );
+
+     TeEqn.relax();
+     TeEqn.solve(mesh_.solver("Te"));
+     Te_.correctBoundaryConditions();
+     }
 
 dimensionedScalar twoTemperatureModel::couplingEnergy
 (
