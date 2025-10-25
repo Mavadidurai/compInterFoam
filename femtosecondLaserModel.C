@@ -1168,7 +1168,8 @@ femtosecondLaserModel::evaluateTemporalEnvelope
             else
             {
                 const scalar halfWindow = 0.5*windowWidth;
-                const scalar centerOffset = min(halfWindow, sigma);
+                const scalar maxCenterOffset = 3.0*sigma;
+                const scalar centerOffset = min(halfWindow, maxCenterOffset);
 
                 center = laserStartTime_ + centerOffset;
             }
@@ -1577,7 +1578,18 @@ femtosecondLaserModel::applySpatialWeighting
             }
         }
     }
-
+    // After beam weighting loop
+    if (verbose && Pstream::master())
+    {
+        Info<< "BEAM PROFILE VALIDATION:" << nl
+            << "  Peak source: " << metrics.maxSourceValue << " W/m³" << nl
+            << "  Integrated power: " << metrics.totalSourceIntegral << " W" << nl
+            << "  Cells in beam: " << metrics.cellsInBeam << nl
+            << "  Average source: " << metrics.totalSourceIntegral/metrics.totalBeamVolume 
+            << " W/m³" << nl
+            << "  Peak/Average ratio: " << metrics.maxSourceValue * metrics.totalBeamVolume 
+               / metrics.totalSourceIntegral << nl;
+    }
     reduce(metrics.cellsInBeam, sumOp<label>());
     reduce(metrics.cellsInFilm, sumOp<label>());
     reduce(metrics.cellsInGas,  sumOp<label>());
@@ -1589,6 +1601,7 @@ femtosecondLaserModel::applySpatialWeighting
     reduce(metrics.limitedCells, sumOp<label>());
 
     return metrics;
+    
 }
 
 //------------------------------------------------------------------------------
