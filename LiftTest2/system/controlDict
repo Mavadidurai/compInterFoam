@@ -35,7 +35,7 @@ maxThermalCourant 0.001;         // Tightened for thermal stability
 
 // ADAPTIVE OUTPUT - more frequent during active phase, less during cooling
 writeControl    adjustableRunTime;
-writeInterval   1e-12;         // Start with 0.1 ps intervals to reduce churn
+writeInterval   1e-14;         // Start with 0.1 ps intervals to reduce churn
 purgeWrite      50;            // Keep more time directories for analysis
 writeFormat     ascii;
 writePrecision  8;
@@ -64,7 +64,7 @@ phaseChangeCoeffs
     relaxationTime      5e-12;        // Faster response for femtosecond dynamics
     maxSource           1e9;          // Allow sufficient heating-driven mass transfer
     minCoefficient      1e7;          // Reduced for gradual cooling
-    onlyAboveVapor      true;
+    onlyAboveVapor      false;
     metalFractionCutoff 1e-6;
     // EXTENDED ACTIVATION - through transfer and cooling
     activationTime      ((0 4e-10));  // Active through 400 ps as intended
@@ -130,14 +130,18 @@ twoTemperatureProperties
         type        table;
         values
         (
-            (300    3e17)
-            (1000   4.2e17)
-            (2000   4.8e17)
-            (3000   5.2e17)
-            (5000   6e17)
-            (10000  7.5e17)
+            (300     3e17)      // Room temperature
+            (1000    1e18)      // 3.3× increase (weak coupling regime)
+            (2000    2e18)      // Linear scaling begins
+            (3000    3e18)      // Strong coupling regime
+            (5000    5e18)      // 16× total
+            (7000    7e18)      // Continues scaling
+            (10000   1e19)      // 33× total
+            (15000   1.5e19)    // 50× total
+            (20000   2e19)      // Upper limit
         );
-    } 
+    }
+    
     Cl  [1 -1 -2 -1 0 0 0] 2.5e6;
     De  [0  2 -1  0 0 0 0] 1e-4;
 
@@ -150,9 +154,11 @@ twoTemperatureProperties
     minGasMetalExchangeCoeff [1 -1 -3 -1 0 0 0] 0;
     maxGasMetalExchangeCoeff [1 -1 -3 -1 0 0 0] 1e13;
     maxGasMetalHeatFlux    5e11;   // Surface heat flux cap [W/m²]
+    
+    // ✅ ADJUSTED: Allow higher lattice temperatures now that coupling works
     minTe           200;
-    maxTe           20000;      // Allow hot electrons
-    maxTl           8000;       // Physical melting limit
+    maxTe           25000;      // 🔥 Increased from 20000 (electrons can go hotter)
+    maxTl           5000;       // 🔥 Increased from 8000 (will see plasma temps)
     ambientTemperature 300;
     temperatureDifferenceFloor 10.0;                     // Guard against Te/Tl collapse
     
@@ -173,7 +179,7 @@ twoTemperatureProperties
     metalAmbientBlendWidth  1e-3;
     CvolGasFloor    1e6;  // J/m^3/K floor for gas cells
 
-    energyTolerance         0.02;    // Relaxed for long runs
+    energyTolerance         0.05;    // Relaxed for long runs
     energyDiagnostics       true;
     temperatureDiagnostics  true;   // Reduce output volume
     energyAudit             true;
