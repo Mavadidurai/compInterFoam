@@ -603,6 +603,7 @@ void twoTemperatureModel::solveLatticeEquation
     ==
         (capacity/dtSub)*TlPrev
       + metalPhysical*G*Te_
+      // Signed so evaporation (j_net > 0) is negative and cools the lattice.
       + metalPhysical*Cl_*phaseChangeSource
       + metalPhysical*Cl_*phaseChangeRelaxCoeff*TlOld
       - metalPhysical*gasMetalHeatFlux
@@ -697,7 +698,7 @@ void twoTemperatureModel::writeEnergyDiagnostics
         << "  Lattice energy before: "
         << latticeEnergyBefore.value() << " J" << nl
         << "  Laser energy input: " << laserEnergy.value() << " J" << nl
-        << "  Phase-change energy input: "
+        << "  Phase-change energy contribution (positive = condensation): "
         << phaseChangeEnergy.value() << " J" << nl
         << "  Gas-metal coupling energy loss: "
         << couplingEnergy.value() << " J" << nl
@@ -713,16 +714,16 @@ void twoTemperatureModel::writeEnergyDiagnostics
     const scalar laserEnergyValue = laserEnergy.value();
     const scalar phaseChangeEnergyValue = phaseChangeEnergy.value();
 
-    Info<< "  Phase-change/Laser energy ratio: ";
+    Info<< "  Phase-change/Laser energy ratio (signed, negative = cooling): ";
     if (mag(laserEnergyValue) > SMALL)
     {
         const scalar ratio = phaseChangeEnergyValue/laserEnergyValue;
         Info<< ratio << nl;
 
-        if (ratio > 2.0)
+        if (mag(ratio) > 2.0)
         {
             WarningInFunction
-                << "Phase-change energy input exceeds twice the laser energy input." << nl
+                << "Phase-change energy magnitude exceeds twice the laser energy input." << nl
                 << "  Phase-change energy: " << phaseChangeEnergyValue << " J" << nl
                 << "  Laser energy: " << laserEnergyValue << " J" << nl
                 << "Verify phase-change settings and source implementation." << endl;

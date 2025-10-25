@@ -992,8 +992,6 @@ if (verbose && master && timeIndex % 10 == 0)
     tmp<volScalarField> tSurfaceFlux(rawFlux*interfaceDelta);
     volScalarField& surfaceFlux = tSurfaceFlux.ref();
 
-    surfaceFlux *= interfaceMask;
-
     surfaceFlux.correctBoundaryConditions();
 
     if (qCap > 0)
@@ -1006,7 +1004,7 @@ if (verbose && master && timeIndex % 10 == 0)
 
     const volScalarField& metalToGasFlux = tRawFlux();
 
-    gasMetalHeatFlux = interfaceMask*metalToGasFlux;
+    gasMetalHeatFlux = metalToGasFlux;
 
     gasMetalHeatFlux.correctBoundaryConditions();
 

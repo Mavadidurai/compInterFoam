@@ -7,7 +7,8 @@
 #include "interfaceProperties.H"
 #include "dimensionedScalar.H"
 #include "error.H"
-
+#include "Tuple2.H"
+#include "List.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
@@ -57,6 +58,11 @@ class twoPhaseMixtureThermo
         scalar alphaMin_;
         scalar alphaMax_;
         
+        //- Restrict phase change to temperatures above T_vapor
+        Switch onlyAboveVapor_;
+
+        //- Optional activation windows for phase change [s]
+        List<Tuple2<scalar, scalar>> activationWindows_;
         //- Laser volumetric heat source (W/m^3)
         volScalarField Q_laser_;
 

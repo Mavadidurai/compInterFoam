@@ -57,6 +57,8 @@ Foam::twoPhaseMixtureThermo::twoPhaseMixtureThermo
     relaxationTime_(1e-12),
     alphaMin_(0.01),
     alphaMax_(1.0),
+    onlyAboveVapor_(false),
+    activationWindows_(),
     Q_laser_
     (
         IOobject("Q_laser", U.mesh().time().timeName(), U.mesh(), IOobject::READ_IF_PRESENT, IOobject::AUTO_WRITE),
@@ -362,6 +364,12 @@ Foam::twoPhaseMixtureThermo::twoPhaseMixtureThermo
     
     const dictionary& phaseChangeDict = *phaseChangeDictPtr;
 
+    onlyAboveVapor_ = phaseChangeDict.lookupOrDefault<Switch>
+    (
+        "onlyAboveVapor",
+        false
+    );
+    
     auto checkDimensions =
         [&](const word& entryName,
             const dimensionedScalar& value,
@@ -390,6 +398,65 @@ Foam::twoPhaseMixtureThermo::twoPhaseMixtureThermo
                     << exit(FatalIOError);
             }
         };
+    if (phaseChangeDict.found("tStart") || phaseChangeDict.found("tEnd"))
+    {
+        if (!(phaseChangeDict.found("tStart") && phaseChangeDict.found("tEnd")))
+        {
+            FatalIOErrorInFunction(phaseChangeDict)
+                << "Both 'tStart' and 'tEnd' must be provided in "
+                << phaseChangeDictDisplay
+                << " to configure activation windows"
+                << exit(FatalIOError);
+        }
+
+        List<scalar> tStart;
+        List<scalar> tEnd;
+        phaseChangeDict.lookup("tStart") >> tStart;
+        phaseChangeDict.lookup("tEnd") >> tEnd;
+
+        if (tStart.size() != tEnd.size())
+        {
+            FatalIOErrorInFunction(phaseChangeDict)
+                << "Entries 'tStart' and 'tEnd' in " << phaseChangeDictDisplay
+                << " must have the same number of values"
+                << exit(FatalIOError);
+        }
+
+        activationWindows_.setSize(tStart.size());
+        scalar previousEnd = -GREAT;
+        forAll(tStart, i)
+        {
+            const scalar start = tStart[i];
+            const scalar end = tEnd[i];
+
+            if (!std::isfinite(start) || !std::isfinite(end))
+            {
+                FatalIOErrorInFunction(phaseChangeDict)
+                    << "Entries 'tStart'/'tEnd' in " << phaseChangeDictDisplay
+                    << " must contain finite values"
+                    << exit(FatalIOError);
+            }
+
+            if (end <= start)
+            {
+                FatalIOErrorInFunction(phaseChangeDict)
+                    << "Activation window requires tEnd > tStart in "
+                    << phaseChangeDictDisplay << " (window " << i << ')'
+                    << exit(FatalIOError);
+            }
+
+            if (i > 0 && start < previousEnd)
+            {
+                FatalIOErrorInFunction(phaseChangeDict)
+                    << "Activation windows in " << phaseChangeDictDisplay
+                    << " must be ordered and non-overlapping"
+                    << exit(FatalIOError);
+            }
+
+            activationWindows_[i] = Tuple2<scalar, scalar>(start, end);
+            previousEnd = end;
+        }
+    }
 
     if (phaseChangeDict.found("gasConstant"))
     {
@@ -802,6 +869,39 @@ void Foam::twoPhaseMixtureThermo::computePhaseChange()
         time.controlDict().lookupOrDefault<scalar>("laserEndTime", GREAT);
     const scalar phaseChangeGrace = 10.0*relaxationTime_;
 
+    bool withinWindow = activationWindows_.empty();
+    forAll(activationWindows_, windowI)
+    {
+        const Tuple2<scalar, scalar>& window = activationWindows_[windowI];
+        if
+        (
+            currentTime >= window.first()
+         && currentTime <= window.second()
+        )
+        {
+            withinWindow = true;
+            break;
+        }
+    }
+
+    static bool loggedInactivePhaseChange = false;
+
+    if (!withinWindow)
+    {
+        if (!loggedInactivePhaseChange && Pstream::master())
+        {
+            Info<< "Phase-change source inactive outside configured window at t="
+                << currentTime << endl;
+        }
+        loggedInactivePhaseChange = true;
+        return;
+    }
+
+    if (loggedInactivePhaseChange)
+    {
+        loggedInactivePhaseChange = false;
+    }
+
     if (currentTime > laserEnd + phaseChangeGrace)
     {
         return;
@@ -830,6 +930,9 @@ void Foam::twoPhaseMixtureThermo::computePhaseChange()
 
     const bool enforceUpper = alphaMax_ < (scalar(1) - Foam::SMALL);
 
+    const scalarField& cellVolumes = mesh.V();
+    const bool restrictToVapor = onlyAboveVapor_;
+
     forAll(TlField, cellI)
     {
         const scalar T_local = TlField[cellI];
@@ -837,6 +940,11 @@ void Foam::twoPhaseMixtureThermo::computePhaseChange()
         const scalar alpha = alpha1Field[cellI];
 
         if (alpha < alphaMin_ || (enforceUpper && alpha > alphaMax_))
+        {
+            continue;
+        }
+
+        if (restrictToVapor && T_local < T_vap)
         {
             continue;
         }
@@ -861,7 +969,7 @@ void Foam::twoPhaseMixtureThermo::computePhaseChange()
         }
 
         const scalar heatFlux = j_net*L;  // [W/m^2]
-        const scalar cellVolume = mesh.V()[cellI];
+        const scalar cellVolume = cellVolumes[cellI];
 
         if (cellVolume <= VSMALL)
         {
@@ -879,11 +987,14 @@ void Foam::twoPhaseMixtureThermo::computePhaseChange()
         const scalar meltThickness = Foam::max(metalFraction*cellLength, VSMALL);
         const scalar volumetricHeat = heatFlux/meltThickness;  // [W/m^3]
 
+        // A positive mass flux (evaporation) must *remove* lattice energy.
+        // Store the volumetric temperature rate with a sign convention where
+        // evaporation yields a negative contribution and condensation positive.
         const scalar rate = volumetricHeat/Cl;
         const scalar relax = 1.0/relaxationTime_;
 
         phaseChangeRelaxCoeff_[cellI] = relax;
-        phaseChangeSource_[cellI] = rate;
+        phaseChangeSource_[cellI] = -rate;
         phaseChangeMassFlux_[cellI] = j_net;
     }
 }
