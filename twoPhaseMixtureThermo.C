@@ -917,7 +917,10 @@ void Foam::twoPhaseMixtureThermo::computePhaseChange()
     }
 
     const volScalarField& Tl = *TlPtr;
-    const volScalarField& p = mesh.lookupObject<volScalarField>("p");
+    const volScalarField* pMetalVaporPtr =
+        mesh.foundObject<volScalarField>("pMetalVapor")
+            ? &mesh.lookupObject<volScalarField>("pMetalVapor")
+            : nullptr;
 
     const scalar L = latentHeat_;
     const scalar R = gasConstant_;
@@ -926,7 +929,8 @@ void Foam::twoPhaseMixtureThermo::computePhaseChange()
 
     const scalarField& alpha1Field = alpha1().primitiveField();
     const scalarField& TlField = Tl.primitiveField();
-    const scalarField& pField = p.primitiveField();
+    const scalarField* pMetalVaporFieldPtr =
+        pMetalVaporPtr ? &pMetalVaporPtr->primitiveField() : nullptr;
 
     const bool enforceUpper = alphaMax_ < (scalar(1) - Foam::SMALL);
 
@@ -936,7 +940,8 @@ void Foam::twoPhaseMixtureThermo::computePhaseChange()
     forAll(TlField, cellI)
     {
         const scalar T_local = TlField[cellI];
-        const scalar p_local = pField[cellI];
+        const scalar p_metalVapor =
+            pMetalVaporFieldPtr ? (*pMetalVaporFieldPtr)[cellI] : 0.0;
         const scalar alpha = alpha1Field[cellI];
 
         if (alpha < alphaMin_ || (enforceUpper && alpha > alphaMax_))
@@ -957,7 +962,7 @@ void Foam::twoPhaseMixtureThermo::computePhaseChange()
         const scalar sqrt_2piR = std::sqrt(2.0*3.14159*R);
 
         const scalar j_evap = evaporationCoeff_*p_vapor/(sqrt_2piR*sqrt_T);
-        const scalar j_cond = evaporationCoeff_*p_local/(sqrt_2piR*sqrt_T);
+        const scalar j_cond = evaporationCoeff_*p_metalVapor/(sqrt_2piR*sqrt_T);
 
         const scalar j_net = j_evap - j_cond;
 
