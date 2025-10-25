@@ -14,16 +14,15 @@ FoamFile
 }
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
-// Compressible air treated as a perfect gas so that psi = (rho/p) remains
-// finite and the pressure equation stays well posed under femtosecond heating.
+// Thermophysical model for compressible air treated as a perfect gas
 
 thermoType
 {
-    type            hePsiThermo;
+    type            heRhoThermo;     // was hePsiThermo  ← FIX
     mixture         pureMixture;
     transport       const;
     thermo          hConst;
-    equationOfState perfectGas;
+    equationOfState rhoConst;
     specie          specie;
     energy          sensibleEnthalpy;
 }
@@ -52,7 +51,7 @@ mixture
 
     equationOfState
     {
-        R           287;                // J/kg·K - Gas constant for air
+        rho         1.2;                // kg/m³ - ✅ FIXED: Constant air density
     }
 }
 

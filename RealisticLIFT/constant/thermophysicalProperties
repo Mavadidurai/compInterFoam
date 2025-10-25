@@ -17,8 +17,7 @@ FoamFile
 
 phases (metal air);
 
-
-sigma           sigma [ 1 0 -2 0 0 0 0 ] 1.64; // surface tension
+sigma           sigma [ 1 0 -2 0 0 0 0 ] 1.64;
 
 metal
 {
@@ -28,7 +27,7 @@ metal
         mixture         pureMixture;
         transport       const;
         thermo          hConst;
-        equationOfState rhoConst;
+        equationOfState Boussinesq;
         specie          specie;
         energy          sensibleEnthalpy;
     }
@@ -37,34 +36,30 @@ metal
     {
         specie
         {
-            molWeight       47.867;         // kg/kmol - Titanium molecular weight
+            molWeight       47.867;
         }
 
         thermodynamics
         {
-            Cp              560;            // J/kg·K - Heat capacity
-            Hf              0.0;            // J/kg - Heat of formation
-            Tref            300;            // K - Reference temperature
-            Href            0;              // J/kg - Reference enthalpy
+            Cp              560;
+            Hf              0.0;
+            Tref            300;
+            Href            0;
         }
 
         transport
         {
-            mu              2.25e-3;        // Pa·s - Dynamic viscosity
-            Pr              0.03;           // Prandtl number (liquid metals)
+            mu              2.25e-3;
+            Pr              0.03;
         }
 
         equationOfState
         {
-            rho             4515;           // kg/m3 - constant density approximation
+            rho0            4515;
+            beta            7.6e-5;
+            T0              300;
         }
     }
-
-    Tsol                1941.0;             // K - Solidus temperature
-    Tliq                1941.0;             // K - Liquidus temperature
-    Tvap                3560.0;             // K - Vaporisation temperature
-    hf                  3.65e5;             // J/kg - Vaporisation latent heat
-    kappa               17.2;               // W/m·K - Thermal conductivity
 }
 
 air
@@ -84,26 +79,26 @@ air
     {
         specie
         {
-            molWeight   28.97;              // kg/kmol - Air molecular weight
+            molWeight   28.97;
         }
 
         thermodynamics
         {
-            Cp          1000;               // J/kg·K - Air specific heat
-            Hf          0.0;                // J/kg - Heat of formation
-            Tref        300;                // K - Reference temperature
-            Href        0;                  // J/kg - Reference enthalpy
+            Cp          1000;
+            Hf          0.0;
+            Tref        300;
+            Href        0;
         }
 
         transport
         {
-            mu          1.8e-5;             // Pa·s - Air dynamic viscosity
-            Pr          0.7;                // Prandtl number for air
+            mu          1.8e-5;
+            Pr          0.7;
         }
 
         equationOfState
         {
-            R           287;                // J/kg·K - Gas constant for air
+            R           287;
         }
     }
 }
