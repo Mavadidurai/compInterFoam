@@ -553,9 +553,9 @@ void twoTemperatureModel::applyTemperatureBounds
 )
 {
     tmp<volScalarField> tBoundTe = Foam::max(Foam::min(Te_, maxTe), minTe);
-    tmp<volScalarField> tLowerTl = Foam::max(Tl_, minTl);
+    tmp<volScalarField> tBoundTl = Foam::max(Foam::min(Tl_, maxTl), minTl);
     const volScalarField& boundTe = tBoundTe();
-    const volScalarField& lowerTl = tLowerTl();
+    const volScalarField& boundTl = tBoundTl();
 
     const dimensionedScalar activeThreshold
     (
@@ -571,7 +571,7 @@ void twoTemperatureModel::applyTemperatureBounds
     const volScalarField& inactiveMask = tInactiveMask();
 
     Te_ = binaryActive*boundTe + inactiveMask*ambient;
-    Tl_ = binaryActive*lowerTl + inactiveMask*ambient;
+    Tl_ = binaryActive*boundTl + inactiveMask*ambient;
 
     Te_.correctBoundaryConditions();
     Tl_.correctBoundaryConditions();
@@ -1272,8 +1272,9 @@ void twoTemperatureModel::solve
                 dtSub,
                 TlPrev
             );
-            tmp<volScalarField> tLowerTl = Foam::max(Tl_, minTl);
-            const volScalarField& lowerTl = tLowerTl();
+            tmp<volScalarField> tBoundTl =
+                Foam::max(Foam::min(Tl_, maxTl), minTl);
+            const volScalarField& boundTl = tBoundTl();
             const dimensionedScalar activeThreshold
             (
                 "activeThresholdClamp",
@@ -1282,18 +1283,15 @@ void twoTemperatureModel::solve
             );
             tmp<volScalarField> tBinaryActive =
                 pos(activeMask - activeThreshold);
-            const volScalarField& binaryActive = tBinaryActive();
-            tmp<volScalarField> tInactiveMask = scalar(1) - binaryActive;
             const volScalarField& inactiveMask = tInactiveMask();
-            tmp<volScalarField> tUpperTl = Foam::min(lowerTl, maxTl);
-            const volScalarField& upperTl = tUpperTl();
-            tmp<volScalarField> tTlClamped = upperTl;
-            const volScalarField& TlClamped = tTlClamped();
-            tmp<volScalarField> tTlDelta = Tl_ - TlClamped;
+            tmp<volScalarField> tTlBound =
+                binaryActive*boundTl + inactiveMask*ambientDim;
+            const volScalarField& TlBound = tTlBound();
+            tmp<volScalarField> tTlDelta = Tl_ - TlBound;
             const volScalarField& TlDelta = tTlDelta();
             clampEnergyCorrection +=
                 fvc::domainIntegrate(metalPhysical*Cl_*TlDelta);
-            Tl_ = TlClamped;
+            Tl_ = TlBound;
             Tl_.correctBoundaryConditions();
             TlPrev = Tl_;
 
