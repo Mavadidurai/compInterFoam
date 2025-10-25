@@ -52,6 +52,7 @@ phaseChangeCoeffs
 {
     model               clausius_clapeyron;  // Not temperature window!
     hf                  [0 2 -2 0 0 0 0] 9.1e6;   // J/kg (Ti vaporisation)
+    gasConstant         [0 2 -2 -1 0 0 0] 287;    // J/kg/K (air)
     Tsol                [0 0 0 1 0 0 0] 1941;     // K
     Tvap                [0 0 0 1 0 0 0] 3560;     // K
     
@@ -106,7 +107,7 @@ logRecoilSuppression true;
 // Temperature clamping - EXTENDED RANGE
 enableTClamp    true;
 minT            200;           // Allow cooling below room temp
-maxT            8000;          // Clamp high temperatures in line with lattice limit
+maxT            18000;          // Clamp high temperatures in line with lattice limit
 
 // Two-temperature model properties - OPTIMIZED FOR EXTENDED RUNS
 twoTemperatureProperties
