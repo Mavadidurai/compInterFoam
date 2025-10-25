@@ -21,7 +21,6 @@ scale 1e-6; // coordinates in micrometers
 // y1 = 8.0000     - Substrate top / Air gap bottom  
 // y2 = 20.0000    - Air gap top / Ti film bottom
 // y3 = 20.0714    - Ti film top (71.4 nm thick)
-// y4 = 32.0714    - Donor glass top
 
 vertices
 (
@@ -36,9 +35,6 @@ vertices
     
     // y3 = 20.0714 (Ti film top) - 71.4 nm thick film
     (0  20.0714  0)  (50 20.0714  0)  (50 20.0714 10)  (0  20.0714 10)
-    
-    // y4 = 32.0714 (donor glass top)
-    (0  32.0714  0)  (50 32.0714  0)  (50 32.0714 10)  (0  32.0714 10)
 );
 
 blocks
@@ -47,23 +43,22 @@ blocks
     hex ( 0  3  2  1   4  7  6  5)   ( 80 400  40)  simpleGrading (1 1 1)  // Substrate (receiver)
     hex ( 4  7  6  5   8 11 10  9)   ( 80 400  60)  simpleGrading (1 1 1)  // Air gap (12 µm)
     // limit the y-resolution (global y = block k-direction) so neighbouring layers stay comparable
-    // (80 x 400 x 16 produces ~4.5 nm thick layers across the 71.4 nm film)
-    hex ( 8 11 10  9  12 15 14 13)   ( 80 400  16)  simpleGrading (1 1 1)  // Ti film (71.4 nm, thin layer)
-    hex (12 15 14 13  16 19 18 17)   ( 80 400  60)  simpleGrading (1 1 1)  // Donor glass (12 µm)
+    // (400 cells over 71.4 nm created ~0.18 nm layers, which triggered the under-determined and low-weight faces)
+    hex ( 8 11 10  9  12 15 14 13)   ( 80 400   6)  simpleGrading (1 1 1)  // Ti film (71.4 nm, thin layer)
 );
 edges ();
 
 boundary
 (
     // Symmetry planes (external boundaries only)
-    left          { type symmetryPlane; faces ((0 3 7 4)(4 7 11 8)(8 11 15 12)(12 15 19 16)); }
-    right         { type symmetryPlane; faces ((1 5 6 2)(5 9 10 6)(9 13 14 10)(13 17 18 14)); }
-    front         { type symmetryPlane; faces ((0 4 5 1)(4 8 9 5)(8 12 13 9)(12 16 17 13)); }
-    back          { type symmetryPlane; faces ((3 2 6 7)(7 6 10 11)(11 10 14 15)(15 14 18 19)); }
+    left          { type symmetryPlane; faces ((0 3 7 4)(4 7 11 8)(8 11 15 12)); }
+    right         { type symmetryPlane; faces ((1 5 6 2)(5 9 10 6)(9 13 14 10)); }
+    front         { type symmetryPlane; faces ((0 4 5 1)(4 8 9 5)(8 12 13 9)); }
+    back          { type symmetryPlane; faces ((3 2 6 7)(7 6 10 11)(11 10 14 15)); }
 
-    // CORRECTED: Substrate at bottom, donor at top (external faces only)
+    // CORRECTED: Substrate at bottom, donor wall at Ti film top
     substrate     { type wall;  faces ((0 3 2 1)); }      // BOTTOM - receiver substrate
-    donor         { type wall;  faces ((16 17 18 19)); }   // TOP - transparent donor substrate
+    donor         { type wall;  faces ((12 15 14 13)); }   // TOP - transparent donor substrate
 );
 
 mergePatchPairs();

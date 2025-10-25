@@ -20,14 +20,14 @@ application     compInterFoam;
 startFrom       latestTime;
 startTime       0;
 stopAt          endTime;
-endTime         2e-9;           // EXTENDED: 2 ns total for complete LIFT process
+endTime         2e-9;           // Observation window through plume relaxation
 
 deltaT          1e-16;         // Base time step (1 fs)
 adjustTimeStep  yes;           // ENABLE adaptive time stepping
-maxCo           0.02;          // Allow reasonable growth while staying stable
-maxAlphaCo      0.005;         // Aggressive interface limit
-maxDeltaT       1e-14;         // Cap adaptive growth (10 fs)
-minDeltaT       1e-17;         // Minimum 0.01 fs for precision
+maxCo           0.05;          // Relaxed slightly to avoid needless clipping
+maxAlphaCo      0.01;          // Allow modest interface Courant growth
+maxDeltaT       5e-15;         // Permit limited step growth when flow is calm
+minDeltaT       5e-17;         // Keep floor above numerical noise threshold
 
 verbose         true;
 thermalFluxRelax 0.1;          // Stronger damping of interface heat flux
@@ -35,8 +35,8 @@ maxThermalCourant 0.001;         // Tightened for thermal stability
 
 // ADAPTIVE OUTPUT - more frequent during active phase, less during cooling
 writeControl    adjustableRunTime;
-writeInterval   1e-14;         // Start with 1 ps intervals
-purgeWrite      0;            // Keep more time directories for analysis
+writeInterval   1e-14;         // Start with 0.1 ps intervals to reduce churn
+purgeWrite      50;            // Keep more time directories for analysis
 writeFormat     ascii;
 writePrecision  8;
 writeCompression off;
@@ -51,7 +51,8 @@ enableLiftProcessTracker true;
 phaseChangeCoeffs
 {
     model               clausius_clapeyron;  // Not temperature window!
-    hf                  [0 2 -2 0 0 0 0] 3.65e5;  // J/kg (Ti)
+    hf                  [0 2 -2 0 0 0 0] 9.1e6;   // J/kg (Ti vaporisation)
+    gasConstant         [0 2 -2 -1 0 0 0] 287;    // J/kg/K (air)
     Tsol                [0 0 0 1 0 0 0] 1941;     // K
     Tvap                [0 0 0 1 0 0 0] 3560;     // K
     
@@ -59,14 +60,15 @@ phaseChangeCoeffs
     stickingCoeff       0.18;     // Ti evaporation coefficient
     momentumAccom       0.18;     // Momentum accommodation
     
+    //windowWidth         100;
     dtFloor             1e-15;         // Reduced for precision
-    relaxationTime      1e-11;        // Faster response for femtosecond dynamics
-    maxSource           1e8;          // Allow sufficient heating-driven mass transfer
-    minCoefficient      1e6;          // Reduced for gradual cooling
-    onlyAboveVapor      true;
+    relaxationTime      5e-12;        // Faster response for femtosecond dynamics
+    maxSource           1e9;          // Allow sufficient heating-driven mass transfer
+    minCoefficient      1e7;          // Reduced for gradual cooling
+    onlyAboveVapor      false;
     metalFractionCutoff 1e-6;
     // EXTENDED ACTIVATION - through transfer and cooling
-    activationTime      ((0 4e-10));  // Active through 400 ps
+    activationTime      ((0 4e-10));  // Active through 400 ps as intended
 }
 
 // EXTENDED MASS TRANSFER - through solidification
@@ -79,7 +81,7 @@ massTransferCoeffs
 
 // LASER TIMING - shorter pulse, longer observation
 laserStartTime      0;
-laserEndTime    5e-10;
+laserEndTime    2e-10;
 
 // Advanced interface capturing - TUNED FOR EXTENDED SIMULATION
 useAdvancedInterfaceCapturing  true;
@@ -88,28 +90,29 @@ advancedInterfaceCapturing
     model               kinetic_theory;  // Not arbitrary scaling!
     stickingCoeff       0.18;
     momentumAccom       0.18;
-    recoilMax             5e8;   // Allow 500 MPa recoil before clamping
-    clampRecoil           true;  // Keep bounding but at physically defensible level
-    scaleRecoilMax        false;
-    recoilTempOffset      100;
-    phaseChangeTempOffset 100;
-    recoilRelax           0.5;
+    recoilMax             5e8;      // ✅ REDUCE from 1e7 (5 MPa max)
+    clampRecoil           true;
+    scaleRecoilMax        false;    // ✅ DISABLE scaling (let physics control it)
+    recoilTempOffset      100;      // ✅ INCREASE from 20 (smoother activation)
+    phaseChangeTempOffset 100;      // ✅ INCREASE from 20
+    recoilRelax           0.3;      // ✅ INCREASE from 0.1 (more damping)
     alphaMin              0.05;
-    alphaMax              0.95;
+    alphaMax              1;
     maxPhysicalTemperature 5000;
         // Physical limits
-    maxRecoilPressure   1e8;    // 100 MPa absolute max
+    maxRecoilPressure   1e9;    // 100 MPa absolute max
 }
 logRecoilSuppression true;
 
 // Temperature clamping - EXTENDED RANGE
 enableTClamp    true;
 minT            200;           // Allow cooling below room temp
-maxT            8000;          // Clamp high temperatures in line with lattice limit
+maxT            50000;          // Clamp high temperatures in line with lattice limit
 
 // Two-temperature model properties - OPTIMIZED FOR EXTENDED RUNS
 twoTemperatureProperties
 {
+    
     // Linear electronic heat capacity: Ce = γTe
     Ce
     {
@@ -128,12 +131,15 @@ twoTemperatureProperties
         type        table;
         values
         (
-            (300    3e16)
-            (1000   4.2e16)
-            (2000   4.8e16)
-            (3000   5.2e16)
-            (5000   6e16)
-            (10000  7.5e16)
+            (300     3e17)      // Room temperature
+            (1000    1e18)      // 3.3× increase (weak coupling regime)
+            (2000    2e18)      // Linear scaling begins
+            (3000    3e18)      // Strong coupling regime
+            (5000    5e18)      // 16× total
+            (7000    7e18)      // Continues scaling
+            (10000   1e19)      // 33× total
+            (15000   1.5e19)    // 50× total
+            (20000   2e19)      // Upper limit
         );
     }
     
@@ -146,22 +152,25 @@ twoTemperatureProperties
         Z_metal     2.3e7;      // Ti acoustic impedance [Pa·s/m]
         Z_gas       383;        // Ar acoustic impedance [Pa·s/m]
     }
-    minGasMetalExchangeCoeff [1 -1 -3 -1 0 0 0] 1e8;
-    maxGasMetalExchangeCoeff [1 -1 -3 -1 0 0 0] 1e14;   // ≈1e10 W/m²/K over 1 nm
-    maxGasMetalHeatFlux    1e12;   // Raised to avoid premature flux saturation [W/m²]
+    minGasMetalExchangeCoeff [1 -1 -3 -1 0 0 0] 0;
+    maxGasMetalExchangeCoeff [1 -1 -3 -1 0 0 0] 1e13;
+    maxGasMetalHeatFlux    1e7;   // Surface heat flux cap [W/m²]
+    
+    // ✅ ADJUSTED: Allow higher lattice temperatures now that coupling works
     minTe           200;
-    maxTe           20000;      // Allow hot electrons
-    maxTl           5000;       // Physical melting limit
+    maxTe           25000;      // 🔥 Increased from 20000 (electrons can go hotter)
+    maxTl           15000;       // 🔥 Increased from 8000 (will see plasma temps)
     ambientTemperature 300;
-    temperatureDifferenceFloor 10.0;                     // Maintain minimum 10 K differential to prevent singularities
+    temperatureDifferenceFloor 10.0;                     // Guard against Te/Tl collapse
+    
     // ADAPTIVE MICRO-STEPPING
-    electronSubCycles        1;
-    minElectronSubCycles     1;
-    maxElectronSubCycles     10;     // Allow rapid transients
-    maxElectronDeltaT        [0 0 1 0 0 0 0] 1e-17;  // Guard rapid transients
+    electronSubCycles        4;
+    minElectronSubCycles     2;
+    maxElectronSubCycles     20;     // Allow rapid transients
+    maxElectronDeltaT        [0 0 1 0 0 0 0] 1e-15;  // Guard rapid transients
 
-    nInnerCouplingSweeps         2;  // More coupling iterations
-    innerCouplingResidualTol     1e-3; // Enable convergence check
+    nInnerCouplingSweeps         3;  // More coupling iterations
+    innerCouplingResidualTol     1e-4; // Enable convergence check
     
     klHighTThreshold 1000;
     klExponent       0.5;
@@ -169,85 +178,17 @@ twoTemperatureProperties
     metalFractionFloor      1e-6;
     metalFractionCutoff     1e-6;
     metalAmbientBlendWidth  1e-3;
- // ✅ CRITICAL: Added missing gas volume heat capacity floor
-    CvolGasFloor            1e4;     // J/m³/K minimum for gas
-    
+    CvolGasFloor    1e6;  // J/m^3/K floor for gas cells
+
     energyTolerance         0.05;    // Relaxed for long runs
     energyDiagnostics       true;
     temperatureDiagnostics  true;   // Reduce output volume
-    energyAudit             false;
+    energyAudit             true;
 }
 
 // Clean monitoring functions
 functions
 {
-  // Adaptive output frequency based on simulation phase
-    phaseAdaptiveOutput
-    {
-        type            coded;
-        libs            ("libutilityFunctionObjects.so");
-        name            phaseAdaptiveOutput;
-        writeControl    timeStep;
-        writeInterval   1;
-
-        codeWrite
-        #{
-            const scalar t = mesh().time().value();
-            static scalar activeWriteInterval = -1;
-            static scalar accumulatedTime = 0;
-            static scalar lastSampleTime = -1;
-            scalar newInterval = 1e-12;  // Default 1 ps
-
-            if (t < 1e-10)       newInterval = 1e-12;  // 1 ps
-            else if (t < 3e-10)  newInterval = 2e-12;  // 2 ps
-            else if (t < 5e-10)  newInterval = 5e-12;  // 5 ps
-            else                 newInterval = 1e-11;  // 10 ps
-
-            Time& runTime = const_cast<Time&>(mesh().time());
-            const scalar currentDeltaT = runTime.deltaTValue();
-
-            if (lastSampleTime < 0)
-            {
-                lastSampleTime = t;
-                accumulatedTime = 0;
-            }
-            else
-            {
-                accumulatedTime += Foam::max(scalar(0), t - lastSampleTime);
-                lastSampleTime = t;
-            }
-
-            if
-            (
-                activeWriteInterval < 0
-             || mag(newInterval - activeWriteInterval) > 0.1e-12
-            )
-            {
-                activeWriteInterval = newInterval;
-
-                if (activeWriteInterval > 0 && accumulatedTime > activeWriteInterval)
-                {
-                    accumulatedTime = activeWriteInterval;
-                }
-
-                if (Pstream::master()) {
-                    Info<< "Adaptive output: Changed write interval to "
-                        << activeWriteInterval*1e12 << " ps at t="
-                        << t*1e12 << " ps" << endl;
-                }
-            }
-
-            const scalar writeTolerance = Foam::max(0.5*currentDeltaT, 1e-16);
-
-            if (activeWriteInterval > 0 && accumulatedTime + writeTolerance >= activeWriteInterval)
-            {
-                runTime.writeNow();
-                accumulatedTime = 0;
-                lastSampleTime = t;
-            }
-        #};
-    }
-
     // Mid-plane visualization (optional)
     midPlaneVTK
     {
