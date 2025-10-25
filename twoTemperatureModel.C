@@ -1293,7 +1293,7 @@ void twoTemperatureModel::solve
             const volScalarField& TlDelta = tTlDelta();
             clampEnergyCorrection +=
                 fvc::domainIntegrate(metalPhysical*Cl_*TlDelta);
-            Tl_ = TlBound;
+            Tl_ = TlClamped;
             Tl_.correctBoundaryConditions();
             TlPrev = Tl_;
 
