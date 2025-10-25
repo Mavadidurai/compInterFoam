@@ -563,7 +563,7 @@ void twoTemperatureModel::applyTemperatureBounds
     const dimensionedScalar ambientClamped =
         Foam::max(Foam::min(ambient, maxTl), minTl);
 
-    Te_ = activeMask*boundTe + (one - activeMask)*ambient;
+    Te_ = activeMask*boundTe + (one - activeMask)*ambientClamped;
     Tl_ = activeMask*lowerTl + (one - activeMask)*ambientClamped;
 
     tmp<volScalarField> tZeroMask = pos(dimensionedScalar("zeroMask", dimless, VSMALL) - activeMask);

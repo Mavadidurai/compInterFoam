@@ -178,7 +178,7 @@ namespace
                 Foam::IOobject::NO_WRITE
             );
 
-            if (alphaInitialIO.headerOk())
+            if (alphaInitialIO.typeHeaderOk<Foam::volScalarField>())
             {
                 Foam::volScalarField alphaInitial(alphaInitialIO, mesh);
                 Foam::scalarField alphaInitialVol(alphaInitial.primitiveField());
