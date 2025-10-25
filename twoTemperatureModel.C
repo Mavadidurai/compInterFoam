@@ -1287,8 +1287,7 @@ void twoTemperatureModel::solve
             const volScalarField& inactiveMask = tInactiveMask();
             tmp<volScalarField> tUpperTl = Foam::min(lowerTl, maxTl);
             const volScalarField& upperTl = tUpperTl();
-            tmp<volScalarField> tTlClamped =
-                binaryActive*lowerTl + inactiveMask*upperTl;
+            tmp<volScalarField> tTlClamped = upperTl;
             const volScalarField& TlClamped = tTlClamped();
             tmp<volScalarField> tTlDelta = Tl_ - TlClamped;
             const volScalarField& TlDelta = tTlDelta();
