@@ -93,8 +93,8 @@ solvers
         Tl
         {
             $T;
-            tolerance       1e-8;
-            relTol          0;
+        tolerance       1e-6;
+        relTol          1e-4;
         }
 }
 
