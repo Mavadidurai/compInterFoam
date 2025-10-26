@@ -80,6 +80,10 @@ extern const bool master;
     scalar totalCellsProjected = 0.0;
     scalar totalLowProjected = 0.0;
     scalar totalHighProjected = 0.0;
+    scalar lastCellsProjected = 0.0;
+    scalar lastLowProjected = 0.0;
+    scalar lastHighProjected = 0.0;
+    word lastProjectionStage("none");
 
     volScalarField& gasMetalHeatFlux =
         mesh.lookupObjectRef<volScalarField>("gasMetalHeatFlux");
@@ -749,6 +753,14 @@ if (verbose && master && timeIndex % 10 == 0)
 
             const label correctedTotal = correctedInternal + correctedBoundary;
 
+            if (correctedTotal > 0)
+            {
+                lastLowProjected = totalLowProjected;
+                lastHighProjected = totalHighProjected;
+                lastCellsProjected = totalCellsProjected;
+                lastProjectionStage = stage;
+            }
+            
             if ((correctedTotal > 0 || nNonFinite > 0) && verbose && master)
             {
                 WarningInFunction
@@ -1121,9 +1133,17 @@ if (verbose && master && timeIndex % 10 == 0)
 
         if (enableTClamp)
         {
-            const scalar denom = Foam::max(scalar(1), totalCellsProjected);
-            Info<< "    projection fractions: low=" << totalLowProjected/denom
-                << "  high=" << totalHighProjected/denom << endl;
+            if (lastProjectionStage != "none" && lastCellsProjected > VSMALL)
+            {
+                const scalar denom = Foam::max(scalar(1), lastCellsProjected);
+                Info<< "    projection fractions (" << lastProjectionStage << "): low="
+                    << lastLowProjected/denom
+                    << "  high=" << lastHighProjected/denom << endl;
+            }
+            else
+            {
+                Info<< "    projection fractions: low=0  high=0" << endl;
+            }
         }
     }
 
