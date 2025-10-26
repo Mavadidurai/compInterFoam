@@ -46,12 +46,12 @@ gasAbsorptionCoeff 0;     // [1/m] gas absorption (0 disables direct gas heating
 // CRITICAL: Keep pulse energy compatible with interface heat-flux limit
 // NOTE: Omit pulseCenterTime to fire the single pulse immediately after
 //       laserStartTime.  Supplying a later center delays deposition.
-pulseEnergy              5e-8;      // 50 nJ (typical LIFT)
+pulseEnergy              1.5e-7;    // 150 nJ to exceed recoil threshold while staying <6e16 W/m^2
 pulseWidth               200e-15;   // 200 fs FWHM
 wavelength               343e-9;    // 343 nm (Ti absorption peak)
 
 // --- Spatial Gaussian (match the box center and film depth) ---
-spotSize        6.0e-6;       // [m] beam diameter (3 μm 1/e² radius)
+spotSize        6.0e-6;       // [m] beam diameter (3 μm 1/e² radius) //spotSize 3.2e-6
 // Put the beam center inside the domain (mid x,z; inside donor film at y≈20.0357 μm)
 focus            (25e-6 20.0357e-6 5e-6);
 direction       (0 -1 0);
@@ -73,8 +73,8 @@ continuousLaser     false;
 maxVolumetricSource 2e23;  // [W/m³] physical safeguard just above pulse peak
 
 // Single-pulse configuration aligned with controlDict laser window
-pulseFrequency      0;        // [1/s] disabled for single pulse operation
-pulseDutyCycle      0;        // [-] duty cycle unused when pulses disabled
+pulseFrequency      1e10;     // [1/s] 10 GHz → pulses every 100 ps within 0–200 ps window
+pulseDutyCycle      2e-3;     // [-] matches 200 fs pulse over 100 ps period
 
 // Energy tolerance for validation
 pulseEnergyToleranceRel 0.05; // 5% relative tolerance
