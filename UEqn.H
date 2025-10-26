@@ -177,10 +177,21 @@ if (pimple.momentumPredictor())
     {
         const volScalarField& recoilP = *recoilPressurePtr;
 
-        const tmp<volVectorField> tGradAlpha1 = fvc::grad(alpha1);
-        const volVectorField& gradAlpha1 = tGradAlpha1();
+        const tmp<volVectorField> tInterfaceGrad = fvc::grad(alpha1);
+        const volVectorField& interfaceGrad = tInterfaceGrad();
+        const tmp<volScalarField> tInterfaceStrength = mag(interfaceGrad);
+        const volScalarField& interfaceStrength = tInterfaceStrength();
+        const tmp<volVectorField> tInterfaceNormal
+        (
+            -(interfaceGrad/
+            (
+                interfaceStrength
+              + dimensionedScalar("small", dimless/dimLength, SMALL)
+            ))
+        );
+        const volVectorField& interfaceNormal = tInterfaceNormal();
         const bool logRecoil = verbose && master && runTime.timeIndex() % 10 == 0;
-        
+
         // Validate recoil pressure before using
         const scalar maxRecoil = gMax(recoilP);
         const scalar minRecoil = gMin(recoilP);
@@ -202,12 +213,15 @@ if (pimple.momentumPredictor())
                 )
             );
             
-            momentumSource -= recoilClamped*gradAlpha1;
+            momentumSource += recoilClamped*interfaceStrength*interfaceNormal;
 
             if (logRecoil)
             {
                 const dimensionedScalar recoilForce =
-                    fvc::domainIntegrate(mag(recoilClamped*gradAlpha1));
+                    fvc::domainIntegrate
+                    (
+                        mag(recoilClamped*interfaceStrength*interfaceNormal)
+                    );
 
                 Info<< "    Recoil force magnitude: " << recoilForce.value()
                     << " N" << nl
@@ -217,12 +231,16 @@ if (pimple.momentumPredictor())
         }
         else
         {
-            momentumSource -= recoilP*gradAlpha1;
+            momentumSource += recoilP*interfaceStrength*interfaceNormal;
 
             if (logRecoil)
             {
                 const dimensionedScalar recoilForce =
-                    fvc::domainIntegrate(mag(recoilP*gradAlpha1));
+                    fvc::domainIntegrate
+                    (
+                        mag(recoilP*interfaceStrength*interfaceNormal)
+                    );
+
 
                 Info<< "    Recoil force magnitude: " << recoilForce.value()
                     << " N" << nl

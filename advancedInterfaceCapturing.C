@@ -547,7 +547,7 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
                     Foam::constant::mathematical::twoPi*R_specific*Tlocal,
                     scalar(0)
                 );
-            sqrtTerm = Foam::sqrt(hkArgument)/evaporationCoeff;
+            sqrtTerm = Foam::sqrt(hkArgument);
         }
 
         const scalar pRecoil = jNet*sqrtTerm*(1.0 - betaMomentum);
