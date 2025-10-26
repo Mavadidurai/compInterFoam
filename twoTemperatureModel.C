@@ -123,6 +123,7 @@ twoTemperatureModel::twoTemperatureModel
     useKapitzaExchange_(false),
     kapitzaZMetal_(0.0),
     kapitzaZGas_(0.0),
+    kapitzaCEff_(0.0),
     cumulativeLaserEnergy_
     (
         "cumulativeLaserEnergy",
@@ -293,6 +294,111 @@ twoTemperatureModel::twoTemperatureModel
                     383.0
                 );
             }
+
+                kapitzaCEff_ = gasMetalDict.lookupOrDefault<scalar>
+                (
+                    "cEff",
+                    0.0
+                );
+
+                if (kapitzaCEff_ <= SMALL)
+                {
+                    const scalar cLMetal =
+                        gasMetalDict.lookupOrDefault<scalar>("cL_metal", 0.0);
+                    const scalar cTMetal =
+                        gasMetalDict.lookupOrDefault<scalar>("cT_metal", 0.0);
+                    const scalar cLGas =
+                        gasMetalDict.lookupOrDefault<scalar>("cL_gas", 0.0);
+                    const scalar cTGas =
+                        gasMetalDict.lookupOrDefault<scalar>("cT_gas", 0.0);
+
+                    auto debyeVelocity =
+                        [](const scalar cL, const scalar cT) -> scalar
+                        {
+                            if (cL > SMALL && cT > SMALL)
+                            {
+                                const scalar invCube =
+                                    (1.0/3.0)
+                                    *
+                                    (
+                                        1.0/Foam::pow3(cL)
+                                      + 2.0/Foam::pow3(cT)
+                                    );
+                                return std::pow(invCube, -scalar(1.0/3.0));
+                            }
+
+                            if (cL > SMALL)
+                            {
+                                return cL;
+                            }
+
+                            if (cT > SMALL)
+                            {
+                                return cT;
+                            }
+
+                            return 0.0;
+                        };
+
+                    const scalar vMetal = debyeVelocity(cLMetal, cTMetal);
+                    const scalar vGas = debyeVelocity(cLGas, cTGas);
+
+                    if (vMetal > SMALL && vGas > SMALL)
+                    {
+                        kapitzaCEff_ = 0.5*(vMetal + vGas);
+                    }
+                    else if (vMetal > SMALL)
+                    {
+                        kapitzaCEff_ = vMetal;
+                    }
+                    else if (vGas > SMALL)
+                    {
+                        kapitzaCEff_ = vGas;
+                    }
+                }
+
+                if (kapitzaCEff_ <= SMALL)
+                {
+                    const scalar rhoMetal =
+                        gasMetalDict.lookupOrDefault<scalar>("rho_metal", 0.0);
+                    const scalar rhoGas =
+                        gasMetalDict.lookupOrDefault<scalar>("rho_gas", 0.0);
+
+                    scalar cMetal = 0.0;
+                    scalar cGas = 0.0;
+
+                    if (rhoMetal > SMALL)
+                    {
+                        cMetal = kapitzaZMetal_/rhoMetal;
+                    }
+
+                    if (rhoGas > SMALL)
+                    {
+                        cGas = kapitzaZGas_/rhoGas;
+                    }
+
+                    if (cMetal > SMALL && cGas > SMALL)
+                    {
+                        kapitzaCEff_ = 0.5*(cMetal + cGas);
+                    }
+                    else if (cMetal > SMALL)
+                    {
+                        kapitzaCEff_ = cMetal;
+                    }
+                    else if (cGas > SMALL)
+                    {
+                        kapitzaCEff_ = cGas;
+                    }
+                }
+
+                if (kapitzaCEff_ <= SMALL)
+                {
+                    FatalIOErrorInFunction(gasMetalDict)
+                        << "Unable to determine effective sound speed for Kapitza"
+                        << " model. Provide 'cEff', longitudinal/transverse speeds,"
+                        << " or impedance+density data."
+                        << exit(FatalIOError);
+                }
             else
             {
                 gasMetalExchangeFunction_.reset
@@ -1622,7 +1728,9 @@ tmp<volScalarField> twoTemperatureModel::gasMetalExchangeCoeffField() const
         const scalar kB = 1.38e-23;
         const scalar hBar = 1.055e-34;
         const scalar pi = 3.141592653589793;
-        const scalar prefactor = (kB*kB)/(6.0*sqr(pi)*Foam::pow3(hBar));
+        const scalar cEff = Foam::max(kapitzaCEff_, SMALL);
+        const scalar prefactor =
+            ((pi*pi)/30.0)*Foam::pow4(kB)/(Foam::pow3(hBar)*cEff*cEff);
 
         tmp<volVectorField> tGradAlpha(fvc::grad(metalFraction_));
         const volVectorField& gradAlpha = tGradAlpha();
@@ -1666,12 +1774,8 @@ tmp<volScalarField> twoTemperatureModel::gasMetalExchangeCoeffField() const
             const scalar delta = Foam::max(cellVolume/interfaceArea, SMALL);
 
             const scalar Tsafe = Foam::min(T, scalar(3000));
-            const scalar hK = prefactor*tau*Tsafe*Tsafe*Tsafe;
-            scalar hSurface = Foam::max(hK, scalar(0));
-
-            // Cap the Kapitza conductance in surface units so the limiter in
-            // TEqn.H can operate on a single, physically meaningful value.
-            hSurface = Foam::min(hSurface, scalar(1e7));
+            const scalar hSurface =
+                Foam::max(prefactor*tau*Foam::pow3(Tsafe), scalar(0));
 
             coeff[cellI] = hSurface/delta;
         }

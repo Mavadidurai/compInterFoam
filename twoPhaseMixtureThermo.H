@@ -153,6 +153,10 @@ public:
         //- Access densities read from transportProperties
         const dimensionedScalar& rho1() const { return rho1_; }
         const dimensionedScalar& rho2() const { return rho2_; }
+        //- Access Hertz-Knudsen gas constant [J/(kg K)]
+        scalar gasConstant() const;
+        //- Access evaporation accommodation coefficient []
+        scalar evaporationCoeff() const;
         //- Access cached lattice heat capacity from the two-temperature model
         const dimensionedScalar& ClTTM() const { return ClTTM_; }
 

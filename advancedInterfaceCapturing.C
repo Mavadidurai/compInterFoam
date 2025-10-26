@@ -35,6 +35,7 @@ Description
 #include "fvPatchField.H"
 #include "Pstream.H"
 #include "dimensionSet.H"
+#include "mathematicalConstants.H"
 #include "IOstreams.H"
 #include "token.H"
 #include <cmath>
@@ -499,6 +500,13 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
     const scalar particleMass = vaporParticleMass_.value();
     const scalar betaMomentum = momentumAccommodationCoeff_;
 
+    const scalar evaporationCoeff = mixture_.evaporationCoeff();
+    const scalar R_specific =
+        (Foam::mag(particleMass) > Foam::SMALL)
+      ? k_B/particleMass
+      : scalar(0);
+    const bool validEvaporationCoeff = Foam::mag(evaporationCoeff) > Foam::SMALL;
+    
     const bool verbose =
         mesh_.time().controlDict().lookupOrDefault<Switch>("verbose", false);
     const bool master = Pstream::master();
@@ -529,9 +537,20 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
         }
 
         const scalar Tlocal = Foam::max(temperatureField[cellI], scalar(0));
-        const scalar vThermal = sqrt(k_B*Tlocal/particleMass);
+        scalar sqrtTerm = 0.0;
 
-        const scalar pRecoil = jNet*vThermal*(1.0 - betaMomentum);
+        if (validEvaporationCoeff)
+        {
+            const scalar hkArgument =
+                Foam::max
+                (
+                    Foam::constant::mathematical::twoPi*R_specific*Tlocal,
+                    scalar(0)
+                );
+            sqrtTerm = Foam::sqrt(hkArgument)/evaporationCoeff;
+        }
+
+        const scalar pRecoil = jNet*sqrtTerm*(1.0 - betaMomentum);
 
         scalar alphaMask = (alpha - alphaMin_)*invAlphaWindow;
         alphaMask = Foam::min(Foam::max(alphaMask, scalar(0)), scalar(1));

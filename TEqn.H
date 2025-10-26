@@ -92,6 +92,7 @@ extern const bool master;
     volScalarField& interfaceExchange = tInterfaceExchange.ref();
     tmp<volScalarField> tCappedInterfaceExchange(interfaceExchange.clone());
     volScalarField& cappedInterfaceExchange = tCappedInterfaceExchange.ref();
+    static bool gasMetalExchangeLimiterReported = false;
     
     const Switch userGasLaserHeating
     (
@@ -144,7 +145,26 @@ extern const bool master;
             "maxGasMetalExchangeCoeff",
             maxCoeffDefault
         );
-        
+
+    if
+    (
+        !gasMetalExchangeLimiterReported
+     && maxCoeff.value() < Foam::GREAT
+    )
+    {
+        const dimensionedScalar unboundedMax = gMax(interfaceExchange);
+        if
+        (
+            unboundedMax.value() > maxCoeff.value()*(1.0 + SMALL)
+        )
+        {
+            Info<< "Limiting gas-metal exchange coefficient to "
+                << maxCoeff.value() << " W/m^3/K at time "
+                << runTime.timeName() << " (peak="
+                << unboundedMax.value() << ")." << endl;
+            gasMetalExchangeLimiterReported = true;
+        }
+    }
     cappedInterfaceExchange =
         Foam::min
         (
@@ -260,53 +280,68 @@ if (verbose && master && timeIndex % 10 == 0)
     lastSampleTime = currentTime;
 }
     volScalarField& activeMask = tActiveMask.ref();
-    activeMask = Foam::min(Foam::max(activeMask, scalar(0)), scalar(1));
+     activeMask = Foam::min(Foam::max(activeMask, scalar(0)), scalar(1));
 
-    const volScalarField& gasFraction = mixture.alpha2();
+    tmp<volVectorField> tGradMetal(fvc::grad(metalFraction));
+    const volVectorField& gradMetal = tGradMetal();
 
-    tmp<volScalarField> tGasMask
-    (
-        Foam::min(Foam::max(gasFraction, scalar(0)), scalar(1))
-    );
-    const volScalarField& gasMask = tGasMask();
+    const scalar interfaceGradientCutoff =
+        twoTemperatureDict.lookupOrDefault<scalar>
+        (
+            "interfaceGradientCutoff",
+            Foam::SMALL
+        );
 
-    tmp<volScalarField> tNeighbourGas(fvc::average(gasFraction));
-    volScalarField& neighbourGas = tNeighbourGas.ref();
-    neighbourGas = Foam::min(Foam::max(neighbourGas, scalar(0)), scalar(1));
+    const scalar interfaceMetalLowerBound =
+        twoTemperatureDict.lookupOrDefault<scalar>
+        (
+            "interfaceMetalLowerBound",
+            metalFractionFloor
+        );
 
-    tmp<volScalarField> tContactMask(Foam::max(gasMask, neighbourGas));
-    volScalarField& contactMask = tContactMask.ref();
-    contactMask = Foam::min(Foam::max(contactMask, scalar(0)), scalar(1));
-     contactMask.correctBoundaryConditions();
+    const scalar interfaceMetalUpperBound =
+        twoTemperatureDict.lookupOrDefault<scalar>
+        (
+            "interfaceMetalUpperBound",
+            scalar(1) - metalFractionFloor
+        );
 
-    tmp<volScalarField> tNeighbourMetal(fvc::average(metalFraction));
-    volScalarField& neighbourMetal = tNeighbourMetal.ref();
-    neighbourMetal = Foam::min
-    (
-        Foam::max(neighbourMetal, scalar(0)),
-        scalar(1)
-    );
+    const scalar boundedMetalLower =
+        Foam::min(Foam::max(interfaceMetalLowerBound, scalar(0)), scalar(1));
+    const scalar boundedMetalUpper =
+        Foam::max
+        (
+            boundedMetalLower,
+            Foam::min(Foam::max(interfaceMetalUpperBound, scalar(0)), scalar(1))
+        );
 
-    tmp<volScalarField> tInterfaceMask
-    (
-        Foam::max(activeMask, neighbourMetal)
-    );
+    tmp<volScalarField> tInterfaceMask(activeMask.clone());
     volScalarField& interfaceMask = tInterfaceMask.ref();
-    interfaceMask = Foam::min(Foam::max(interfaceMask, scalar(0)), scalar(1));
-    interfaceMask = Foam::min
-    (
-        Foam::max(interfaceMask*contactMask, scalar(0)),
-        scalar(1)
-    );
+    scalarField& interfaceMaskInternal = interfaceMask.primitiveFieldRef();
+    interfaceMaskInternal = scalar(0);
+
+    forAll(interfaceMaskInternal, cellI)
+    {
+        const scalar mf = metalFraction[cellI];
+        const scalar gradMag = mag(gradMetal[cellI]);
+
+        if
+        (
+            mf >= boundedMetalLower
+         && mf <= boundedMetalUpper
+         && gradMag >= interfaceGradientCutoff
+        )
+        {
+            interfaceMaskInternal[cellI] = scalar(1);
+        }
+    }
+
     interfaceMask.correctBoundaryConditions();
 
     // Limit the gas-metal exchange strictly to the identified interface cells
     // so that pure-gas regions do not inherit a neighbour-averaged coupling.
     cappedInterfaceExchange = interfaceMask*cappedInterfaceExchange;
     cappedInterfaceExchange.correctBoundaryConditions();
-
-    tmp<volVectorField> tGradMetal(fvc::grad(metalFraction));
-    const volVectorField& gradMetal = tGradMetal();
 
     tmp<volScalarField> tInterfaceDelta
     (
@@ -1088,6 +1123,54 @@ if (verbose && master && timeIndex % 10 == 0)
         }
     }
 
+    const scalar maxGasHeatingRate =
+        twoTemperatureDict.lookupOrDefault<scalar>
+        (
+            "maxGasHeatingRate",
+            -1.0
+        );
+
+    if (maxGasHeatingRate > SMALL)
+    {
+        const scalar invDtVal = 1.0/Foam::max(dtVal, SMALL);
+
+        const scalarField& gasMaskInternal = gasMask.internalField();
+        const scalarField& cellVolumes = mesh.V();
+
+        forAll(rawFluxInternal, cellI)
+        {
+            scalar& flux = rawFluxInternal[cellI];
+
+            const scalar mask = Foam::max(gasMaskInternal[cellI], scalar(0));
+
+            if (mask <= SMALL)
+            {
+                continue;
+            }
+
+            const scalar cellVolume = Foam::max(cellVolumes[cellI], SMALL);
+            const scalar gasVolume = Foam::max(mask*cellVolume, SMALL);
+            const scalar cap = Foam::max(capInternal[cellI], VSMALL);
+            const scalar gasCapacity = cap*gasVolume;
+            const scalar maxDeltaT = maxGasHeatingRate*dtVal;
+            const scalar maxEnergyPerStep = maxDeltaT*gasCapacity;
+            const scalar volumetricLimit =
+                maxEnergyPerStep*invDtVal/Foam::max(gasVolume, SMALL);
+
+            const scalar maxHeating = volumetricLimit;
+            const scalar maxCooling = volumetricLimit;
+
+            if (flux > maxHeating)
+            {
+                flux = maxHeating;
+            }
+            else if (flux < -maxCooling)
+            {
+                flux = -maxCooling;
+            }
+        }
+    }
+    
     tmp<volScalarField> tSurfaceFlux(rawFlux*interfaceDelta);
     volScalarField& surfaceFlux = tSurfaceFlux.ref();
 

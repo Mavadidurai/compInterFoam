@@ -837,6 +837,15 @@ Foam::dimensionedScalar Foam::twoPhaseMixtureThermo::latentHeat() const
         latentHeat_
     );
 }
+Foam::scalar Foam::twoPhaseMixtureThermo::gasConstant() const
+{
+    return gasConstant_;
+}
+
+Foam::scalar Foam::twoPhaseMixtureThermo::evaporationCoeff() const
+{
+    return evaporationCoeff_;
+}
 Foam::tmp<Foam::volScalarField>
 Foam::twoPhaseMixtureThermo::sigma() const
 {

@@ -105,6 +105,8 @@ private:
         //- Acoustic impedances supplied for the Kapitza model
         scalar kapitzaZMetal_;
         scalar kapitzaZGas_;
+        //- Effective sound speed used in the Kapitza prefactor
+        scalar kapitzaCEff_;
         //- Energy Conservation Tracking
         mutable dimensionedScalar cumulativeLaserEnergy_; //- Cumulative laser energy input [J]
         mutable dimensionedScalar lastTotalEnergy_;      //- Previous total energy [J]
