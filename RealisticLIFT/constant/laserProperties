@@ -73,8 +73,8 @@ continuousLaser     false;
 maxVolumetricSource 2e23;  // [W/m³] physical safeguard just above pulse peak
 
 // Repeating pulse train aligned with controlDict laser window
-pulseFrequency      1e11;     // [1/s] 10 ps spacing so multiple pulses fire in 0–200 ps window
-pulseDutyCycle      0.02;     // [-] 1 ps gate comfortably covers the 200 fs width each period
+//pulseFrequency      1e11;     // [1/s] 10 ps spacing so multiple pulses fire in 0–200 ps window
+//pulseDutyCycle      0.02;     // [-] 1 ps gate comfortably covers the 200 fs width each period
 // Energy tolerance for validation
 pulseEnergyToleranceRel 0.05; // 5% relative tolerance
 pulseEnergyToleranceAbs 5e-10; // 1 nJ absolute tolerance
