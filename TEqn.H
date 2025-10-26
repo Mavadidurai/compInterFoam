@@ -210,7 +210,14 @@ extern const bool master;
     const dimensionedScalar cutoffDim("metalCutoff", dimless, activeCutoff);
 
     const volScalarField& metalFraction = mixture.alpha1();
+    const volScalarField& gasFraction = mixture.alpha2();
 
+    tmp<volScalarField> tGasMask
+    (
+        Foam::min(Foam::max(gasFraction, scalar(0)), scalar(1))
+    );
+    const volScalarField& gasMask = tGasMask();
+    
     tmp<volScalarField> tActiveMask;
     if (blendWidth <= SMALL)
     {
@@ -337,6 +344,7 @@ if (verbose && master && timeIndex % 10 == 0)
     }
 
     interfaceMask.correctBoundaryConditions();
+    const volScalarField& contactMask = interfaceMask;
 
     // Limit the gas-metal exchange strictly to the identified interface cells
     // so that pure-gas regions do not inherit a neighbour-averaged coupling.

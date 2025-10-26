@@ -176,6 +176,10 @@ if (pimple.momentumPredictor())
     if (recoilPressurePtr)
     {
         const volScalarField& recoilP = *recoilPressurePtr;
+
+        const tmp<volVectorField> tGradAlpha1 = fvc::grad(alpha1);
+        const volVectorField& gradAlpha1 = tGradAlpha1();
+        const bool logRecoil = verbose && master && runTime.timeIndex() % 10 == 0;
         
         // Validate recoil pressure before using
         const scalar maxRecoil = gMax(recoilP);
@@ -198,22 +202,33 @@ if (pimple.momentumPredictor())
                 )
             );
             
-            momentumSource -= fvc::grad(alpha1*recoilClamped);
+            momentumSource -= recoilClamped*gradAlpha1;
+
+            if (logRecoil)
+            {
+                const dimensionedScalar recoilForce =
+                    fvc::domainIntegrate(mag(recoilClamped*gradAlpha1));
+
+                Info<< "    Recoil force magnitude: " << recoilForce.value()
+                    << " N" << nl
+                    << "    Max recoil pressure: " << maxRecoil/1e6
+                    << " MPa" << endl;
+            }
         }
         else
         {
-            momentumSource -= fvc::grad(alpha1*recoilP);
-        }
-        
-        if (verbose && master && runTime.timeIndex() % 10 == 0)
-        {
-            const dimensionedScalar recoilForce = 
-                fvc::domainIntegrate(mag(fvc::grad(alpha1*recoilP)));
-                
-            Info<< "    Recoil force magnitude: " << recoilForce.value() 
-                << " N" << nl
-                << "    Max recoil pressure: " << maxRecoil/1e6 
-                << " MPa" << endl;
+            momentumSource -= recoilP*gradAlpha1;
+
+            if (logRecoil)
+            {
+                const dimensionedScalar recoilForce =
+                    fvc::domainIntegrate(mag(recoilP*gradAlpha1));
+
+                Info<< "    Recoil force magnitude: " << recoilForce.value()
+                    << " N" << nl
+                    << "    Max recoil pressure: " << maxRecoil/1e6
+                    << " MPa" << endl;
+            }
         }
     }
 
