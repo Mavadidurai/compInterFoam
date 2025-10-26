@@ -52,7 +52,7 @@ phaseChangeCoeffs
 {
     model               clausius_clapeyron;  // Not temperature window!
     hf                  [0 2 -2 0 0 0 0] 9.1e6;   // J/kg (Ti vaporisation)
-    gasConstant         [0 2 -2 -1 0 0 0] 287;    // J/kg/K (air)
+    gasConstant         [0 2 -2 -1 0 0 0] 174;    // J/kg/K (Ti vapor)
     Tsol                [0 0 0 1 0 0 0] 1941;     // K
     Tvap                [0 0 0 1 0 0 0] 3560;     // K
     
@@ -81,7 +81,7 @@ massTransferCoeffs
 
 // LASER TIMING - shorter pulse, longer observation
 laserStartTime      0;
-laserEndTime    2e-10;
+laserEndTime    2e-13;
 
 // Advanced interface capturing - TUNED FOR EXTENDED SIMULATION
 useAdvancedInterfaceCapturing  true;
@@ -151,6 +151,8 @@ twoTemperatureProperties
         type        kapitza;    // Use acoustic mismatch model
         Z_metal     2.3e7;      // Ti acoustic impedance [Pa·s/m]
         Z_gas       383;        // Ar acoustic impedance [Pa·s/m]
+        rho_metal   4500;       // Ti density [kg/m^3]
+        rho_gas     1.7;        // Ar density [kg/m^3]
     }
     minGasMetalExchangeCoeff [1 -1 -3 -1 0 0 0] 0;
     maxGasMetalExchangeCoeff [1 -1 -3 -1 0 0 0] 1e13;
