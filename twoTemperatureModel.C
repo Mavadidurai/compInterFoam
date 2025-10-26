@@ -293,7 +293,7 @@ twoTemperatureModel::twoTemperatureModel
                     "Z_gas",
                     383.0
                 );
-            }
+            
 
                 kapitzaCEff_ = gasMetalDict.lookupOrDefault<scalar>
                 (
@@ -399,6 +399,7 @@ twoTemperatureModel::twoTemperatureModel
                         << " or impedance+density data."
                         << exit(FatalIOError);
                 }
+            }
             else
             {
                 gasMetalExchangeFunction_.reset
@@ -406,7 +407,7 @@ twoTemperatureModel::twoTemperatureModel
                     Function1<scalar>::New
                     (
                         "gasMetalExchangeCoeff",
-                        dict_
+                        gasMetalDict
                     ).ptr()
                 );
             }
@@ -416,6 +417,7 @@ twoTemperatureModel::twoTemperatureModel
             dict_.lookup("gasMetalExchangeCoeff") >> gasMetalExchangeCoeff_;
         }
     }
+    
     else
     {
         FatalIOErrorInFunction(dict_)
@@ -429,6 +431,7 @@ twoTemperatureModel::twoTemperatureModel
             << "Invalid model parameters"
             << abort(FatalError);
     }
+    
     // Initialize energy tracking
     updateEnergyTracking();
      const bool master = Pstream::master();
