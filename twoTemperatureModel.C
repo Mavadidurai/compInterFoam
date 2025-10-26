@@ -858,10 +858,14 @@ void twoTemperatureModel::writeEnergyDiagnostics
         << (electronEnergyAfter + latticeEnergyAfter).value() << " J" << nl
         << "  Cumulative laser energy: "
         << cumulativeLaserEnergy_.value() << " J" << endl;
-        
+
     const scalar laserEnergyValue = laserEnergy.value();
     const scalar phaseChangeEnergyValue = phaseChangeEnergy.value();
     const scalar cumulativeLaserEnergyValue = cumulativeLaserEnergy_.value();
+    const scalar totalMetalEnergyValue =
+        (electronEnergyAfter + latticeEnergyAfter).value();
+    const scalar phaseChangeTolerance =
+        Foam::max(1e-12, 1e-6*mag(totalMetalEnergyValue));
 
     Info<< "  Phase-change/Laser energy ratio (signed, negative = cooling): ";
     if (mag(laserEnergyValue) > SMALL)
@@ -880,7 +884,7 @@ void twoTemperatureModel::writeEnergyDiagnostics
     }
     else if (mag(cumulativeLaserEnergyValue) <= SMALL)
     {
-        if (mag(phaseChangeEnergyValue) > SMALL)
+        if (mag(phaseChangeEnergyValue) > phaseChangeTolerance)
         {
             Info<< "undefined (laser energy ≈ 0)" << nl;
             WarningInFunction
