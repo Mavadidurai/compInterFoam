@@ -38,6 +38,7 @@ Description
 #include "mathematicalConstants.H"
 #include "IOstreams.H"
 #include "token.H"
+#include "PstreamReduceOps.H"
 #include <cmath>
 
 namespace Foam
@@ -533,6 +534,12 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
 
     const bool enforceUpper = alphaMax_ < (scalar(1) - Foam::SMALL);
 
+    label interfaceCells = 0;
+    label fluxCells = 0;
+    scalar localMaxMassFlux = 0.0;
+    scalar localMaxActiveTemp = -GREAT;
+    scalar localMinActiveTemp = GREAT;
+
     forAll(recoilField, cellI)
     {
         const scalar alpha = alpha1Field[cellI];
@@ -543,6 +550,8 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
             continue;
         }
 
+        ++interfaceCells;
+
         const scalar jNet = massFluxField[cellI];
         if (Foam::mag(jNet) <= massRateEps_)
         {
@@ -550,7 +559,12 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
             continue;
         }
 
+        ++fluxCells;
+
         const scalar Tlocal = Foam::max(temperatureField[cellI], scalar(0));
+        localMaxActiveTemp = Foam::max(localMaxActiveTemp, Tlocal);
+        localMinActiveTemp = Foam::min(localMinActiveTemp, Tlocal);
+        localMaxMassFlux = Foam::max(localMaxMassFlux, Foam::mag(jNet));
         scalar sqrtTerm = 0.0;
 
         if (validEvaporationCoeff)
@@ -570,7 +584,8 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
         alphaMask = Foam::min(Foam::max(alphaMask, scalar(0)), scalar(1));
 
         const scalar unclampedRecoil = pRecoil*alphaMask;
-
+        scalar recoilValue = unclampedRecoil;
+        
         // Honour the dictionary controlled clamp instead of a hard-coded ceiling.
         if (clampRecoil_)
         {
@@ -597,21 +612,15 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
                     maxOvershootCell = cellI;
                 }
 
-                recoilField[cellI] = Foam::min
+                recoilValue = Foam::min
                 (
                     Foam::max(unclampedRecoil, -localMax),
                     localMax
                 );
             }
-            else
-            {
-                recoilField[cellI] = unclampedRecoil;
-            }
         }
-        else
-        {
-            recoilField[cellI] = unclampedRecoil;
-        }
+
+        recoilField[cellI] = recoilValue;
     }
     
     if (applyRamp)
@@ -731,6 +740,49 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
     {
         previousRecoilPressure_ = recoilField;
         havePreviousRecoil_ = true;
+    }
+    label globalInterfaceCells = interfaceCells;
+    Foam::reduce(globalInterfaceCells, Foam::sumOp<label>());
+
+    label globalFluxCells = fluxCells;
+    Foam::reduce(globalFluxCells, Foam::sumOp<label>());
+
+    scalar maxMassFlux = localMaxMassFlux;
+    Foam::reduce(maxMassFlux, Foam::maxOp<scalar>());
+
+    scalar maxActiveTemp = localMaxActiveTemp;
+    Foam::reduce(maxActiveTemp, Foam::maxOp<scalar>());
+
+    scalar minActiveTemp = localMinActiveTemp;
+    Foam::reduce(minActiveTemp, Foam::minOp<scalar>());
+
+    const scalar maxRecoilMagFinal = Foam::gMax
+    (
+        Foam::mag(recoilPressure_.primitiveField())
+    );
+
+    if (verbose && master)
+    {
+        Info<< "Recoil diagnostics: "
+            << globalFluxCells << " of " << globalInterfaceCells
+            << " interface cells supplied mass flux above "
+            << massRateEps_ << " kg/m^2/s" << nl;
+
+        if (globalFluxCells > 0)
+        {
+            Info<< "  Max |j_net| = " << maxMassFlux
+                << " kg/m^2/s";
+
+            Info<< ", active temperature range = [" << minActiveTemp
+                << ", " << maxActiveTemp << "] K" << nl;
+        }
+        else
+        {
+            Info<< "  No cells exceeded the mass flux epsilon." << nl;
+        }
+
+        Info<< "  Max |recoilPressure| = " << maxRecoilMagFinal/1e6
+            << " MPa" << endl;
     }
 
     recoilPressure_.correctBoundaryConditions();
