@@ -439,7 +439,18 @@ if (verbose && master && timeIndex % 10 == 0)
         dimEnergy/dimMass/dimTemperature,
         cvFloorValue
     );
-    const dimensionedScalar rhoFloor("rhoFloor", dimDensity, 1e-12);
+    const scalar rhoFloorValue = Foam::max
+    (
+        twoTemperatureDict.lookupOrDefault<scalar>("rhoGasFloor", 1.0),
+        SMALL
+    );
+
+    const dimensionedScalar rhoFloor
+    (
+        "rhoFloor",
+        dimDensity,
+        rhoFloorValue
+    );
 
     tmp<volScalarField> tCvGas(Foam::max(tCv2(), cvFloor));
     const volScalarField& CvGas = tCvGas();
@@ -450,12 +461,17 @@ if (verbose && master && timeIndex % 10 == 0)
     tmp<volScalarField> tCvolGas(gasFraction*rhoGasCore*CvGas);
 
     const volScalarField& CvolGas = tCvolGas();
-    const scalar cvolFloorValue =
+    const scalar cvolFloorDefault = rhoFloorValue*cvFloorValue;
+
+    const scalar cvolFloorValue = Foam::max
+    (
         twoTemperatureDict.lookupOrDefault<scalar>
         (
             "CvolGasFloor",
-            1e-12
-        );
+            cvolFloorDefault
+        ),
+        SMALL
+    );
 
     const dimensionedScalar cvolFloor
     (
@@ -475,6 +491,8 @@ if (verbose && master && timeIndex % 10 == 0)
         {
             if (!enableTClamp)
             {
+                T = Foam::max(T, minTDim);
+                T.correctBoundaryConditions();
                 return;
             }
 
