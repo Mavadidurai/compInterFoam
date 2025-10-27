@@ -312,6 +312,20 @@ advancedInterfaceCapturing::advancedInterfaceCapturing
         aicDict.lookupOrDefault<scalar>("massRateEps", massRateEps_),
         scalar(0)
     );
+    const scalar mixtureAlphaMin = mixture_.phaseChangeAlphaMin();
+    if (alphaMin_ > mixtureAlphaMin)
+    {
+        if (master)
+        {
+            WarningInFunction
+                << "alphaMin (" << alphaMin_
+                << ") exceeds phase-change cutoff (" << mixtureAlphaMin
+                << ") from twoPhaseMixtureThermo and will be limited." << endl;
+        }
+
+        alphaMin_ = mixtureAlphaMin;
+    }
+    
     metalAlphaCutoff_ = aicDict.lookupOrDefault<scalar>
     (
         "metalAlphaCutoff",

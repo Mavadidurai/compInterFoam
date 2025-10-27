@@ -841,6 +841,10 @@ Foam::scalar Foam::twoPhaseMixtureThermo::gasConstant() const
 {
     return gasConstant_;
 }
+Foam::scalar Foam::twoPhaseMixtureThermo::phaseChangeAlphaMin() const
+{
+    return alphaMin_;
+}
 
 Foam::scalar Foam::twoPhaseMixtureThermo::evaporationCoeff() const
 {

@@ -146,6 +146,9 @@ public:
         {
             return T_vapor_;
         }
+        
+        //- Return the minimum alpha threshold for phase change
+        scalar phaseChangeAlphaMin() const;
         //- Access kinematic viscosities read from transportProperties
         const dimensionedScalar& nu1() const { return nu1_; }
         const dimensionedScalar& nu2() const { return nu2_; }
