@@ -12,6 +12,44 @@ fvOptions.constrain(UEqn);
 
 const Foam::dictionary& solverCoeffs = compInterFoamCoeffsDict(mesh);
 
+// Determine the recoil-pressure clamp from user configuration.  Respect the
+// advanced interface-capturing settings so we do not silently override a case
+// that deliberately permits >100 MPa recoil loads.
+scalar recoilClampMin = -1e8;
+scalar recoilClampMax = 1e8;
+bool recoilClampActive = true;
+
+const Foam::dictionary& controlDict = mesh.time().controlDict();
+
+if (controlDict.found("advancedInterfaceCapturing"))
+{
+    const Foam::dictionary& aicDict = controlDict.subDict("advancedInterfaceCapturing");
+
+    recoilClampActive = aicDict.lookupOrDefault<Foam::Switch>
+    (
+        "clampRecoil",
+        Foam::Switch(true)
+    );
+
+    scalar userLimit = aicDict.lookupOrDefault<scalar>
+    (
+        "maxRecoilPressure",
+        aicDict.lookupOrDefault<scalar>("recoilMax", recoilClampMax)
+    );
+
+    if (std::isfinite(userLimit) && userLimit > SMALL)
+    {
+        recoilClampMax = Foam::mag(userLimit);
+        recoilClampMin = -recoilClampMax;
+    }
+}
+
+if (!recoilClampActive)
+{
+    recoilClampMin = -Foam::GREAT;
+    recoilClampMax = Foam::GREAT;
+}
+
 const Foam::scalar kineticEnergyCeiling =
     solverCoeffs.lookupOrDefault<Foam::scalar>
     (
@@ -195,58 +233,203 @@ if (pimple.momentumPredictor())
         // Validate recoil pressure before using
         const scalar maxRecoil = gMax(recoilP);
         const scalar minRecoil = gMin(recoilP);
-        
-        if (maxRecoil > 1e8 || minRecoil < -1e8)
+
+        scalar lowerBound = -Foam::GREAT;
+        scalar upperBound = Foam::GREAT;
+        bool lowerConfigured = false;
+        bool upperConfigured = false;
+
+        if (solverCoeffs.found("minRecoilPressure"))
         {
-            WarningInFunction
-                << "Recoil pressure out of physical range: ["
-                << minRecoil << ", " << maxRecoil << "] Pa"
-                << nl << "Clamping to [-100 MPa, 100 MPa]"
-                << endl;
-                
-            volScalarField recoilClamped
-            (
-                Foam::min
-                (
-                    Foam::max(recoilP, dimensionedScalar("minR", dimPressure, -1e8)),
-                    dimensionedScalar("maxR", dimPressure, 1e8)
-                )
-            );
-            
-            momentumSource += recoilClamped*interfaceStrength*interfaceNormal;
+            const scalar value =
+                solverCoeffs.lookupOrDefault<scalar>("minRecoilPressure", lowerBound);
 
-            if (logRecoil)
+            if (std::isfinite(value))
             {
-                const dimensionedScalar recoilForce =
-                    fvc::domainIntegrate
-                    (
-                        mag(recoilClamped*interfaceStrength*interfaceNormal)
-                    );
-
-                Info<< "    Recoil force magnitude: " << recoilForce.value()
-                    << " N" << nl
-                    << "    Max recoil pressure: " << maxRecoil/1e6
-                    << " MPa" << endl;
+                lowerBound = value;
+                lowerConfigured = true;
             }
         }
-        else
+
+        if (solverCoeffs.found("maxRecoilPressure"))
         {
-            momentumSource += recoilP*interfaceStrength*interfaceNormal;
+            const scalar value =
+                solverCoeffs.lookupOrDefault<scalar>("maxRecoilPressure", upperBound);
 
-            if (logRecoil)
+            if (std::isfinite(value))
             {
-                const dimensionedScalar recoilForce =
-                    fvc::domainIntegrate
-                    (
-                        mag(recoilP*interfaceStrength*interfaceNormal)
-                    );
-
-
-                Info<< "    Recoil force magnitude: " << recoilForce.value()
-                    << " N" << nl
-                    << "    Max recoil pressure: " << maxRecoil/1e6
-                    << " MPa" << endl;
+                upperBound = value;
+                upperConfigured = true;
             }
+        }
+
+        if (solverCoeffs.found("recoilMax"))
+        {
+            const scalar limit =
+                Foam::mag(solverCoeffs.lookupOrDefault<scalar>("recoilMax", 0.0));
+
+            if (std::isfinite(limit) && limit > SMALL)
+            {
+                lowerBound = -limit;
+                upperBound = limit;
+                lowerConfigured = true;
+                upperConfigured = true;
+            }
+        }
+
+        const dictionary& aicDict =
+            mesh.time().controlDict().subOrEmptyDict("advancedInterfaceCapturing");
+
+        if (!aicDict.empty())
+        {
+            if (aicDict.found("minRecoilPressure"))
+            {
+                const scalar value =
+                    aicDict.lookupOrDefault<scalar>("minRecoilPressure", lowerBound);
+
+                if (std::isfinite(value))
+                {
+                    lowerBound = value;
+                    lowerConfigured = true;
+                }
+            }
+
+            if (aicDict.found("maxRecoilPressure"))
+            {
+                const scalar value =
+                    aicDict.lookupOrDefault<scalar>("maxRecoilPressure", upperBound);
+
+                if (std::isfinite(value))
+                {
+                    upperBound = value;
+                    upperConfigured = true;
+                }
+            }
+
+            const Foam::Switch clampRecoil =
+                aicDict.lookupOrDefault<Foam::Switch>("clampRecoil", Foam::Switch(false));
+
+            if (clampRecoil)
+            {
+                const scalar limit =
+                    Foam::mag(aicDict.lookupOrDefault<scalar>("recoilMax", 0.0));
+
+                if (std::isfinite(limit) && limit > SMALL)
+                {
+                    lowerBound = -limit;
+                    upperBound = limit;
+                    lowerConfigured = true;
+                    upperConfigured = true;
+                }
+            }
+        }
+
+        const bool invalidRecoil =
+            (!std::isfinite(maxRecoil) || !std::isfinite(minRecoil));
+
+        if (invalidRecoil && !(lowerConfigured || upperConfigured))
+        {
+            lowerBound = 0.0;
+            upperBound = 0.0;
+            lowerConfigured = true;
+            upperConfigured = true;
+        }
+
+        const bool exceedsUpper = upperConfigured && maxRecoil > upperBound;
+        const bool exceedsLower = lowerConfigured && minRecoil < lowerBound;
+        const bool clampRequired = invalidRecoil || exceedsUpper || exceedsLower;
+
+        tmp<volScalarField> tRecoilClamped;
+        const volScalarField* recoilToUse = &recoilP;
+
+        if (clampRequired)
+        {
+            Ostream& warn = WarningInFunction;
+            warn << "Recoil pressure out of physical range: ["
+                << minRecoil << ", " << maxRecoil << "] Pa" << nl;
+
+            if (lowerConfigured || upperConfigured)
+            {
+                warn << "Clamping to [";
+
+                if (lowerConfigured)
+                {
+                    warn << lowerBound;
+                }
+                else
+                {
+                    warn << "-inf";
+                }
+
+                warn << ", ";
+
+                if (upperConfigured)
+                {
+                    warn << upperBound;
+                }
+                else
+                {
+                    warn << "inf";
+                }
+
+                warn << "] Pa" << endl;
+            }
+            else
+            {
+                warn << "No recoil bounds configured; clamping to zero." << endl;
+            }
+
+            if (lowerConfigured && upperConfigured)
+            {
+                tRecoilClamped = Foam::min
+                (
+                    Foam::max
+                    (
+                        recoilP,
+                        dimensionedScalar("minRecoilPressure", dimPressure, lowerBound)
+                    ),
+                    dimensionedScalar("maxRecoilPressure", dimPressure, upperBound)
+                );
+            }
+            else if (lowerConfigured)
+            {
+                tRecoilClamped = Foam::max
+                (
+                    recoilP,
+                    dimensionedScalar("minRecoilPressure", dimPressure, lowerBound)
+                );
+            }
+            else if (upperConfigured)
+            {
+                tRecoilClamped = Foam::min
+                (
+                    recoilP,
+                    dimensionedScalar("maxRecoilPressure", dimPressure, upperBound)
+                );
+            }
+            else
+            {
+                tRecoilClamped = recoilP;
+                tRecoilClamped.ref() = dimensionedScalar("zero", dimPressure, 0.0);
+            }
+
+            recoilToUse = &tRecoilClamped();
+        }
+
+        momentumSource += (*recoilToUse)*interfaceStrength*interfaceNormal;
+
+        if (logRecoil)
+        {
+            const dimensionedScalar recoilForce =
+                fvc::domainIntegrate
+                (
+                    mag((*recoilToUse)*interfaceStrength*interfaceNormal)
+                );
+
+            Info<< "    Recoil force magnitude: " << recoilForce.value()
+                << " N" << nl
+                << "    Max recoil pressure: " << maxRecoil/1e6
+                << " MPa" << endl;
         }
     }
 
