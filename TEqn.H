@@ -492,7 +492,9 @@ if (verbose && master && timeIndex % 10 == 0)
             if (!enableTClamp)
             {
                 T = Foam::max(T, minTDim);
+                T = Foam::min(T, maxTDim);
                 T.correctBoundaryConditions();
+                return;
             }
 
             const bool enforceUpperBound = enableTClamp;
