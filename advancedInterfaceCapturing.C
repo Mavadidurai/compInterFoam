@@ -516,10 +516,9 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
     const scalar betaMomentum = momentumAccommodationCoeff_;
 
     const scalar evaporationCoeff = mixture_.evaporationCoeff();
-    const scalar R_specific =
-        (Foam::mag(particleMass) > Foam::SMALL)
-      ? k_B/particleMass
-      : scalar(0);
+    const scalar safeParticleMass = Foam::max(Foam::mag(particleMass), VSMALL);
+    const scalar R_specific = k_B/safeParticleMass;
+    
     const bool validEvaporationCoeff = Foam::mag(evaporationCoeff) > Foam::SMALL;
     
     const bool verbose =
@@ -536,10 +535,16 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
 
     label interfaceCells = 0;
     label fluxCells = 0;
+    label localHotInterfaceCells = 0;
     scalar localMaxMassFlux = 0.0;
+    scalar localMaxRawMassFlux = 0.0;
     scalar localMaxActiveTemp = -GREAT;
     scalar localMinActiveTemp = GREAT;
-
+    scalar localMaxInterfaceTemp = -GREAT;
+    scalar localMinInterfaceTemp = GREAT;
+    const scalar vaporThreshold =
+        vaporTemp_.value() + phaseChangeTempOffset_.value();
+        
     forAll(recoilField, cellI)
     {
         const scalar alpha = alpha1Field[cellI];
@@ -552,7 +557,16 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
 
         ++interfaceCells;
 
+        const scalar Tlocal = Foam::max(temperatureField[cellI], scalar(0));
+        localMaxInterfaceTemp = Foam::max(localMaxInterfaceTemp, Tlocal);
+        localMinInterfaceTemp = Foam::min(localMinInterfaceTemp, Tlocal);
+        if (Tlocal >= vaporThreshold)
+        {
+            ++localHotInterfaceCells;
+        }
+
         const scalar jNet = massFluxField[cellI];
+        localMaxRawMassFlux = Foam::max(localMaxRawMassFlux, Foam::mag(jNet));
         if (Foam::mag(jNet) <= massRateEps_)
         {
             recoilField[cellI] = 0.0;
@@ -561,7 +575,6 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
 
         ++fluxCells;
 
-        const scalar Tlocal = Foam::max(temperatureField[cellI], scalar(0));
         localMaxActiveTemp = Foam::max(localMaxActiveTemp, Tlocal);
         localMinActiveTemp = Foam::min(localMinActiveTemp, Tlocal);
         localMaxMassFlux = Foam::max(localMaxMassFlux, Foam::mag(jNet));
@@ -741,20 +754,33 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
         previousRecoilPressure_ = recoilField;
         havePreviousRecoil_ = true;
     }
+    
     label globalInterfaceCells = interfaceCells;
     Foam::reduce(globalInterfaceCells, Foam::sumOp<label>());
 
     label globalFluxCells = fluxCells;
     Foam::reduce(globalFluxCells, Foam::sumOp<label>());
 
+    label globalHotInterfaceCells = localHotInterfaceCells;
+    Foam::reduce(globalHotInterfaceCells, Foam::sumOp<label>());
+
     scalar maxMassFlux = localMaxMassFlux;
     Foam::reduce(maxMassFlux, Foam::maxOp<scalar>());
+
+    scalar maxRawMassFlux = localMaxRawMassFlux;
+    Foam::reduce(maxRawMassFlux, Foam::maxOp<scalar>());
 
     scalar maxActiveTemp = localMaxActiveTemp;
     Foam::reduce(maxActiveTemp, Foam::maxOp<scalar>());
 
     scalar minActiveTemp = localMinActiveTemp;
     Foam::reduce(minActiveTemp, Foam::minOp<scalar>());
+
+    scalar maxInterfaceTemp = localMaxInterfaceTemp;
+    Foam::reduce(maxInterfaceTemp, Foam::maxOp<scalar>());
+
+    scalar minInterfaceTemp = localMinInterfaceTemp;
+    Foam::reduce(minInterfaceTemp, Foam::minOp<scalar>());
 
     const scalar maxRecoilMagFinal = Foam::gMax
     (
@@ -778,7 +804,45 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
         }
         else
         {
-            Info<< "  No cells exceeded the mass flux epsilon." << nl;
+            Info<< "  No cells exceeded the mass flux epsilon ("
+                << massRateEps_ << " kg/m^2/s)." << nl;
+
+            if (globalInterfaceCells > 0)
+            {
+                const label globalFluxBelowEps =
+                    globalInterfaceCells - globalFluxCells;
+
+                if (globalFluxBelowEps > 0)
+                {
+                    Info<< "  " << globalFluxBelowEps
+                        << " interface cell(s) were filtered by massRateEps." << nl;
+                }
+
+                Info<< "  Interface temperature range = ["
+                    << minInterfaceTemp << ", " << maxInterfaceTemp
+                    << "] K" << nl;
+
+                if (maxRawMassFlux > massRateEps_)
+                {
+                    Info<< "  Peak |j_net| on the interface = " << maxRawMassFlux
+                        << " kg/m^2/s (filtered by massRateEps)." << nl;
+                }
+
+                if (globalHotInterfaceCells > 0)
+                {
+                    Info<< "  " << globalHotInterfaceCells
+                        << " interface cell(s) exceeded the vapor threshold "
+                        << vaporThreshold
+                        << " K but still fell below massRateEps." << nl
+                        << "    Inspect phaseChangeMassFlux, evaporationCoeff,"
+                        << " and activation windows." << nl;
+                }
+                else
+                {
+                    Info<< "  Interface temperatures remained below the vapor"
+                        << " threshold " << vaporThreshold << " K." << nl;
+                }
+            }
         }
 
         Info<< "  Max |recoilPressure| = " << maxRecoilMagFinal/1e6
