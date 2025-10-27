@@ -142,7 +142,7 @@ targetResP  0.05;
 
 compInterFoamCoeffs
 {
-    maxReasonableVelocity  800;
+    maxReasonableVelocity  1000;
     maxVelocity            0;
     defaultMetalDensity    4500;        
     defaultAirDensity      1.2;         
