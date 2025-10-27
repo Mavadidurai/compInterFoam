@@ -53,6 +53,13 @@ surfaceScalarField phig
     )*rAUf*mesh.magSf()
 );
 
+tmp<surfaceScalarField> tRecoilFlux
+(
+    (recoilTractionf & mesh.Sf())*rAUf
+);
+phig += tRecoilFlux();
+tRecoilFlux.clear();
+
 phiHbyA += phig;
 
 constrainPressure(p_rgh, U, phiHbyA, rAUf);

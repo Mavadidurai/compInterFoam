@@ -15,7 +15,6 @@ const Foam::dictionary& solverCoeffs = compInterFoamCoeffsDict(mesh);
 // Determine the recoil-pressure clamp from user configuration.  Respect the
 // advanced interface-capturing settings so we do not silently override a case
 // that deliberately permits >100 MPa recoil loads.
-scalar recoilClampMin = -1e8;
 scalar recoilClampMax = 1e8;
 bool recoilClampActive = true;
 
@@ -40,13 +39,11 @@ if (controlDict.found("advancedInterfaceCapturing"))
     if (std::isfinite(userLimit) && userLimit > SMALL)
     {
         recoilClampMax = Foam::mag(userLimit);
-        recoilClampMin = -recoilClampMax;
     }
 }
 
 if (!recoilClampActive)
 {
-    recoilClampMin = -Foam::GREAT;
     recoilClampMax = Foam::GREAT;
 }
 
@@ -84,132 +81,6 @@ if (kineticEnergyCeiling > 0 && kineticEnergyCeiling < Foam::GREAT)
             << exit(FatalError);
     }
 }
-
-if (pimple.momentumPredictor())
-{
-    // The capillary force already appears in phig within pEqn.H via
-    // mixture.surfaceTensionForce().  Including it here as well was
-    // double-counting the surface-tension contribution, which the run
-    // logs revealed as steadily increasing velocities even when the
-    // recoil pressure field remained identically zero.  Only assemble
-    // the forces that are not already handled through the pressure
-    // correction stage.
-
-    // Start with the forces that are *not* treated in phig.  Gravity is
-    // already accounted for through the -ghf*fvc::snGrad(rho) contribution
-    // inside phig in pEqn.H, so including rho*g here would double-count it
-    // and steadily accelerate the flow even in the absence of recoil.
-    tmp<volVectorField> tGradPrgh = fvc::grad(p_rgh);
-    volVectorField gradPrgh
-    (
-        IOobject
-        (
-            "grad(p_rgh)",
-            runTime.timeName(),
-            mesh,
-            IOobject::NO_READ,
-            IOobject::NO_WRITE
-        ),
-        tGradPrgh()
-    );
-    tGradPrgh.clear();
-
-    const Foam::scalar gradLimit = solverCoeffs.lookupOrDefault<Foam::scalar>
-    (
-        "maxPressureGradient",
-        Foam::GREAT
-    );
-
-    bool nonFiniteGrad = false;
-    bool gradClamped = false;
-
-    vectorField& gradInternal = gradPrgh.internalFieldRef();
-
-    forAll(gradInternal, celli)
-    {
-        vector& g = gradInternal[celli];
-
-        for (direction cmpt = 0; cmpt < vector::nComponents; ++cmpt)
-        {
-            scalar& val = g[cmpt];
-
-            if (!std::isfinite(val))
-            {
-                val = 0.0;
-                nonFiniteGrad = true;
-            }
-        }
-
-        if (gradLimit < Foam::GREAT)
-        {
-            const scalar magG = Foam::mag(g);
-
-            if (magG > gradLimit && magG > SMALL)
-            {
-                g *= gradLimit/magG;
-                gradClamped = true;
-            }
-        }
-    }
-
-    forAll(gradPrgh.boundaryField(), patchi)
-    {
-        vectorField& gradPatch = gradPrgh.boundaryFieldRef()[patchi];
-
-        forAll(gradPatch, facei)
-        {
-            vector& g = gradPatch[facei];
-
-            for (direction cmpt = 0; cmpt < vector::nComponents; ++cmpt)
-            {
-                scalar& val = g[cmpt];
-
-                if (!std::isfinite(val))
-                {
-                    val = 0.0;
-                    nonFiniteGrad = true;
-                }
-            }
-
-            if (gradLimit < Foam::GREAT)
-            {
-                const scalar magG = Foam::mag(g);
-
-                if (magG > gradLimit && magG > SMALL)
-                {
-                    g *= gradLimit/magG;
-                    gradClamped = true;
-                }
-            }
-        }
-    }
-
-    if (nonFiniteGrad)
-    {
-        WarningInFunction
-            << "Non-finite entries detected in grad(p_rgh); resetting to zero"
-            << nl;
-    }
-
-    if (gradClamped)
-    {
-        Info<< "    grad(p_rgh) limited to max magnitude "
-            << gradLimit << " Pa/m" << endl;
-    }
-    
-    volVectorField momentumSource
-    (
-        IOobject
-        (
-            "momentumSource",
-            runTime.timeName(),
-            mesh,
-            IOobject::NO_READ,
-            IOobject::NO_WRITE
-        ),
-        -gradPrgh
-
-    );
 
     if (recoilPressurePtr)
     {
@@ -416,22 +287,212 @@ if (pimple.momentumPredictor())
             recoilToUse = &tRecoilClamped();
         }
 
-        momentumSource += (*recoilToUse)*interfaceStrength*interfaceNormal;
+        tmp<volVectorField> tRecoilForce
+        (
+            (*recoilToUse)*interfaceStrength*interfaceNormal
+        );
+        volVectorField& recoilForce = tRecoilForce.ref();
+
+        momentumSource += recoilForce;
 
         if (logRecoil)
         {
-            const dimensionedScalar recoilForce =
-                fvc::domainIntegrate
-                (
-                    mag((*recoilToUse)*interfaceStrength*interfaceNormal)
-                );
+            vector totalFaceRecoilForce(vector::zero);
 
-            Info<< "    Recoil force magnitude: " << recoilForce.value()
+            const scalarField& recoilInternal = (*recoilToUse).internalField();
+            const labelUList& owner = mesh.owner();
+            const labelUList& neighbour = mesh.neighbour();
+
+            tmp<surfaceScalarField> tInterfaceStrengthFace =
+                fvc::interpolate(interfaceStrength);
+            const surfaceScalarField& interfaceStrengthFace =
+                tInterfaceStrengthFace();
+
+            tmp<surfaceVectorField> tInterfaceNormalFace =
+                fvc::interpolate(interfaceNormal);
+            const surfaceVectorField& interfaceNormalFace =
+                tInterfaceNormalFace();
+
+            const surfaceScalarField& magSf = mesh.magSf();
+            const scalarField& interfaceStrengthInternal =
+                interfaceStrengthFace.internalField();
+            const vectorField& interfaceNormalInternal =
+                interfaceNormalFace.internalField();
+            const scalarField& magSfInternal = magSf.internalField();
+
+            forAll(owner, facei)
+            {
+                const label own = owner[facei];
+                const label nei = neighbour[facei];
+
+                const scalar pf =
+                    0.5*(recoilInternal[own] + recoilInternal[nei]);
+
+                totalFaceRecoilForce +=
+                    pf*interfaceStrengthInternal[facei]
+                     *interfaceNormalInternal[facei]
+                     *magSfInternal[facei];
+            }
+
+            forAll(interfaceStrengthFace.boundaryField(), patchi)
+            {
+                const scalarField& strengthPatch =
+                    interfaceStrengthFace.boundaryField()[patchi];
+                const vectorField& normalPatch =
+                    interfaceNormalFace.boundaryField()[patchi];
+                const scalarField& magSfPatch =
+                    magSf.boundaryField()[patchi];
+                const scalarField& recoilPatch =
+                    (*recoilToUse).boundaryField()[patchi];
+
+                forAll(strengthPatch, facei)
+                {
+                    totalFaceRecoilForce +=
+                        recoilPatch[facei]
+                      * strengthPatch[facei]
+                      * normalPatch[facei]
+                      * magSfPatch[facei];
+                }
+            }
+
+            static_cast<void>(totalFaceRecoilForce);
+
+            const dimensionedScalar recoilForceMag =
+                fvc::domainIntegrate(mag(recoilForce));
+
+            Info<< "    Recoil force magnitude: " << recoilForceMag.value()
                 << " N" << nl
                 << "    Max recoil pressure: " << maxRecoil/1e6
                 << " MPa" << endl;
         }
+
+        tRecoilForce.clear();
     }
+if (pimple.momentumPredictor())
+{
+    // The capillary force already appears in phig within pEqn.H via
+    // mixture.surfaceTensionForce().  Including it here as well was
+    // double-counting the surface-tension contribution, which the run
+    // logs revealed as steadily increasing velocities even when the
+    // recoil pressure field remained identically zero.  Only assemble
+    // the forces that are not already handled through the pressure
+    // correction stage.
+
+    // Start with the forces that are *not* treated in phig.  Gravity is
+    // already accounted for through the -ghf*fvc::snGrad(rho) contribution
+    // inside phig in pEqn.H, so including rho*g here would double-count it
+    // and steadily accelerate the flow even in the absence of recoil.
+    tmp<volVectorField> tGradPrgh = fvc::grad(p_rgh);
+    volVectorField gradPrgh
+    (
+        IOobject
+        (
+            "grad(p_rgh)",
+            runTime.timeName(),
+            mesh,
+            IOobject::NO_READ,
+            IOobject::NO_WRITE
+        ),
+        tGradPrgh()
+    );
+    tGradPrgh.clear();
+
+    const Foam::scalar gradLimit = solverCoeffs.lookupOrDefault<Foam::scalar>
+    (
+        "maxPressureGradient",
+        Foam::GREAT
+    );
+
+    bool nonFiniteGrad = false;
+    bool gradClamped = false;
+
+    vectorField& gradInternal = gradPrgh.internalFieldRef();
+
+    forAll(gradInternal, celli)
+    {
+        vector& g = gradInternal[celli];
+
+        for (direction cmpt = 0; cmpt < vector::nComponents; ++cmpt)
+        {
+            scalar& val = g[cmpt];
+
+            if (!std::isfinite(val))
+            {
+                val = 0.0;
+                nonFiniteGrad = true;
+            }
+        }
+
+        if (gradLimit < Foam::GREAT)
+        {
+            const scalar magG = Foam::mag(g);
+
+            if (magG > gradLimit && magG > SMALL)
+            {
+                g *= gradLimit/magG;
+                gradClamped = true;
+            }
+        }
+    }
+
+    forAll(gradPrgh.boundaryField(), patchi)
+    {
+        vectorField& gradPatch = gradPrgh.boundaryFieldRef()[patchi];
+
+        forAll(gradPatch, facei)
+        {
+            vector& g = gradPatch[facei];
+
+            for (direction cmpt = 0; cmpt < vector::nComponents; ++cmpt)
+            {
+                scalar& val = g[cmpt];
+
+                if (!std::isfinite(val))
+                {
+                    val = 0.0;
+                    nonFiniteGrad = true;
+                }
+            }
+
+            if (gradLimit < Foam::GREAT)
+            {
+                const scalar magG = Foam::mag(g);
+
+                if (magG > gradLimit && magG > SMALL)
+                {
+                    g *= gradLimit/magG;
+                    gradClamped = true;
+                }
+            }
+        }
+    }
+
+    if (nonFiniteGrad)
+    {
+        WarningInFunction
+            << "Non-finite entries detected in grad(p_rgh); resetting to zero"
+            << nl;
+    }
+
+    if (gradClamped)
+    {
+        Info<< "    grad(p_rgh) limited to max magnitude "
+            << gradLimit << " Pa/m" << endl;
+    }
+    
+    volVectorField momentumSource
+    (
+        IOobject
+        (
+            "momentumSource",
+            runTime.timeName(),
+            mesh,
+            IOobject::NO_READ,
+            IOobject::NO_WRITE
+        ),
+        -gradPrgh
+
+    );
 
     // Solve with complete momentum source
     solve(UEqn == momentumSource);
