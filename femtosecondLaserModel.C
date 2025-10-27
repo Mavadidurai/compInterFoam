@@ -2071,7 +2071,17 @@ void femtosecondLaserModel::calculateSource() const
 
         if (actualPower > VSMALL)
         {
-            const scalar scale = desiredPower/actualPower;
+            scalar scale = desiredPower/actualPower;
+
+            if (metrics.limitSource && metrics.maxSourceValue > VSMALL)
+            {
+                const scalar maxScale = metrics.maxSourceCap/metrics.maxSourceValue;
+
+                if (scale > maxScale)
+                {
+                    scale = maxScale;
+                }
+            }
 
             if (mag(scale - 1.0) > 1e-6)
             {
