@@ -96,7 +96,7 @@ advancedInterfaceCapturing
     recoilTempOffset      100;      // ✅ INCREASE from 20 (smoother activation)
     phaseChangeTempOffset 100;      // ✅ INCREASE from 20
     recoilRelax           0.3;      // ✅ INCREASE from 0.1 (more damping)
-    alphaMin              0.05;
+    alphaMin              0.01;
     alphaMax              1;
     maxPhysicalTemperature 5000;
         // Physical limits
