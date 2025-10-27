@@ -28,7 +28,10 @@ boundaryField
   back     { type symmetryPlane; }
 
   substrate     { type fixedFluxPressure; value uniform 0; }
-  donor     { type fixedFluxPressure; value uniform 0; }
+  donor
+  {
+      type            zeroGradient;
+  }
 }
 
 // ************************************************************************* //

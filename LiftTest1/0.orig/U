@@ -28,7 +28,10 @@ boundaryField
   back     { type symmetryPlane; }
 
     substrate     { type fixedValue; value uniform (0 0 0); }   // substrate wall
-    donor     { type fixedValue; value uniform (0 0 0); }   // donor glass wall
+    donor
+    {
+        type            zeroGradient;
+    }
 }
 
 
