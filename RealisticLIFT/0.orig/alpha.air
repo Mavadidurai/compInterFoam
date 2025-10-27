@@ -30,8 +30,7 @@ boundaryField
     substrate   { type zeroGradient;  }
     donor
     {
-        type  fixedValue;
-        value uniform 0;
+        type        zeroGradient;
     }
 }
 // ************************************************************************* //

@@ -34,11 +34,10 @@ boundaryField
         value           uniform 300;  // Heat sink effect
     }
     
-    // TOP - donor (transparent glass) - weaker thermal effect
+    // TOP - donor (transparent glass) - now treated as open boundary
     donor
     {
-        type            fixedValue;
-        value           uniform 300;
+        type            zeroGradient;
     }
 }
 

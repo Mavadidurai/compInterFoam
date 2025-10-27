@@ -28,7 +28,10 @@ boundaryField
   back      { type symmetryPlane; }
 
 substrate { type fixedValue; value uniform 300; }
-donor     { type fixedValue; value uniform 300; }
+donor
+{
+    type            zeroGradient;
+}
 
 }
 
