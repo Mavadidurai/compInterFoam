@@ -493,8 +493,13 @@ if (verbose && master && timeIndex % 10 == 0)
             {
                 T = Foam::max(T, minTDim);
                 T.correctBoundaryConditions();
-                return;
             }
+
+            const bool enforceUpperBound = enableTClamp;
+            const bool haveExplicitUpper = enforceUpperBound || ctrl.found("maxT");
+            const scalar detectionUpper = haveExplicitUpper
+                ? maxPhysicalTemp
+                : Foam::max(10.0*maxTl, minPhysicalTemp);
 
             const scalarField TintPre(T.internalField());
             label nLow = 0;
@@ -511,7 +516,7 @@ if (verbose && master && timeIndex % 10 == 0)
                 {
                     ++nLow;
                 }
-                else if (val > maxPhysicalTemp)
+                else if (val > detectionUpper)
                 {
                     ++nHigh;
                 }
@@ -556,7 +561,7 @@ if (verbose && master && timeIndex % 10 == 0)
                 const bool badT =
                     (!std::isfinite(Tcell)
                   || Tcell < minPhysicalTemp
-                  || Tcell > maxPhysicalTemp);
+                  || Tcell > detectionUpper);
 
                 bool corrected = false;
 
@@ -581,11 +586,18 @@ if (verbose && master && timeIndex % 10 == 0)
                         candidateT = minPhysicalTemp;
                     }
 
-                    candidateT = Foam::min
-                    (
-                        Foam::max(candidateT, minPhysicalTemp),
-                        maxPhysicalTemp
-                    );
+                    if (enforceUpperBound)
+                    {
+                        candidateT = Foam::min
+                        (
+                            Foam::max(candidateT, minPhysicalTemp),
+                            maxPhysicalTemp
+                        );
+                    }
+                    else
+                    {
+                        candidateT = Foam::max(candidateT, minPhysicalTemp);
+                    }
 
                     if (lowCap)
                     {
@@ -603,13 +615,22 @@ if (verbose && master && timeIndex % 10 == 0)
                         }
 
                         const scalar energyFloor = cap*minPhysicalTemp;
-                        const scalar energyCeil = cap*maxPhysicalTemp;
 
-                        candidateEnergy = Foam::min
+                        candidateEnergy = Foam::max
                         (
-                            Foam::max(candidateEnergy, energyFloor),
-                            energyCeil
+                            candidateEnergy,
+                            energyFloor
                         );
+
+                        if (enforceUpperBound)
+                        {
+                            const scalar energyCeil = cap*maxPhysicalTemp;
+                            candidateEnergy = Foam::min
+                            (
+                                candidateEnergy,
+                                energyCeil
+                            );
+                        }
 
                         Ecell = candidateEnergy;
                         Tcell = candidateEnergy/Foam::max(cap, VSMALL);
@@ -619,12 +640,17 @@ if (verbose && master && timeIndex % 10 == 0)
                 else if (!lowCap)
                 {
                     const scalar energyFloor = cap*minPhysicalTemp;
-                    const scalar energyCeil = cap*maxPhysicalTemp;
-                    const scalar limitedEnergy = Foam::min
-                    (
-                        Foam::max(Ecell, energyFloor),
-                        energyCeil
-                    );
+                    scalar limitedEnergy = Foam::max(Ecell, energyFloor);
+
+                    if (enforceUpperBound)
+                    {
+                        const scalar energyCeil = cap*maxPhysicalTemp;
+                        limitedEnergy = Foam::min
+                        (
+                            limitedEnergy,
+                            energyCeil
+                        );
+                    }
 
                     if (limitedEnergy != Ecell)
                     {
@@ -637,11 +663,16 @@ if (verbose && master && timeIndex % 10 == 0)
 
                 else
                 {
-                    scalar limitedT = Foam::min
-                    (
-                        Foam::max(Tcell, minPhysicalTemp),
-                        maxPhysicalTemp
-                    );
+                    scalar limitedT = Foam::max(Tcell, minPhysicalTemp);
+
+                    if (enforceUpperBound)
+                    {
+                        limitedT = Foam::min
+                        (
+                            limitedT,
+                            maxPhysicalTemp
+                        );
+                    }
 
                     if (limitedT != Tcell || !std::isfinite(Tcell))
                     {
@@ -667,11 +698,18 @@ if (verbose && master && timeIndex % 10 == 0)
                         fallbackT = minPhysicalTemp;
                     }
 
-                    fallbackT = Foam::min
-                    (
-                        Foam::max(fallbackT, minPhysicalTemp),
-                        maxPhysicalTemp
-                    );
+                    if (enforceUpperBound)
+                    {
+                        fallbackT = Foam::min
+                        (
+                            Foam::max(fallbackT, minPhysicalTemp),
+                            maxPhysicalTemp
+                        );
+                    }
+                    else
+                    {
+                        fallbackT = Foam::max(fallbackT, minPhysicalTemp);
+                    }
 
                     Ecell = cap*fallbackT;
                     Tcell = fallbackT;
@@ -704,7 +742,7 @@ if (verbose && master && timeIndex % 10 == 0)
                     const bool badT =
                         (!std::isfinite(Tface)
                       || Tface < minPhysicalTemp
-                      || Tface > maxPhysicalTemp);
+                      || Tface > detectionUpper);
 
                     bool corrected = false;
 
@@ -724,11 +762,18 @@ if (verbose && master && timeIndex % 10 == 0)
                             candidateT = minPhysicalTemp;
                         }
 
-                        candidateT = Foam::min
-                        (
-                            Foam::max(candidateT, minPhysicalTemp),
-                            maxPhysicalTemp
-                        );
+                        if (enforceUpperBound)
+                        {
+                            candidateT = Foam::min
+                            (
+                                Foam::max(candidateT, minPhysicalTemp),
+                                maxPhysicalTemp
+                            );
+                        }
+                        else
+                        {
+                            candidateT = Foam::max(candidateT, minPhysicalTemp);
+                        }
 
                         if (lowCap)
                         {
@@ -746,12 +791,17 @@ if (verbose && master && timeIndex % 10 == 0)
                     if (!lowCap)
                     {
                         const scalar energyFloor = cap*minPhysicalTemp;
-                        const scalar energyCeil = cap*maxPhysicalTemp;
-                        const scalar limitedEnergy = Foam::min
-                        (
-                            Foam::max(Eface, energyFloor),
-                            energyCeil
-                        );
+                        scalar limitedEnergy = Foam::max(Eface, energyFloor);
+
+                        if (enforceUpperBound)
+                        {
+                            const scalar energyCeil = cap*maxPhysicalTemp;
+                            limitedEnergy = Foam::min
+                            (
+                                limitedEnergy,
+                                energyCeil
+                            );
+                        }
 
                         if (limitedEnergy != Eface)
                         {
@@ -763,11 +813,16 @@ if (verbose && master && timeIndex % 10 == 0)
                     }
                     else
                     {
-                        scalar limitedT = Foam::min
-                        (
-                            Foam::max(Tface, minPhysicalTemp),
-                            maxPhysicalTemp
-                        );
+                        scalar limitedT = Foam::max(Tface, minPhysicalTemp);
+
+                        if (enforceUpperBound)
+                        {
+                            limitedT = Foam::min
+                            (
+                                limitedT,
+                                maxPhysicalTemp
+                            );
+                        }
 
                         if (limitedT != Tface || !std::isfinite(Tface))
                         {
@@ -789,11 +844,18 @@ if (verbose && master && timeIndex % 10 == 0)
                             fallbackT = minPhysicalTemp;
                         }
 
-                        fallbackT = Foam::min
-                        (
-                            Foam::max(fallbackT, minPhysicalTemp),
-                            maxPhysicalTemp
-                        );
+                        if (enforceUpperBound)
+                        {
+                            fallbackT = Foam::min
+                            (
+                                Foam::max(fallbackT, minPhysicalTemp),
+                                maxPhysicalTemp
+                            );
+                        }
+                        else
+                        {
+                            fallbackT = Foam::max(fallbackT, minPhysicalTemp);
+                        }
 
                         Tface = fallbackT;
                         Eface = cap*fallbackT;
