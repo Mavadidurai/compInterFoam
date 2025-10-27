@@ -21,9 +21,10 @@ solvers
     {
         solver          PBiCGStab;
         preconditioner  DILU;
-        tolerance       1e-06;
-        relTol          0.0;
+        tolerance       1e-08;
+        relTol          0.01;
         maxIter         50;
+        minIter         1;     // Force at least 1 iteration
 
         nAlphaCorr      1;              // Keep at 1
         nAlphaSubCycles 3;              // Increased to stabilise transport
@@ -42,9 +43,9 @@ solvers
     {
         solver          GAMG;
         smoother        DICGaussSeidel;
-        tolerance       1e-8;
-        relTol          0;
-        maxIter         100;
+        tolerance       1e-6;
+        relTol          1e-3;
+        maxIter         200;
         nPreSweeps      0;
         nPostSweeps     2;
         cacheAgglomeration true;
@@ -65,10 +66,10 @@ solvers
    {
             solver      smoothSolver;
             smoother    symGaussSeidel;
-	    nSweeps     2;
-	    tolerance   1e-04;
-	    relTol      0.5;
-	    maxIter     200;
+            nSweeps     2;
+            tolerance   1e-06;
+            relTol      0.1;
+            maxIter     200;
     }
 
     T
@@ -77,48 +78,32 @@ solvers
         smoother        symGaussSeidel;
         nSweeps         6;
         tolerance       1e-8;
-        relTol          0.01;             // Allow 1% relative convergence
+        relTol          0.001;             // Tightened relative convergence
         maxIter         1000;             // Increased iteration limit
         minIter         3;                // Ensure minimum work
     }
 
-    TFinal
-    {
-        $T;
-        tolerance       1e-9;
-        relTol          0;
-        maxIter         1000;
-    }
+        Te
+        {
+            $T;
+            tolerance       1e-8;
+            relTol          0;
+        }
 
-    Te
-    {
-         solver          smoothSolver;
-        smoother        symGaussSeidel;
-        nSweeps         6;
-        tolerance       1e-8;
-        relTol          0;
-        maxIter         1000;
-        minIter         3;
-    }
-
-    Tl
-    {
-        solver          smoothSolver;
-        smoother        symGaussSeidel;
-        nSweeps         6;
-        tolerance       1e-8;
-        relTol          0;
-        maxIter         1000;
-        minIter         3;
-    }
+        Tl
+        {
+            $T;
+        tolerance       1e-6;
+        relTol          1e-4;
+        }
 }
 
 PIMPLE
 {
     momentumPredictor           true;
     nOuterCorrectors            1;           // REDUCE: was 2 (emergency mode)
-    nCorrectors                 2;
-    nNonOrthogonalCorrectors    1;
+    nCorrectors                 3;
+    nNonOrthogonalCorrectors    0;
 
     residualControl
     {
@@ -127,7 +112,7 @@ PIMPLE
         U         { tolerance 1e-6;  relTol 0.01; }
         Te        { tolerance 5e-9;  relTol 0.0;  }   // thermal is stiff; be stricter
         Tl        { tolerance 5e-9;  relTol 0.0;  }
-        T         { tolerance 1e-8;  relTol 0.01;  }   // if gas T exists
+        T         { tolerance 1e-8;  relTol 0.0;  }   // if gas T exists
     }
     
     p_rghRefCell                0;
@@ -143,35 +128,33 @@ relaxationFactors
     }
     equations
     {
-        U               0.7;
-        T               0.5;
-        Te              0.6;
-        Tl              0.6;
+        U               0.5;
+        T               0.2;
+        Te              0.4;
+        Tl              0.4;
         "alpha.*"       0.5;
-        ".*Final"       0.9;
+        ".*Final"       0.8;
     }
 }
 
 // Pressure relaxation control
-targetResP  0.5;
+targetResP  0.05;
 
 compInterFoamCoeffs
 {
-    // CRITICAL FIX: Remove artificial velocity clamping
-    maxVelocity            0;         // DISABLED: was causing uniform 500 m/s field
-    maxReasonableVelocity  800;       // Keep for validation warnings only
-    
+    maxReasonableVelocity  1000;
+    maxVelocity            0;
     defaultMetalDensity    4500;        
     defaultAirDensity      1.2;         
-    maxInitialResidual     10;
+    maxInitialResidual     10;          // REDUCE: was 1e3
 
     // Interface clamp settings
     enableAlphaClamp  false;
     minAlpha          0.001;
     maxAlpha          0.999;
 
-    // CRITICAL FIX: Disable pressure clamping during active phase
-    pressureClamp      false;          // DISABLED: was distorting physics
+    // Pressure clamp settings
+    pressureClamp      true;
     maxPressure        1e8;
     minPressure       -1e7;
 
@@ -180,17 +163,14 @@ compInterFoamCoeffs
     maxDensity         10000;
     minDensity         0.5;
 
-    // RAU clamp settings  
+    // RAU clamp settings
     enableRAUClamp     false;
     minRAU             1e-10;
     maxRAU             1e6;
     minRAUf            1e-14;
     maxRAUf            1e6;
 
-    // Diagonal safety (keep this)
-    minUEqnDiag        1e-9;
-
     // RELAX RESIDUAL TARGETS
-    targetResU         0.1;
-    targetResP         0.5;
+    targetResU         0.02;
+    targetResP         0.05;
 }
