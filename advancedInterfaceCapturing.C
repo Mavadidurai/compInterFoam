@@ -544,7 +544,11 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
     scalar localMinInterfaceTemp = GREAT;
     const scalar vaporThreshold =
         vaporTemp_.value() + phaseChangeTempOffset_.value();
+    const scalar recoilThreshold =
+        vaporTemp_.value() + recoilTempOffset_.value();
         
+    const scalar recoilScale = pressureScale_.value();
+
     forAll(recoilField, cellI)
     {
         const scalar alpha = alpha1Field[cellI];
@@ -560,9 +564,15 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
         const scalar Tlocal = Foam::max(temperatureField[cellI], scalar(0));
         localMaxInterfaceTemp = Foam::max(localMaxInterfaceTemp, Tlocal);
         localMinInterfaceTemp = Foam::min(localMinInterfaceTemp, Tlocal);
-        if (Tlocal >= vaporThreshold)
+        if (Tlocal >= recoilThreshold)
         {
             ++localHotInterfaceCells;
+        }
+
+        if (Tlocal < recoilThreshold)
+        {
+            recoilField[cellI] = 0.0;
+            continue;
         }
 
         const scalar jNet = massFluxField[cellI];
@@ -591,7 +601,8 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
             sqrtTerm = Foam::sqrt(hkArgument);
         }
 
-        const scalar pRecoil = jNet*sqrtTerm*(1.0 - betaMomentum);
+        // pressureScale is treated as a dimensionless multiplier (default 1 Pa·s).
+        const scalar pRecoil = recoilScale*jNet*sqrtTerm*(1.0 - betaMomentum);
 
         scalar alphaMask = (alpha - alphaMin_)*invAlphaWindow;
         alphaMask = Foam::min(Foam::max(alphaMask, scalar(0)), scalar(1));
@@ -831,16 +842,17 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
                 if (globalHotInterfaceCells > 0)
                 {
                     Info<< "  " << globalHotInterfaceCells
-                        << " interface cell(s) exceeded the vapor threshold "
-                        << vaporThreshold
-                        << " K but still fell below massRateEps." << nl
+                        << " interface cell(s) exceeded the recoil threshold "
+                        << recoilThreshold
+                        << " K (phase-change threshold " << vaporThreshold
+                        << " K) but still fell below massRateEps." << nl
                         << "    Inspect phaseChangeMassFlux, evaporationCoeff,"
                         << " and activation windows." << nl;
                 }
                 else
                 {
-                    Info<< "  Interface temperatures remained below the vapor"
-                        << " threshold " << vaporThreshold << " K." << nl;
+                    Info<< "  Interface temperatures remained below the recoil"
+                        << " threshold " << recoilThreshold << " K." << nl;
                 }
             }
         }
