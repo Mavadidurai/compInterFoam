@@ -51,7 +51,7 @@ pulseWidth               200e-15;   // 200 fs FWHM
 wavelength               343e-9;    // 343 nm (Ti absorption peak)
 
 // --- Spatial Gaussian (match the box center and film depth) ---
-spotSize        6.0e-6;       // [m] beam diameter (3 μm 1/e² radius) //spotSize 3.2e-6
+spotSize        3.2e-6;       // [m] beam diameter (3 μm 1/e² radius)
 // Put the beam center inside the domain (mid x,z; inside donor film at y≈20.0357 μm)
 focus            (25e-6 20.0357e-6 5e-6);
 direction       (0 -1 0);
@@ -72,9 +72,9 @@ gaussianProfile     true;
 continuousLaser     false;
 maxVolumetricSource 2e23;  // [W/m³] physical safeguard just above pulse peak
 
-// Single-pulse configuration aligned with controlDict laser window
-pulseFrequency      1e10;     // [1/s] 10 GHz → pulses every 100 ps within 0–200 ps window
-pulseDutyCycle      2e-3;     // [-] matches 200 fs pulse over 100 ps period
+// Repeating pulse train aligned with controlDict laser window
+pulseFrequency      0;     // [1/s] 10 ps spacing so multiple pulses fire in 0–200 ps window
+pulseDutyCycle      0;     // [-] 1 ps gate comfortably covers the 200 fs width each period
 
 // Energy tolerance for validation
 pulseEnergyToleranceRel 0.05; // 5% relative tolerance
