@@ -85,10 +85,6 @@ if (kineticEnergyCeiling > 0 && kineticEnergyCeiling < Foam::GREAT)
 tmp<volVectorField> tRecoilForce;
 bool recoilForceReady = false;
 
-// Reset the face traction each iteration so that old values cannot persist
-// when recoil is not active.
-recoilTractionf = vector::zero;
-
 recoilTractionf = dimensionedVector
 (
     "zeroRecoilTraction",
