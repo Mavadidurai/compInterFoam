@@ -82,8 +82,11 @@ if (kineticEnergyCeiling > 0 && kineticEnergyCeiling < Foam::GREAT)
     }
 }
 
-    if (recoilPressurePtr)
-    {
+tmp<volVectorField> tRecoilForce;
+bool recoilForceReady = false;
+
+if (recoilPressurePtr)
+{
         const volScalarField& recoilP = *recoilPressurePtr;
 
         const tmp<volVectorField> tInterfaceGrad = fvc::grad(alpha1);
@@ -287,13 +290,12 @@ if (kineticEnergyCeiling > 0 && kineticEnergyCeiling < Foam::GREAT)
             recoilToUse = &tRecoilClamped();
         }
 
-        tmp<volVectorField> tRecoilForce
+        tRecoilForce = tmp<volVectorField>
         (
             (*recoilToUse)*interfaceStrength*interfaceNormal
         );
         volVectorField& recoilForce = tRecoilForce.ref();
-
-        momentumSource += recoilForce;
+        recoilForceReady = true;
 
         if (logRecoil)
         {
@@ -366,8 +368,8 @@ if (kineticEnergyCeiling > 0 && kineticEnergyCeiling < Foam::GREAT)
                 << " MPa" << endl;
         }
 
-        tRecoilForce.clear();
     }
+
 if (pimple.momentumPredictor())
 {
     // The capillary force already appears in phig within pEqn.H via
@@ -494,13 +496,23 @@ if (pimple.momentumPredictor())
 
     );
 
+    if (recoilForceReady)
+    {
+        momentumSource += tRecoilForce();
+    }
+
     // Solve with complete momentum source
     solve(UEqn == momentumSource);
 
     fvOptions.correct(U);
     U.correctBoundaryConditions();
-     
+
     K = 0.5*magSqr(U);
+}
+
+if (recoilForceReady)
+{
+    tRecoilForce.clear();
 }
 
 tmp<volScalarField> tUEqnDiag = UEqn.A();
