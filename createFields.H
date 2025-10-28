@@ -111,7 +111,8 @@ surfaceVectorField recoilTractionf
     dimensionedVector
     (
         "zeroRecoilTraction",
-        dimPressure,
+        dimForce/dimVolume,
+
         Foam::vector::zero
     )
 );

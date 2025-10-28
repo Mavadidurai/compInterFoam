@@ -85,6 +85,17 @@ if (kineticEnergyCeiling > 0 && kineticEnergyCeiling < Foam::GREAT)
 tmp<volVectorField> tRecoilForce;
 bool recoilForceReady = false;
 
+// Reset the face traction each iteration so that old values cannot persist
+// when recoil is not active.
+recoilTractionf = vector::zero;
+
+recoilTractionf = dimensionedVector
+(
+    "zeroRecoilTraction",
+    dimForce/dimVolume,
+    vector::zero
+);
+
 if (recoilPressurePtr)
 {
         const volScalarField& recoilP = *recoilPressurePtr;
@@ -294,9 +305,53 @@ if (recoilPressurePtr)
         (
             (*recoilToUse)*interfaceStrength*interfaceNormal
         );
-        volVectorField& recoilForce = tRecoilForce.ref();
+        volVectorField& recoilForce = tRecoilForce.ref();       
+        recoilTractionf = fvc::interpolate(recoilForce);
         recoilForceReady = true;
 
+        tmp<surfaceScalarField> tRecoilPressureFace =
+            fvc::interpolate(*recoilToUse);
+        tmp<surfaceScalarField> tInterfaceStrengthFace =
+            fvc::interpolate(interfaceStrength);
+        tmp<surfaceVectorField> tInterfaceNormalFace =
+            fvc::interpolate(interfaceNormal);
+
+        const surfaceScalarField& recoilPressureFace = tRecoilPressureFace();
+        const surfaceScalarField& interfaceStrengthFace =
+            tInterfaceStrengthFace();
+        const surfaceVectorField& interfaceNormalFace =
+            tInterfaceNormalFace();
+
+        tmp<surfaceScalarField> tNormalProjection =
+            interfaceNormalFace & mesh.Sf();
+        const surfaceScalarField& normalProjection = tNormalProjection();
+
+        tmp<surfaceScalarField> tMagSfSqr = sqr(mesh.magSf());
+        const surfaceScalarField& magSfSqr = tMagSfSqr();
+        const dimensionedScalar minMagSfSqr
+        (
+            "minMagSfSqr",
+            magSfSqr.dimensions(),
+            VSMALL
+        );
+
+        tmp<surfaceScalarField> tDenom = magSfSqr + minMagSfSqr;
+        const surfaceScalarField& denom = tDenom();
+
+        tmp<surfaceScalarField> tTractionScale =
+            recoilPressureFace*interfaceStrengthFace*normalProjection/denom;
+        const surfaceScalarField& tractionScale = tTractionScale();
+
+        recoilTractionf = tractionScale*mesh.Sf();
+
+        tTractionScale.clear();
+        tDenom.clear();
+        tMagSfSqr.clear();
+        tNormalProjection.clear();
+        tInterfaceNormalFace.clear();
+        tInterfaceStrengthFace.clear();
+        tRecoilPressureFace.clear();
+        
         if (logRecoil)
         {
             vector totalFaceRecoilForce(vector::zero);
