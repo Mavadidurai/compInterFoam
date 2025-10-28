@@ -565,11 +565,6 @@ if (pimple.momentumPredictor())
     K = 0.5*magSqr(U);
 }
 
-if (recoilForceReady)
-{
-    tRecoilForce.clear();
-}
-
 tmp<volScalarField> tUEqnDiag = UEqn.A();
 volScalarField& UEqnDiag = tUEqnDiag.ref();
 

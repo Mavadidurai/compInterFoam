@@ -24,6 +24,11 @@ volVectorField HbyA
     constrainHbyA(rAU*UEqn.H(), U, p_rgh)
 );
 
+if (recoilForceReady && tRecoilForce.valid())
+{
+    HbyA += rAU*tRecoilForce();
+}
+
 surfaceScalarField phiHbyA
 (
     IOobject
@@ -132,6 +137,11 @@ fvc::makeRelative(rhoPhi, U);
 p = p_rgh + rho*gh;
 p_rgh.correctBoundaryConditions();
 p.correctBoundaryConditions();
+
+if (tRecoilForce.valid())
+{
+    tRecoilForce.clear();
+}
 
 const Foam::dictionary& solverCoeffs = compInterFoamCoeffsDict(mesh);
 const Foam::Switch pressureClamp =
