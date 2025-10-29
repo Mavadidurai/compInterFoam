@@ -57,6 +57,7 @@ private:
     scalar recoilMax_;               // Base recoil pressure cap
     dimensionedScalar recoilTempOffset_;        // Temperature offset for recoil activation
     dimensionedScalar phaseChangeTempOffset_;   // Offset for phase-change threshold
+    dimensionedScalar maxPhysicalTemperature_;  // Optional physical temperature clamp
     Switch clampRecoil_;             // Enable/disable recoil pressure clamping
     Switch scaleRecoilMax_;          // Scale recoilMax with interface weighting
     scalar recoilRelax_;             // Temporal smoothing factor for recoil pressure

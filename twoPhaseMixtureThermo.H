@@ -41,6 +41,9 @@ class twoPhaseMixtureThermo
 
         //- Vaporisation temperature (K)
         scalar T_vapor_;
+
+        //- Optional physical temperature ceiling for phase-change physics (K)
+        scalar maxPhaseChangeTemperature_;
         
         //- Minimum permissible time-step for phase change (s)
         mutable scalar dtFloor_;

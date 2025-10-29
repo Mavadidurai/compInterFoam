@@ -51,6 +51,7 @@ Foam::twoPhaseMixtureThermo::twoPhaseMixtureThermo
     latentHeat_(0.0),
     T_melt_(0.0),
     T_vapor_(0.0),
+    maxPhaseChangeTemperature_(GREAT),
     dtFloor_(1e-12),
     gasConstant_(0.0),  // Populated from controlDict.phaseChangeCoeffs (required)
     evaporationCoeff_(0.18),
@@ -361,7 +362,36 @@ Foam::twoPhaseMixtureThermo::twoPhaseMixtureThermo
             << ")"
             << exit(FatalIOError);
     }
-    
+    const dictionary& aicDict =
+        controlDict.subOrEmptyDict("advancedInterfaceCapturing");
+
+    if (aicDict.found("maxPhysicalTemperature"))
+    {
+        scalar tempLimit = aicDict.lookupOrDefault<scalar>
+        (
+            "maxPhysicalTemperature",
+            maxPhaseChangeTemperature_
+        );
+
+        if (!std::isfinite(tempLimit))
+        {
+            FatalIOErrorInFunction(aicDict)
+                << "Entry 'maxPhysicalTemperature' in controlDict.advancedInterfaceCapturing"
+                << " must be finite"
+                << exit(FatalIOError);
+        }
+
+        if (tempLimit <= T_melt_)
+        {
+            FatalIOErrorInFunction(aicDict)
+                << "maxPhysicalTemperature (" << tempLimit
+                << " K) must exceed T_melt (" << T_melt_ << " K)"
+                << " in controlDict.advancedInterfaceCapturing"
+                << exit(FatalIOError);
+        }
+
+        maxPhaseChangeTemperature_ = tempLimit;
+    }
     const dictionary& phaseChangeDict = *phaseChangeDictPtr;
 
     onlyAboveVapor_ = phaseChangeDict.lookupOrDefault<Switch>
@@ -958,9 +988,12 @@ void Foam::twoPhaseMixtureThermo::computePhaseChange()
     const scalarField& cellVolumes = mesh.V();
     const bool restrictToVapor = onlyAboveVapor_;
 
+    const scalar Tmax = maxPhaseChangeTemperature_;
+
     forAll(TlField, cellI)
     {
         const scalar T_local = TlField[cellI];
+        const scalar T_eff = Foam::min(Foam::max(T_local, scalar(0)), Tmax);
         const scalar p_metalVapor =
             pMetalVaporFieldPtr ? (*pMetalVaporFieldPtr)[cellI] : 0.0;
         const scalar alpha = alpha1Field[cellI];
@@ -970,16 +1003,16 @@ void Foam::twoPhaseMixtureThermo::computePhaseChange()
             continue;
         }
 
-        if (restrictToVapor && T_local < T_vap)
+        if (restrictToVapor && T_eff < T_vap)
         {
             continue;
         }
 
-        const scalar inv_T = 1.0/Foam::max(T_local, 100.0);
+        const scalar inv_T = 1.0/Foam::max(T_eff, 100.0);
         const scalar inv_Tvap = 1.0/T_vap;
         const scalar p_vapor = p_ref*std::exp(L/R*(inv_Tvap - inv_T));
 
-        const scalar sqrt_T = std::sqrt(Foam::max(T_local, 1.0));
+        const scalar sqrt_T = std::sqrt(Foam::max(T_eff, 1.0));
         const scalar sqrt_2piR = std::sqrt(2.0*3.14159*R);
 
         const scalar j_evap = evaporationCoeff_*p_vapor/(sqrt_2piR*sqrt_T);

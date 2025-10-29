@@ -93,6 +93,10 @@ advancedInterfaceCapturing::advancedInterfaceCapturing
     (
         dimensionedScalar("phaseChangeTempOffset", dimTemperature, 0.0)
     ),
+    maxPhysicalTemperature_
+    (
+        dimensionedScalar("maxPhysicalTemperature", dimTemperature, GREAT)
+    ),
     clampRecoil_(false),
     scaleRecoilMax_(false),
     recoilRelax_(1.0),
@@ -174,6 +178,27 @@ advancedInterfaceCapturing::advancedInterfaceCapturing
 
     meltingTemp_ = readTemperature("meltingTemperature", meltingTemp_);
     vaporTemp_ = readTemperature("vaporTemperature", vaporTemp_);
+    const bool hasMaxPhysicalTemperature = aicDict.found("maxPhysicalTemperature");
+    maxPhysicalTemperature_ = readTemperature
+    (
+        "maxPhysicalTemperature",
+        maxPhysicalTemperature_
+    );
+
+    if
+    (
+        hasMaxPhysicalTemperature
+     && maxPhysicalTemperature_.value() <= meltingTemp_.value()
+    )
+    {
+        FatalErrorInFunction
+            << "maxPhysicalTemperature (" << maxPhysicalTemperature_.value()
+            << " K) must exceed the melting temperature ("
+            << meltingTemp_.value() << " K). Values read from the"
+            << " 'advancedInterfaceCapturing' dictionary."
+            << abort(FatalError);
+    }
+
     const bool master = Pstream::master();
     if (verbose && master)
     {
@@ -508,6 +533,8 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
     const scalarField& temperatureField = temperature.primitiveField();
     const scalarField& massFluxField = massFlux.primitiveField();
 
+    const scalar maxPhysicalT = maxPhysicalTemperature_.value();
+    
     const scalar alphaWindow = Foam::max(alphaMax_ - alphaMin_, Foam::SMALL);
     const scalar invAlphaWindow = 1.0/alphaWindow;
 
@@ -563,14 +590,17 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
         ++interfaceCells;
 
         const scalar Tlocal = Foam::max(temperatureField[cellI], scalar(0));
-        localMaxInterfaceTemp = Foam::max(localMaxInterfaceTemp, Tlocal);
-        localMinInterfaceTemp = Foam::min(localMinInterfaceTemp, Tlocal);
-        if (Tlocal >= recoilThreshold)
+        const scalar Tactive = Foam::min(Tlocal, maxPhysicalT);
+
+        localMaxInterfaceTemp = Foam::max(localMaxInterfaceTemp, Tactive);
+        localMinInterfaceTemp = Foam::min(localMinInterfaceTemp, Tactive);
+
+        if (Tactive >= recoilThreshold)
         {
             ++localHotInterfaceCells;
         }
 
-        if (Tlocal < recoilThreshold)
+        if (Tactive < recoilThreshold)
         {
             recoilField[cellI] = 0.0;
             continue;
@@ -586,8 +616,8 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
 
         ++fluxCells;
 
-        localMaxActiveTemp = Foam::max(localMaxActiveTemp, Tlocal);
-        localMinActiveTemp = Foam::min(localMinActiveTemp, Tlocal);
+        localMaxActiveTemp = Foam::max(localMaxActiveTemp, Tactive);
+        localMinActiveTemp = Foam::min(localMinActiveTemp, Tactive);
         localMaxMassFlux = Foam::max(localMaxMassFlux, Foam::mag(jNet));
         scalar sqrtTerm = 0.0;
 
@@ -596,7 +626,7 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
             const scalar hkArgument =
                 Foam::max
                 (
-                    Foam::constant::mathematical::twoPi*R_specific*Tlocal,
+                    Foam::constant::mathematical::twoPi*R_specific*Tactive,
                     scalar(0)
                 );
             sqrtTerm = Foam::sqrt(hkArgument);
