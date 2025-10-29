@@ -98,7 +98,8 @@ advancedInterfaceCapturing
     recoilRelax           0.3;      // ✅ INCREASE from 0.1 (more damping)
     alphaMin              0.01;
     alphaMax              1;
-    maxPhysicalTemperature 5000;
+    maxPhysicalTemperature  5000;
+
         // Physical limits
     maxRecoilPressure   1e9;    // 100 MPa absolute max
 }
