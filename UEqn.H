@@ -305,111 +305,8 @@ if (recoilPressurePtr)
         recoilTractionf = fvc::interpolate(recoilForce);
         recoilForceReady = true;
 
-        tmp<surfaceScalarField> tRecoilPressureFace =
-            fvc::interpolate(*recoilToUse);
-        tmp<surfaceScalarField> tInterfaceStrengthFace =
-            fvc::interpolate(interfaceStrength);
-        tmp<surfaceVectorField> tInterfaceNormalFace =
-            fvc::interpolate(interfaceNormal);
-
-        const surfaceScalarField& recoilPressureFace = tRecoilPressureFace();
-        const surfaceScalarField& interfaceStrengthFace =
-            tInterfaceStrengthFace();
-        const surfaceVectorField& interfaceNormalFace =
-            tInterfaceNormalFace();
-
-        tmp<surfaceScalarField> tNormalProjection =
-            interfaceNormalFace & mesh.Sf();
-        const surfaceScalarField& normalProjection = tNormalProjection();
-
-        tmp<surfaceScalarField> tMagSfSqr = sqr(mesh.magSf());
-        const surfaceScalarField& magSfSqr = tMagSfSqr();
-        const dimensionedScalar minMagSfSqr
-        (
-            "minMagSfSqr",
-            magSfSqr.dimensions(),
-            VSMALL
-        );
-
-        tmp<surfaceScalarField> tDenom = magSfSqr + minMagSfSqr;
-        const surfaceScalarField& denom = tDenom();
-
-        tmp<surfaceScalarField> tTractionScale =
-            recoilPressureFace*interfaceStrengthFace*normalProjection/denom;
-        const surfaceScalarField& tractionScale = tTractionScale();
-
-        recoilTractionf = tractionScale*mesh.Sf();
-
-        tTractionScale.clear();
-        tDenom.clear();
-        tMagSfSqr.clear();
-        tNormalProjection.clear();
-        tInterfaceNormalFace.clear();
-        tInterfaceStrengthFace.clear();
-        tRecoilPressureFace.clear();
-        
         if (logRecoil)
         {
-            vector totalFaceRecoilForce(vector::zero);
-
-            const scalarField& recoilInternal = (*recoilToUse).internalField();
-            const labelUList& owner = mesh.owner();
-            const labelUList& neighbour = mesh.neighbour();
-
-            tmp<surfaceScalarField> tInterfaceStrengthFace =
-                fvc::interpolate(interfaceStrength);
-            const surfaceScalarField& interfaceStrengthFace =
-                tInterfaceStrengthFace();
-
-            tmp<surfaceVectorField> tInterfaceNormalFace =
-                fvc::interpolate(interfaceNormal);
-            const surfaceVectorField& interfaceNormalFace =
-                tInterfaceNormalFace();
-
-            const surfaceScalarField& magSf = mesh.magSf();
-            const scalarField& interfaceStrengthInternal =
-                interfaceStrengthFace.internalField();
-            const vectorField& interfaceNormalInternal =
-                interfaceNormalFace.internalField();
-            const scalarField& magSfInternal = magSf.internalField();
-
-            forAll(owner, facei)
-            {
-                const label own = owner[facei];
-                const label nei = neighbour[facei];
-
-                const scalar pf =
-                    0.5*(recoilInternal[own] + recoilInternal[nei]);
-
-                totalFaceRecoilForce +=
-                    pf*interfaceStrengthInternal[facei]
-                     *interfaceNormalInternal[facei]
-                     *magSfInternal[facei];
-            }
-
-            forAll(interfaceStrengthFace.boundaryField(), patchi)
-            {
-                const scalarField& strengthPatch =
-                    interfaceStrengthFace.boundaryField()[patchi];
-                const vectorField& normalPatch =
-                    interfaceNormalFace.boundaryField()[patchi];
-                const scalarField& magSfPatch =
-                    magSf.boundaryField()[patchi];
-                const scalarField& recoilPatch =
-                    (*recoilToUse).boundaryField()[patchi];
-
-                forAll(strengthPatch, facei)
-                {
-                    totalFaceRecoilForce +=
-                        recoilPatch[facei]
-                      * strengthPatch[facei]
-                      * normalPatch[facei]
-                      * magSfPatch[facei];
-                }
-            }
-
-            static_cast<void>(totalFaceRecoilForce);
-
             const dimensionedScalar recoilForceMag =
                 fvc::domainIntegrate(mag(recoilForce));
 
@@ -533,6 +430,13 @@ if (pimple.momentumPredictor())
             << gradLimit << " Pa/m" << endl;
     }
     
+    tmp<volVectorField> tMomentumSource(-gradPrgh);
+
+    if (recoilForceReady)
+    {
+        tMomentumSource.ref() += tRecoilForce();
+    }
+
     volVectorField momentumSource
     (
         IOobject
@@ -543,15 +447,10 @@ if (pimple.momentumPredictor())
             IOobject::NO_READ,
             IOobject::NO_WRITE
         ),
-        -gradPrgh
-
+        tMomentumSource()
     );
 
-    if (recoilForceReady)
-    {
-        momentumSource += tRecoilForce();
-    }
-
+    tMomentumSource.clear();
     // Solve with complete momentum source
     solve(UEqn == momentumSource);
 

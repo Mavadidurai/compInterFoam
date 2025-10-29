@@ -161,16 +161,28 @@ advancedInterfaceCapturing::advancedInterfaceCapturing
                 const dimensionedScalar value =
                     aicDict.lookupOrDefault<dimensionedScalar>(key, defaultValue);
 
-                if (value.dimensions() != defaultValue.dimensions())
+                if (value.dimensions() == defaultValue.dimensions())
+                {
+                    result = value;
+                }
+                else if (value.dimensions() == dimless)
+                {
+                    result = dimensionedScalar
+                    (
+                        value.name(),
+                        defaultValue.dimensions(),
+                        value.value()
+                    );
+                }
+                else
                 {
                     FatalIOErrorInFunction(aicDict)
                         << "Entry '" << key << "' has dimensions "
                         << value.dimensions()
                         << ", expected " << defaultValue.dimensions()
+                        << " or " << dimless
                         << exit(FatalIOError);
                 }
-
-                result = value;
             }
 
             return result;
