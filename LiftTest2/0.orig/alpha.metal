@@ -28,10 +28,7 @@ boundaryField
       left  		{        type        symmetryPlane;     }
       right    		{        type        symmetryPlane;     }
       substrate	        {	 type        zeroGradient;      }
-    donor
-    {
-        type        zeroGradient;
-    }
+      donor		{	 type        zeroGradient;      }
 }
 
 // ************************************************************************* //
