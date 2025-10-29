@@ -90,12 +90,12 @@ advancedInterfaceCapturing
     model               kinetic_theory;  // Not arbitrary scaling!
     stickingCoeff       0.18;
     momentumAccom       0.18;
-    recoilMax             5e7;      // ✅ REDUCE from 1e7 (5 MPa max)
+    recoilMax             5e6;      // REDUCE to 5 MPa (10X less)
     clampRecoil           true;
     scaleRecoilMax        false;    // ✅ DISABLE scaling (let physics control it)
-    recoilTempOffset      100;      // ✅ INCREASE from 20 (smoother activation)
-    phaseChangeTempOffset 100;      // ✅ INCREASE from 20
-    recoilRelax           0.05;      // ✅ INCREASE from 0.1 (more damping)
+    recoilTempOffset      500;      // ✅ INCREASE from 20 (smoother activation)
+    phaseChangeTempOffset 500;      // ✅ INCREASE from 20
+    recoilRelax           0.5;      // ✅ INCREASE from 0.1 (more damping)
     alphaMin              0.01;
     alphaMax              1;
     maxPhysicalTemperature 5000;
