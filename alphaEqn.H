@@ -197,17 +197,23 @@ extern const bool master;
         }
 
         const scalar dt = mesh.time().deltaTValue();
-        const scalar diagThreshold = Foam::SMALL/max(dt, Foam::VSMALL);
-        const scalar minDiag = gMin(alpha1Eqn.diag());
+         const dimensionedScalar diagThreshold
+        (
+            "alphaDiagThreshold",
+            dimless/dimTime,
+            Foam::SMALL/max(dt, Foam::VSMALL)
+        );
+        const dimensionedScalar minDiag = gMin(alpha1Eqn.diag());
 
-        if (minDiag < diagThreshold)
+        if (minDiag.value() < diagThreshold.value())
         {
             alpha1Eqn += fvm::Sp(diagThreshold, alpha1);
 
             if (verbose && master)
             {
                 Info<< "alpha1Eqn: added stabilizing diagonal "
-                    << diagThreshold << " to avoid singular matrix" << endl;
+                    << diagThreshold.value()
+                    << " to avoid singular matrix" << endl;
             }
         }
 
