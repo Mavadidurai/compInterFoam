@@ -194,7 +194,34 @@ extern const bool master;
             alpha1Eqn += fvm::Sp(Sp(), alpha1) + Su();
         }
 
+        const scalar dt = mesh.time().deltaTValue();
+        const scalar diagThreshold = Foam::SMALL/max(dt, Foam::VSMALL);
+        const scalar minDiag = gMin(alpha1Eqn.diag());
+
+        if (minDiag < diagThreshold)
+        {
+            alpha1Eqn += fvm::Sp(diagThreshold, alpha1);
+
+            if (verbose && master)
+            {
+                Info<< "alpha1Eqn: added stabilizing diagonal "
+                    << diagThreshold << " to avoid singular matrix" << endl;
+            }
+        }
+
         SolverPerformance<scalar> solverPerf = alpha1Eqn.solve(alpha1.name());
+
+        if (solverPerf.singular())
+        {
+            alpha1.internalField() = alpha1.oldTime().internalField();
+            alpha1.correctBoundaryConditions();
+
+            if (verbose && master)
+            {
+                Info<< "alpha1 solve detected singular matrix; reverting to previous"
+                    << " alpha field" << endl;
+            }
+        }
 
         alpha1 = Foam::max(Foam::min(alpha1, scalar(1)), scalar(0));
         alpha1.correctBoundaryConditions();
