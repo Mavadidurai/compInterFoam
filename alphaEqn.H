@@ -213,7 +213,7 @@ extern const bool master;
 
         if (solverPerf.singular())
         {
-            alpha1.internalField() = alpha1.oldTime().internalField();
+            alpha1 = alpha1.oldTime();
             alpha1.correctBoundaryConditions();
 
             if (verbose && master)
