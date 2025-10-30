@@ -70,7 +70,7 @@ gaussianProfile     true;
 
 // Optional intensity entry (consistent with pulseEnergy & pulseWidth)
 continuousLaser     false;
-maxVolumetricSource 2e23;  // [W/m³] physical safeguard just above pulse peak
+maxVolumetricSource 7e24;  // [W/m³] physical safeguard just above pulse peak
 
 // Repeating pulse train aligned with controlDict laser window
 pulseFrequency      0;     // [1/s] 10 ps spacing so multiple pulses fire in 0–200 ps window
