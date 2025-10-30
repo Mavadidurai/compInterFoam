@@ -77,10 +77,12 @@ advancedInterfaceCapturing::advancedInterfaceCapturing
     ),
     pressureScale_
     (
+        // Stored with pressure dimensions for dictionary validation but used as
+        // a dimensionless multiplier when computing recoil pressure.
         dimensionedScalar
         (
             "pressureScale",
-            dimPressure*dimTime,
+            dimPressure,
             1.0
         )
     ),
@@ -680,7 +682,7 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
             }
         }
 
-        // pressureScale is treated as a dimensionless multiplier (default 1 Pa·s).
+        // pressureScale is treated as a dimensionless multiplier (default 1).
         const scalar pRecoil = baseFactor*limitedMassFlux;
 
         const scalar unclampedRecoil = pRecoil*alphaMask;

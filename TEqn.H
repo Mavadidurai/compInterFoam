@@ -310,7 +310,7 @@ if (verbose && master && timeIndex % 10 == 0)
         twoTemperatureDict.lookupOrDefault<scalar>
         (
             "interfaceMetalUpperBound",
-            scalar(1) - metalFractionFloor
+            scalar(1)
         );
 
     const scalar boundedMetalLower =
@@ -335,7 +335,7 @@ if (verbose && master && timeIndex % 10 == 0)
         if
         (
             mf >= boundedMetalLower
-         && mf <= boundedMetalUpper
+         && mf <= boundedMetalUpper + Foam::max(SMALL, metalFractionFloor)
          && gradMag >= interfaceGradientCutoff
         )
         {

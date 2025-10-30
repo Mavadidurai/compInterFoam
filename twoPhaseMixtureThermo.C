@@ -1046,6 +1046,7 @@ void Foam::twoPhaseMixtureThermo::computePhaseChange()
     const scalar R = gasConstant_;
     const scalar T_vap = T_vapor_;
     const scalar p_ref = 101325;
+    const scalar inv_Tvap = 1.0/T_vap;
 
     const scalarField& alpha1Field = alpha1().primitiveField();
     const scalarField& TlField = Tl.primitiveField();
@@ -1058,6 +1059,40 @@ void Foam::twoPhaseMixtureThermo::computePhaseChange()
     const bool restrictToVapor = onlyAboveVapor_;
 
     const scalar Tmax = maxPhaseChangeTemperature_;
+    const scalar saturationTmin = Foam::max(T_melt_, SMALL);
+    const scalar saturationTmax = Foam::max(T_vap, saturationTmin);
+
+    static bool warnedSatRange = false;
+    static bool warnedPvapClamp = false;
+
+    auto saturationPressure =
+        [&](const scalar temperature, bool& clamped) -> scalar
+        {
+            scalar Teval = Foam::min
+            (
+                Foam::max(temperature, saturationTmin),
+                saturationTmax
+            );
+
+            clamped = (Teval != temperature);
+
+            if (clamped && !warnedSatRange && Pstream::master())
+            {
+                WarningInFunction
+                    << "Local lattice temperature " << temperature
+                    << " K lies outside the calibrated saturation range ["
+                    << saturationTmin << ", " << saturationTmax
+                    << "] K. Using the clamped value " << Teval
+                    << " K for vapor pressure evaluation." << endl;
+                warnedSatRange = true;
+            }
+
+            const scalar exponent = (L/R)*(inv_Tvap - 1.0/Teval);
+            const scalar psat = p_ref*Foam::exp(exponent);
+
+            return Foam::max(psat, scalar(0));
+        };
+
 
     forAll(TlField, cellI)
     {
@@ -1077,9 +1112,29 @@ void Foam::twoPhaseMixtureThermo::computePhaseChange()
             continue;
         }
 
-        const scalar inv_T = 1.0/Foam::max(T_eff, 100.0);
-        const scalar inv_Tvap = 1.0/T_vap;
-        const scalar p_vapor = p_ref*std::exp(L/R*(inv_Tvap - inv_T));
+        bool satClamped = false;
+        scalar p_vapor = saturationPressure(T_eff, satClamped);
+
+        if (p_vapor > p_ref)
+        {
+            if (!warnedPvapClamp && Pstream::master())
+            {
+                WarningInFunction
+                    << "Saturation pressure request " << p_vapor
+                    << " Pa exceeds the reference value " << p_ref
+                    << " Pa. Limiting p_vapor to the reference pressure." << endl;
+                warnedPvapClamp = true;
+            }
+            p_vapor = p_ref;
+        }
+        else if (satClamped && !warnedPvapClamp && Pstream::master())
+        {
+            WarningInFunction
+                << "Temperature clamp enforced p_vapor = " << p_vapor
+                << " Pa (reference " << p_ref
+                << " Pa)." << endl;
+            warnedPvapClamp = true;
+        }
 
         const scalar sqrt_T = std::sqrt(Foam::max(T_eff, 1.0));
         const scalar sqrt_2piR = std::sqrt(2.0*3.14159*R);

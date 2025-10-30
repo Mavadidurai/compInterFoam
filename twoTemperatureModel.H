@@ -107,6 +107,8 @@ private:
         scalar kapitzaZGas_;
         //- Effective sound speed used in the Kapitza prefactor
         scalar kapitzaCEff_;
+        //- Optional temperature cap for Kapitza exchange (0 => no cap)
+        scalar kapitzaMaxTemperature_;
         //- Energy Conservation Tracking
         mutable dimensionedScalar cumulativeLaserEnergy_; //- Cumulative laser energy input [J]
         mutable dimensionedScalar lastTotalEnergy_;      //- Previous total energy [J]

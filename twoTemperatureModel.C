@@ -124,6 +124,7 @@ twoTemperatureModel::twoTemperatureModel
     kapitzaZMetal_(0.0),
     kapitzaZGas_(0.0),
     kapitzaCEff_(0.0),
+    kapitzaMaxTemperature_(0.0),
     cumulativeLaserEnergy_
     (
         "cumulativeLaserEnergy",
@@ -294,13 +295,22 @@ twoTemperatureModel::twoTemperatureModel
                     383.0
                 );
             
-
                 kapitzaCEff_ = gasMetalDict.lookupOrDefault<scalar>
                 (
                     "cEff",
                     0.0
                 );
+                kapitzaMaxTemperature_ =
+                    gasMetalDict.lookupOrDefault<scalar>
+                    (
+                        "maxTemperature",
+                        0.0
+                    );
 
+                if (kapitzaMaxTemperature_ < 0)
+                {
+                    kapitzaMaxTemperature_ = 0.0;
+                }
                 if (kapitzaCEff_ <= SMALL)
                 {
                     const scalar cLMetal =
@@ -1769,7 +1779,12 @@ tmp<volScalarField> twoTemperatureModel::gasMetalExchangeCoeffField() const
                 continue;
             }
             const scalar T = Foam::max(Tl[cellI], scalar(0));
+            scalar Tsafe = T;
 
+            if (kapitzaMaxTemperature_ > 0)
+            {
+                Tsafe = Foam::min(T, kapitzaMaxTemperature_);
+            }
             scalar interfaceArea = mag(gradAlpha[cellI])*cellVolume;
             const scalar geometricArea = Foam::pow(cellVolume, scalar(2.0/3.0));
 
@@ -1780,7 +1795,6 @@ tmp<volScalarField> twoTemperatureModel::gasMetalExchangeCoeffField() const
 
             const scalar delta = Foam::max(cellVolume/interfaceArea, SMALL);
 
-            const scalar Tsafe = Foam::min(T, scalar(3000));
             const scalar hSurface =
                 Foam::max(prefactor*tau*Foam::pow3(Tsafe), scalar(0));
 
