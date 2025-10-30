@@ -648,7 +648,12 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
         alphaMask = Foam::min(Foam::max(alphaMask, scalar(0)), scalar(1));
 
         scalar limitedMassFlux = jNet;
-        const scalar baseFactor = recoilScale*sqrtTerm*(1.0 - betaMomentum);
+        // Recoil pressure follows the kinetic-theory relation
+        //   p_recoil = (2/3) * (1 - beta_m) * j * sqrt(2*pi*R*T)
+        // Missing the 2/3 prefactor overestimated the pressure drive and
+        // therefore the jet velocity by 50%.
+        const scalar baseFactor =
+            (2.0/3.0)*recoilScale*sqrtTerm*(1.0 - betaMomentum);
         const scalar rawRecoil = baseFactor*jNet*alphaMask;
         bool massFluxLimited = false;
 
