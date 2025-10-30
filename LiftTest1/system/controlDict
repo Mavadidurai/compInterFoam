@@ -101,7 +101,7 @@ advancedInterfaceCapturing
     maxPhysicalTemperature  5000;
 
         // Physical limits
-    maxRecoilPressure   1e9;    // 100 MPa absolute max
+    maxRecoilPressure   1e8;    // 100 MPa absolute max
 }
 logRecoilSuppression true;
 
