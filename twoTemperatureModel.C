@@ -685,7 +685,14 @@ void twoTemperatureModel::applyTemperatureBounds
     Te_ = activeMask*boundTe + (one - activeMask)*ambientClamped;
     Tl_ = activeMask*lowerTl + (one - activeMask)*ambientClamped;
 
-    tmp<volScalarField> tZeroMask = pos(dimensionedScalar("zeroMask", dimless, VSMALL) - activeMask);
+    const dimensionedScalar appreciableActive
+    (
+        "appreciableActiveMask",
+        dimless,
+        Foam::max(metalValidationThreshold(), SMALL)
+    );
+
+    tmp<volScalarField> tZeroMask = pos(activeMask - appreciableActive);
     const volScalarField& zeroMask = tZeroMask();
     Tl_ = zeroMask*boundTl + (one - zeroMask)*Tl_;
 
@@ -1857,8 +1864,19 @@ tmp<volScalarField> twoTemperatureModel::gasMetalExchangeCoeffField() const
                 scalar(0)
             );
 
-            if (metal < metalActiveThreshold &&
-                interfaceIndicator < interfaceActiveThreshold)
+            const scalar gas = Foam::max
+            (
+                Foam::min(scalar(1) - metalFraction_[cellI], scalar(1)),
+                scalar(0)
+            );
+
+            if (interfaceIndicator < interfaceActiveThreshold)
+            {
+                coeff[cellI] = scalar(0);
+                continue;
+            }
+
+            if (gas <= metalActiveThreshold || metal <= metalActiveThreshold)
             {
                 coeff[cellI] = scalar(0);
                 continue;
@@ -1931,12 +1949,12 @@ void twoTemperatureModel::write() const
     }
     if (energyInitialized_ && loggedEnergyInitialized_)
     {
-        tmp<volScalarField> tCeW = electronHeatCapacity();
-        const volScalarField& CeW = tCeW();
         tmp<volScalarField> tMetal = clampedMetalFraction();
         const volScalarField& metalEff = tMetal();
+        tmp<volScalarField> tElectronEnergy = electronInternalEnergy(Te_);
+        const volScalarField& electronEnergy = tElectronEnergy();
         dimensionedScalar currentEnergy =
-            fvc::domainIntegrate(metalEff*(CeW*Te_ + Cl_*Tl_));
+            fvc::domainIntegrate(metalEff*(electronEnergy + Cl_*Tl_));
         scalar energyError = mag
         (
             (currentEnergy.value() - lastLoggedEnergy_.value())/
