@@ -171,6 +171,11 @@ private:
             const volScalarField& gasMetalHeatFlux,
             const dimensionedScalar& dtDim
         ) const;
+        //- Electron internal energy density for supplied temperature field
+        tmp<volScalarField> electronInternalEnergy
+        (
+            const volScalarField& T
+        ) const;
         //- Compute current total metal energy
         dimensionedScalar currentTotalEnergy() const;
         //- Emit optional energy diagnostics and tracking information
