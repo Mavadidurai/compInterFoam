@@ -187,11 +187,13 @@ extern const bool master;
 
         if (divU.valid())
         {
-            alpha1Eqn -= Su() + fvm::Sp(Sp() + divU(), alpha1);
+            alpha1Eqn -= fvm::Sp(Sp() + divU(), alpha1);
+            alpha1Eqn -= Su();
         }
         else
         {
-            alpha1Eqn += fvm::Sp(Sp(), alpha1) + Su();
+            alpha1Eqn += fvm::Sp(Sp(), alpha1);
+            alpha1Eqn += Su();
         }
 
         const scalar dt = mesh.time().deltaTValue();
