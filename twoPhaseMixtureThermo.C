@@ -1102,6 +1102,11 @@ void Foam::twoPhaseMixtureThermo::computePhaseChange()
             pMetalVaporFieldPtr ? (*pMetalVaporFieldPtr)[cellI] : 0.0;
         const scalar alpha = alpha1Field[cellI];
 
+        if (T_local + SMALL < T_melt_)
+        {
+            continue;
+        }
+        
         if (alpha < alphaMin_ || (enforceUpper && alpha > alphaMax_))
         {
             continue;
