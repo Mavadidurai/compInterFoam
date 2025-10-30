@@ -337,12 +337,10 @@ if (Foam::Pstream::master() && alphaMax < metalFractionTol)
         << "before restarting." << Foam::exit(Foam::FatalError);
 }
 
-// Ensure proper field registration
-if (alpha1.timeIndex() > 0)
-{
-    alpha1.oldTime();
-    alpha2.oldTime();
-}
+// Ensure proper field registration by always creating an old-time storage
+// so that a cold start still has valid previous-time data for alpha
+alpha1.oldTime();
+alpha2.oldTime();
 
     if (verbose && Foam::Pstream::master())
 {
