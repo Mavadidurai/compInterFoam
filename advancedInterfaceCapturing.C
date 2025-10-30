@@ -905,7 +905,7 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
 
         if (globalFluxCells > 0)
         {
-            Info<< "  Max |j_net| = " << maxMassFlux
+            Info<< "  Max |j_net| (post-limit) = " << maxMassFlux
                 << " kg/m^2/s";
 
             Info<< ", active temperature range = [" << minActiveTemp
@@ -933,7 +933,8 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
 
                 if (maxRawMassFlux > massRateEps_)
                 {
-                    Info<< "  Peak |j_net| on the interface = " << maxRawMassFlux
+                    Info<< "  Peak |j_net| on the interface (post-limit) = "
+                        << maxRawMassFlux
                         << " kg/m^2/s (filtered by massRateEps)." << nl;
                 }
 

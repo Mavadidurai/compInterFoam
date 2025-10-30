@@ -56,6 +56,12 @@ Foam::twoPhaseMixtureThermo::twoPhaseMixtureThermo
     gasConstant_(0.0),  // Populated from controlDict.phaseChangeCoeffs (required)
     evaporationCoeff_(0.18),
     relaxationTime_(1e-12),
+    maxPhaseChangeSource_
+    (
+        "maxPhaseChangeSource",
+        dimPower/dimVolume,
+        GREAT
+    ),
     alphaMin_(0.01),
     alphaMax_(1.0),
     onlyAboveVapor_(false),
@@ -393,12 +399,6 @@ Foam::twoPhaseMixtureThermo::twoPhaseMixtureThermo
         maxPhaseChangeTemperature_ = tempLimit;
     }
     const dictionary& phaseChangeDict = *phaseChangeDictPtr;
-
-    onlyAboveVapor_ = phaseChangeDict.lookupOrDefault<Switch>
-    (
-        "onlyAboveVapor",
-        false
-    );
     
     auto checkDimensions =
         [&](const word& entryName,
@@ -428,6 +428,75 @@ Foam::twoPhaseMixtureThermo::twoPhaseMixtureThermo
                     << exit(FatalIOError);
             }
         };
+    dimensionedScalar defaultMaxSource
+    (
+        "phaseChangeMaxSourceDefault",
+        dimPower/dimVolume,
+        1e7
+    );
+
+    if (transportDict.found("phaseChangeMaxSourceDefault"))
+    {
+        defaultMaxSource = transportDict.lookupOrDefault<dimensionedScalar>
+        (
+            "phaseChangeMaxSourceDefault",
+            defaultMaxSource
+        );
+
+        if (defaultMaxSource.dimensions() != dimPower/dimVolume)
+        {
+            FatalIOErrorInFunction(transportDict)
+                << "Entry 'phaseChangeMaxSourceDefault' in transportProperties"
+                << " has dimensions " << defaultMaxSource.dimensions()
+                << ", expected " << dimPower/dimVolume
+                << exit(FatalIOError);
+        }
+
+        const scalar defaultVal = defaultMaxSource.value();
+
+        if (!std::isfinite(defaultVal))
+        {
+            FatalIOErrorInFunction(transportDict)
+                << "Entry 'phaseChangeMaxSourceDefault' in transportProperties"
+                << " must be finite"
+                << exit(FatalIOError);
+        }
+    }
+
+    auto readPhaseChangeLimit =
+        [&](const word& entryName) -> scalar
+        {
+            const dimensionedScalar value(entryName, phaseChangeDict);
+            checkDimensions(entryName, value, dimPower/dimVolume);
+            const scalar val = value.value();
+            ensureFinite(entryName, val);
+            return val;
+        };
+
+    scalar maxSourceValue = defaultMaxSource.value();
+
+    if (phaseChangeDict.found("maxSource"))
+    {
+        maxSourceValue = readPhaseChangeLimit("maxSource");
+    }
+    else if (phaseChangeDict.found("minCoefficient"))
+    {
+        maxSourceValue = readPhaseChangeLimit("minCoefficient");
+    }
+
+    maxPhaseChangeSource_ = dimensionedScalar
+    (
+        "maxPhaseChangeSource",
+        dimPower/dimVolume,
+        maxSourceValue
+    );
+
+    onlyAboveVapor_ = phaseChangeDict.lookupOrDefault<Switch>
+    (
+        "onlyAboveVapor",
+        false
+    );
+
     if (phaseChangeDict.found("tStart") || phaseChangeDict.found("tEnd"))
     {
         if (!(phaseChangeDict.found("tStart") && phaseChangeDict.found("tEnd")))
@@ -1018,7 +1087,7 @@ void Foam::twoPhaseMixtureThermo::computePhaseChange()
         const scalar j_evap = evaporationCoeff_*p_vapor/(sqrt_2piR*sqrt_T);
         const scalar j_cond = evaporationCoeff_*p_metalVapor/(sqrt_2piR*sqrt_T);
 
-        const scalar j_net = j_evap - j_cond;
+        scalar j_net = j_evap - j_cond;
 
         const scalar Cl = ClTTM_.value();
 
@@ -1027,7 +1096,7 @@ void Foam::twoPhaseMixtureThermo::computePhaseChange()
             continue;
         }
 
-        const scalar heatFlux = j_net*L;  // [W/m^2]
+        scalar heatFlux = j_net*L;  // [W/m^2]
         const scalar cellVolume = cellVolumes[cellI];
 
         if (cellVolume <= VSMALL)
@@ -1044,6 +1113,19 @@ void Foam::twoPhaseMixtureThermo::computePhaseChange()
 
         const scalar cellLength = std::pow(cellVolume, 1.0/3.0);
         const scalar meltThickness = Foam::max(metalFraction*cellLength, VSMALL);
+        const scalar maxSource = maxPhaseChangeSource_.value();
+
+        if (maxSource > SMALL)
+        {
+            const scalar maxHeatFlux = maxSource*meltThickness;
+
+            if (Foam::mag(heatFlux) > maxHeatFlux)
+            {
+                const scalar limitedHeatFlux = Foam::sign(heatFlux)*maxHeatFlux;
+                heatFlux = limitedHeatFlux;
+                j_net = limitedHeatFlux/L;
+            }
+        }
         const scalar volumetricHeat = heatFlux/meltThickness;  // [W/m^3]
 
         // A positive mass flux (evaporation) must *remove* lattice energy.

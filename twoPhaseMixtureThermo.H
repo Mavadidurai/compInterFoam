@@ -57,6 +57,8 @@ class twoPhaseMixtureThermo
 
         //- Relaxation time applied to the explicit source term [s]
         scalar relaxationTime_;
+        //- Maximum volumetric phase-change source [W/m^3]
+        dimensionedScalar maxPhaseChangeSource_;
 
         //- Phase-fraction window for evaluating evaporation []
         scalar alphaMin_;
