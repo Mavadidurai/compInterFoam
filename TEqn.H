@@ -480,7 +480,14 @@ if (verbose && master && timeIndex % 10 == 0)
         cvolFloorValue
     );
 
-    tmp<volScalarField> tCvolLimited(Foam::max(CvolGas, cvolFloor));
+    tmp<volScalarField> tCvolLimited
+    (
+        Foam::max
+        (
+            CvolGas,
+            gasMask*cvolFloor
+        )
+    );
     const volScalarField& CvolLimited = tCvolLimited();
     const scalar capThreshold = 10.0*cvolFloor.value();
 
