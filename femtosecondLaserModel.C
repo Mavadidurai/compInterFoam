@@ -109,11 +109,13 @@ femtosecondLaserModel::femtosecondLaserModel
     tSource_(),
     sourceValid_(false),
     cumulativeEnergy_(0.0),
+    cumulativeIncidentEnergy_(0.0),
     cumulativeFilmEnergy_(0.0),
     cumulativeGasEnergy_(0.0),
     lastTimeIndex_(mesh.time().timeIndex()),
     pulseEnergyAccumulator_(0.0),
     pulseExpectedAccumulator_(0.0),
+    pulseDepositableExpectedAccumulator_(0.0),
     currentPulseStartTime_(0.0),
     pulseCounter_(0),
     trackingPulse_(false),
@@ -656,28 +658,56 @@ void femtosecondLaserModel::finalizePulseEnergyCheck
         trackingPulse_ = false;
         pulseEnergyAccumulator_ = 0.0;
         pulseExpectedAccumulator_ = 0.0;
+        pulseDepositableExpectedAccumulator_ = 0.0;
         currentPulseStartTime_ = 0.0;
         return;
     }
 
-    const scalar expected = pulseExpectedAccumulator_;
-    const scalar configuredDepositable =
-        pulseEnergy_.value()*depositableEnergyFraction();
+    const scalar incidentExpected = pulseExpectedAccumulator_;
+    const scalar configuredIncident = pulseEnergy_.value();
+    const scalar depositableExpected =
+        pulseDepositableExpectedAccumulator_;
+    scalar depositableRatio = 0.0;
+
+    if (incidentExpected > VSMALL)
+    {
+        depositableRatio = depositableExpected/incidentExpected;
+    }
+    else
+    {
+        depositableRatio =
+            depositableEnergyFraction()*beamCoverageFraction();
+    }
+
+    depositableRatio = min(max(depositableRatio, scalar(0)), scalar(1));
+    const scalar configuredDepositable = configuredIncident*depositableRatio;
+
     // Do not artificially inflate the tolerance reference for sub-nJ pulses;
     // scale it with the actual expected/depositable energy so the audit
     // continues to react when very small pulses are under-delivered.
     const scalar reference =
-        max(max(expected, configuredDepositable), scalar(VSMALL));
+        max(max(depositableExpected, configuredDepositable), scalar(VSMALL));
     const scalar tolerance =
         max(pulseEnergyToleranceAbs_, pulseEnergyToleranceRel_*reference);
-    const scalar diffExpected = mag(pulseEnergyAccumulator_ - expected);
+
+    const scalar diffDepositableExpected =
+        mag(pulseEnergyAccumulator_ - depositableExpected);
     const scalar diffConfigured =
         mag(pulseEnergyAccumulator_ - configuredDepositable);
-    const scalar expectedMismatch =
-        mag(expected - configuredDepositable);
+    const scalar diffIncident =
+        mag(pulseEnergyAccumulator_ - incidentExpected);
+
+    const scalar configuredGap =
+        mag(depositableExpected - configuredDepositable);
+    const scalar incidentGap =
+        mag(incidentExpected - depositableExpected);
+
     const scalar configuredResidual =
-        max(diffConfigured - expectedMismatch, scalar(0));    
-    const scalar maxDeviation = max(diffExpected, diffConfigured);
+        max(diffConfigured - configuredGap, scalar(0));
+    const scalar incidentResidual =
+        max(diffIncident - incidentGap, scalar(0));
+    const scalar maxDeviation =
+        max(diffDepositableExpected, diffConfigured);
 
     ++pulseCounter_;
 
@@ -691,16 +721,23 @@ void femtosecondLaserModel::finalizePulseEnergyCheck
             << "  End time:         " << currentTime << " s" << nl
             << "  Deposited energy:           " << pulseEnergyAccumulator_
             << " J" << nl
-            << "  Expected (integrated):      " << expected << " J" << nl
+            << "  Incident expected (integrated): " << incidentExpected << " J" << nl
+            << "  Depositable expected (integrated): " << depositableExpected
+            << " J" << nl
+            << "  Depositable/incident ratio: " << depositableRatio << nl
+            << "  Configured incident:        " << configuredIncident << " J" << nl
             << "  Configured depositable:     " << configuredDepositable << " J"
             << nl
-            << "  Diff vs expected:          " << diffExpected << " J" << nl
+            << "  Diff vs depositable expected: " << diffDepositableExpected
+            << " J" << nl
             << "  Diff vs configured depositable:   " << diffConfigured
             << " J" << nl
-            << "  Expected-configured depositable diff: "
-            << expectedMismatch << " J" << nl
+            << "  Diff vs incident expected:   " << diffIncident << " J" << nl
+            << "  Configured depositable gap:  " << configuredGap << " J" << nl
             << "  Configured depositable residual:  " << configuredResidual
             << " J" << nl
+            << "  Incident gap:          " << incidentGap << " J" << nl
+            << "  Incident residual:     " << incidentResidual << " J" << nl
             << "  Max deviation:        " << maxDeviation << " J" << nl
             << "  Tolerance(abs):       " << pulseEnergyToleranceAbs_ << " J" << nl
             << "  Tolerance(rel*ref):   "
@@ -708,8 +745,20 @@ void femtosecondLaserModel::finalizePulseEnergyCheck
             << "  Applied tolerance:    " << tolerance << " J" << endl;
     }
 
+    const bool warnDepositable = diffDepositableExpected > tolerance;
     const bool warnConfigured = configuredResidual > tolerance;
-    const bool warnExpected = diffExpected > tolerance;
+    const bool warnIncident = incidentResidual > tolerance;
+
+    if (warnDepositable)
+    {
+        WarningInFunction
+            << "Laser pulse energy mismatch after pulse " << pulseCounter_
+            << ": deposited " << pulseEnergyAccumulator_
+            << " J vs depositable energy expected from temporal envelope "
+            << depositableExpected << " J. Residual mismatch "
+            << diffDepositableExpected << " J exceeds tolerance "
+            << tolerance << " J" << endl;
+    }
 
     if (warnConfigured)
     {
@@ -717,23 +766,31 @@ void femtosecondLaserModel::finalizePulseEnergyCheck
             << "Laser pulse energy mismatch after pulse " << pulseCounter_
             << ": deposited " << pulseEnergyAccumulator_
             << " J vs configured depositable energy " << configuredDepositable
-            << " J (reflective/transmissive losses excluded). Residual mismatch"
-            << " " << configuredResidual << " J exceeds tolerance "
+            << " J (reflective/transmissive losses excluded). Residual mismatch "
+            << configuredResidual << " J exceeds tolerance "
             << tolerance << " J" << endl;
     }
 
-    if (warnExpected)
+    if (warnIncident)
     {
         WarningInFunction
             << "Laser pulse energy mismatch after pulse " << pulseCounter_
-            << ": deposited " << pulseEnergyAccumulator_ << " J vs integrated"
-            << " expectation " << expected << " J (difference "
-            << diffExpected << " J exceeds tolerance " << tolerance << " J)"
-            << endl;
+            << ": deposited " << pulseEnergyAccumulator_ << " J vs incident"
+            << " energy expectation " << incidentExpected
+            << " J after accounting for interface/coverage losses (residual "
+            << incidentResidual << " J exceeds tolerance "
+            << tolerance << " J)." << endl;
     }
 
-    if (!warnConfigured && !warnExpected && verbose && master)
+    if (!warnDepositable && !warnConfigured && !warnIncident && verbose && master)
     {
+        if (diffDepositableExpected > VSMALL)
+        {
+            Info<< "  Note: deposited energy differs from depositable expectation"
+                << " by " << diffDepositableExpected
+                << " J (within tolerance)." << endl;
+        }
+
         if (diffConfigured > VSMALL)
         {
             Info<< "  Note: deposited energy differs from configured depositable"
@@ -741,16 +798,16 @@ void femtosecondLaserModel::finalizePulseEnergyCheck
                 << " J (within tolerance)." << endl;
         }
 
-        if (diffExpected > VSMALL)
+        if (diffIncident > VSMALL)
         {
-            Info<< "  Note: deposited energy differs from integrated expectation"
-                << " by " << diffExpected << " J (within tolerance)." << endl;
+            Info<< "  Note: deposited energy differs from incident expectation"
+                << " by " << diffIncident << " J (within tolerance)." << endl;
         }
 
-        if (expectedMismatch > VSMALL && expectedMismatch <= tolerance)
+        if (configuredGap > VSMALL && configuredGap <= tolerance)
         {
-            Info<< "  Note: integrated expectation differs from configured"
-                << " depositable energy by " << expectedMismatch
+            Info<< "  Note: depositable expectation differs from configured"
+                << " depositable energy by " << configuredGap
                 << " J (within tolerance)." << endl;
         }
     }
@@ -758,6 +815,7 @@ void femtosecondLaserModel::finalizePulseEnergyCheck
     trackingPulse_ = false;
     pulseEnergyAccumulator_ = 0.0;
     pulseExpectedAccumulator_ = 0.0;
+    pulseDepositableExpectedAccumulator_ = 0.0;
     currentPulseStartTime_ = 0.0;
 }
 
@@ -1042,8 +1100,6 @@ femtosecondLaserModel::evaluateTemporalEnvelope
 ) const
 {
     EnvelopeResult result;
-    const scalar depositableFraction = depositableEnergyFraction();
-    const scalar coverageFraction = beamCoverageFraction();
     if (continuousLaser_)
     {
         result.temporalIntegral = overlapEnd - overlapStart;
@@ -1064,9 +1120,7 @@ femtosecondLaserModel::evaluateTemporalEnvelope
                     peakIntensity_.value()*effectiveArea;
 
                 result.expectedEnergy =
-                    depositableFraction
-                  * coverageFraction
-                  * incidentPower
+                    incidentPower
                   * result.temporalIntegral;
             }
         }
@@ -1135,8 +1189,6 @@ femtosecondLaserModel::evaluateTemporalEnvelope
         {
             result.expectedEnergy =
                 pulseEnergy_.value()
-              * depositableFraction
-              * coverageFraction    
               * result.temporalIntegral/max(fullPulseIntegral, VSMALL);
         }
     }
@@ -1190,8 +1242,6 @@ femtosecondLaserModel::evaluateTemporalEnvelope
                 );
             result.expectedEnergy =
                 pulseEnergy_.value()
-              * depositableFraction
-              * coverageFraction
               * result.temporalIntegral/max(windowIntegral, VSMALL);
         }
     }
@@ -1611,6 +1661,7 @@ void femtosecondLaserModel::emitDiagnostics
     const SpatialMetrics& metrics,
     const dimensionedScalar& dtDim,
     const dimensionedScalar& energyThisStep,
+    const scalar incidentEnergyThisStep,
     const scalar filmEnergyThisStep,
     const scalar gasEnergyThisStep,
     const scalar currentTime,
@@ -1659,10 +1710,12 @@ void femtosecondLaserModel::emitDiagnostics
             << "    Film power: " << metrics.totalFilmSourceIntegral << " W" << nl
             << "    Gas power:  " << metrics.totalGasSourceIntegral  << " W" << nl
             << "  dt: " << dt << " s" << nl
-            << "  Energy this step: " << energyThisStep.value() << " J" << nl
+            << "  Incident energy this step: " << incidentEnergyThisStep << " J" << nl
+            << "  Absorbed energy this step: " << energyThisStep.value() << " J" << nl
             << "    Film energy this step: " << filmEnergyThisStep << " J" << nl
             << "    Gas energy this step:  " << gasEnergyThisStep  << " J" << nl
-            << "  Cumulative energy: " << cumulativeEnergy_ << " J" << nl
+            << "  Cumulative incident energy: " << cumulativeIncidentEnergy_ << " J" << nl
+            << "  Cumulative absorbed energy: " << cumulativeEnergy_ << " J" << nl
             << "    Cumulative film: " << cumulativeFilmEnergy_ << " J" << nl
             << "    Cumulative gas:  " << cumulativeGasEnergy_  << " J" << endl;
 
@@ -1705,10 +1758,17 @@ void femtosecondLaserModel::updateEnergyTracking
     const dimensionedScalar energyThisStep =
         fvc::domainIntegrate(source * dtDim);
     const scalar stepEnergy = energyThisStep.value();
+    const scalar incidentEnergyThisStep = envelope.expectedEnergy;
     cumulativeEnergy_ += stepEnergy;
+    cumulativeIncidentEnergy_ += incidentEnergyThisStep;
 
     if (!continuousLaser_)
     {
+        const scalar depositableFraction = depositableEnergyFraction();
+        const scalar coverageFraction = beamCoverageFraction();
+        const scalar depositableExpectedThisStep =
+            incidentEnergyThisStep*depositableFraction*coverageFraction;
+
         if (depositionActive || trackingPulse_)
         {
             if (!trackingPulse_)
@@ -1717,11 +1777,13 @@ void femtosecondLaserModel::updateEnergyTracking
                 pulseCompleted_ = false;
                 pulseEnergyAccumulator_ = 0.0;
                 pulseExpectedAccumulator_ = 0.0;
+                pulseDepositableExpectedAccumulator_ = 0.0;
                 currentPulseStartTime_ = overlapStart;
             }
 
             pulseEnergyAccumulator_ += stepEnergy;
-            pulseExpectedAccumulator_ += envelope.expectedEnergy;
+            pulseExpectedAccumulator_ += incidentEnergyThisStep;
+            pulseDepositableExpectedAccumulator_ += depositableExpectedThisStep;
         }
     }
 
@@ -1744,6 +1806,7 @@ void femtosecondLaserModel::updateEnergyTracking
         metrics,
         dtDim,
         energyThisStep,
+        incidentEnergyThisStep,
         filmEnergyThisStep,
         gasEnergyThisStep,
         currentTime,
@@ -1795,12 +1858,14 @@ void femtosecondLaserModel::calculateSource() const
     if (timeIndex < lastTimeIndex_)
     {
         cumulativeEnergy_ = 0.0;
+        cumulativeIncidentEnergy_ = 0.0;
         cumulativeFilmEnergy_ = 0.0;
         cumulativeGasEnergy_  = 0.0;
         trackingPulse_ = false;
         pulseCompleted_ = false;
         pulseEnergyAccumulator_ = 0.0;
         pulseExpectedAccumulator_ = 0.0;
+        pulseDepositableExpectedAccumulator_ = 0.0;
         currentPulseStartTime_ = 0.0;
         pulseCounter_ = 0;
     }
@@ -1877,7 +1942,8 @@ void femtosecondLaserModel::calculateSource() const
             << "  Active: " << (envelope.active ? "YES" : "NO") << nl
             << "  Temporal integral: " << envelope.temporalIntegral << " s" << nl
             << "  Temporal average: " << envelope.temporalAverage << nl
-            << "  Expected energy: " << envelope.expectedEnergy << " J" << endl; // coverage ignores tree-box clipping near bounds
+            << "  Expected incident energy: " << envelope.expectedEnergy
+            << " J" << endl; // coverage ignores tree-box clipping near bounds
     }
 
     scalar sigma = 0.0;
@@ -2066,7 +2132,11 @@ void femtosecondLaserModel::calculateSource() const
     }
     else
     {
-        const scalar desiredPower = envelope.expectedEnergy/dtValue;
+        const scalar incidentPower = envelope.expectedEnergy/max(dtValue, VSMALL);
+        const scalar depositableFraction = depositableEnergyFraction();
+        const scalar coverageFraction = beamCoverageFraction();
+        const scalar desiredPower =
+            incidentPower*depositableFraction*coverageFraction;
         const scalar actualPower = metrics.totalSourceIntegral;
 
         if (actualPower > VSMALL)
@@ -2222,7 +2292,8 @@ void femtosecondLaserModel::write() const
 
             Info<< "Source stats: max=" << maxI.value() << " W/m^3, "
                 << "E(step)=" << e.value() << " J" << nl
-                << "  Cumulative energy: " << cumulativeEnergy_ << " J" << nl
+                << "  Cumulative incident: " << cumulativeIncidentEnergy_ << " J" << nl
+                << "  Cumulative absorbed: " << cumulativeEnergy_ << " J" << nl
                 << "    Film cumulative: " << cumulativeFilmEnergy_ << " J" << nl
                 << "    Gas cumulative:  " << cumulativeGasEnergy_  << " J" << endl;
         }

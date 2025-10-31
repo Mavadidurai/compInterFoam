@@ -93,11 +93,13 @@ private:
     mutable tmp<volScalarField> tSource_;
     mutable bool         sourceValid_;
     mutable scalar       cumulativeEnergy_;
+    mutable scalar       cumulativeIncidentEnergy_;
     mutable scalar       cumulativeFilmEnergy_;
     mutable scalar       cumulativeGasEnergy_;
     mutable label        lastTimeIndex_;
     mutable scalar       pulseEnergyAccumulator_;
     mutable scalar       pulseExpectedAccumulator_;
+    mutable scalar       pulseDepositableExpectedAccumulator_;
     mutable scalar       currentPulseStartTime_;
     mutable label        pulseCounter_;
     mutable bool         trackingPulse_;
@@ -178,6 +180,7 @@ private:
         const SpatialMetrics& metrics,
         const dimensionedScalar& dtDim,
         const dimensionedScalar& energyThisStep,
+        const scalar incidentEnergyThisStep,
         const scalar filmEnergyThisStep,
         const scalar gasEnergyThisStep,
         const scalar currentTime,
