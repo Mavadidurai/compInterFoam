@@ -26,7 +26,7 @@ deltaT          1e-16;         // Base time step (1 fs)
 adjustTimeStep  yes;           // ENABLE adaptive time stepping
 maxCo           0.05;          // Relaxed slightly to avoid needless clipping
 maxAlphaCo      0.01;          // Allow modest interface Courant growth
-maxDeltaT       5e-15;         // Permit limited step growth when flow is calm
+maxDeltaT       5e-14;         // Permit limited step growth when flow is calm
 minDeltaT       5e-17;         // Keep floor above numerical noise threshold
 
 verbose         true;
@@ -106,9 +106,9 @@ advancedInterfaceCapturing
 logRecoilSuppression true;
 
 // Temperature clamping - EXTENDED RANGE
-enableTClamp    false;
+enableTClamp    true;
 minT            200;           // Allow cooling below room temp
-maxT            50000;          // Clamp high temperatures in line with lattice limit
+maxT            5800;          // Clamp high temperatures to physical limit (~Ti vapor data)
 
 // Two-temperature model properties - OPTIMIZED FOR EXTENDED RUNS
 twoTemperatureProperties
@@ -162,15 +162,15 @@ twoTemperatureProperties
     
     // ✅ ADJUSTED: Allow higher lattice temperatures now that coupling works
     minTe           200;
-    maxTe           100000;     // 🔥 Raised to 1e5 so electron clamp stays clear of pulse peak
-    maxTl           50000;       // 🔥 Raised to 5e4 so lattice clamp stays clear of pulse peak
+    maxTe           8000;       // Align electron cap with material data envelope
+    maxTl           5800;       // Match lattice clamp to global maxT
     ambientTemperature 300;
     temperatureDifferenceFloor 10.0;                     // Guard against Te/Tl collapse
     
     // ADAPTIVE MICRO-STEPPING
     electronSubCycles        4;
     minElectronSubCycles     2;
-    maxElectronSubCycles     20;     // Allow rapid transients
+    maxElectronSubCycles     100;     // Allow rapid transients
     maxElectronDeltaT        [0 0 1 0 0 0 0] 1e-15;  // Guard rapid transients
 
     nInnerCouplingSweeps         3;  // More coupling iterations
