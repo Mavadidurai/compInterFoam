@@ -571,7 +571,6 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
     scalar maxOvershootMag = 0.0;
     scalar maxOvershootLimit = 0.0;
     label maxOvershootCell = -1;
-    label limitedMassFluxCells = 0;
 
     const bool enforceUpper = alphaMax_ < (scalar(1) - Foam::SMALL);
 
@@ -649,7 +648,6 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
         scalar alphaMask = (alpha - alphaMin_)*invAlphaWindow;
         alphaMask = Foam::min(Foam::max(alphaMask, scalar(0)), scalar(1));
 
-        scalar limitedMassFlux = jNet;
         // Recoil pressure follows the kinetic-theory relation
         //   p_recoil = (2/3) * (1 - beta_m) * j * sqrt(2*pi*R*T)
         // Missing the 2/3 prefactor overestimated the pressure drive and
@@ -657,41 +655,15 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
         const scalar baseFactor =
             (2.0/3.0)*recoilScale*sqrtTerm*(1.0 - betaMomentum);
         const scalar rawRecoil = baseFactor*jNet*alphaMask;
-        bool massFluxLimited = false;
-
-        if (clampRecoil_)
-        {
-            scalar localMax = recoilMax_;
-            if (scaleRecoilMax_)
-            {
-                localMax *= alphaMask;
-            }
-
-            localMax = Foam::max(localMax, scalar(0));
-
-            if (localMax > SMALL && Foam::mag(alphaMask) > VSMALL && baseFactor > VSMALL)
-            {
-                const scalar denom = baseFactor*alphaMask;
-                const scalar maxMassFlux = localMax/Foam::mag(denom);
-
-                if (Foam::mag(jNet) > maxMassFlux)
-                {
-                    limitedMassFlux = Foam::sign(jNet)*maxMassFlux;
-                    massFluxLimited = true;
-                }
-            }
-        }
 
         // pressureScale is treated as a dimensionless multiplier (default 1).
-        const scalar pRecoil = baseFactor*limitedMassFlux;
+        const scalar pRecoil = baseFactor*jNet;
 
         const scalar unclampedRecoil = pRecoil*alphaMask;
         scalar recoilValue = unclampedRecoil;
 
-        if (clampRecoil_ && massFluxLimited)
+        if (clampRecoil_)
         {
-            ++limitedMassFluxCells;
-
             scalar localMax = recoilMax_;
             if (scaleRecoilMax_)
             {
@@ -766,7 +738,8 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
             warn << " (e.g. cell " << maxOvershootCell << ')';
         }
 
-        warn << ". Values were clamped." << endl;    }
+        warn << ". Values were clamped." << endl;
+    }
 
     if (recoilSmoothCoeff_ > SMALL && recoilSmoothIters_ > 0)
     {
@@ -890,9 +863,6 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
     scalar minInterfaceTemp = localMinInterfaceTemp;
     Foam::reduce(minInterfaceTemp, Foam::minOp<scalar>());
 
-    label globalLimitedMassFlux = limitedMassFluxCells;
-    Foam::reduce(globalLimitedMassFlux, Foam::sumOp<label>());
-    
     const scalar maxRecoilMagFinal = Foam::gMax
     (
         Foam::mag(recoilPressure_.primitiveField())
@@ -907,7 +877,7 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
 
         if (globalFluxCells > 0)
         {
-            Info<< "  Max |j_net| (post-limit) = " << maxMassFlux
+            Info<< "  Max |j_net| = " << maxMassFlux
                 << " kg/m^2/s";
 
             Info<< ", active temperature range = [" << minActiveTemp
@@ -935,7 +905,7 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
 
                 if (maxRawMassFlux > massRateEps_)
                 {
-                    Info<< "  Peak |j_net| on the interface (post-limit) = "
+            Info<< "  Max |j_net| = " << maxMassFlux
                         << maxRawMassFlux
                         << " kg/m^2/s (filtered by massRateEps)." << nl;
                 }
@@ -958,24 +928,18 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
             }
         }
         
-        if (globalLimitedMassFlux > 0)
+        if (maxOvershootAmount > 0)
         {
-            Info<< "  Recoil requests exceeded the configured limit in "
-                << globalLimitedMassFlux
-                << " cell(s); mass flux was reduced before applying recoil." << nl;
+            Info<< "  Recoil clamp requests occurred; peak raw request "
+                << maxOvershootMag/1e6
+                << " MPa vs limit " << maxOvershootLimit/1e6 << " MPa";
 
-            if (maxOvershootAmount > 0)
+            if (maxOvershootCell >= 0)
             {
-                Info<< "    Peak raw request " << maxOvershootMag/1e6
-                    << " MPa vs limit " << maxOvershootLimit/1e6 << " MPa";
-
-                if (maxOvershootCell >= 0)
-                {
-                    Info<< " (e.g. cell " << maxOvershootCell << ')';
-                }
-
-                Info<< nl;
+                Info<< " (e.g. cell " << maxOvershootCell << ')';
             }
+
+            Info<< nl;
         }
 
         Info<< "  Max |recoilPressure| = " << maxRecoilMagFinal/1e6

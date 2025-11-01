@@ -1120,17 +1120,13 @@ void Foam::twoPhaseMixtureThermo::computePhaseChange()
         bool satClamped = false;
         scalar p_vapor = saturationPressure(T_eff, satClamped);
 
-        if (p_vapor > p_ref)
+        if (p_vapor > p_ref && !warnedPvapClamp && Pstream::master())
         {
-            if (!warnedPvapClamp && Pstream::master())
-            {
-                WarningInFunction
-                    << "Saturation pressure request " << p_vapor
-                    << " Pa exceeds the reference value " << p_ref
-                    << " Pa. Limiting p_vapor to the reference pressure." << endl;
-                warnedPvapClamp = true;
-            }
-            p_vapor = p_ref;
+            WarningInFunction
+                << "Saturation pressure request " << p_vapor
+                << " Pa exceeds the reference value " << p_ref
+                << " Pa." << endl;
+            warnedPvapClamp = true;
         }
         else if (satClamped && !warnedPvapClamp && Pstream::master())
         {
