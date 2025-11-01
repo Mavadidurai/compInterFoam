@@ -116,7 +116,7 @@ PIMPLE
     }
     
     p_rghRefCell                0;
-    p_rghRefValue               0;
+    p_rghRefValue               101325;
 }
 
 relaxationFactors

@@ -90,15 +90,15 @@ advancedInterfaceCapturing
     model               kinetic_theory;  // Not arbitrary scaling!
     stickingCoeff       0.18;
     momentumAccom       0.18;
-    recoilMax             5e6;      // ✅ REDUCE from 1e7 (5 MPa max)
+    recoilMax             5e6;      // Limit recoil drive to 5 MPa (Anisimov 1974)
     clampRecoil           true;
-    scaleRecoilMax        false;    // ✅ DISABLE scaling (let physics control it)
-    recoilTempOffset      500;      // ✅ INCREASE from 20 (smoother activation)
-    phaseChangeTempOffset 500;      // ✅ INCREASE from 20
-    recoilRelax           0.3;      // ✅ INCREASE from 0.1 (more damping)
+    scaleRecoilMax        false;    // Keep cap constant rather than scaling by alpha
+    recoilTempOffset      100;      // Recoil turns on ≈100 K above Tvap (cf. Anisimov 1974)
+    phaseChangeTempOffset 100;      // Match evaporation window to Ti saturation curve
+    recoilRelax           0.3;      // Additional damping for stability
     alphaMin              0.01;
     alphaMax              1;
-    maxPhysicalTemperature  50000;
+    maxPhysicalTemperature  10000;  // Stay within tabulated Ti properties (~10 kK)
 
         // Physical limits
     maxRecoilPressure   1e8;    // 100 MPa absolute max
@@ -106,9 +106,9 @@ advancedInterfaceCapturing
 logRecoilSuppression true;
 
 // Temperature clamping - EXTENDED RANGE
-enableTClamp    true;
+enableTClamp    false;
 minT            200;           // Allow cooling below room temp
-maxT            5800;          // Clamp high temperatures to physical limit (~Ti vapor data)
+maxT            5800;          // Retained for optional safety if clamp re-enabled
 
 // Two-temperature model properties - OPTIMIZED FOR EXTENDED RUNS
 twoTemperatureProperties
