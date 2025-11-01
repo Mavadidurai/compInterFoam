@@ -2058,6 +2058,17 @@ void femtosecondLaserModel::calculateSource() const
         if (singlePulse && outsidePulseWindow)
         {
             withinActiveWindow = false;
+            if (!pulseCompleted_)
+            {
+                WarningInFunction
+                    << "Time window [" << tStart*1e12 << ", " << t*1e12
+                    << "] ps lies outside the ±5σ Gaussian pulse envelope"
+                    << " centred at " << pulseCenter*1e12 << " ps. "
+                    << "Laser deposition stops even though laserEndTime = "
+                    << laserEndTime_*1e12 << " ps. "
+                    << "Increase pulseCenterTime or pulseFrequency if energy"
+                    << " is required later in the simulation." << endl;
+            }
             pulseCompleted_ = true;
         }
 

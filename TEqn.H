@@ -489,6 +489,12 @@ if (verbose && master && timeIndex % 10 == 0)
         )
     );
     const volScalarField& CvolLimited = tCvolLimited();
+    const dimensionedScalar minCvol
+    (
+        "minCvol",
+        CvolLimited.dimensions(),
+        SMALL
+    );
     const scalar capThreshold = 10.0*cvolFloor.value();
 
     const volScalarField& Told = T.oldTime();
@@ -935,7 +941,8 @@ if (verbose && master && timeIndex % 10 == 0)
 
         tmp<volScalarField> tThermalCo
         (
-            (cappedInterfaceExchange*runTime.deltaT())/CvolLimited
+            (cappedInterfaceExchange*runTime.deltaT())
+          / Foam::max(CvolLimited, minCvol)
         );
         volScalarField& thermalCo = tThermalCo.ref();
         thermalCo = Foam::max
