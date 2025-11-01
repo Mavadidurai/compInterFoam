@@ -31,6 +31,7 @@ License
 #include "Pstream.H"
 #include "Switch.H"
 #include "Tuple2.H"
+#include "OStringStream.H"
 #include "Time.H"
 #include <cmath>
 #include <string>
@@ -1060,7 +1061,6 @@ void Foam::twoPhaseMixtureThermo::computePhaseChange()
 
     const scalar Tmax = maxPhaseChangeTemperature_;
     const scalar saturationTmin = Foam::max(T_melt_, SMALL);
-    const scalar saturationTmax = Foam::max(T_vap, saturationTmin);
 
     static bool warnedSatRange = false;
     static bool warnedPvapClamp = false;
@@ -1068,20 +1068,36 @@ void Foam::twoPhaseMixtureThermo::computePhaseChange()
     auto saturationPressure =
         [&](const scalar temperature, bool& clamped) -> scalar
         {
-            scalar Teval = Foam::min
-            (
-                Foam::max(temperature, saturationTmin),
-                saturationTmax
-            );
+            scalar Teval = Foam::max(temperature, saturationTmin);
 
-            clamped = (Teval != temperature);
+            if (std::isfinite(Tmax) && Teval > Tmax)
+            {
+                Teval = Tmax;
+                clamped = true;
+            }
+            else
+            {
+                clamped = (Teval != temperature);
+            }
 
             if (clamped && !warnedSatRange && Pstream::master())
             {
+                OStringStream rangeStream;
+                rangeStream << saturationTmin << ", ";
+
+                if (std::isfinite(Tmax))
+                {
+                    rangeStream << Tmax;
+                }
+                else
+                {
+                    rangeStream << "inf";
+                }
+
                 WarningInFunction
                     << "Local lattice temperature " << temperature
                     << " K lies outside the calibrated saturation range ["
-                    << saturationTmin << ", " << saturationTmax
+                    << rangeStream.str()
                     << "] K. Using the clamped value " << Teval
                     << " K for vapor pressure evaluation." << endl;
                 warnedSatRange = true;
@@ -1120,15 +1136,7 @@ void Foam::twoPhaseMixtureThermo::computePhaseChange()
         bool satClamped = false;
         scalar p_vapor = saturationPressure(T_eff, satClamped);
 
-        if (p_vapor > p_ref && !warnedPvapClamp && Pstream::master())
-        {
-            WarningInFunction
-                << "Saturation pressure request " << p_vapor
-                << " Pa exceeds the reference value " << p_ref
-                << " Pa." << endl;
-            warnedPvapClamp = true;
-        }
-        else if (satClamped && !warnedPvapClamp && Pstream::master())
+        if (satClamped && !warnedPvapClamp && Pstream::master())
         {
             WarningInFunction
                 << "Temperature clamp enforced p_vapor = " << p_vapor

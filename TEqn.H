@@ -217,7 +217,24 @@ extern const bool master;
         Foam::min(Foam::max(gasFraction, scalar(0)), scalar(1))
     );
     const volScalarField& gasMask = tGasMask();
-    
+    const scalar gasFractionFloorValue = twoTemperatureDict.lookupOrDefault<scalar>
+    (
+        "gasFractionFloor",
+        metalFractionFloor
+    );
+
+    const dimensionedScalar gasMaskFloorDim
+    (
+        "gasFractionFloor",
+        dimless,
+        Foam::max(gasFractionFloorValue, VSMALL)
+    );
+
+    tmp<volScalarField> tGasCapacityMask
+    (
+        Foam::max(gasMask, gasMaskFloorDim)
+    );
+    const volScalarField& gasCapacityMask = tGasCapacityMask();
     tmp<volScalarField> tActiveMask;
     if (blendWidth <= SMALL)
     {
@@ -480,12 +497,15 @@ if (verbose && master && timeIndex % 10 == 0)
         cvolFloorValue
     );
 
+    tmp<volScalarField> tCvolFloorField(gasCapacityMask*cvolFloor);
+    const volScalarField& CvolFloorField = tCvolFloorField();
+
     tmp<volScalarField> tCvolLimited
     (
         Foam::max
         (
             CvolGas,
-            gasMask*cvolFloor
+            CvolFloorField
         )
     );
     const volScalarField& CvolLimited = tCvolLimited();

@@ -559,8 +559,14 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
     const scalar evaporationCoeff = mixture_.evaporationCoeff();
     const scalar safeParticleMass = Foam::max(Foam::mag(particleMass), VSMALL);
     const scalar R_specific = k_B/safeParticleMass;
-    
+
     const bool validEvaporationCoeff = Foam::mag(evaporationCoeff) > Foam::SMALL;
+
+    const scalar knightCoeff = validEvaporationCoeff
+        ? (2.0 - betaMomentum)
+           /(2.0*Foam::max(Foam::mag(evaporationCoeff), Foam::SMALL))
+        : 0.0;
+    const scalar scaledKnightCoeff = pressureScale_.value()*knightCoeff;
     
     const bool verbose =
         mesh_.time().controlDict().lookupOrDefault<Switch>("verbose", false);
@@ -587,8 +593,6 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
         vaporTemp_.value() + phaseChangeTempOffset_.value();
     const scalar recoilThreshold =
         vaporTemp_.value() + recoilTempOffset_.value();
-        
-    const scalar recoilScale = pressureScale_.value();
 
     forAll(recoilField, cellI)
     {
@@ -648,20 +652,14 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
         scalar alphaMask = (alpha - alphaMin_)*invAlphaWindow;
         alphaMask = Foam::min(Foam::max(alphaMask, scalar(0)), scalar(1));
 
-        // Recoil pressure follows the kinetic-theory relation
-        //   p_recoil = (2/3) * (1 - beta_m) * j * sqrt(2*pi*R*T)
-        // Missing the 2/3 prefactor overestimated the pressure drive and
-        // therefore the jet velocity by 50%.
-        const scalar baseFactor =
-            (2.0/3.0)*recoilScale*sqrtTerm*(1.0 - betaMomentum);
-        const scalar rawRecoil = baseFactor*jNet*alphaMask;
-
-        // pressureScale is treated as a dimensionless multiplier (default 1).
-        const scalar pRecoil = baseFactor*jNet;
-
+        // Knight (Phys. Rev. B 20, 1979) recoil model:
+        //   p_recoil = ((2 - beta_m)/(2*alpha_e)) * j_net * sqrt(2*pi*R*T)
+        // The evaporation coefficient already scales j_net, so dividing by
+        // alpha_e restores the physical momentum flux.
+        const scalar pRecoil = scaledKnightCoeff*jNet*sqrtTerm;
         const scalar unclampedRecoil = pRecoil*alphaMask;
+        const scalar rawRecoil = unclampedRecoil;
         scalar recoilValue = unclampedRecoil;
-
         if (clampRecoil_)
         {
             scalar localMax = recoilMax_;
