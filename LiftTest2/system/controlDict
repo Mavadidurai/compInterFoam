@@ -96,8 +96,8 @@ advancedInterfaceCapturing
     recoilMax             5e6;      // ✅ REDUCE from 1e7 (5 MPa max)
     clampRecoil           true;
     scaleRecoilMax        false;    // ✅ DISABLE scaling (let physics control it)
-    recoilTempOffset      500;      // ✅ INCREASE from 20 (smoother activation)
-    phaseChangeTempOffset 500;      // ✅ INCREASE from 20
+    recoilTempOffset      100;      // ✅ INCREASE from 20 (smoother activation)
+    phaseChangeTempOffset 100;      // ✅ INCREASE from 20
     recoilRelax           0.3;      // ✅ INCREASE from 0.1 (more damping)
     alphaMin              0.01;
     alphaMax              1;
@@ -109,7 +109,7 @@ advancedInterfaceCapturing
 logRecoilSuppression true;
 
 // Temperature clamping - EXTENDED RANGE
-enableTClamp    true;
+enableTClamp    false;
 minT            200;           // Allow cooling below room temp
 maxT            5800;          // Clamp high temperatures to physical limit (~Ti vapor data)
 
