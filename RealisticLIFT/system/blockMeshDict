@@ -43,8 +43,8 @@ blocks
     hex ( 0  3  2  1   4  7  6  5)   ( 80 400  40)  simpleGrading (1 1 1)  // Substrate (receiver)
     hex ( 4  7  6  5   8 11 10  9)   ( 80 400  60)  simpleGrading (1 1 1)  // Air gap (12 µm)
     // limit the y-resolution (global y = block k-direction) so neighbouring layers stay comparable
-    // (400 cells over 71.4 nm created ~0.18 nm layers, which triggered the under-determined and low-weight faces)
-    hex ( 8 11 10  9  12 15 14 13)   ( 80 400   6)  simpleGrading (1 1 1)  // Ti film (71.4 nm, thin layer)
+    // (120 cells over 71.4 nm keeps ~0.6 nm layers while avoiding ill-conditioned faces)
+    hex ( 8 11 10  9  12 15 14 13)   ( 80 120   6)  simpleGrading (1 1 1)  // Ti film (71.4 nm with 0.6 nm layers)
 );
 edges ();
 

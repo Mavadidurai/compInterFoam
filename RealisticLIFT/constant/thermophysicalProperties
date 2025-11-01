@@ -41,7 +41,7 @@ metal
 
         thermodynamics
         {
-            Cp              560;
+            Cp              650;    // J/kg/K (molten Ti heat capacity around the melt point)
             Hf              0.0;
             Tref            300;
             Href            0;
@@ -49,8 +49,8 @@ metal
 
         transport
         {
-            mu              2.25e-3;
-            Pr              0.03;
+            mu              2.35e-3; // Pa·s (Keene, Int. Mater. Rev. 1993)
+            Pr              0.032;   // Consistent with molten metal data
         }
 
         equationOfState

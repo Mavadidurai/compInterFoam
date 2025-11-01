@@ -142,10 +142,10 @@ targetResP  0.05;
 
 compInterFoamCoeffs
 {
-    maxReasonableVelocity  800;
+    maxReasonableVelocity  120;   // fs LIFT jets measured at 30–100 m/s (Brown et al., Appl. Phys. A 2010)
     maxVelocity            0;
-    defaultMetalDensity    4500;        
-    defaultAirDensity      1.2;         
+    defaultMetalDensity    4500;
+    defaultAirDensity      1.2;
     maxInitialResidual     10;          // REDUCE: was 1e3
 
     // Interface clamp settings
@@ -155,8 +155,8 @@ compInterFoamCoeffs
 
     // Pressure clamp settings
     pressureClamp      true;
-    maxPressure        1e8;
-    minPressure       -1e7;
+    maxPressure        1e7;    // 10 MPa cap consistent with recoil model
+    minPressure       -2e6;    // 2 MPa tension limit avoids spurious cavitation
 
     // Density clamp settings
     densityClamp       false;

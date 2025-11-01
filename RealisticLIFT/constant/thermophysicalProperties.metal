@@ -39,16 +39,16 @@ mixture
     
     thermodynamics
    {
-        Cp              560;            // J/kg·K - Heat capacity
+        Cp              650;            // J/kg·K - Heat capacity (molten Ti, Keene 1993)
         Hf              0.0;            // J/kg - Heat of formation
         Tref            300;            // K - Reference temperature
         Href            0;              // J/kg - Reference enthalpy
     }
-    
+
     transport
     {
-        mu              2.25e-3;        // Pa·s - Dynamic viscosity
-        Pr              0.03;           // Prandtl number (liquid metals)
+        mu              2.35e-3;        // Pa·s - Dynamic viscosity (Keene 1993)
+        Pr              0.032;          // Prandtl number (consistent with Ti data)
     }
     
     equationOfState

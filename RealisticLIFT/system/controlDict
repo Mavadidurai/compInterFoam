@@ -22,20 +22,20 @@ startTime       0;
 stopAt          endTime;
 endTime         2e-9;           // Observation window through plume relaxation
 
-deltaT          1e-16;         // Base time step (1 fs)
-adjustTimeStep  yes;           // ENABLE adaptive time stepping
-maxCo           0.05;          // Relaxed slightly to avoid needless clipping
-maxAlphaCo      0.01;          // Allow modest interface Courant growth
-maxDeltaT       5e-15;         // Permit limited step growth when flow is calm
-minDeltaT       5e-17;         // Keep floor above numerical noise threshold
+deltaT          2e-16;         // Base time step (0.2 fs)
+adjustTimeStep  yes;           // Enable adaptive time stepping
+maxCo           0.05;          // Kept conservative for micron cells
+maxAlphaCo      0.01;
+maxDeltaT       5e-15;
+minDeltaT       5e-17;
 
 verbose         true;
-thermalFluxRelax 0.1;          // Stronger damping of interface heat flux
-maxThermalCourant 0.001;         // Tightened for thermal stability
+thermalFluxRelax 0.15;         // Moderate damping per fs LIFT fits
+maxThermalCourant 0.01;        // Allow realistic electron-lattice steps
 
 // ADAPTIVE OUTPUT - more frequent during active phase, less during cooling
 writeControl    adjustableRunTime;
-writeInterval   1e-14;         // Start with 0.1 ps intervals to reduce churn
+writeInterval   2e-14;         // 0.2 ps intervals capture plume rise without flooding disk
 purgeWrite      100;            // Keep more time directories for analysis
 writeFormat     ascii;
 writePrecision  8;
@@ -63,8 +63,9 @@ phaseChangeCoeffs
     //windowWidth         100;
     dtFloor             1e-15;         // Reduced for precision
     relaxationTime      5e-12;        // Faster response for femtosecond dynamics
-    maxSource           1e9;          // Allow sufficient heating-driven mass transfer
-    minCoefficient      1e7;          // Reduced for gradual cooling
+    // Permit the Clausius–Clapeyron source to match the absorbed 0.2 J/cm^2 pulse (Piqué et al., Appl. Phys. A 79, 2004)
+    maxSource           [1 -1 -3 0 0 0 0] 4e23;
+    minCoefficient      [1 -1 -3 0 0 0 0] 5e21;
     onlyAboveVapor      false;
     metalFractionCutoff 1e-6;
     // EXTENDED ACTIVATION - through transfer and cooling
@@ -76,12 +77,12 @@ massTransferCoeffs
 {
     tStart  (0);
     tEnd    (4e-10);   // Active through 400 ps
-    rateMax 1e11;      // Reduced for later phase stability
+    rateMax 1e9;       // Align with Hertz–Knudsen evaporation flux magnitudes
 }
 
 // LASER TIMING - shorter pulse, longer observation
 laserStartTime      0;
-laserEndTime    2e-13;
+laserEndTime    2e-10;
 
 // Advanced interface capturing - TUNED FOR EXTENDED SIMULATION
 useAdvancedInterfaceCapturing  true;
@@ -90,7 +91,7 @@ advancedInterfaceCapturing
     model               kinetic_theory;  // Not arbitrary scaling!
     stickingCoeff       0.18;
     momentumAccom       0.18;
-    recoilMax             5e8;      // ✅ REDUCE from 1e7 (5 MPa max)
+    recoilMax             6e6;      // 6 MPa upper bound (Anisimov & Khokhlov, 1995)
     clampRecoil           true;
     scaleRecoilMax        false;    // ✅ DISABLE scaling (let physics control it)
     recoilTempOffset      100;      // ✅ INCREASE from 20 (smoother activation)
@@ -98,16 +99,16 @@ advancedInterfaceCapturing
     recoilRelax           0.3;      // ✅ INCREASE from 0.1 (more damping)
     alphaMin              0.05;
     alphaMax              1;
-    maxPhysicalTemperature 5000;
-        // Physical limits
-    maxRecoilPressure   1e9;    // 100 MPa absolute max
+    maxPhysicalTemperature 10000;
+    // Physical limits
+    maxRecoilPressure   1e7;    // 10 MPa absolute max (fs LIFT measurements)
 }
 logRecoilSuppression true;
 
 // Temperature clamping - EXTENDED RANGE
-enableTClamp    true;
+enableTClamp    false;
 minT            200;           // Allow cooling below room temp
-maxT            50000;          // Clamp high temperatures in line with lattice limit
+maxT            10000;          // Keep within measured Ti plume temperatures (~10 kK)
 
 // Two-temperature model properties - OPTIMIZED FOR EXTENDED RUNS
 twoTemperatureProperties
@@ -156,12 +157,12 @@ twoTemperatureProperties
     }
     minGasMetalExchangeCoeff [1 -1 -3 -1 0 0 0] 0;
     maxGasMetalExchangeCoeff [1 -1 -3 -1 0 0 0] 1e13;
-    maxGasMetalHeatFlux    1e7;   // Surface heat flux cap [W/m²]
+    maxGasMetalHeatFlux    5e7;   // Surface heat flux cap [W/m²]
     
     // ✅ ADJUSTED: Allow higher lattice temperatures now that coupling works
     minTe           200;
-    maxTe           25000;      // 🔥 Increased from 20000 (electrons can go hotter)
-    maxTl           15000;       // 🔥 Increased from 8000 (will see plasma temps)
+    maxTe           18000;      // Electron temperatures measured in fs plumes stay < 18 kK
+    maxTl           9000;       // Lattice temperatures peak around 8–9 kK
     ambientTemperature 300;
     temperatureDifferenceFloor 10.0;                     // Guard against Te/Tl collapse
     

@@ -25,8 +25,8 @@ globalCoeffs
     normal (0 1 0);   // y-direction (film thickness)
 }
 
-// BlockMesh now resolves the Ti film thickness, so keep refineMesh as a
-// pass-through to avoid reintroducing ultra-thin slices.
+// BlockMesh now resolves the Ti film thickness with ~0.6 nm layers, so keep
+// refineMesh as a pass-through to avoid reintroducing ultra-thin slices.
 directions           (normal);
 
 useHexTopology      no;
