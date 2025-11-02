@@ -155,7 +155,7 @@ compInterFoamCoeffs
 
     // Pressure clamp settings
     pressureClamp      true;
-    maxPressure        1e7;    // 10 MPa cap consistent with recoil model
+    maxPressure        8e7;    // Align with 80 MPa recoil clamp to avoid repeated overrides
     minPressure       -2e6;    // 2 MPa tension limit avoids spurious cavitation
 
     // Density clamp settings
