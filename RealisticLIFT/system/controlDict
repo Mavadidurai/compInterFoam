@@ -57,14 +57,14 @@ phaseChangeCoeffs
     Tvap                [0 0 0 1 0 0 0] 3560;     // K
     
     // Kinetic theory parameters
-    stickingCoeff       0.18;     // Ti evaporation coefficient
+    stickingCoeff       0.03;     // Ti evaporation coefficient
     momentumAccom       0.18;     // Momentum accommodation
     
     //windowWidth         100;
     dtFloor             1e-15;         // Reduced for precision
     relaxationTime      5e-12;        // Faster response for femtosecond dynamics
     // Permit the Clausius–Clapeyron source to match the absorbed 0.2 J/cm^2 pulse (Piqué et al., Appl. Phys. A 79, 2004)
-    maxSource           [1 -1 -3 0 0 0 0] 4e23;
+    maxSource           [1 -1 -3 0 0 0 0] 1e22;
     minCoefficient      [1 -1 -3 0 0 0 0] 5e21;
     onlyAboveVapor      false;
     metalFractionCutoff 1e-6;
@@ -89,7 +89,7 @@ useAdvancedInterfaceCapturing  true;
 advancedInterfaceCapturing
 {
     model               kinetic_theory;  // Not arbitrary scaling!
-    stickingCoeff       0.18;
+    stickingCoeff       0.03;
     momentumAccom       0.18;
     recoilMax             8e7;      // 80 MPa upper bound (fs Ti LIFT measurements)
     clampRecoil           true;
@@ -132,15 +132,15 @@ twoTemperatureProperties
         type        table;
         values
         (
-            (300     3e17)      // Room temperature
-            (1000    1e18)      // 3.3× increase (weak coupling regime)
-            (2000    2e18)      // Linear scaling begins
-            (3000    3e18)      // Strong coupling regime
-            (5000    5e18)      // 16× total
-            (7000    7e18)      // Continues scaling
-            (10000   1e19)      // 33× total
-            (15000   1.5e19)    // 50× total
-            (20000   2e19)      // Upper limit
+            (300     5e17)      // ← INCREASE baseline
+            (1000    2e18)      // ← INCREASE 
+            (2000    5e18)      // ← INCREASE
+            (3000    8e18)      // ← INCREASE
+            (5000    1.5e19)    // ← INCREASE
+            (7000    2.5e19)    // ← INCREASE
+            (10000   4e19)      // ← INCREASE
+            (15000   6e19)      // ← ADD (was missing)
+            (20000   8e19)      // ← INCREASE from 2e19
         );
     }
     
@@ -156,7 +156,10 @@ twoTemperatureProperties
         rho_gas     1.7;        // Ar density [kg/m^3]
     }
     minGasMetalExchangeCoeff [1 -1 -3 -1 0 0 0] 0;
-    maxGasMetalExchangeCoeff [1 -1 -3 -1 0 0 0] 1e13;
+    // Kapitza conduction across a ~50 nm interface at 5–6 kK yields
+    // volumetric couplings O(1e17) W/m^3/K (Swartz & Pohl 1989), so keep the
+    // limiter comfortably above that to avoid choking the physics.
+    maxGasMetalExchangeCoeff [1 -1 -3 -1 0 0 0] 1e18;
     maxGasMetalHeatFlux    5e7;   // Surface heat flux cap [W/m²]
     
     // ✅ ADJUSTED: Allow higher lattice temperatures now that coupling works

@@ -22,16 +22,16 @@ solvers
         solver          PBiCGStab;
         preconditioner  DILU;
         tolerance       1e-08;
-        relTol          0.01;
-        maxIter         50;
-        minIter         1;     // Force at least 1 iteration
+        relTol          0.001;
+        maxIter         100;
+        minIter         3;     // Force at least 1 iteration
 
-        nAlphaCorr      1;              // Keep at 1
-        nAlphaSubCycles 3;              // Increased to stabilise transport
-        cAlpha          0.5;            // Softer compression to avoid overshoot
+        nAlphaCorr      2;              // Keep at 1
+        nAlphaSubCycles 5;              // Increased to stabilise transport
+        cAlpha          0.3;            // Softer compression to avoid overshoot
         icAlpha         0;
         scAlpha         0;
-        compressionLimiter 0.5;         // Caps phic relative to |phi|
+        compressionLimiter 0.7;         // Caps phic relative to |phi|
         MULESCorr       true;
         nLimiterIter    3;
         alphaApplyPrevCorr false;
