@@ -334,17 +334,19 @@ A deeper appreciation of these ultrafast dynamics allows LIFT process designers 
 
 2.4 The Two‑Temperature Model (TTM) 
 
-The Two‑Temperature Model remains the primary theoretical framework for simulating femtosecond laser–metal interactions. It treats electrons and lattice as separate thermal subsystems, each with its own heat capacity and thermal conductivity. The canonical form is: 
+The Two-Temperature Model remains the primary theoretical framework for simulating femtosecond laser–metal interactions. It treats electrons and lattice as separate thermal subsystems, each with its own heat capacity and thermal conductivity. The canonical form is
 
-[Equation]Ce ∂t∂Te  =∇⋅(ke ∇Te )−G(Te −Tl )+S(z,t) [Equation]Cl ∂t∂Tl  =∇⋅(kl ∇Tl )+G(Te −Tl )  
+C_e(Te) ∂Te/∂t = ∇·(k_e ∇Te) − G (Te − Tl) + S(z, t)
 
-where [Equation]Ce ,Cl  are heat capacities, [Equation]ke ,kl  conductivities, [Equation]G the electron–phonon coupling constant, and [Equation]S(z,t) the spatial–temporal laser source term. 
+C_l(Tl) ∂Tl/∂t = ∇·(k_l ∇Tl) + G (Te − Tl)
+
+where C_e and C_l are heat capacities, k_e and k_l conductivities, G the electron–phonon coupling constant, and S(z, t) the spatial–temporal laser source term.
 
 The review “A Critical Assessment Regarding Two‑Temperature Models” (2023) offers a comparative evaluation of various TTM formulations (parabolic, hyperbolic, dual‐phase lag) and associated computational methods. SpringerLink This review highlights key modelling decisions: 
 
 Correct representation of the laser source (temporal and spatial profile) 
 
-Appropriate coupling coefficient [Equation]G variation with electron temperature 
+Appropriate coupling coefficient G variation with electron temperature 
 
 Treatment of ballistic electron transport in thin films 
 
@@ -360,22 +362,21 @@ Following the ultrafast laser heating, the donor material undergoes phase transi
 
 Melting: When lattice temperature exceeds the melting point, the solid donor film transitions to a molten layer. Under femtosecond irradiation, this melting may occur at superheated conditions (above the equilibrium melting temperature) and can propagate rapidly across thin films. Interfacial velocities can reach hundreds of m/s. This rapid melt formation is crucial because the molten zone defines the geometry of the ejected droplet or jet. 
 
-Vaporization/Boiling: As the energy deposition increases, vaporization can occur either through classical evaporation or, more often in ultrafast contexts, through explosive boiling (homogeneous nucleation). The mass flux of vapor is described by kinetic theory; the Hertz–Knudsen equation is often used: 
+Vaporization/Boiling: As the energy deposition increases, vapour formation can occur through classical evaporation or, in ultrafast contexts, through explosive boiling (homogeneous nucleation). The mass flux of vapour is described by kinetic theory; the Hertz–Knudsen relation is often used:
 
-[Equation]J=α2πmRT (Psat (T)−Pv )   
+J = α (P_sat(T) − P_v) sqrt[M / (2π R T)]
 
-where [Equation]α is the evaporation coefficient, [Equation]Psat  the saturation pressure, [Equation]Pv  the ambient vapor pressure, [Equation]m the molecular mass, [Equation]R the gas constant, and [Equation]T the interface temperature. Analyses such as Caruso (2022) review electron/phonon dynamics and suggest that detailed carrier kinetics influence phase change onset. tandfonline.com 
+where α is the evaporation coefficient, P_sat the saturation pressure, P_v the ambient vapour pressure, M the molar mass, R the gas constant, and T the interface temperature. Analyses such as Caruso (2022) review electron/phonon dynamics and suggest that detailed carrier kinetics influence phase-change onset.
 
 In the context of LIFT, these phase changes determine the timing and magnitude of recoil pressure, jet formation, droplet size and deposition fidelity. For example, Fernández‑Pradas et al. (2020) discuss LIFT of functional inks, and emphasise how donor film thickness, laser energy and donor/receiver gap impact droplet morphology. MDPI 
 
 2.6 Recoil Pressure and Momentum Transfer Mechanism 
 
-The momentum transfer that propels material in LIFT is typically dominated by recoil pressure generated during rapid vaporization. When vaporized molecules depart the surface, their momentum produces a reaction force on the remaining molten donor material. A simplified estimation of recoil pressure [Equation]Pr  is: 
+The momentum transfer that propels material in LIFT is typically dominated by recoil pressure generated during rapid vaporisation. When vapour molecules depart the surface, their momentum produces a reaction force on the remaining molten donor material. A simplified estimation of recoil pressure P_r is
 
-[Equation]Pr ≈32 (1−α)J2RT/m   
+P_r ≈ (1 − α_m) J sqrt[2π R T / M]
 
-Here, [Equation]J is the mass flux from evaporation, [Equation]α the accommodation coefficient, [Equation]T the temperature. Under femtosecond LIFT conditions, [Equation]Pr  can reach tens of MPa over nanosecond timescales, and result in ejection velocities on the order of tens to hundreds m/s. The magnitude and duration of recoil pressure critically influence the stability of the ejection (e.g., single droplet vs jet, splashing vs coherent droplet). 
-
+where J is the mass flux from evaporation, α_m the accommodation coefficient, and T the interface temperature. Under femtosecond LIFT conditions, P_r can reach tens of MPa over nanosecond timescales and result in ejection velocities on the order of tens to hundreds of metres per second. The magnitude and duration of recoil pressure critically influence the stability of the ejection (for example, single droplet vs jet, splashing vs coherent droplet).
 Moreover, early fluid–mechanical instabilities (Rayleigh‑Taylor, Kelvin‑Helmholtz) may develop if the momentum transfer is too large or the molten layer thickness is too high. These instabilities degrade transfer fidelity. For best control, modelling must couple recoil pressure generation with fluid mechanics of jet breakup, droplet flight and substrate impact. 
 
 2.7 Multiphase Flow and Interface Tracking Techniques 
@@ -425,100 +426,87 @@ The solver you described (compInterFoam based on OpenFOAM’s compressibleInterF
 
 3.2 Conservation Laws: Mass, Momentum, and Energy 
 
-Mass conservation in a compressible multiphase mixture is given by: 
+Mass conservation in a compressible multiphase mixture is given by
 
-[Equation]∂t∂ρ +∇⋅(ρU)=0  
+∂ρ/∂t + ∇·(ρ U) = 0
 
-where [Equation]ρ is the local mixture density and [Equation]U is the velocity field of the mixture. In a VOF (volume‐of‐fluid) framework, individual phase transport equations (for volume fractions) also appear, coupling phase change mass‐flux terms. 
+where ρ is the local mixture density and U is the mixture velocity field. In a volume-of-fluid (VOF) framework, individual phase transport equations (for volume fractions) also appear, coupling phase-change mass-flux terms.
 
-Momentum conservation for the mixture reads: 
+Momentum conservation for the mixture reads
 
-[Equation]∂t∂(ρU) +∇⋅(ρU⊗U)=−∇p+∇⋅τ+ρg+Flaser +Frecoil   
+∂(ρ U)/∂t + ∇·(ρ U ⊗ U) = −∇p + ∇·τ + ρ g + F_laser + F_recoil
 
-where [Equation]τ is the viscous stress tensor, [Equation]Flaser  represents momentum transfer from rapid vapor expansion or laser‐induced pressure, and [Equation]Frecoil  is the recoil pressure force at the vapor–liquid interface. Incorporating recoil pressure explicitly is critical in LIFT modelling. 
+where τ is the viscous stress tensor, F_laser represents any applied laser-driven body force (for example, due to plasma pressure), and F_recoil is the recoil-pressure forcing at the vapour–liquid interface. Incorporating recoil pressure explicitly is critical in LIFT modelling.
 
-Energy conservation is more involved due to multiple subsystems. For the fluid/vapor mixture, a total energy equation or mixture‐enthalpy equation is solved. For the donor metal film, two coupled energy equations (electron and lattice) are needed (see next section). Phase‐change source/sink terms (latent heats for melting/evaporation) appear in the energy equations and are accounted via source terms. The mixture properties (density, specific heat, conductivity) must vary according to local phase fractions. References on full multiphase and interface‐tracking energy treatment include “Laser‐induced forward transfer of soft material nanolayers” by G. Paris et al. pure.mpg.de. 
+The mixture total-energy equation, written in conservative form, is
+
+∂(ρE)/∂t + ∇·[(ρE + p) U] = ∇·(τ·U − q) + S_laser + S_phase + S_gas↔metal
+
+where E = e + ½|U|² is the specific total energy, q = −k_eff ∇T is the conductive heat flux, S_phase collects latent-heat sources/sinks associated with melting and evaporation, and S_gas↔metal accounts for interfacial energy exchange with the surrounding gas. For the donor metal film, two coupled energy equations (electron and lattice) are required (see the next section) and their solutions supply S_phase and S_gas↔metal to the mixture equation. Phase-change source/sink terms must be accounted for consistently; mixture properties (density, specific heat, conductivity) vary with local phase fractions and temperature. References on full multiphase and interface-tracking energy treatment include “Laser-induced forward transfer of soft material nanolayers” by G. Paris et al. pure.mpg.de.
 
 3.3 Two‑Temperature Model Formulation 
 
-The Two‐Temperature Model (TTM) is at the heart of ultrafast laser–material interaction modelling for metals. It treats the conduction electrons and lattice phonons as distinct thermal subsystems with temperatures [Equation]Te  and [Equation]Tl . The canonical equations are: 
+The Two-Temperature Model (TTM) is at the heart of ultrafast laser–material interaction modelling for metals. It treats the conduction electrons and lattice phonons as distinct thermal subsystems with temperatures Te and Tl. The canonical equations are
 
-[Equation]Ce (Te )∂t∂Te  =∇⋅(ke ∇Te )−G(Te −Tl )+Slaser  [Equation]Cl (Tl )∂t∂Tl  =∇⋅(kl ∇Tl )+G(Te −Tl )+Sphase   
+C_e(Te) ∂Te/∂t = ∇·(k_e ∇Te) − G (Te − Tl) + S_laser
 
-Here: 
+C_l(Tl) ∂Tl/∂t = ∇·(k_l ∇Tl) + G (Te − Tl) + S_phase
 
-[Equation]Ce , [Equation]Cl : electronic and lattice heat capacities 
+where C_e and C_l are the electronic and lattice heat capacities, k_e and k_l their thermal conductivities, G the electron–phonon coupling constant, S_laser the absorbed laser energy source, and S_phase the phase-change source term (melting plus vaporisation).
 
-[Equation]ke , [Equation]kl : thermal conductivities 
-
-[Equation]G: electron–phonon coupling constant 
-
-[Equation]Slaser : source term from laser absorption 
-
-[Equation]Sphase : phase change heat term (melting/vaporisation) 
-TTM is widely reviewed (see Alexopoulou & Markopoulos, “A Critical Assessment Regarding Two‑Temperature Models” SpringerLink). Non‑equilibrium electron distributions, ballistic transport, and deviations from simple Fourier behaviour (especially at ultrashort timescales) are discussed in “Ultrafast laser irradiation of metals: Beyond the two‑temperature model” by Carpene link.aps.org. For LIFT modelling, TTM provides the initial conditions (temperature and pressure fields) which then drive phase change and fluid motion. 
+TTM is widely reviewed (see Alexopoulou & Markopoulos, “A Critical Assessment Regarding Two-Temperature Models”). Non-equilibrium electron distributions, ballistic transport, and deviations from simple Fourier behaviour (especially at ultrashort timescales) are discussed in “Ultrafast laser irradiation of metals: Beyond the two-temperature model” by Carpene. For LIFT modelling, TTM provides the initial conditions (temperature and pressure fields) that drive phase change and fluid motion.
 
 3.4 Laser Energy Deposition Modeling 
 
-Modeling laser deposition in fs‐LIFT requires a spatio‐temporal description of the absorbed energy. A common volumetric source term is: 
+Modeling laser deposition in fs-LIFT requires a spatio-temporal description of the absorbed energy. A common volumetric source term is
 
-[Equation]Slaser (x,y,z,t)=πr02 τ2(1−R)E exp(−r02 2r2 )exp(−τ2t2 )exp(−αz)  
+S_laser(x, y, z, t) = 2 (1 - R) E / (π r_0² τ) · exp(−2 r² / r_0²) · exp(−t² / τ²) · exp(−α z)
 
-where: 
+where E is the pulse energy, R the reflectivity, r_0 the beam-waist radius, τ the pulse duration, α the absorption coefficient, and r the radial coordinate in the donor film.
 
-[Equation]E: pulse energy 
-
-[Equation]R: reflectivity 
-
-[Equation]r0 : beam‐waist radius 
-
-[Equation]τ: pulse duration 
-
-[Equation]α: absorption coefficient 
-
-[Equation]r: radial coordinate in the donor film 
-The Beer–Lambert law is used to model attenuation along [Equation]z. For ultrashort pulses, reflectivity, absorption coefficient and optical penetration depth can change dynamically due to rapid temperature rise and phase change (see Lorazo et al., “Thermodynamic pathways to melting, ablation, and solidification…” ResearchGate). Accurate modelling of energy deposition is essential for correctly predicting melting/vaporisation timing, recoil pressure magnitude, and droplet ejection behaviour. 
+The Beer–Lambert law is used to model attenuation along z. For ultrashort pulses, reflectivity, absorption coefficient, and optical penetration depth can change dynamically due to rapid temperature rise and phase change (see Lorazo et al., “Thermodynamic pathways to melting, ablation, and solidification…”). Accurate modelling of energy deposition is essential for correctly predicting melting/vaporisation timing, recoil pressure magnitude, and droplet ejection behaviour.
 
 3.5 Phase Change Modeling (Melting & Evaporation) 
 
-Melting and evaporation are central to the LIFT ejection mechanism. The modelling strategy includes: 
+Melting and evaporation are central to the LIFT ejection mechanism. The modelling strategy includes:
 
-Melting: When lattice temperature [Equation]Tl  exceeds [Equation]Tmelt , energy is consumed as latent heat [Equation]Lmelt . The melting front may propagate rapidly, and in thin films velocities can be high (hundreds m/s). 
+Melting: When the lattice temperature Tl exceeds the melting point T_melt, energy is consumed as latent heat L_melt. The melting front may propagate rapidly, and in thin films velocities can be high (hundreds of metres per second).
 
-Evaporation/Vaporisation: The net mass flux [Equation]m˙ across the interface can be described by the Hertz–Knudsen equation: 
+Evaporation/Vaporisation: The net mass flux ṁʺ across the interface can be described by the Hertz–Knudsen relation
 
-[Equation]m˙=αevap 2πmRT Psat (T)−Pv    
+ṁʺ = α_evap (P_sat(T) − P_v) sqrt[M / (2π R T)]
 
-where [Equation]αevap  is the accommodation coefficient, [Equation]Psat  the saturation pressure, [Equation]Pv  the ambient vapor pressure. This kinetic‐theory approach is used in ultrafast heating regimes where equilibrium assumptions fail (see for example Tien & Chen, “Challenges in microscale conductive and radiative heat transfer” MDPI). In the computational solver, phase change is implemented as a source term in the lattice energy equation [Equation]Sphase =−(m˙Lmelt +m˙evap Levap ) and as a mass transfer term in the volume fraction equation. Proper coupling between phase change, thermal fields, and fluid dynamics is critical for realistic simulation of jet formation. 
+where α_evap is the evaporation accommodation coefficient, P_sat the saturation pressure, P_v the ambient vapour pressure, M the molar mass, and R the universal gas constant. This kinetic-theory approach is used in ultrafast heating regimes where equilibrium assumptions fail (see, for example, Tien & Chen, “Challenges in microscale conductive and radiative heat transfer”).
+
+In the computational solver, phase change appears as a source term in the lattice energy equation, S_phase = −(ṁʺ L_m + ṁʺ_evap L_v), and as a mass-transfer term in the volume-fraction equation. Proper coupling between phase change, thermal fields, and fluid dynamics is critical for realistic simulation of jet formation.
 
 3.6 Recoil Pressure Modeling 
 
-The evaporation‐induced vapor mass flux exerts a reaction force on the remaining liquid film (or molten donor layer). The recoil pressure [Equation]Precoil  may be approximated by: 
+The evaporation-induced vapour mass flux exerts a reaction force on the remaining liquid film (or molten donor layer). The recoil pressure P_recoil may be approximated by
 
-[Equation]Precoil ≈32 (1−αm )m˙m2RT    
+P_recoil ≈ (1 − α_m) ṁʺ sqrt[2π R T / M]
 
-where [Equation]αm  is the momentum accommodation coefficient. Pressures of tens of megapascals have been reported in femtosecond LIFT contexts. The volumetric force [Equation]Frecoil =Precoil nδinterface  is added to the momentum equation where [Equation]n is interface normal and [Equation]δinterface  the interface area per unit volume. Experimental work correlating recoil pressure to droplet ejection velocity include studies like Sentis et al. MDPI. Correct quantification of recoil pressure is crucial because it sets initial droplet acceleration and therefore impacts deposition fidelity in aerospace‐grade manufacturing. 
+where α_m is the momentum accommodation coefficient. Pressures of tens of megapascals have been reported in femtosecond LIFT contexts. The associated volumetric force F_recoil = P_recoil n δ_interface is added to the momentum equation, where n is the interface normal and δ_interface the interface area per unit volume. Experimental work correlating recoil pressure to droplet ejection velocity, including Sentis et al. (2023), should be used to calibrate this model.
 
 3.7 Interface Tracking via Volume of Fluid (VOF) 
 
-Interface dynamics in LIFT involve solid → liquid → vapor transitions plus liquid motion through ambient gas and eventual deposition on the receiver substrate. The Volume of Fluid (VOF) method tracks the volume fraction [Equation]α (e.g., of liquid) in each computational cell: 
+Interface dynamics in LIFT involve solid → liquid → vapour transitions plus liquid motion through ambient gas and eventual deposition on the receiver substrate. The Volume of Fluid (VOF) method tracks the volume fraction α (for example, of liquid) in each computational cell:
 
-[Equation]∂t∂α +∇⋅(αU)+∇⋅[α(1−α)Uc ]=ρm˙pc    
+∂α/∂t + ∇·(α U) + ∇·[α (1 − α) U_c] = ṁʺ_pc / ρ
 
-where [Equation]Uc  is a compressive velocity field to sharpen the interface and [Equation]m˙pc  the phase‐change mass flux. The momentum and energy equations use mixture properties derived via [Equation]α (e.g., [Equation]ρ=αρliquid +(1−α)ρgas ). Surface tension forces are introduced via the Continuum Surface Force (CSF) model as [Equation]Fσ =σκ∇α. The VOF method is validated in the context of LIFT in works such as the Max‑Planck Institute study of soft material LIFT using OpenFOAM pure.mpg.de. For aerospace‐relevant additive manufacturing, accurate interface tracking governs droplet breakup, satellite droplet formation, flight trajectory, and landing morphology. 
+where U_c is a compressive velocity field used to sharpen the interface and ṁʺ_pc is the phase-change mass flux. The momentum and energy equations use mixture properties derived via α (for example, ρ = α ρ_liquid + (1 − α) ρ_gas). Surface-tension forces are introduced via the Continuum Surface Force (CSF) model as F_σ = σ κ ∇α. The VOF method is validated in the context of LIFT in works such as the Max-Planck Institute study of soft material LIFT using OpenFOAM.
 
 3.8 Surface Tension and Capillarity 
 
-At micrometre to sub‐micrometre scales, surface tension and capillary forces dominate inertial forces. The dimensionless Weber number ([Equation]We=σρU2L ) and Capillary number ([Equation]Ca=σμU ) help predict droplet formation, necking, breakup, and satellite droplets. In the solver, surface tension appears in the momentum equation as a volumetric body force via the CSF model: 
+At micrometre to sub-micrometre scales, surface tension and capillary forces dominate inertial forces. The dimensionless Weber number (We = ρ U² L / σ) and Capillary number (Ca = μ U / σ) help predict droplet formation, necking, breakup, and satellite droplets. In the solver, surface tension appears in the momentum equation as a volumetric body force via the CSF model
 
-[Equation]Fσ =σκ∇α  
+F_σ = σ κ ∇α
 
-with curvature [Equation]κ=−∇⋅(∣∇α∣∇α ). Precise modelling of interfacial curvature, surface tension gradients (Marangoni effects), and contact‐line dynamics is necessary for predicting droplet spreading or deposition fidelity on receiver substrates. The literature on capillarity in ultrafast ejection and landing dynamics is less abundant but parallels fluid‐mechanics studies of droplet formation (e.g., Nykteri et al., “Numerical modelling of droplet rim fragmentation by laser…” link.aps.org). 
+with curvature κ = −∇·(∇α / |∇α|). Precise modelling of interfacial curvature, surface-tension gradients (Marangoni effects), and contact-line dynamics is necessary for predicting droplet spreading or deposition fidelity on receiver substrates. The literature on capillarity in ultrafast ejection and landing dynamics, such as Nykteri et al. (“Numerical modelling of droplet rim fragmentation by laser-induced propulsion”), provides useful guidance.
 
 3.9 Thermophysical Property Handling 
 
-Physical properties (density, specific heat, thermal conductivity, viscosity, surface tension, phase latent heats) vary significantly across phases and with temperature—especially under ultrafast, high‐temperature conditions. For example, the electron heat capacity [Equation]Ce  in metals is often approximated as [Equation]Ce =γTe  (with [Equation]γ the Sommerfeld constant) but this linear dependence may fail at very high [Equation]Te . Thermal conductivity [Equation]ke (Te ) and [Equation]kl (Tl ) vary with temperature, and phase transitions involve discontinuous changes in properties (solid → liquid → vapor). In a VOF framework mixture properties are computed via volume‐fraction weighting: e.g., [Equation]ρ=αρliquid +(1−α)ρgas . Accurate tabulation or interpolation of temperature‐dependent properties is fundamental to simulation fidelity. Reviews such as “Ultrafast laser micro‐machining of materials: From science to industry” by Malinauskas et al. MDPI outline the challenges of property variation under ultrafast conditions. 
-
+Physical properties (density, specific heat, thermal conductivity, viscosity, surface tension, phase latent heats) vary significantly across phases and with temperature—especially under ultrafast, high-temperature conditions. For example, the electron heat capacity C_e in metals is often approximated as C_e = γ T_e (with γ the Sommerfeld constant) but this linear dependence fails once T_e approaches the Fermi temperature. Thermal conductivities k_e(T_e) and k_l(T_l) also vary strongly, and phase transitions involve discontinuous property changes (solid → liquid → vapour). In a VOF framework, mixture properties are computed via volume-fraction weighting, e.g., ρ = α ρ_liquid + (1 − α) ρ_gas. Accurate tabulation or interpolation of temperature-dependent properties is fundamental to simulation fidelity. Reviews such as “Ultrafast laser micro-machining of materials: From science to industry” by Malinauskas et al. outline the challenges associated with property variation under ultrafast conditions.
 3.10 Summary of the Modeling Framework 
 
 In summary, the modeling framework for femtosecond LIFT integrates multiple components: the TTM for ultrafast thermal dynamics, volumetric laser source modelling, phase change kinetics (melting & evaporation), recoil pressure generation, multiphase fluid dynamics with interface tracking via VOF/CSF, surface tension and capillary effects, and detailed thermophysical property handling. The computational solver architecture (e.g., compInterFoam) must orchestrate these modules in a robust finite‐volume scheme, often employing sub‐cycling, adaptive time‐stepping, and solver coupling (e.g., PIMPLE loop) to handle vastly different timescales (fs to ns) and spatial scales (nm to µm). Validation against experiments, sensitivity analysis, and mesh/grid convergence are critical to establish confidence in predictions. The subsequent chapters (Chapter 4 and Chapter 5) describe the numerical implementation and present simulation results and analyses for aerospace‐relevant film and laser conditions. 
@@ -535,29 +523,29 @@ This chapter describes in depth the architecture, numerical formulation, and imp
 
 4.1.1 Phase‐Indicator Transport 
 
-The two immiscible phases—metallic donor film (phase 1) and ambient/vapor gas (phase 2)—are tracked by the volume fraction field α1(x,t)\alpha_1(\mathbf{x},t)α1 (x,t), with α2=1−α1\alpha_2 = 1 - \alpha_1α2 =1−α1 . The interface region is defined by 0<α1<10 < \alpha_1 < 10<α1 <1. The transport equation used is a compressive VOF form: 
+The two immiscible phases—metallic donor film (phase 1) and ambient/vapour gas (phase 2)—are tracked by the volume fraction field α₁(x, t), with α₂ = 1 − α₁. The interface region is defined by 0 < α₁ < 1. The transport equation uses a compressive VOF form:
 
-∂α1∂t+∇⋅(α1U)+∇⋅[ α1(1−α1) Ur ]=0\frac{\partial \alpha_1}{\partial t} + \nabla \cdot (\alpha_1 \mathbf{U}) + \nabla \cdot [\,\alpha_1 (1 - \alpha_1)\,\mathbf{U}_r\,] = 0∂t∂α1  +∇⋅(α1 U)+∇⋅[α1 (1−α1 )Ur ]=0  
+∂α₁/∂t + ∇·(α₁ U) + ∇·[α₁ (1 − α₁) U_r] = 0
 
-Here U\mathbf{U}U is the mixture velocity and Ur\mathbf{U}_rUr  is an artificial compression velocity to maintain sharpness of the interface. One must choose the compression coefficient and any sub‐cycling strategy carefully: if too weak, the interface smears; if too strong, spurious ripples or numerical instabilities may arise. Prior studies show that VOF schemes still struggle with curvature calculation and spurious currents when surface tension dominates. ResearchGate+1 
+Here U is the mixture velocity and U_r is an artificial compression velocity that maintains interface sharpness. The compression coefficient and any sub-cycling strategy must be chosen carefully: if too weak, the interface smears; if too strong, spurious ripples or numerical instabilities can arise. Prior studies show that VOF schemes still struggle with curvature calculation and spurious currents when surface tension dominates.
 
 4.1.2 Mixture Thermophysical Closure 
 
-The solver uses volume‐fraction weighting to compute mixture properties: 
+The solver uses volume-fraction weighting to compute mixture properties:
 
-ψ=α1ψ1+α2ψ2\psi = \alpha_1 \psi_1 + \alpha_2 \psi_2ψ=α1 ψ1 +α2 ψ2   
+ψ = α₁ ψ₁ + α₂ ψ₂
 
-for properties ψ=ρ, μ, λ, cp,…\psi = \rho,\,\mu,\,\lambda,\,c_p,\dotsψ=ρ,μ,λ,cp ,…. Implementation is in twoPhaseMixtureThermo.C, using separate thermo objects thermo1_ and thermo2_ to store phase properties, and an interfaceProperties model for surface tension (σ\sigmaσ). Accurate treatment of property blending and interface region is critical when density and conductivity contrasts are large, as in metal/vapor systems. 
+for properties ψ ∈ {ρ, μ, λ, c_p, …}. Implementation resides in twoPhaseMixtureThermo.C, using separate thermo objects thermo₁ and thermo₂ to store phase properties, plus an interfaceProperties model for surface tension σ. Accurate treatment of property blending in the interface region is critical when density and conductivity contrasts are large, as in metal/vapour systems.
 
 4.2 Momentum and Pressure–Velocity Coupling (PIMPLE) 
 
 4.2.1 Mixture Momentum Equation 
 
-For the mixture the momentum equation reads: 
+For the mixture the momentum equation reads
 
-∂(ρU)∂t+∇⋅(ρU⊗U)=−∇p+∇⋅τ+ρg+Scap+Srecoil\frac{\partial (\rho \mathbf{U})}{\partial t} + \nabla \cdot (\rho \mathbf{U} \otimes \mathbf{U}) = -\nabla p + \nabla \cdot \boldsymbol{\tau} + \rho \mathbf{g} + \mathbf{S}_\text{cap} + \mathbf{S}_\text{recoil}∂t∂(ρU) +∇⋅(ρU⊗U)=−∇p+∇⋅τ+ρg+Scap +Srecoil   
+∂(ρ U)/∂t + ∇·(ρ U ⊗ U) = −∇p + ∇·τ + ρ g + S_cap + S_recoil
 
-where τ=μeff(∇U+∇UT)−23μeff(∇⋅U)I\boldsymbol{\tau} = \mu_\text{eff} (\nabla \mathbf{U} + \nabla \mathbf{U}^T) - \tfrac23 \mu_\text{eff} (\nabla \cdot \mathbf{U})\mathbf{I}τ=μeff (∇U+∇UT)−32 μeff (∇⋅U)I. The capillary body force is modelled via continuum surface‐force (CSF): Scap=σκ∇α1\mathbf{S}_\text{cap} = \sigma \kappa \nabla \alpha_1Scap =σκ∇α1 . The recoil forcing Srecoil\mathbf{S}_\text{recoil}Srecoil  enters as a volumetric representation of the pressure jump from evaporation. Incorporating recoil explicitly into momentum is a key difference for fs‑LIFT modelling. 
+where τ = μ_eff (∇U + ∇Uᵀ) − (2/3) μ_eff (∇·U) I. The capillary body force is modelled via the continuum surface-force (CSF) approach, S_cap = σ κ ∇α₁. The recoil forcing S_recoil enters as a volumetric representation of the pressure jump caused by evaporation. Incorporating recoil explicitly into the momentum balance is a key difference for fs-LIFT modelling.
 
 4.2.2 Pressure Equation and PIMPLE Strategy 
 
@@ -565,24 +553,24 @@ The solver uses a PIMPLE (PISO + SIMPLE) loop to handle pressure–velocity coup
 
 4.3 Thermal Models – Two‑Temperature Model (TTM) for the Metal Film 
 
-The fs‑laser pulse deposits energy into electrons on femtosecond timescales, followed by electron–phonon coupling on picoseconds, melt/vapor phase change, and subsequent fluid motion. A TTM is implemented for the metal phase: 
+The fs-laser pulse deposits energy into electrons on femtosecond timescales, followed by electron–phonon coupling on picoseconds, melt/vapour phase change, and subsequent fluid motion. A TTM is implemented for the metal phase:
 
-m Ce(Te)∂Te∂t=∇⋅(m ke∇Te)−m G(Te−Tl)+m Qlaserm\,C_e(T_e) \frac{\partial T_e}{\partial t} = \nabla \cdot (m\,k_e \nabla T_e) - m\,G (T_e - T_l) + m\,Q_\text{laser}mCe (Te )∂t∂Te  =∇⋅(mke ∇Te )−mG(Te −Tl )+mQlaser  m Cl∂Tl∂t=∇⋅(m kl∇Tl)+m G(Te−Tl)+m Qpc+m Qgmm\,C_l \frac{\partial T_l}{\partial t} = \nabla \cdot (m\,k_l \nabla T_l) + m\,G (T_e - T_l) + m\,Q_\text{pc} + m\,Q_\text{gm}mCl ∂t∂Tl  =∇⋅(mkl ∇Tl )+mG(Te −Tl )+mQpc +mQgm   
+m C_e(Te) ∂Te/∂t = ∇·(m k_e ∇Te) − m G (Te − Tl) + m Q_laser
 
-Here m≡α1m\equiv \alpha_1m≡α1  is the metal fraction mask. Discretisation uses implicit schemes with sub‐cycling for the electron equation when needed. Recent work shows that extensions of TTM including equation‑of‑state effects and strong temperature dependence are important for high‐fluence irradiation. link.aps.org+2link.aps.org+2 
+m C_l(Tl) ∂Tl/∂t = ∇·(m k_l ∇Tl) + m G (Te − Tl) + m Q_pc + m Q_gm
+
+Here m ≡ α₁ is the metal-fraction mask. Discretisation uses implicit schemes with sub-cycling for the electron equation when needed. Recent work shows that extensions of TTM including equation-of-state effects and strong temperature dependence are important for high-fluence irradiation.
 
 4.4 Laser Source and Energy Accounting 
 
-The solver’s femtosecondLaserModel module implements a volumetric source term: 
+The solver’s femtosecondLaserModel module implements a volumetric source term:
 
-Qlaser(x,y,z,t)=2(1−R) Eπr02 τexp⁡ ⁣(−2r2r02) exp⁡ ⁣(−t2τ2) exp⁡(−αz)Q_\text{laser}(x,y,z,t) = \frac{2(1-R)\,E}{\pi r_0^2\,\tau} \exp\!\left(-\frac{2r^2}{r_0^2}\right)\, \exp\!\left(-\frac{t^2}{\tau^2}\right)\, \exp(-\alpha z)Qlaser (x,y,z,t)=πr02 τ2(1−R)E exp(−r02 2r2 )exp(−τ2t2 )exp(−αz)  
-
+Q_laser(x, y, z, t) = 2 (1 − R) E / (π r₀² τ) · exp(−2 r² / r₀²) · exp(−t² / τ²) · exp(−α z)
 This captures Gaussian spatial (radius r₀) and temporal (pulse width τ) profiles, reflectivity R, absorption coefficient α, and total pulse energy E. The solver includes energy bookkeeping: integrated deposited energy is compared to expected energy (after losses) to monitor conservation. Robust laser‐thermal coupling is critical for realistic high‐fidelity simulation of fs‑LIFT. 
 
 4.5 Phase Change and Recoil Pressure Module 
 
-The phase change module computes melting and evaporation. A relaxation‐type model drives lattice temperature toward vaporisation temperature TvaporT_\text{vapor}Tvapor , computing mass flux m˙\dot mm˙ and latent heat sinks. Recoil pressure is calculated as a function of m˙\dot mm˙ and local temperature and then imposed as a volumetric body force in the momentum equation, masked to the interface region (\alpha_\min < \alpha_1 < \alpha_\max). Accurate coupling between thermal, mass flux, and momentum fields ensures realistic jet ejection behaviour. 
-
+The phase-change module computes melting and evaporation. A relaxation-type model drives the lattice temperature toward the vaporisation threshold T_vapor, computes the mass flux ṁʺ and latent heat sinks. Recoil pressure is calculated as a function of ṁʺ and local temperature and then imposed as a volumetric body force in the momentum equation, masked to the interface region (α_min < α₁ < α_max). Accurate coupling between thermal, mass-flux, and momentum fields ensures realistic jet ejection behaviour.
 4.6 Boundary Conditions and Laser Configuration 
 
 Boundary conditions are configured for donor film attributes and aerospace materials: 
