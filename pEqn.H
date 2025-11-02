@@ -148,7 +148,7 @@ while (pimple.correctNonOrthogonal())
                 recoilClampTarget = Foam::max
                 (
                     recoilClampTarget,
-                    Foam::mag(Foam::gMax(*recoilPressurePtr).value())
+                    Foam::mag(Foam::gMax(*recoilPressurePtr))
                 );
             }
 
@@ -272,7 +272,7 @@ if (pressureClamp)
         recoilClampTarget = Foam::max
         (
             recoilClampTarget,
-            Foam::mag(Foam::gMax(*recoilPressurePtr).value())
+            Foam::mag(Foam::gMax(*recoilPressurePtr))
         );
     }
 
@@ -318,26 +318,6 @@ const bool pressureNonFinite =
 
 const bool pressureOutOfBounds =
     (observedMinP.value() < minPressure.value() || observedMaxP.value() > maxPressure.value());
-
-if
-(
-    Foam::Pstream::master()
- && pressureClamp
- && recoilVelocityScale > Foam::SMALL
- && maxPressure.value() < Foam::GREAT
-)
-{
-    const scalar clampTrigger = 0.98*maxPressure.value();
-
-    if (observedMaxP.value() >= clampTrigger)
-    {
-        Info<< "    Velocity diagnostic: pressure clamp hit maxPressure = "
-            << maxPressure.value() << " Pa while recoil pressure is "
-            << maxRecoilPa/1e6 << " MPa." << Foam::nl
-            << "    Increase maxPressure or reduce recoil forcing to allow flow."
-            << Foam::nl;
-    }
-}
 
 if (!pressureClamp && (pressureNonFinite || pressureOutOfBounds))
 {
@@ -403,6 +383,26 @@ if (maxRecoilPa > 0)
     if (rhoLiquid > SMALL)
     {
         recoilVelocityScale = Foam::sqrt(2.0*maxRecoilPa/rhoLiquid);
+    }
+}
+
+if
+(
+    Foam::Pstream::master()
+ && pressureClamp
+ && recoilVelocityScale > Foam::SMALL
+ && maxPressure.value() < Foam::GREAT
+)
+{
+    const Foam::scalar clampTrigger = 0.98*maxPressure.value();
+
+    if (observedMaxP.value() >= clampTrigger)
+    {
+        Info<< "    Velocity diagnostic: pressure clamp hit maxPressure = "
+            << maxPressure.value() << " Pa while recoil pressure is "
+            << maxRecoilPa/1e6 << " MPa." << Foam::nl
+            << "    Increase maxPressure or reduce recoil forcing to allow flow."
+            << Foam::nl;
     }
 }
 
