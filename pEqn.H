@@ -58,12 +58,10 @@ surfaceScalarField phig
     )*rAUf*mesh.magSf()
 );
 
-tmp<surfaceScalarField> tRecoilFlux
-(
-    (recoilTractionf & mesh.Sf())*rAUf
-);
-phig += tRecoilFlux();
-tRecoilFlux.clear();
+if (recoilForceReady)
+{
+    phig += (recoilTractionf & mesh.Sf())*rAUf;
+}
 
 phiHbyA += phig;
 
@@ -90,7 +88,7 @@ while (pimple.correctNonOrthogonal())
 
         if (pressureClamp)
         {
-             const Foam::dimensionedScalar minPressure
+             Foam::dimensionedScalar minPressure
             (
                 "minPressure",
                 Foam::dimPressure,
@@ -100,7 +98,7 @@ while (pimple.correctNonOrthogonal())
                     -Foam::GREAT
                 )
             );
-            const Foam::dimensionedScalar maxPressure
+            Foam::dimensionedScalar maxPressure
             (
                 "maxPressure",
                 Foam::dimPressure,
@@ -110,6 +108,70 @@ while (pimple.correctNonOrthogonal())
                     Foam::GREAT
                 )
             );
+
+            scalar recoilClampTarget = 0.0;
+
+            const dictionary& aicDict =
+                runTime.controlDict().subOrEmptyDict("advancedInterfaceCapturing");
+
+            if (!aicDict.empty())
+            {
+                recoilClampTarget = Foam::max
+                (
+                    recoilClampTarget,
+                    Foam::mag
+                    (
+                        aicDict.lookupOrDefault<scalar>
+                        (
+                            "maxRecoilPressure",
+                            recoilClampTarget
+                        )
+                    )
+                );
+
+                recoilClampTarget = Foam::max
+                (
+                    recoilClampTarget,
+                    Foam::mag
+                    (
+                        aicDict.lookupOrDefault<scalar>
+                        (
+                            "recoilMax",
+                            recoilClampTarget
+                        )
+                    )
+                );
+            }
+
+            if (recoilPressurePtr)
+            {
+                recoilClampTarget = Foam::max
+                (
+                    recoilClampTarget,
+                    Foam::mag(Foam::gMax(*recoilPressurePtr).value())
+                );
+            }
+
+            if
+            (
+                recoilClampTarget > Foam::SMALL
+             && maxPressure.value() < recoilClampTarget
+            )
+            {
+                if (Foam::Pstream::master())
+                {
+                    Info<< "    pressureClamp: raising maxPressure from "
+                        << maxPressure.value() << " Pa to recoil limit "
+                        << recoilClampTarget << " Pa" << Foam::nl;
+                }
+
+                maxPressure = Foam::dimensionedScalar
+                (
+                    "maxPressure",
+                    Foam::dimPressure,
+                    recoilClampTarget
+                );
+            }
 
             Foam::tmp<Foam::volScalarField> tpTmp = p_rgh + rho*gh;
             Foam::volScalarField& pTmp = tpTmp.ref();
@@ -169,6 +231,62 @@ Foam::dimensionedScalar maxPressure
     )
 );
 
+if (pressureClamp)
+{
+    scalar recoilClampTarget = 0.0;
+
+    const dictionary& aicDict =
+        runTime.controlDict().subOrEmptyDict("advancedInterfaceCapturing");
+
+    if (!aicDict.empty())
+    {
+        recoilClampTarget = Foam::max
+        (
+            recoilClampTarget,
+            Foam::mag
+            (
+                aicDict.lookupOrDefault<scalar>
+                (
+                    "maxRecoilPressure",
+                    recoilClampTarget
+                )
+            )
+        );
+
+        recoilClampTarget = Foam::max
+        (
+            recoilClampTarget,
+            Foam::mag
+            (
+                aicDict.lookupOrDefault<scalar>
+                (
+                    "recoilMax",
+                    recoilClampTarget
+                )
+            )
+        );
+    }
+
+    if (recoilPressurePtr)
+    {
+        recoilClampTarget = Foam::max
+        (
+            recoilClampTarget,
+            Foam::mag(Foam::gMax(*recoilPressurePtr).value())
+        );
+    }
+
+    if (recoilClampTarget > Foam::SMALL && maxPressure.value() < recoilClampTarget)
+    {
+        maxPressure = Foam::dimensionedScalar
+        (
+            "maxPressure",
+            Foam::dimPressure,
+            recoilClampTarget
+        );
+    }
+}
+
 const Foam::dimensionedScalar fallbackMinPressure
 (
     "fallbackMinPressure",
@@ -200,6 +318,26 @@ const bool pressureNonFinite =
 
 const bool pressureOutOfBounds =
     (observedMinP.value() < minPressure.value() || observedMaxP.value() > maxPressure.value());
+
+if
+(
+    Foam::Pstream::master()
+ && pressureClamp
+ && recoilVelocityScale > Foam::SMALL
+ && maxPressure.value() < Foam::GREAT
+)
+{
+    const scalar clampTrigger = 0.98*maxPressure.value();
+
+    if (observedMaxP.value() >= clampTrigger)
+    {
+        Info<< "    Velocity diagnostic: pressure clamp hit maxPressure = "
+            << maxPressure.value() << " Pa while recoil pressure is "
+            << maxRecoilPa/1e6 << " MPa." << Foam::nl
+            << "    Increase maxPressure or reduce recoil forcing to allow flow."
+            << Foam::nl;
+    }
+}
 
 if (!pressureClamp && (pressureNonFinite || pressureOutOfBounds))
 {
@@ -283,6 +421,16 @@ if (maxPhysicalVelocity > 0 && maxU > maxPhysicalVelocity)
         << "  3. Courant number" << nl
         << "  4. Temperature gradients" << nl
         << abort(FatalError);
+}
+
+if (Foam::Pstream::master() && recoilVelocityScale > Foam::SMALL)
+{
+    const scalar recoilScaleSafe = Foam::max(recoilVelocityScale, Foam::SMALL);
+    const scalar velocityRatio = maxU/recoilScaleSafe;
+
+    Info<< "    Velocity diagnostic: |U|max = " << maxU << " m/s ("
+        << velocityRatio << " × recoil-limited " << recoilScaleSafe << " m/s)"
+        << Foam::nl;
 }
 
 K = 0.5*magSqr(U);

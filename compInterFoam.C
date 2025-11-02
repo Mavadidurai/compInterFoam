@@ -155,6 +155,35 @@ namespace
         const Foam::scalar maxPressure = Foam::gMax(p);
         const Foam::scalar tempSpread = maxTl - minTl;
 
+        auto scalarValue = [&](Foam::scalar val, const std::string& unit)
+        {
+            std::ostringstream valueStream;
+            const Foam::scalar absVal = Foam::mag(val);
+
+            if (absVal >= 1e4 || (absVal > Foam::SMALL && absVal <= 1e-3))
+            {
+                valueStream << std::scientific << std::setprecision(2) << val;
+            }
+            else
+            {
+                unsigned int precision = 2;
+
+                if (absVal < 1.0)
+                {
+                    precision = (absVal < 0.01) ? 4 : 3;
+                }
+
+                valueStream << std::fixed << std::setprecision(precision) << val;
+            }
+
+            if (!unit.empty())
+            {
+                valueStream << ' ' << unit;
+            }
+
+            return valueStream.str();
+        };
+        
         const Foam::scalarField& cellVolumes = mesh.V();
         Foam::scalarField alphaVol(alpha1.primitiveField());
         forAll(alphaVol, cellI)
@@ -339,8 +368,8 @@ namespace
                     {
                         case 1:
                             Info<< ">>> PHASE 1: LASER ACTIVATION" << Foam::nl
-                                << "    Laser power: " << laserPowerMetal << " W" << Foam::nl
-                                << "    Peak volumetric source: " << peakQLaser/1e12 << " TW/m³" << Foam::endl;
+                                << "    Laser power: " << scalarValue(laserPowerMetal, "W") << Foam::nl
+                                << "    Peak volumetric source: " << scalarValue(peakQLaser, "W/m³") << Foam::endl;
                             break;
                         case 2:
                             Info<< ">>> PHASE 2: ELECTRON ABSORPTION" << Foam::nl
@@ -503,25 +532,6 @@ namespace
                 Info<< rowStream.str() << Foam::nl;
             };
 
-            auto scalarValue = [&](Foam::scalar val, const std::string& unit)
-            {
-                std::ostringstream valueStream;
-                Foam::scalar absVal = val >= 0 ? val : -val;
-                unsigned int precision = 2;
-
-                if (absVal < 1.0)
-                {
-                    precision = (absVal < 0.01) ? 4 : 3;
-                }
-
-                valueStream << std::fixed << std::setprecision(precision) << val;
-                if (!unit.empty())
-                {
-                    valueStream << ' ' << unit;
-                }
-                return valueStream.str();
-            };
-
             Info<< "\n╔════════════════════════════════════════════════════════════════════════════════╗" << Foam::nl;
             centeredLine("LIFT PROCESS STATUS");
             Info<< "╠════════════════════════════════════════════════════════════════════════════════╣" << Foam::nl;
@@ -549,7 +559,7 @@ namespace
             Info<< "╠════════════════════════════════════════════════════════════════════════════════╣" << Foam::nl;
             centeredLine("ENERGY");
             formattedRow("Laser power:", scalarValue(laserPowerMetal, "W"));
-            formattedRow("Peak volumetric source:", scalarValue(peakQLaser/1e12, "TW/m³"));
+            formattedRow("Peak volumetric source:", scalarValue(peakQLaser, "W/m³"));
             Info<< "╚════════════════════════════════════════════════════════════════════════════════╝" << Foam::nl;
 
             if (maxTl > 15000)

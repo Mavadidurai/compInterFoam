@@ -430,11 +430,80 @@ if (pimple.momentumPredictor())
             << gradLimit << " Pa/m" << endl;
     }
     
-    tmp<volVectorField> tMomentumSource(-gradPrgh);
+    tmp<volVectorField> tPressureForce(-gradPrgh);
+    volVectorField& pressureForce = tPressureForce.ref();
+
+    tmp<volVectorField> tMomentumSource(tPressureForce);
+
+    const volVectorField* recoilForceFieldPtr = nullptr;
 
     if (recoilForceReady)
     {
         tMomentumSource.ref() += tRecoilForce();
+        recoilForceFieldPtr = &tRecoilForce();
+    }
+
+    const scalar domainVolume = gSum(mesh.V());
+    const scalar deltaT = runTime.deltaTValue();
+    const bool logVelocityDiagnostics =
+        verbose && master && (runTime.timeIndex() % 10 == 0);
+
+    if (logVelocityDiagnostics && domainVolume > SMALL)
+    {
+        tmp<volVectorField> tPressureAccel(pressureForce/rho);
+        const volVectorField& pressureAccel = tPressureAccel();
+        tmp<volScalarField> tPressureAccelMag = mag(pressureAccel);
+        const volScalarField& pressureAccelMag = tPressureAccelMag();
+
+        const dimensionedScalar pressureAccelIntegral =
+            fvc::domainIntegrate(pressureAccelMag);
+        const scalar maxPressureAccel = gMax(pressureAccelMag);
+        const scalar meanPressureAccel =
+            pressureAccelIntegral.value()/domainVolume;
+
+        scalar maxRecoilAccel = 0.0;
+        scalar meanRecoilAccel = 0.0;
+
+        if (recoilForceFieldPtr)
+        {
+            tmp<volVectorField> tRecoilAccel((*recoilForceFieldPtr)/rho);
+            const volVectorField& recoilAccel = tRecoilAccel();
+            tmp<volScalarField> tRecoilAccelMag = mag(recoilAccel);
+            const volScalarField& recoilAccelMag = tRecoilAccelMag();
+
+            const dimensionedScalar recoilAccelIntegral =
+                fvc::domainIntegrate(recoilAccelMag);
+            maxRecoilAccel = gMax(recoilAccelMag);
+            meanRecoilAccel = recoilAccelIntegral.value()/domainVolume;
+        }
+
+        tmp<volVectorField> tTotalAccel(tMomentumSource()/rho);
+        const volVectorField& totalAccel = tTotalAccel();
+        tmp<volScalarField> tTotalAccelMag = mag(totalAccel);
+        const volScalarField& totalAccelMag = tTotalAccelMag();
+
+        const dimensionedScalar totalAccelIntegral =
+            fvc::domainIntegrate(totalAccelMag);
+        const scalar maxTotalAccel = gMax(totalAccelMag);
+        const scalar meanTotalAccel =
+            totalAccelIntegral.value()/domainVolume;
+
+        Info<< "    Velocity diagnostics:" << nl
+            << "      Max pressure acceleration: "
+            << maxPressureAccel << " m/s^2 (dU ~ "
+            << maxPressureAccel*deltaT << " m/s per step)" << nl
+            << "      Max recoil acceleration:   "
+            << maxRecoilAccel << " m/s^2 (dU ~ "
+            << maxRecoilAccel*deltaT << " m/s per step)" << nl
+            << "      Max total acceleration:    "
+            << maxTotalAccel << " m/s^2 (dU ~ "
+            << maxTotalAccel*deltaT << " m/s per step)" << nl
+            << "      Mean total acceleration:   "
+            << meanTotalAccel << " m/s^2" << nl
+            << "      Mean pressure acceleration: "
+            << meanPressureAccel << " m/s^2" << nl
+            << "      Mean recoil acceleration:  "
+            << meanRecoilAccel << " m/s^2" << endl;
     }
 
     volVectorField momentumSource
@@ -449,7 +518,7 @@ if (pimple.momentumPredictor())
         ),
         tMomentumSource()
     );
-
+    tPressureForce.clear();
     tMomentumSource.clear();
     // Solve with complete momentum source
     solve(UEqn == momentumSource);
