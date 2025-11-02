@@ -584,22 +584,54 @@ Foam::twoPhaseMixtureThermo::twoPhaseMixtureThermo
             << exit(FatalIOError);
     }
 
-    if (phaseChangeDict.found("evaporationCoeff"))
-    {
-        const dimensionedScalar value("evaporationCoeff", phaseChangeDict);
-        checkDimensions("evaporationCoeff", value, dimless);
-        const scalar val = value.value();
-        ensureFinite("evaporationCoeff", val);
-
-        if (val <= SMALL)
+    auto readAccommodationCoeff =
+        [&](const word& keyword, const char* prettyName) -> bool
         {
-            FatalIOErrorInFunction(phaseChangeDict)
-                << "Entry 'evaporationCoeff' in " << phaseChangeDictDisplay
-                << " must be positive"
-                << exit(FatalIOError);
-        }
+            if (!phaseChangeDict.found(keyword))
+            {
+                return false;
+            }
 
-        evaporationCoeff_ = val;
+            const dimensionedScalar value(keyword, phaseChangeDict);
+            checkDimensions(keyword, value, dimless);
+            const scalar val = value.value();
+            ensureFinite(keyword, val);
+
+            if (val <= SMALL)
+            {
+                FatalIOErrorInFunction(phaseChangeDict)
+                    << "Entry '" << keyword << "' (" << prettyName
+                    << ") in " << phaseChangeDictDisplay
+                    << " must be positive"
+                    << exit(FatalIOError);
+            }
+
+            evaporationCoeff_ = val;
+
+            if (keyword != "evaporationCoeff" && Pstream::master())
+            {
+                WarningInFunction
+                    << "Deprecated keyword '" << keyword
+                    << "' detected in " << phaseChangeDictDisplay
+                    << "; please rename it to 'evaporationCoeff'." << endl;
+            }
+
+            return true;
+        };
+
+    if
+    (
+        !readAccommodationCoeff("evaporationCoeff", "evaporation coefficient")
+     && !readAccommodationCoeff("stickingCoeff", "sticking coefficient")
+    )
+    {
+        if (Pstream::master())
+        {
+            WarningInFunction
+                << "No evaporation accommodation coefficient specified in "
+                << phaseChangeDictDisplay
+                << "; using default value " << evaporationCoeff_ << '.' << endl;
+        }
     }
 
     if (phaseChangeDict.found("evapRelaxationTime"))

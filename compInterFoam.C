@@ -969,6 +969,10 @@ while (pimple.loop())
     // Pressure-velocity coupling
     while (pimple.correct())
     {
+    if (useAdvancedCapturing && pInterfaceCapturing.valid())
+    {
+        pInterfaceCapturing->calculateRecoilPressure();
+    }
         #include "pEqn.H"
     }
 
