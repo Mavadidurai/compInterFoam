@@ -111,6 +111,7 @@ private:
         scalar kapitzaMaxTemperature_;
         //- Energy Conservation Tracking
         mutable dimensionedScalar cumulativeLaserEnergy_; //- Cumulative laser energy input [J]
+        mutable dimensionedScalar cumulativePhaseChangeEnergy_; //- Cumulative latent energy exchange [J]
         mutable dimensionedScalar lastTotalEnergy_;      //- Previous total energy [J]
         mutable dimensionedScalar lastLoggedEnergy_;      //- Energy used for diagnostics [J]
         mutable bool energyInitialized_;                 //- Energy tracking flag
@@ -276,7 +277,9 @@ public:
         //- Return the executed electron micro-steps from the previous solve
         label lastElectronSubCycles() const { return lastElectronSubCycles_; }
         //- Planned electron micro-steps for a supplied global time-step
-        label plannedElectronSubCycles(const dimensionedScalar& dt) const;        
+        label plannedElectronSubCycles(const dimensionedScalar& dt) const;
+        //- Retrieve cumulative latent energy exchange
+        const dimensionedScalar& cumulativePhaseChangeEnergy() const;     
 };
 } // End namespace Foam
 #endif

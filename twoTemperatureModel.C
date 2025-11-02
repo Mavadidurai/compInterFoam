@@ -131,6 +131,12 @@ twoTemperatureModel::twoTemperatureModel
         dimEnergy,
         0.0
     ),
+    cumulativePhaseChangeEnergy_
+    (
+        "cumulativePhaseChangeEnergy",
+        dimEnergy,
+        0.0
+    ),
     lastTotalEnergy_
     (
         "lastTotalEnergy",
@@ -910,6 +916,11 @@ dimensionedScalar twoTemperatureModel::currentTotalEnergy() const
     return fvc::domainIntegrate(metalEff*electronEnergy + metalEff*Cl_*Tl_);
 }
 
+const dimensionedScalar& twoTemperatureModel::cumulativePhaseChangeEnergy() const
+{
+    return cumulativePhaseChangeEnergy_;
+}
+
 void twoTemperatureModel::writeEnergyDiagnostics
 (
     const dimensionedScalar& laserEnergy,
@@ -935,7 +946,8 @@ void twoTemperatureModel::writeEnergyDiagnostics
         fvc::domainIntegrate(metalEff*Cl_*Tl_);
 
     cumulativeLaserEnergy_ += laserEnergy;
-
+    cumulativePhaseChangeEnergy_ += phaseChangeEnergy;
+    
     Info<< "Energy diagnostics:" << nl
         << "  Electron energy before: "
         << electronEnergyBefore.value() << " J" << nl
@@ -953,7 +965,9 @@ void twoTemperatureModel::writeEnergyDiagnostics
         << "  Total metal energy: "
         << (electronEnergyAfter + latticeEnergyAfter).value() << " J" << nl
         << "  Cumulative laser energy: "
-        << cumulativeLaserEnergy_.value() << " J" << endl;
+        << cumulativeLaserEnergy_.value() << " J" << nl
+        << "  Cumulative phase-change energy: "
+        << cumulativePhaseChangeEnergy_.value() << " J" << endl;
 
     const scalar laserEnergyValue = laserEnergy.value();
     const scalar phaseChangeEnergyValue = phaseChangeEnergy.value();
@@ -1123,6 +1137,12 @@ void twoTemperatureModel::updateEnergyTracking
         (
             cumulativeLaserEnergy_.name(),
             cumulativeLaserEnergy_.dimensions(),
+            0.0
+        );
+        cumulativePhaseChangeEnergy_ = dimensionedScalar
+        (
+            cumulativePhaseChangeEnergy_.name(),
+            cumulativePhaseChangeEnergy_.dimensions(),
             0.0
         );
     }

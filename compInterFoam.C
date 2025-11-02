@@ -977,8 +977,7 @@ while (pimple.loop())
 
         dimensionedScalar Ee = fvc::domainIntegrate(alpha1*CeField*TeField);
         dimensionedScalar Elattice = fvc::domainIntegrate(alpha1*Cl_*TlField);
-        const dimensionedScalar L = mixture.latentHeat();
-        dimensionedScalar El = fvc::domainIntegrate(alpha1*rho1*L);
+        const dimensionedScalar El = ttm.cumulativePhaseChangeEnergy();
         const volScalarField& he2 = mixture.thermo2().he();
         dimensionedScalar Egas =
             fvc::domainIntegrate(alpha2*rho2*he2 - alpha2*p);
