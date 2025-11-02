@@ -1760,10 +1760,12 @@ tmp<volScalarField> twoTemperatureModel::electronPhononCoupling() const
     {
         forAll(GField, cellI)
         {
+            const scalar Te = Te_[cellI];
             const scalar Tl = Tl_[cellI];
             const scalar TlSafe = Foam::max(Tl, scalar(1.0));
+            const scalar TeForG = Foam::max(Te, TlSafe);
 
-            const scalar baseG = GFunction_->value(TlSafe);
+            const scalar baseG = GFunction_->value(TeForG);
             const scalar limitedG = Foam::min
             (
                 Foam::max(baseG, scalar(0)),
