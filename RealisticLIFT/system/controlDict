@@ -132,18 +132,20 @@ twoTemperatureProperties
         type        table;
         values
         (
-        (300     3.6e18)    // ← Wellershoff (1999) for Ti
-        (1000    5e18)
-        (2000    8e18)
-        (3000    1.2e19)
+        (300     1e18)
+        (1000    3e18)
+        (2000    6e18)
+        (3000    1e19)
         (5000    2e19)
         (7000    3e19)
         (10000   5e19)
+        (15000   7e19)
+        (20000   1e20)
         );
     }
-    
+
     Cl  [1 -1 -2 -1 0 0 0] 2.5e6;
-    De  [0  2 -1  0 0 0 0] 1e-4;
+    De  [0  2 -1  0 0 0 0] 5e-5;
 
     gasMetalExchangeCoeff
     {
@@ -168,9 +170,9 @@ twoTemperatureProperties
     temperatureDifferenceFloor 10.0;                     // Guard against Te/Tl collapse
     
     // ADAPTIVE MICRO-STEPPING
-    electronSubCycles        4;
-    minElectronSubCycles     2;
-    maxElectronSubCycles     20;     // Allow rapid transients
+    electronSubCycles        20;
+    minElectronSubCycles     10;
+    maxElectronSubCycles     50;     // Allow rapid transients
     maxElectronDeltaT        [0 0 1 0 0 0 0] 1e-15;  // Guard rapid transients
 
     nInnerCouplingSweeps         3;  // More coupling iterations
