@@ -159,6 +159,7 @@ entries and their in-code defaults are:
 | `maxKineticEnergyDensity` | `1e12` | Aborts the run when `0.5*rho*|U|^2` exceeds the ceiling before solving `UEqn`. |
 | `maxUEqnVelocity` | `GREAT` | Limits `U` before computing `phi = fvc::flux(U)` to prevent runaway mass flux. |
 | `maxVelocity` | `500` | Bounds the velocity magnitude after the pressure correction. |
+| `velocityAlphaThreshold` | `0.01` | Fraction of phase-1 (`alpha1`) used when reporting the post-correction velocity diagnostic. Speeds in cells below this volume fraction are treated as gas/plume motion. |
 | `minUEqnDiag` | `1e-9` | Floors the diagonal before inverting `UEqn` to form `rAU`. |
 | `enableRAUClamp` | `false` | Enables explicit `rAU`/`rAUf` bounding. |
 | `minRAU`, `maxRAU` | `1e-10`, `GREAT` | Cell-wise `rAU` clamp (only when `enableRAUClamp` is `true`). |
