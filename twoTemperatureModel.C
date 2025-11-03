@@ -125,6 +125,8 @@ twoTemperatureModel::twoTemperatureModel
     kapitzaZGas_(0.0),
     kapitzaCEff_(0.0),
     kapitzaMaxTemperature_(0.0),
+    gasMetalCutoffTemperature_(0.0),
+    minMetalFractionForExchange_(0.0),
     cumulativeLaserEnergy_
     (
         "cumulativeLaserEnergy",
@@ -433,13 +435,39 @@ twoTemperatureModel::twoTemperatureModel
             dict_.lookup("gasMetalExchangeCoeff") >> gasMetalExchangeCoeff_;
         }
     }
-    
+
     else
     {
         FatalIOErrorInFunction(dict_)
             << "Missing required entry 'gasMetalExchangeCoeff' in"
             << " two-temperature properties"
             << exit(FatalIOError);
+    }
+
+    gasMetalCutoffTemperature_ =
+        dict_.lookupOrDefault<scalar>("gasMetalCutoffTemperature", 0.0);
+
+    if (gasMetalCutoffTemperature_ < 0)
+    {
+        WarningInFunction
+            << "gasMetalCutoffTemperature (" << gasMetalCutoffTemperature_
+            << " K) below zero; disabling the cutoff." << endl;
+        gasMetalCutoffTemperature_ = 0.0;
+    }
+
+    minMetalFractionForExchange_ =
+        dict_.lookupOrDefault<scalar>("minMetalFractionForExchange", 0.0);
+
+    if (minMetalFractionForExchange_ < 0 || minMetalFractionForExchange_ > 1)
+    {
+        WarningInFunction
+            << "minMetalFractionForExchange (" << minMetalFractionForExchange_
+            << ") must lie in [0, 1]; clamping to valid range." << endl;
+        minMetalFractionForExchange_ = Foam::max
+        (
+            scalar(0),
+            Foam::min(minMetalFractionForExchange_, scalar(1))
+        );
     }
     if (!validateParameters())
     {
@@ -1896,6 +1924,15 @@ tmp<volScalarField> twoTemperatureModel::gasMetalExchangeCoeffField() const
                 Foam::min(scalar(1) - metalFraction_[cellI], scalar(1)),
                 scalar(0)
             );
+            if
+            (
+                minMetalFractionForExchange_ > SMALL
+             && metal < minMetalFractionForExchange_
+            )
+            {
+                coeff[cellI] = scalar(0);
+                continue;
+            }
 
             if (interfaceIndicator < interfaceActiveThreshold)
             {
@@ -1908,7 +1945,17 @@ tmp<volScalarField> twoTemperatureModel::gasMetalExchangeCoeffField() const
                 coeff[cellI] = scalar(0);
                 continue;
             }
+            
             const scalar T = Foam::max(Tl[cellI], scalar(0));
+            if
+            (
+                gasMetalCutoffTemperature_ > SMALL
+             && T >= gasMetalCutoffTemperature_
+            )
+            {
+                coeff[cellI] = scalar(0);
+                continue;
+            }
             scalar Tsafe = T;
 
             if (kapitzaMaxTemperature_ > 0)
@@ -1929,6 +1976,34 @@ tmp<volScalarField> twoTemperatureModel::gasMetalExchangeCoeffField() const
                 Foam::max(prefactor*tau*Foam::pow3(Tsafe), scalar(0));
 
             coeff[cellI] = hSurface/delta;
+        }
+    }
+    if
+    (
+        gasMetalCutoffTemperature_ > SMALL
+     || minMetalFractionForExchange_ > SMALL
+    )
+    {
+        const volScalarField& Tl = Tl_;
+
+        forAll(coeff, cellI)
+        {
+            const scalar metal = Foam::max
+            (
+                Foam::min(metalFraction_[cellI], scalar(1)),
+                scalar(0)
+            );
+
+            if
+            (
+                (gasMetalCutoffTemperature_ > SMALL
+             && Tl[cellI] >= gasMetalCutoffTemperature_)
+             || (minMetalFractionForExchange_ > SMALL
+             && metal < minMetalFractionForExchange_)
+            )
+            {
+                coeff[cellI] = scalar(0);
+            }
         }
     }
 

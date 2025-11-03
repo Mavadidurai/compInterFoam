@@ -439,7 +439,6 @@ if (pimple.momentumPredictor())
 
     if (recoilForceReady)
     {
-        tMomentumSource.ref() += tRecoilForce();
         recoilForceFieldPtr = &tRecoilForce();
     }
 
@@ -477,7 +476,14 @@ if (pimple.momentumPredictor())
             meanRecoilAccel = recoilAccelIntegral.value()/domainVolume;
         }
 
-        tmp<volVectorField> tTotalAccel(tMomentumSource()/rho);
+        tmp<volVectorField> tTotalForce(tMomentumSource);
+
+        if (recoilForceFieldPtr)
+        {
+            tTotalForce.ref() += *recoilForceFieldPtr;
+        }
+
+        tmp<volVectorField> tTotalAccel(tTotalForce()/rho);
         const volVectorField& totalAccel = tTotalAccel();
         tmp<volScalarField> tTotalAccelMag = mag(totalAccel);
         const volScalarField& totalAccelMag = tTotalAccelMag();

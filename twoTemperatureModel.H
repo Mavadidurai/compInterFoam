@@ -109,6 +109,10 @@ private:
         scalar kapitzaCEff_;
         //- Optional temperature cap for Kapitza exchange (0 => no cap)
         scalar kapitzaMaxTemperature_;
+        //- Lattice temperature above which gas-metal exchange is disabled
+        scalar gasMetalCutoffTemperature_;
+        //- Minimum local metal fraction required for gas-metal exchange
+        scalar minMetalFractionForExchange_;
         //- Energy Conservation Tracking
         mutable dimensionedScalar cumulativeLaserEnergy_; //- Cumulative laser energy input [J]
         mutable dimensionedScalar cumulativePhaseChangeEnergy_; //- Cumulative latent energy exchange [J]

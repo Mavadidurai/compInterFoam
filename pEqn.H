@@ -371,7 +371,38 @@ const Foam::scalar maxPhysicalVelocity = solverCoeffs.lookupOrDefault<Foam::scal
     500.0
 );
 
-const Foam::scalar maxU = gMax(mag(U)());
+// Only treat velocities inside the metal phase as physically meaningful for
+// the LIFT jet diagnostics.  Experiments (e.g. Brown et al., Appl. Phys. A 97,
+// 2009) report jet speeds using the donor material, so ignore plume cells with
+// negligible alpha1 when forming the warning ratios.
+const Foam::scalar alphaVelocityThreshold = solverCoeffs.lookupOrDefault<Foam::scalar>
+(
+    "velocityAlphaThreshold",
+    0.01
+);
+
+Foam::tmp<Foam::volScalarField> tMagUAll = mag(U);
+const Foam::volScalarField& magUAll = tMagUAll();
+const Foam::scalar maxU = gMax(magUAll);
+
+Foam::scalar maxULiquid = maxU;
+
+if (alphaVelocityThreshold > Foam::SMALL && alphaVelocityThreshold < 1.0)
+{
+    Foam::tmp<Foam::volScalarField> tLiquidMask
+    (
+        Foam::pos(alpha1 - alphaVelocityThreshold)
+    );
+    const Foam::volScalarField& liquidMask = tLiquidMask();
+
+    Foam::tmp<Foam::volScalarField> tMagULiquid(magUAll*liquidMask);
+    maxULiquid = gMax(tMagULiquid());
+
+    if (maxULiquid < Foam::SMALL)
+    {
+        maxULiquid = 0.0;
+    }
+}
 const Foam::scalar maxRecoilPa = recoilPressurePtr ? gMax(*recoilPressurePtr) : 0.0;
 
 Foam::scalar recoilVelocityScale = 0.0;
@@ -406,11 +437,11 @@ if
     }
 }
 
-if (maxPhysicalVelocity > 0 && maxU > maxPhysicalVelocity)
+if (maxPhysicalVelocity > 0 && maxULiquid > maxPhysicalVelocity)
 {
     FatalErrorInFunction
         << "Velocity field has DIVERGED!" << nl
-        << "Max velocity: " << maxU << " m/s" << nl
+        << "Max liquid velocity: " << maxULiquid << " m/s" << nl
         << "Physical limit: " << maxPhysicalVelocity << " m/s" << nl
         << nl
         << "This indicates numerical instability. Check:" << nl
@@ -426,11 +457,16 @@ if (maxPhysicalVelocity > 0 && maxU > maxPhysicalVelocity)
 if (Foam::Pstream::master() && recoilVelocityScale > Foam::SMALL)
 {
     const scalar recoilScaleSafe = Foam::max(recoilVelocityScale, Foam::SMALL);
-    const scalar velocityRatio = maxU/recoilScaleSafe;
+    const scalar velocityRatio = maxULiquid/recoilScaleSafe;
 
-    Info<< "    Velocity diagnostic: |U|max = " << maxU << " m/s ("
+    Info<< "    Velocity diagnostic: |U|_metal_max = " << maxULiquid << " m/s ("
         << velocityRatio << " × recoil-limited " << recoilScaleSafe << " m/s)"
         << Foam::nl;
-}
 
+    if (maxU > maxULiquid*(1.0 + 1e-6))
+    {
+        Info<< "    Gas-phase |U|max = " << maxU
+            << " m/s (diagnostic excludes low-density plume cells)" << Foam::nl;
+    }
+}
 K = 0.5*magSqr(U);
