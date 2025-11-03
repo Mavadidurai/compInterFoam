@@ -24,8 +24,8 @@ endTime         2e-9;           // Observation window through plume relaxation
 
 deltaT          1e-16;         // Base time step (1 fs)
 adjustTimeStep  yes;           // ENABLE adaptive time stepping
-maxCo           0.05;          // Relaxed slightly to avoid needless clipping
-maxAlphaCo      0.01;          // Allow modest interface Courant growth
+maxCo           0.02;          // Relaxed slightly to avoid needless clipping
+maxAlphaCo      0.005;          // Allow modest interface Courant growth
 maxDeltaT       5e-14;         // Permit limited step growth when flow is calm
 minDeltaT       5e-17;         // Keep floor above numerical noise threshold
 
@@ -57,7 +57,7 @@ phaseChangeCoeffs
     Tvap                [0 0 0 1 0 0 0] 3560;     // K
     
     // Kinetic theory parameters
-    stickingCoeff       0.03;     // Ti evaporation coefficient
+    evaporationCoeff       0.03;     // Ti evaporation coefficient
     momentumAccom       0.18;     // Momentum accommodation
     
     //windowWidth         100;
@@ -93,12 +93,12 @@ advancedInterfaceCapturing
     model               kinetic_theory;  // Not arbitrary scaling!
     stickingCoeff       0.03;
     momentumAccom       0.18;
-    recoilMax             5e6;      // Limit recoil drive to 5 MPa (Anisimov 1974)
+    recoilMax             80e6;      // Limit recoil drive to 5 MPa (Anisimov 1974)
     clampRecoil           true;
     scaleRecoilMax        false;    // Keep cap constant rather than scaling by alpha
     recoilTempOffset      100;      // Recoil turns on ≈100 K above Tvap (cf. Anisimov 1974)
     phaseChangeTempOffset 100;      // Match evaporation window to Ti saturation curve
-    recoilRelax           0.3;      // Additional damping for stability
+    recoilRelax           0.5;      // Additional damping for stability
     alphaMin              0.01;
     alphaMax              1;
     maxPhysicalTemperature  10000;  // Stay within tabulated Ti properties (~10 kK)
