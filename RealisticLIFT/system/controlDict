@@ -24,9 +24,9 @@ endTime         2e-9;           // Observation window through plume relaxation
 
 deltaT          2e-16;         // Base time step (0.2 fs)
 adjustTimeStep  yes;           // Enable adaptive time stepping
-maxCo           0.05;          // Kept conservative for micron cells
-maxAlphaCo      0.01;
-maxDeltaT       5e-15;
+maxCo           0.02;          // Kept conservative for micron cells
+maxAlphaCo      0.005;
+maxDeltaT       1e-15;
 minDeltaT       5e-17;
 
 verbose         true;
@@ -57,7 +57,7 @@ phaseChangeCoeffs
     Tvap                [0 0 0 1 0 0 0] 3560;     // K
     
     // Kinetic theory parameters
-    stickingCoeff       0.03;     // Ti evaporation coefficient
+    evaporationCoeff       0.03;     // Ti evaporation coefficient
     momentumAccom       0.18;     // Momentum accommodation
     
     //windowWidth         100;
@@ -132,15 +132,13 @@ twoTemperatureProperties
         type        table;
         values
         (
-            (300     5e17)      // ← INCREASE baseline
-            (1000    2e18)      // ← INCREASE 
-            (2000    5e18)      // ← INCREASE
-            (3000    8e18)      // ← INCREASE
-            (5000    1.5e19)    // ← INCREASE
-            (7000    2.5e19)    // ← INCREASE
-            (10000   4e19)      // ← INCREASE
-            (15000   6e19)      // ← ADD (was missing)
-            (20000   8e19)      // ← INCREASE from 2e19
+        (300     3.6e18)    // ← Wellershoff (1999) for Ti
+        (1000    5e18)
+        (2000    8e18)
+        (3000    1.2e19)
+        (5000    2e19)
+        (7000    3e19)
+        (10000   5e19)
         );
     }
     

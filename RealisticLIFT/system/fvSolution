@@ -26,12 +26,12 @@ solvers
         maxIter         100;
         minIter         3;     // Force at least 1 iteration
 
-        nAlphaCorr      2;              // Keep at 1
-        nAlphaSubCycles 5;              // Increased to stabilise transport
-        cAlpha          0.3;            // Softer compression to avoid overshoot
+        nAlphaCorr      1;              // Keep at 1
+        nAlphaSubCycles 1;              // Increased to stabilise transport
+        cAlpha          1.0;            // Softer compression to avoid overshoot
         icAlpha         0;
         scAlpha         0;
-        compressionLimiter 0.7;         // Caps phic relative to |phi|
+        compressionLimiter 1.0;         // Caps phic relative to |phi|
         MULESCorr       true;
         nLimiterIter    3;
         alphaApplyPrevCorr false;
