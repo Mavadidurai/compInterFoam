@@ -35,7 +35,7 @@ maxThermalCourant 0.01;        // Allow realistic electron-lattice steps
 
 // ADAPTIVE OUTPUT - more frequent during active phase, less during cooling
 writeControl    adjustableRunTime;
-writeInterval   2e-14;         // 0.2 ps intervals capture plume rise without flooding disk
+writeInterval   1e-15;         // 0.2 ps intervals capture plume rise without flooding disk
 purgeWrite      100;            // Keep more time directories for analysis
 writeFormat     ascii;
 writePrecision  8;
