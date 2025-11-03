@@ -1786,13 +1786,18 @@ tmp<volScalarField> twoTemperatureModel::electronPhononCoupling() const
             const scalar TeForG = Foam::max(Te, TlSafe);
 
             const scalar baseG = GFunction_->value(TeForG);
-            const scalar limitedG = Foam::min
-            (
-                Foam::max(baseG, scalar(0)),
-                scalar(1e19)
-            );
 
-            GField[cellI] = limitedG;
+            // Respect the magnitude prescribed by the material model.
+            // Earlier revisions clamped G to 1e19 W/m^3/K, which silently
+            // truncated tabulated couplings (e.g. the Ti data in
+            // RealisticLIFT/system/controlDict reaches 5e19).  The clamp was
+            // intended as a safety net but ends up suppressing the very
+            // strong couplings required in fs-regime LIFT simulations and
+            // misleads diagnostics like the energy balance shown in the user
+            // log.  Keep the non-negativity guard, but otherwise honour the
+            // table.
+
+            GField[cellI] = Foam::max(baseG, scalar(0));
         }
     }
     else
@@ -1807,7 +1812,7 @@ tmp<volScalarField> twoTemperatureModel::electronPhononCoupling() const
             const scalar TRatio = Foam::max(Te/TlSafe, scalar(1.0));
             const scalar enhancedG = baseG * Foam::sqrt(TRatio);
 
-            GField[cellI] = Foam::min(Foam::max(enhancedG, scalar(0)), scalar(1e19));
+            GField[cellI] = Foam::max(enhancedG, scalar(0));
         }
     }
 
