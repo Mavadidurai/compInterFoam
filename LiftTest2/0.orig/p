@@ -26,8 +26,8 @@ boundaryField
   right         { type symmetryPlane; }
   front         { type symmetryPlane; }
   back          { type symmetryPlane; }
-  substrate     { type calculated; value uniform 1e5; }
-  donor         { type calculated; value uniform 1e5; }
+  donorSubstrate { type calculated; value uniform 1e5; }  // ✅ CORRECTED: bottom
+  receiver       { type calculated; value uniform 1e5; }  // ✅ CORRECTED: top
 }
 
 // ************************************************************************* //

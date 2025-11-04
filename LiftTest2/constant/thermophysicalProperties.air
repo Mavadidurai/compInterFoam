@@ -14,15 +14,16 @@ FoamFile
 }
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
-// Thermophysical model for compressible air treated as a perfect gas
+// ✅ CORRECTED: Thermophysical model for compressible air treated as a perfect gas
+// Changed from rhoConst to perfectGas to match main thermophysicalProperties
 
 thermoType
 {
-    type            heRhoThermo;     // was hePsiThermo  ← FIX
+    type            hePsiThermo;     // ✅ CORRECTED: Use hePsiThermo for compressible gas
     mixture         pureMixture;
     transport       const;
     thermo          hConst;
-    equationOfState rhoConst;
+    equationOfState perfectGas;      // ✅ CORRECTED: Use perfectGas (was rhoConst)
     specie          specie;
     energy          sensibleEnthalpy;
 }
@@ -34,7 +35,7 @@ mixture
     {
         molWeight   28.97;              // kg/kmol - Air molecular weight
     }
-    
+
     thermodynamics
     {
         Cp          1000;               // J/kg·K - Air specific heat
@@ -42,7 +43,7 @@ mixture
         Tref        300;                // K - Reference temperature
         Href        0;                  // J/kg - Reference enthalpy
     }
-    
+
     transport
     {
         mu          1.8e-5;             // Pa·s - Air dynamic viscosity
@@ -51,7 +52,7 @@ mixture
 
     equationOfState
     {
-        rho         1.2;                // kg/m³ - ✅ FIXED: Constant air density
+        R           287;                // ✅ CORRECTED: Gas constant J/kg/K (was rho 1.2)
     }
 }
 

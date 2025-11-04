@@ -27,23 +27,24 @@ boundaryField
     front    { type symmetryPlane; }
     back     { type symmetryPlane; }
 
-    // BOTTOM - substrate (receiver) - strong heat sink
-    substrate
+    // ✅ CORRECTED BOUNDARIES:
+    // BOTTOM - donorSubstrate (transparent glass/quartz) - heat sink
+    donorSubstrate
     {
         type            fixedValue;
-        value           uniform 300;  // Heat sink effect
+        value           uniform 300;  // Transparent substrate heat sink
     }
-    
-    // TOP - donor (transparent glass) - now treated as open boundary
-    donor
+
+    // TOP - receiver (deposition target) - minimal thermal interference
+    receiver
     {
         type            zeroGradient;
     }
 }
 
-// REASONING:
-// - Substrate (bottom): Strong heat sink - removes excess energy
-// - Donor (top): Glass substrate - minimal thermal interference
-// - This allows proper temperature buildup in metal film
-// - Prevents over-cooling from both sides
+// ✅ CORRECTED REASONING:
+// - donorSubstrate (bottom): Transparent substrate acts as heat sink
+// - receiver (top): Receiver substrate - minimal thermal interference
+// - This allows proper temperature buildup in Ti donor film (8.0-8.0714 µm)
+// - Laser enters from bottom, heats film, material ejects upward
 // ************************************************************************* //

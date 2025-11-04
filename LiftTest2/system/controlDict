@@ -22,12 +22,12 @@ startTime       0;
 stopAt          endTime;
 endTime         2e-9;           // Observation window through plume relaxation
 
-deltaT          1e-16;         // Base time step (1 fs)
+deltaT          1e-13;         // ✅ CORRECTED: Base time step (0.1 ps, matches electron-phonon timescale)
 adjustTimeStep  yes;           // ENABLE adaptive time stepping
 maxCo           0.05;          // Relaxed slightly to avoid needless clipping
 maxAlphaCo      0.01;          // Allow modest interface Courant growth
-maxDeltaT       5e-14;         // Tighten ceiling to keep adaptive step near femtosecond pulse
-minDeltaT       5e-17;         // Keep floor above numerical noise threshold
+maxDeltaT       5e-13;         // ✅ CORRECTED: Max 0.5 ps (physically reasonable for lattice dynamics)
+minDeltaT       1e-14;         // ✅ CORRECTED: Min 0.01 ps (above numerical noise threshold)
 
 verbose         true;
 thermalFluxRelax 0.1;          // Stronger damping of interface heat flux
@@ -188,7 +188,7 @@ twoTemperatureProperties
     metalAmbientBlendWidth  1e-3;
     CvolGasFloor    1e6;  // J/m^3/K floor for gas cells
 
-    energyTolerance         0.05;    // Relaxed for long runs
+    energyTolerance         0.02;    // ✅ CORRECTED: Tightened from 0.05 to 0.02 (2%)
     energyDiagnostics       true;
     temperatureDiagnostics  true;   // Reduce output volume
     energyAudit             true;
@@ -215,7 +215,7 @@ functions
                 planeType           pointAndNormal;
                 pointAndNormalDict
                 {
-                    point   (25e-6 2.00357e-05 5e-6);
+                    point   (25e-6 8.0357e-06 5e-6);  // ✅ CORRECTED: Ti film center
                     normal  (0 1 0);
                 }
                 interpolate         true;

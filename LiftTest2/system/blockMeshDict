@@ -16,49 +16,52 @@ FoamFile
 
 scale 1e-6; // coordinates in micrometers
 
-// CORRECTED LIFT GEOMETRY (bottom to top):
-// y0 = 0.0000     - Substrate (receiver) bottom
-// y1 = 8.0000     - Substrate top / Air gap bottom  
-// y2 = 20.0000    - Air gap top / Ti film bottom
-// y3 = 20.0714    - Ti film top (71.4 nm thick)
+// ✅ CORRECTED LIFT GEOMETRY (bottom to top) - matches experimental physics:
+// y0 = 0.0000     - Transparent donor substrate bottom (glass/quartz)
+// y1 = 8.0000     - Donor substrate top / Ti film bottom
+// y2 = 8.0714     - Ti film top (71.4 nm thick) / Air gap bottom
+// y3 = 20.0714    - Air gap top (12 µm) / Receiver substrate bottom
+// y4 = 28.0714    - Receiver substrate top (8 µm)
 
 vertices
 (
-    // y0 = 0.0000 (substrate/receiver bottom)
+    // y0 = 0.0000 (transparent donor substrate bottom)
     (0   0.0000  0)  (50  0.0000  0)  (50  0.0000 10)  (0   0.0000 10)
-    
-    // y1 = 8.0000 (substrate top / air gap bottom)
+
+    // y1 = 8.0000 (donor substrate top / Ti film bottom)
     (0   8.0000  0)  (50  8.0000  0)  (50  8.0000 10)  (0   8.0000 10)
-    
-    // y2 = 20.0000 (air gap top / Ti film bottom)
-    (0  20.0000  0)  (50 20.0000  0)  (50 20.0000 10)  (0  20.0000 10)
-    
-    // y3 = 20.0714 (Ti film top) - 71.4 nm thick film
+
+    // y2 = 8.0714 (Ti film top / air gap bottom) - 71.4 nm thick film
+    (0   8.0714  0)  (50  8.0714  0)  (50  8.0714 10)  (0   8.0714 10)
+
+    // y3 = 20.0714 (air gap top / receiver substrate bottom)
     (0  20.0714  0)  (50 20.0714  0)  (50 20.0714 10)  (0  20.0714 10)
+
+    // y4 = 28.0714 (receiver substrate top)
+    (0  28.0714  0)  (50 28.0714  0)  (50 28.0714 10)  (0  28.0714 10)
 );
 
 blocks
 (
     //                y-low face       y-high face        Nx   Ny   Nz   grading
-    hex ( 0  3  2  1   4  7  6  5)   ( 80 400  40)  simpleGrading (1 1 1)  // Substrate (receiver)
-    hex ( 4  7  6  5   8 11 10  9)   ( 80 400  60)  simpleGrading (1 1 1)  // Air gap (12 µm)
-    // limit the y-resolution (global y = block k-direction) so neighbouring layers stay comparable
-    // (400 cells over 71.4 nm created ~0.18 nm layers, which triggered the under-determined and low-weight faces)
-    hex ( 8 11 10  9  12 15 14 13)   ( 80 400   6)  simpleGrading (1 1 1)  // Ti film (71.4 nm, thin layer)
+    hex ( 0  3  2  1   4  7  6  5)   ( 80 400  40)  simpleGrading (1 1 1)  // Transparent donor substrate (8 µm)
+    hex ( 4  7  6  5   8 11 10  9)   ( 80  15  40)  simpleGrading (1 1 1)  // Ti donor film (71.4 nm, 15 cells)
+    hex ( 8 11 10  9  12 15 14 13)   ( 80 400  40)  simpleGrading (1 1 1)  // Air gap (12 µm)
+    hex (12 15 14 13  16 19 18 17)   ( 80 400  40)  simpleGrading (1 1 1)  // Receiver substrate (8 µm)
 );
 edges ();
 
 boundary
 (
     // Symmetry planes (external boundaries only)
-    left          { type symmetryPlane; faces ((0 3 7 4)(4 7 11 8)(8 11 15 12)); }
-    right         { type symmetryPlane; faces ((1 5 6 2)(5 9 10 6)(9 13 14 10)); }
-    front         { type symmetryPlane; faces ((0 4 5 1)(4 8 9 5)(8 12 13 9)); }
-    back          { type symmetryPlane; faces ((3 2 6 7)(7 6 10 11)(11 10 14 15)); }
+    left          { type symmetryPlane; faces ((0 3 7 4)(4 7 11 8)(8 11 15 12)(12 15 19 16)); }
+    right         { type symmetryPlane; faces ((1 5 6 2)(5 9 10 6)(9 13 14 10)(13 17 18 14)); }
+    front         { type symmetryPlane; faces ((0 4 5 1)(4 8 9 5)(8 12 13 9)(12 16 17 13)); }
+    back          { type symmetryPlane; faces ((3 2 6 7)(7 6 10 11)(11 10 14 15)(15 14 18 19)); }
 
-    // CORRECTED: Substrate at bottom, donor wall at Ti film top
-    substrate     { type wall;  faces ((0 3 2 1)); }      // BOTTOM - receiver substrate
-    donor         { type wall;  faces ((12 15 14 13)); }   // TOP - transparent donor substrate
+    // ✅ CORRECTED: Laser enters through donor substrate at BOTTOM, deposits on receiver at TOP
+    donorSubstrate  { type wall;  faces ((0 3 2 1)); }      // BOTTOM - transparent donor substrate (laser entry)
+    receiver        { type wall;  faces ((16 19 18 17)); }  // TOP - receiver substrate (deposition target)
 );
 
 mergePatchPairs();

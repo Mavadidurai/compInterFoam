@@ -27,10 +27,10 @@ boundaryField
   front     { type symmetryPlane; }
   back      { type symmetryPlane; }
 
-substrate { type fixedValue; value uniform 300; }
-donor
+donorSubstrate { type fixedValue; value uniform 300; }  // ✅ CORRECTED: bottom boundary
+receiver
 {
-    type            zeroGradient;
+    type            zeroGradient;  // ✅ CORRECTED: top boundary
 }
 
 }

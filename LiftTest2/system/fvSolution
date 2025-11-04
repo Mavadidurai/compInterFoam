@@ -101,7 +101,7 @@ solvers
 PIMPLE
 {
     momentumPredictor           true;
-    nOuterCorrectors            1;           // REDUCE: was 2 (emergency mode)
+    nOuterCorrectors            2;           // ✅ CORRECTED: Increased from 1 for proper coupling
     nCorrectors                 3;
     nNonOrthogonalCorrectors    0;
 
