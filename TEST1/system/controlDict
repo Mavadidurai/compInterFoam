@@ -80,7 +80,7 @@ massTransferCoeffs
 
 // LASER TIMING - shorter pulse, longer observation
 laserStartTime      0;
-laserEndTime    5e-10;
+laserEndTime    2e-12;
 
 // Advanced interface capturing - TUNED FOR EXTENDED SIMULATION
 useAdvancedInterfaceCapturing  true;
@@ -252,7 +252,7 @@ functions
                 }
         #};
     }
-*/
+
     // Mid-plane visualization (optional)
     midPlaneVTK
     {
@@ -278,4 +278,5 @@ functions
             }
         );
     }
+    */
 }
