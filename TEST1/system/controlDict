@@ -187,6 +187,69 @@ twoTemperatureProperties
 // Clean monitoring functions
 functions
 {
+    // Selective field writing - only essential fields to reduce I/O by ~70%
+    removeUnwantedFields
+    {
+        type            coded;
+        libs            ("libutilityFunctionObjects.so");
+        name            removeUnwantedFields;
+        writeControl    writeTime;
+
+        codeWrite
+        #{
+            // Get the object registry
+            const fvMesh& mesh = refCast<const fvMesh>(obr_);
+
+            // List of fields to REMOVE before writing (to save disk space)
+            wordList fieldsToRemove({"p_rgh", "p", "Tl", "Te", "alpha.air", "phi"});
+
+            forAll(fieldsToRemove, i)
+            {
+                const word& fieldName = fieldsToRemove[i];
+
+                if (mesh.foundObject<volScalarField>(fieldName))
+                {
+                    const volScalarField& field =
+                        mesh.lookupObject<volScalarField>(fieldName);
+                    const_cast<volScalarField&>(field).writeOpt() = IOobject::NO_WRITE;
+                }
+                else if (mesh.foundObject<volVectorField>(fieldName))
+                {
+                    const volVectorField& field =
+                        mesh.lookupObject<volVectorField>(fieldName);
+                    const_cast<volVectorField&>(field).writeOpt() = IOobject::NO_WRITE;
+                }
+                else if (mesh.foundObject<surfaceScalarField>(fieldName))
+                {
+                    const surfaceScalarField& field =
+                        mesh.lookupObject<surfaceScalarField>(fieldName);
+                    const_cast<surfaceScalarField&>(field).writeOpt() = IOobject::NO_WRITE;
+                }
+            }
+
+            // Ensure these essential fields ARE written
+            wordList fieldsToWrite({"U", "alpha.metal", "T"});
+
+            forAll(fieldsToWrite, i)
+            {
+                const word& fieldName = fieldsToWrite[i];
+
+                if (mesh.foundObject<volScalarField>(fieldName))
+                {
+                    const volScalarField& field =
+                        mesh.lookupObject<volScalarField>(fieldName);
+                    const_cast<volScalarField&>(field).writeOpt() = IOobject::AUTO_WRITE;
+                }
+                else if (mesh.foundObject<volVectorField>(fieldName))
+                {
+                    const volVectorField& field =
+                        mesh.lookupObject<volVectorField>(fieldName);
+                    const_cast<volVectorField&>(field).writeOpt() = IOobject::AUTO_WRITE;
+                }
+            }
+        #};
+    }
+
   // Adaptive output frequency based on simulation phase
    /* phaseAdaptiveOutput
     {
