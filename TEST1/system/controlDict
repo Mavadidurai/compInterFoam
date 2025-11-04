@@ -17,26 +17,26 @@ FoamFile
 
 application     compInterFoam;
 
-startFrom       latestTime;
+startFrom       startTime;     // Start fresh (was latestTime)
 startTime       0;
 stopAt          endTime;
-endTime         2e-9;           // EXTENDED: 2 ns total for complete LIFT process
+endTime         1e-10;         // 100 ps for initial testing (was 2 ns - too long!)
 
-deltaT          1e-13;         // Base time step (1 fs)
+deltaT          1e-13;         // Base time step (0.1 ps)
 adjustTimeStep  yes;           // ENABLE adaptive time stepping
-maxCo           0.02;          // Allow reasonable growth while staying stable
-maxAlphaCo      0.005;         // Aggressive interface limit
-maxDeltaT       2e-13;         // Cap adaptive growth (10 fs)
-minDeltaT       1e-14;         // Minimum 0.01 fs for precision
+maxCo           0.1;           // Increased for faster simulation (was 0.02)
+maxAlphaCo      0.02;          // Relaxed interface limit (was 0.005)
+maxDeltaT       1e-12;         // Cap adaptive growth to 1 ps (was 0.2 ps)
+minDeltaT       1e-15;         // Minimum 0.001 fs for precision
 
-verbose         true;
+verbose         false;         // Disable verbose output to reduce overhead
 thermalFluxRelax 0.1;          // Stronger damping of interface heat flux
 maxThermalCourant 0.02;         // Tightened for thermal stability
 
 // ADAPTIVE OUTPUT - more frequent during active phase, less during cooling
 writeControl    adjustableRunTime;
-writeInterval   1e-14;         // Start with 1 ps intervals
-purgeWrite      50;            // Keep more time directories for analysis
+writeInterval   1e-11;         // 10 ps intervals (OPTIMIZED from 0.01 ps)
+purgeWrite      20;            // Keep reasonable number of time directories
 writeFormat     ascii;
 writePrecision  8;
 writeCompression off;
@@ -78,9 +78,10 @@ massTransferCoeffs
     rateMax 1e11;      // Reduced for later phase stability
 }
 
-// LASER TIMING - shorter pulse, longer observation
+// LASER TIMING - single pulse at start (200 fs duration)
+// Note: The pulse itself is 200 fs, but we keep the model active slightly longer
 laserStartTime      0;
-laserEndTime    5e-10;
+laserEndTime        1e-12;     // Keep laser model active for 1 ps (was 500 ps)
 
 // Advanced interface capturing - TUNED FOR EXTENDED SIMULATION
 useAdvancedInterfaceCapturing  true;
@@ -177,10 +178,10 @@ twoTemperatureProperties
     metalAmbientBlendWidth  1e-3;
     CvolGasFloor            1e6;     // J/m³/K minimum for gas
     
-    energyTolerance         0.02;    // Relaxed for long runs
-    energyDiagnostics       false;
-    temperatureDiagnostics  false;   // Reduce output volume
-    energyAudit             false;
+    energyTolerance         0.05;    // Relaxed for long runs (was 0.02)
+    energyDiagnostics       false;   // Disabled for performance
+    temperatureDiagnostics  false;   // Disabled for performance
+    energyAudit             false;   // Disabled for performance
 }
 
 // Clean monitoring functions
@@ -253,7 +254,8 @@ functions
         #};
     }
 */
-    // Mid-plane visualization (optional)
+    // Mid-plane visualization (DISABLED for performance - can regenerate with paraFoam)
+    /*
     midPlaneVTK
     {
         type            surfaces;
@@ -278,4 +280,5 @@ functions
             }
         );
     }
+    */
 }
