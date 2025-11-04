@@ -1044,7 +1044,7 @@ while (pimple.loop())
 
             "boundaryEnergyThisStep",
 
-            dimEnergy,
+            dimPower,
 
             0.0
 
@@ -1084,7 +1084,7 @@ while (pimple.loop())
 
                 boundaryEnergyThisStep.value() +=
 
-                    gSum(patchFlux*mesh.magSf().boundaryField()[patchI]);
+                    gSum(patchFlux);
 
             }
 
