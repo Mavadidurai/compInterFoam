@@ -1039,7 +1039,7 @@ while (pimple.loop())
                     gSum(patchFlux);
             }
         }
-        cumulativeBoundaryFlux += boundaryEnergyThisStep*runTime.deltaT();
+        cumulativeBoundaryFlux += boundaryEnergyThisStep*dimensionedScalar("dt", dimTime, runTime.deltaT());
         static scalar prevEtot = Etot.value();
         const scalar minEnergyForCheck =
             runTime.controlDict().lookupOrDefault<scalar>
