@@ -1,0 +1,194 @@
+================================================================================
+COMPINTERFOAM NUMERICAL INSTABILITY - QUICK REFERENCE GUIDE
+================================================================================
+
+ISSUE: Extreme pressure (min p = -8.8e+13 Pa) and kinetic energy overflow
+CAUSE: Unconstrained thermal coupling and pressure gradients despite zero recoil
+
+================================================================================
+KEY CODE LOCATIONS
+================================================================================
+
+FILE: /home/user/compInterFoam/UEqn.H
+  Line 74:        Kinetic energy check FAILS HERE (fatal error triggered)
+  Lines 56-82:    Kinetic energy ceiling enforcement (detection only)
+  Lines 349-430:  Pressure gradient computation and limiting (UNCLAMPED by default)
+  Lines 334-346:  Pressure gradient force assembly
+
+FILE: /home/user/compInterFoam/pEqn.H
+  Lines 72-79:    Pressure equation assembly (missing density source)
+  Lines 290-334:  Emergency pressure clamping (too late, creates discontinuities)
+  Lines 160-167:  Pressure field post-correction (where discontinuities form)
+
+FILE: /home/user/compInterFoam/TEqn.H
+  Lines 1097-1108: Gas temperature equation with interface coupling
+  Lines 91-174:    Gas-metal coupling coefficient limiting (unbounded default)
+  Lines 238-270:   Active metal masking (sharp discontinuities possible)
+  Lines 342-369:   Interface cell identification (localized heating)
+  Lines 946-1010:  Thermal Courant limiting (can over-limit coupling)
+
+FILE: /home/user/compInterFoam/compInterFoam.C
+  Lines 919-977:   Time loop structure (shows decoupling of T, U, p)
+  Line 933:        TEqn.H included
+  Line 935-941:    ttm.solve() for electron/lattice temperatures
+  Line 950-960:    Recoil pressure calculation
+  Line 967:        UEqn.H included (momentum solve)
+  Line 976:        pEqn.H included (pressure correction)
+
+FILE: /home/user/compInterFoam/twoTemperatureModel.H
+  Lines 55-60:     Gas-metal coupling coefficient documentation
+
+FILE: /home/user/compInterFoam/advancedInterfaceCapturing.H
+  Lines 55-60:     Recoil pressure parameters
+  Lines 69-81:     Coupling and smoothing parameters
+
+FILE: /home/user/compInterFoam/createFields.H
+  Lines 703-754:   Recoil pressure initialization
+  Lines 706-724:   Advanced interface capturing setup (if enabled)
+
+================================================================================
+ROOT CAUSES SUMMARY
+================================================================================
+
+1. UNCONSTRAINED PRESSURE GRADIENT (CRITICAL)
+   Location: UEqn.H, line 349
+   Problem: maxPressureGradient defaults to GREAT (no limit)
+   Impact: ∇p can reach 1e19+ Pa/m, driving unbounded acceleration
+   Fix: Add maxPressureGradient = 1e9 to controlDict
+
+2. STIFF THERMAL COUPLING (CRITICAL)
+   Location: TEqn.H, lines 91-147
+   Problem: Gas-metal exchange coefficient unbounded (>1e16 W/m³/K causes stiffness)
+   Impact: Density drops uncontrollably, creates pressure pockets
+   Fix: Set maxGasMetalExchangeCoeff = 1e15 in twoTemperatureProperties
+
+3. POST-CORRECTION PRESSURE CLAMPING (HIGH)
+   Location: pEqn.H, lines 290-334
+   Problem: Pressure clamped AFTER solve, creating artificial discontinuities
+   Impact: Next iteration sees huge ∇p, drives velocity spikes
+   Fix: Move clamping to immediately after pressure solve (line 79)
+
+4. DECOUPLED TEMPERATURE-MOMENTUM (HIGH)
+   Location: compInterFoam.C, lines 919-977
+   Problem: Temperature solves independently, then density updated
+   Impact: SIMPLE/PIMPLE assumption (ρ constant during pressure correction) violated
+   Fix: Add density source term to pressure equation (pEqn.H line 75)
+
+5. MISSING VELOCITY LIMITING BEFORE MOMENTUM SOLVE (MEDIUM)
+   Location: UEqn.H, lines 56-82
+   Problem: Only detects unphysical velocities, doesn't prevent them
+   Impact: Kinetic energy check fails instead of preventing divergence
+   Fix: Add velocity limiting BEFORE momentum solve (line 528)
+
+6. INTERFACE DISCONTINUITIES (MEDIUM)
+   Location: TEqn.H, lines 238-369
+   Problem: Sharp metal/gas boundary without sufficient regularization
+   Impact: Localized heating creates pressure spikes
+   Fix: Increase metalAmbientBlendWidth and enable smooth masking
+
+7. PRESSURE EQUATION WITHOUT DENSITY SOURCE (ADVANCED)
+   Location: pEqn.H, lines 72-79
+   Problem: Pressure equation ignores ∂ρ/∂t from temperature changes
+   Impact: Pressure-density coupling incomplete when ρ(T)
+   Fix: Add density time derivative to pressure equation RHS
+
+================================================================================
+IMMEDIATE FIXES (Priority Order)
+================================================================================
+
+STEP 1: Edit /home/user/compInterFoam/UEqn.H (Line 349)
+  Change: const Foam::scalar gradLimit = ... Foam::GREAT
+  To:     const Foam::scalar gradLimit = solverCoeffs.lookupOrDefault<Foam::scalar>
+            ("maxPressureGradient", 1e9);  // NEW DEFAULT
+
+STEP 2: Edit /home/user/compInterFoam/TEqn.H (Lines 121-147)
+  Change: "maxGasMetalExchangeCoeff", maxCoeffDefault
+  To:     "maxGasMetalExchangeCoeff", 
+          dimensionedScalar(..., 1e15)  // BOUNDED DEFAULT
+
+STEP 3: Edit system/controlDict (Add compInterFoamCoeffs section)
+  Add:
+    compInterFoamCoeffs
+    {
+        maxPressureGradient     1e9;
+        maxVelocity             500;
+        pressureClamp           true;
+        minPressure            -1e7;
+        maxPressure             1e9;
+    }
+
+STEP 4: Edit system/controlDict (Update or add twoTemperatureProperties)
+  Add:
+    twoTemperatureProperties
+    {
+        maxGasMetalExchangeCoeff   1e15;
+        metalAmbientBlendWidth     1e-3;
+    }
+
+STEP 5: Edit system/controlDict (Reduce Courant number)
+  Change: maxCo from 1.0 (or default)
+  To:     maxCo 0.5;
+
+================================================================================
+DIAGNOSTIC OUTPUT
+================================================================================
+
+To verify fixes are working, add to compInterFoam.C after line 960:
+
+    if (verbose && master && runTime.timeIndex() % 10 == 0)
+    {
+        tmp<volScalarField> tGradP(fvc::grad(p));
+        const dimensionedScalar maxGradP = gMax(mag(tGradP()));
+        Info<< "  max(|∇p|) = " << maxGradP.value() << " Pa/m" << nl;
+    }
+
+Monitor:
+  max(|∇p|) should stay below 1e9 Pa/m
+  min(p) and max(p) should stay in [-1e7, 1e9] range
+  max(|U|) should stay below 500 m/s
+  max(KE density) should stay below 1e12 J/m³
+
+================================================================================
+VALIDATION TESTS
+================================================================================
+
+Test 1: Zero Recoil, Zero Temperature
+  - Set Te and Tl to 300 K
+  - Set recoilPressure = 0
+  - Simulation should be stable
+  - If not: problem is in momentum equation or pressure gradient handling
+
+Test 2: Non-zero Temperature, Zero Recoil
+  - Set Te to 11800 K, Tl to 300 K
+  - Set recoilPressure = 0
+  - Monitor pressure evolution
+  - If pressure spikes: problem is in thermal coupling
+
+Test 3: With Temperature and Recoil
+  - Gradually enable recoil pressure
+  - Monitor pressure gradients
+  - If diverges: recoil forcing magnitude is too high
+
+Test 4: Courant Number Sensitivity
+  - Reduce maxCo to 0.1
+  - Verify stability improves
+  - If so: time stepping is issue, not equations
+
+================================================================================
+EXPECTED BEHAVIOR AFTER FIXES
+================================================================================
+
+Before Fixes:
+  - Simulation fails at kinetic energy check (line 74 of UEqn.H)
+  - min(p) = -8.8e+13 Pa (extreme negative)
+  - max(|U|) = very large, growing
+  - Unstable even with recoilPressure = 0
+
+After Fixes:
+  - Simulation runs without fatal errors
+  - min(p) stays in [-1e7, 1e9] Pa range
+  - max(|U|) stays below 500 m/s
+  - Stable with recoilPressure = 0
+  - Physically reasonable temperature evolution
+
+================================================================================
