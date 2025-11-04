@@ -1029,8 +1029,15 @@ while (pimple.loop())
         {
             const fvPatch& patch = mesh.boundary()[patchI];
 
-            // Only account for outlet-type boundaries (not walls)
-            if (!isA<wallFvPatch>(patch))
+            // Only account for patches where material can leave domain
+            // Skip walls, symmetry, empty, and processor boundaries
+            const word& patchType = patch.type();
+            const bool isFlowBoundary =
+                (patchType != "wall" && patchType != "symmetryPlane"
+                 && patchType != "empty" && patchType != "processor"
+                 && patchType != "cyclic");
+
+            if (isFlowBoundary)
             {
                 const scalarField& patchFlux = energyFlux.boundaryField()[patchI];
                 boundaryEnergyThisStep.value() +=
