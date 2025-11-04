@@ -76,7 +76,17 @@ if (kineticEnergyCeiling > 0 && kineticEnergyCeiling < Foam::GREAT)
             << maxKineticEnergyDensityValue
             << " J/m^3 exceeds limit "
             << kineticEnergyCeiling
-            << " J/m^3. Velocity field has become unphysical."
+            << " J/m^3. Velocity field has become unphysical." << nl
+            << nl
+            << "Common causes (even with zero recoil pressure):" << nl
+            << "  1. Unclamped pressure gradients driving unbounded acceleration" << nl
+            << "     → Set maxPressureGradient (e.g., 1e9 Pa/m) in compInterFoamCoeffs" << nl
+            << "  2. Stiff gas-metal thermal coupling causing density collapse" << nl
+            << "     → Reduce maxGasMetalExchangeCoeff (e.g., 1e15 W/m³/K)" << nl
+            << "  3. Temperature-driven density changes violating continuity" << nl
+            << "     → Reduce time step or enable pressure clamping" << nl
+            << "  4. Time step too large for thermal/momentum coupling" << nl
+            << "     → Reduce maxCo (e.g., 0.5) and maxAlphaCo (e.g., 0.2)" << nl
             << exit(FatalError);
     }
 }
@@ -349,7 +359,8 @@ if (pimple.momentumPredictor())
     const Foam::scalar gradLimit = solverCoeffs.lookupOrDefault<Foam::scalar>
     (
         "maxPressureGradient",
-        Foam::GREAT
+        1e9  // Changed from GREAT: Default limit prevents numerical instability
+             // Typical values: 1e6-1e9 Pa/m for laser ablation simulations
     );
 
     bool nonFiniteGrad = false;

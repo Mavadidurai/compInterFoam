@@ -129,7 +129,10 @@ extern const bool master;
     (
         "maxGasMetalExchangeCoeff",
         interfaceExchange.dimensions(),
-        ctrl.lookupOrDefault<scalar>("maxGasMetalExchangeCoeff", Foam::GREAT)
+        ctrl.lookupOrDefault<scalar>("maxGasMetalExchangeCoeff", 1e15)
+        // Changed from GREAT: Unbounded coupling causes stiff equation system
+        // Values > 1e16 W/m³/K can drive rapid gas heating and density collapse
+        // Typical range: 1e12-1e15 for stable coupling, 1e15-1e17 for stiff
     );
 
     const dimensionedScalar minCoeff =
