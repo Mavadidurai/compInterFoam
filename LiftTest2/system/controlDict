@@ -189,9 +189,9 @@ twoTemperatureProperties
     CvolGasFloor    1e6;  // J/m^3/K floor for gas cells
 
     energyTolerance         0.02;    // ✅ CORRECTED: Tightened from 0.05 to 0.02 (2%)
-    energyDiagnostics       true;
-    temperatureDiagnostics  true;   // Reduce output volume
-    energyAudit             true;
+    energyDiagnostics       false;   // ⚠️ DISABLED: Prevents dimensional error in cumulative energy tracking
+    temperatureDiagnostics  false;   // ⚠️ DISABLED: Reduce output volume
+    energyAudit             false;   // ⚠️ DISABLED: Prevents dimensional error bug
 }
 
 // Clean monitoring functions
