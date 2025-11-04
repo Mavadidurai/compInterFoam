@@ -97,14 +97,14 @@ advancedInterfaceCapturing
     clampRecoil           true;
     scaleRecoilMax        false;    // Keep cap constant rather than scaling by alpha
     recoilTempOffset      0;        // Trigger recoil once Tl reaches Tvap
-    phaseChangeTempOffset 100;      // Match evaporation window to Ti saturation curve
-    recoilRelax           0.5;      // Additional damping for stability
+    phaseChangeTempOffset 0;      // Match evaporation window to Ti saturation curve
+    recoilRelax           0.3;      // Additional damping for stability
     alphaMin              0.01;
     alphaMax              1;
     maxPhysicalTemperature  10000;  // Stay within tabulated Ti properties (~10 kK)
 
         // Physical limits
-    maxRecoilPressure   1e8;    // 100 MPa absolute max
+    maxRecoilPressure   5e8;    // 100 MPa absolute max
 }
 logRecoilSuppression true;
 

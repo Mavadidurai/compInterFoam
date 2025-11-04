@@ -155,7 +155,7 @@ compInterFoamCoeffs
 
     // Pressure clamp settings
     pressureClamp      true;
-    maxPressure        80e6;
+    maxPressure        80e7;
     minPressure       -1e7;
 
     // Density clamp settings
