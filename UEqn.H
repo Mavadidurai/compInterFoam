@@ -12,34 +12,36 @@ fvOptions.constrain(UEqn);
 
 const Foam::dictionary& solverCoeffs = compInterFoamCoeffsDict(mesh);
 
-// Determine the recoil-pressure clamp from user configuration.  Respect the
-// advanced interface-capturing settings so we do not silently override a case
-// that deliberately permits >100 MPa recoil loads.
-scalar recoilClampMax = 1e8;
-bool recoilClampActive = true;
-
+// Read recoil pressure configuration consistently (same logic as pEqn.H)
+// Priority: advancedInterfaceCapturing > compInterFoamCoeffs
 const Foam::dictionary& controlDict = mesh.time().controlDict();
+const Foam::dictionary& aicDict =
+    controlDict.subOrEmptyDict("advancedInterfaceCapturing");
 
-if (controlDict.found("advancedInterfaceCapturing"))
+bool recoilClampActive = true;
+scalar recoilClampMax = 1e8;  // Default: 100 MPa
+
+if (!aicDict.empty())
 {
-    const Foam::dictionary& aicDict = controlDict.subDict("advancedInterfaceCapturing");
+    recoilClampActive = aicDict.lookupOrDefault<Foam::Switch>("clampRecoil", true);
 
-    recoilClampActive = aicDict.lookupOrDefault<Foam::Switch>
-    (
-        "clampRecoil",
-        Foam::Switch(true)
-    );
-
-    scalar userLimit = aicDict.lookupOrDefault<scalar>
-    (
-        "maxRecoilPressure",
-        aicDict.lookupOrDefault<scalar>("recoilMax", recoilClampMax)
-    );
-
-    if (std::isfinite(userLimit) && userLimit > SMALL)
+    // Try maxRecoilPressure first, then recoilMax (legacy)
+    scalar maxRecoil = aicDict.lookupOrDefault<scalar>("maxRecoilPressure", 0.0);
+    if (maxRecoil <= SMALL)
     {
-        recoilClampMax = Foam::mag(userLimit);
+        maxRecoil = aicDict.lookupOrDefault<scalar>("recoilMax", recoilClampMax);
     }
+
+    if (std::isfinite(maxRecoil) && maxRecoil > SMALL)
+    {
+        recoilClampMax = Foam::mag(maxRecoil);
+    }
+}
+
+// Fallback to solver coeffs if not in aicDict
+if (recoilClampMax <= SMALL || recoilClampMax >= 0.99*Foam::GREAT)
+{
+    recoilClampMax = solverCoeffs.lookupOrDefault<scalar>("maxRecoilPressure", 1e8);
 }
 
 if (!recoilClampActive)

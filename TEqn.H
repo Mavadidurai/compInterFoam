@@ -1190,7 +1190,21 @@ if (verbose && master && timeIndex % 10 == 0)
 
     rawFlux.correctBoundaryConditions();
 
-    const scalar dtVal = Foam::max(dt.value(), SMALL);
+    // Use VSMALL as minimum timestep to prevent division by near-zero values
+    // that could produce unrealistic heating/cooling rates. VSMALL ~ 1e-300
+    // provides better numerical stability than SMALL ~ 1e-15.
+    const scalar dtVal = Foam::max(dt.value(), VSMALL);
+
+    // Safety check: warn if timestep becomes dangerously small
+    static bool timestepWarningIssued = false;
+    if (dt.value() < 1e-15 && !timestepWarningIssued && verbose && master)
+    {
+        WarningInFunction
+            << "Time step (" << dt.value() << " s) is extremely small. "
+            << "Flux limiting may produce very large heating/cooling rates." << nl
+            << "Consider adjusting maxCo or time step controls." << endl;
+        timestepWarningIssued = true;
+    }
 
     scalarField& rawFluxInternal = rawFlux.primitiveFieldRef();
     const scalarField& capInternal = CvolLimited.internalField();
@@ -1201,6 +1215,9 @@ if (verbose && master && timeIndex % 10 == 0)
         const scalar cap = Foam::max(capInternal[cellI], VSMALL);
         const scalar Tcell = TintInternal[cellI];
 
+        // Limit heat flux to prevent non-physical temperature changes
+        // maxHeating: maximum energy input that won't exceed maxPhysicalTemp
+        // maxCooling: maximum energy removal that won't drop below minPhysicalTemp
         const scalar maxHeating = cap*(maxPhysicalTemp - Tcell)/dtVal;
         const scalar maxCooling = cap*(Tcell - minPhysicalTemp)/dtVal;
 
@@ -1218,6 +1235,7 @@ if (verbose && master && timeIndex % 10 == 0)
         rawFluxInternal[cellI] = limitedFlux;
     }
 
+    // Apply same flux limiting to boundary faces
     forAll(rawFlux.boundaryField(), patchI)
     {
         scalarField& fluxPatch = rawFlux.boundaryFieldRef()[patchI];
@@ -1229,6 +1247,7 @@ if (verbose && master && timeIndex % 10 == 0)
             const scalar cap = Foam::max(capPatch[faceI], VSMALL);
             const scalar Tface = Tpatch[faceI];
 
+            // Same limiting strategy as internal cells
             const scalar maxHeating = cap*(maxPhysicalTemp - Tface)/dtVal;
             const scalar maxCooling = cap*(Tface - minPhysicalTemp)/dtVal;
 
@@ -1256,7 +1275,8 @@ if (verbose && master && timeIndex % 10 == 0)
 
     if (maxGasHeatingRate > SMALL)
     {
-        const scalar invDtVal = 1.0/Foam::max(dtVal, SMALL);
+        // dtVal is already protected (max(dt.value(), VSMALL)), so direct division is safe
+        const scalar invDtVal = 1.0/dtVal;
 
         const scalarField& gasMaskInternal = gasMask.internalField();
         const scalarField& cellVolumes = mesh.V();

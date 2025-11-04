@@ -998,6 +998,48 @@ while (pimple.loop())
 
         dimensionedScalar Etot = Ek + Ee + Elattice + El + Egas;
 
+        // Track cumulative boundary energy flux to account for energy leaving domain
+        static dimensionedScalar cumulativeBoundaryFlux
+        (
+            "cumulativeBoundaryFlux",
+            dimEnergy,
+            0.0
+        );
+
+        // Calculate energy flux through boundaries this timestep
+        // Energy flux = (kinetic + enthalpy) * mass flux = (0.5*U^2 + he) * rho * phi
+        tmp<volScalarField> tSpecificEnergy(0.5*magSqr(U) + he2);
+        const volScalarField& specificEnergy = tSpecificEnergy();
+
+        surfaceScalarField energyFlux
+        (
+            "energyFlux",
+            fvc::interpolate(rho*specificEnergy)*phi
+        );
+
+        // Integrate boundary fluxes (positive = leaving domain)
+        dimensionedScalar boundaryEnergyThisStep
+        (
+            "boundaryEnergyThisStep",
+            dimEnergy,
+            0.0
+        );
+
+        forAll(mesh.boundary(), patchI)
+        {
+            const fvPatch& patch = mesh.boundary()[patchI];
+
+            // Only account for outlet-type boundaries (not walls)
+            if (!isA<wallFvPatch>(patch))
+            {
+                const scalarField& patchFlux = energyFlux.boundaryField()[patchI];
+                boundaryEnergyThisStep.value() +=
+                    gSum(patchFlux*mesh.magSf().boundaryField()[patchI]);
+            }
+        }
+
+        cumulativeBoundaryFlux += boundaryEnergyThisStep*runTime.deltaT();
+
         static scalar prevEtot = Etot.value();
         const scalar minEnergyForCheck =
             runTime.controlDict().lookupOrDefault<scalar>
@@ -1009,18 +1051,46 @@ while (pimple.loop())
         const scalar prevEtotMag = mag(prevEtot);
         const scalar currEtotMag = mag(Etot.value());
         const scalar denom = max(max(prevEtotMag, currEtotMag), minEnergyForCheck);
-        const scalar relChange = mag(Etot.value() - prevEtot)/denom;
+
+        // Account for boundary losses in energy change calculation
+        const scalar energyChangeWithFlux =
+            mag(Etot.value() - prevEtot + cumulativeBoundaryFlux.value());
+        const scalar relChange = energyChangeWithFlux/denom;
+
+        const bool accountForBoundaryFlux =
+            runTime.controlDict().lookupOrDefault<Switch>
+            (
+                "energyCheckIncludeBoundaryFlux",
+                true
+            );
 
         if
         (
             prevEtotMag > minEnergyForCheck
          && relChange > energyTolerance.value()
+         && accountForBoundaryFlux
         )
         {
             WarningInFunction
                 << "Relative energy change " << relChange
-                << " exceeds energyTolerance (" << energyTolerance.value()
-                << ")" << endl;
+                << " exceeds energyTolerance (" << energyTolerance.value() << ")" << nl
+                << "Domain energy: " << Etot.value() << " J" << nl
+                << "Previous: " << prevEtot << " J" << nl
+                << "Cumulative boundary loss: " << cumulativeBoundaryFlux.value() << " J" << nl
+                << "Energy change (with boundary): " << energyChangeWithFlux << " J"
+                << endl;
+        }
+        else if
+        (
+            prevEtotMag > minEnergyForCheck
+         && mag(Etot.value() - prevEtot)/denom > energyTolerance.value()
+         && !accountForBoundaryFlux
+        )
+        {
+            WarningInFunction
+                << "Relative energy change " << mag(Etot.value() - prevEtot)/denom
+                << " exceeds energyTolerance (" << energyTolerance.value() << ")" << nl
+                << "(Boundary flux accounting disabled)" << endl;
         }
 
             if (verbose && master)
@@ -1030,7 +1100,9 @@ while (pimple.loop())
                 << " Elattice=" << Elattice.value()
                 << " Elatent=" << El.value()
                 << " Egas=" << Egas.value()
-                << " Etot=" << Etot.value() << endl;
+                << " Etot=" << Etot.value() << nl
+                << "Boundary flux [J]: This step=" << boundaryEnergyThisStep.value()
+                << " Cumulative=" << cumulativeBoundaryFlux.value() << endl;
         }
 
         prevEtot = Etot.value();
