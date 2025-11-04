@@ -1127,11 +1127,14 @@ femtosecondLaserModel::evaluateTemporalEnvelope
     }
     else if (pulseFrequency_ > SMALL)
     {
-
         const scalar period   = 1.0/pulseFrequency_;
         const scalar onTime   = max(SMALL, pulseDutyCycle_*period);
         const scalar sigma    = pulseWidth_.value()
             /(2.0*sqrt(2.0*log(2.0)));
+        const scalar gaussianNormalization =
+            sigma*sqrt(constant::mathematical::twoPi);
+        const scalar pulseWidthInv =
+            sqrt(4.0*log(2.0))/max(pulseWidth_.value(), VSMALL);
         const scalar localStart = overlapStart - laserStartTime_;
         const scalar localEnd   = overlapEnd   - laserStartTime_;
 
@@ -1140,14 +1143,6 @@ femtosecondLaserModel::evaluateTemporalEnvelope
         {
             periodIndex = static_cast<label>(std::floor(localStart/period));
         }
-        // Normalised single-pulse integral used for energy expectations
-        const scalar fullPulseIntegral =
-            max
-            (
-                VSMALL,
-                2.0*sigma*sqrt(constant::mathematical::pi/2.0)
-              * std::erf(0.5*onTime/(sqrt(2.0)*sigma))
-            );
 
         for
         (
@@ -1157,7 +1152,7 @@ femtosecondLaserModel::evaluateTemporalEnvelope
         )
         {
             const scalar windowEnd = windowStart + onTime;
-            
+
             if (windowEnd <= localStart)
             {
                 continue;
@@ -1176,20 +1171,18 @@ femtosecondLaserModel::evaluateTemporalEnvelope
             }
 
             const scalar center = windowStart + 0.5*onTime;
-            const scalar integral =
-                gaussianWindowIntegral(clipStart, clipEnd, center, sigma);
+            const scalar argStart =
+                (clipStart - center)*pulseWidthInv;
+            const scalar argEnd =
+                (clipEnd - center)*pulseWidthInv;
+            const scalar fraction = 0.5
+                * (std::erf(argEnd) - std::erf(argStart));
 
-            if (integral > VSMALL)
+            if (mag(fraction) > VSMALL)
             {
-                result.temporalIntegral += integral;
+                result.temporalIntegral += fraction*gaussianNormalization;
+                result.expectedEnergy += pulseEnergy_.value()*fraction;
             }
-        }
-
-        if (result.temporalIntegral > VSMALL)
-        {
-            result.expectedEnergy =
-                pulseEnergy_.value()
-              * result.temporalIntegral/max(fullPulseIntegral, VSMALL);
         }
     }
     else

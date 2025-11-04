@@ -109,49 +109,33 @@ while (pimple.correctNonOrthogonal())
                 )
             );
 
-            scalar recoilClampTarget = 0.0;
-
+            // Read recoil configuration consistently (same logic as UEqn.H)
             const dictionary& aicDict =
                 runTime.controlDict().subOrEmptyDict("advancedInterfaceCapturing");
-
+            scalar recoilClampTarget = 0.0;
+            
             if (!aicDict.empty())
             {
-                recoilClampTarget = Foam::max
-                (
-                    recoilClampTarget,
-                    Foam::mag
-                    (
-                        aicDict.lookupOrDefault<scalar>
-                        (
-                            "maxRecoilPressure",
-                            recoilClampTarget
-                        )
-                    )
-                );
+                // Try maxRecoilPressure first, then recoilMax (legacy)
+                scalar maxRecoil = aicDict.lookupOrDefault<scalar>("maxRecoilPressure", 0.0);
+                if (maxRecoil <= SMALL)
+                {
+                    maxRecoil = aicDict.lookupOrDefault<scalar>("recoilMax", 0.0);
+                }
+                if (std::isfinite(maxRecoil) && maxRecoil > SMALL)
+                {
+                    recoilClampTarget = Foam::mag(maxRecoil);
+                }
 
-                recoilClampTarget = Foam::max
-                (
-                    recoilClampTarget,
-                    Foam::mag
-                    (
-                        aicDict.lookupOrDefault<scalar>
-                        (
-                            "recoilMax",
-                            recoilClampTarget
-                        )
-                    )
-                );
             }
-
+            // Adjust for actual recoil pressure if higher than configured
             if (recoilPressurePtr)
             {
-                recoilClampTarget = Foam::max
-                (
-                    recoilClampTarget,
-                    Foam::mag(Foam::gMax(*recoilPressurePtr))
-                );
-            }
+                const scalar observedRecoil = Foam::gMax(*recoilPressurePtr);
 
+                recoilClampTarget = Foam::max(recoilClampTarget, Foam::mag(observedRecoil));
+            }
+            // Raise pressure clamp to accommodate recoil if needed
             if
             (
                 recoilClampTarget > Foam::SMALL
@@ -233,49 +217,33 @@ Foam::dimensionedScalar maxPressure
 
 if (pressureClamp)
 {
-    scalar recoilClampTarget = 0.0;
-
+    // Read recoil configuration consistently (same logic as above and UEqn.H)
     const dictionary& aicDict =
         runTime.controlDict().subOrEmptyDict("advancedInterfaceCapturing");
 
+    scalar recoilClampTarget = 0.0;
+    
     if (!aicDict.empty())
     {
-        recoilClampTarget = Foam::max
-        (
-            recoilClampTarget,
-            Foam::mag
-            (
-                aicDict.lookupOrDefault<scalar>
-                (
-                    "maxRecoilPressure",
-                    recoilClampTarget
-                )
-            )
-        );
+        // Try maxRecoilPressure first, then recoilMax (legacy)
+        scalar maxRecoil = aicDict.lookupOrDefault<scalar>("maxRecoilPressure", 0.0);
 
-        recoilClampTarget = Foam::max
-        (
-            recoilClampTarget,
-            Foam::mag
-            (
-                aicDict.lookupOrDefault<scalar>
-                (
-                    "recoilMax",
-                    recoilClampTarget
-                )
-            )
-        );
+        if (maxRecoil <= SMALL)
+        {
+            maxRecoil = aicDict.lookupOrDefault<scalar>("recoilMax", 0.0);
+        }
+        if (std::isfinite(maxRecoil) && maxRecoil > SMALL)
+        {
+            recoilClampTarget = Foam::mag(maxRecoil);
+        }
     }
-
+    // Adjust for actual recoil pressure if higher than configured
     if (recoilPressurePtr)
     {
-        recoilClampTarget = Foam::max
-        (
-            recoilClampTarget,
-            Foam::mag(Foam::gMax(*recoilPressurePtr))
-        );
+        const scalar observedRecoil = Foam::gMax(*recoilPressurePtr);
+        recoilClampTarget = Foam::max(recoilClampTarget, Foam::mag(observedRecoil));
     }
-
+    // Raise pressure clamp to accommodate recoil if needed
     if (recoilClampTarget > Foam::SMALL && maxPressure.value() < recoilClampTarget)
     {
         maxPressure = Foam::dimensionedScalar
@@ -371,10 +339,12 @@ const Foam::scalar maxPhysicalVelocity = solverCoeffs.lookupOrDefault<Foam::scal
     500.0
 );
 
-// Only treat velocities inside the metal phase as physically meaningful for
-// the LIFT jet diagnostics.  Experiments (e.g. Brown et al., Appl. Phys. A 97,
-// 2009) report jet speeds using the donor material, so ignore plume cells with
-// negligible alpha1 when forming the warning ratios.
+// the LIFT jet diagnostics. Experiments (e.g. Brown et al., Appl. Phys. A 97,2009) report jet speeds using the donor material, so ignore plume cells with negligible alpha1 when forming the warning ratios. velocityAlphaThreshold: Minimum metal volume fraction to consider a cell as "metal" for velocity diagnostics.
+// - Default: 0.01 (1% metal fraction)
+// - Physical meaning: Cells with <1% metal are treated as gas/plume
+// - Rationale: Prevents spurious high velocities in low-density vapor regions from triggering divergence warnings
+// - Typical values: 0.001 (0.1%) to 0.1 (10%)
+// - Set to 0 to include all cells regardless of phase
 const Foam::scalar alphaVelocityThreshold = solverCoeffs.lookupOrDefault<Foam::scalar>
 (
     "velocityAlphaThreshold",
