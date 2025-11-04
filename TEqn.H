@@ -112,7 +112,7 @@ extern const bool master;
     if (userGasLaserHeating && !laserSupportsGasHeating && verbose && master)
     {
         WarningInFunction
-            << "applyGasLaserHeating requested but gasAbsorptionCoeff ≈ 0;"
+            << "applyGasLaserHeating requested but gasAbsorptionCoeff â‰ˆ 0;"
             << " skipping direct gas heating."
             << endl;
     }
@@ -291,7 +291,7 @@ if (verbose && master && timeIndex % 10 == 0)
         }
         else
         {
-            Info<< "  Cooling rate ≤ 0 (heating or steady); skipping equilibrium"
+            Info<< "  Cooling rate â‰¤ 0 (heating or steady); skipping equilibrium"
                 " estimate." << endl;
         }
     }
@@ -1136,7 +1136,7 @@ if (verbose && master && timeIndex % 10 == 0)
 
         const volScalarField& gasLaserMask = tGasLaserMask();
 
-        TEqn.source() += contactMask*gasLaserMask*mixture.Q_laser();
+        TEqn.source() += mesh.V()*contactMask*gasLaserMask*mixture.Q_laser();
     }
 
     TEqn.relax();
@@ -1349,7 +1349,7 @@ if (verbose && master && timeIndex % 10 == 0)
         // Diagnostic: Total heat flux from metal to gas
         const dimensionedScalar totalHeatOut =
             fvc::domainIntegrate(gasMetalHeatFlux);
-        Info<< "    net heat flux metal→gas: "
+        Info<< "    net heat flux metalâ†’gas: "
             << totalHeatOut.value() << " W" << endl;
 
         if (enableTClamp)
