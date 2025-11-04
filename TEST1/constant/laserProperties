@@ -1,0 +1,98 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+| =========                 |                                                 |
+| \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox           |
+|  \\    /   O peration     | Version:  v2406                                 |
+|   \\  /    A nd           | Website:  www.openfoam.com                      |
+|    \\/     M anipulation  |                                                 |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    location    "constant";
+    object      laserProperties;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+// Accepted keys for femtosecondLaserModel:
+//   peakIntensity       [W/m^2]
+//   pulseWidth          [s]
+//   wavelength          [m]
+//   absorptionCoeff     [1/m]
+//   spotSize            [m]
+//   pulseEnergy         [J]
+//   direction           (vector)
+//   focus               (point)
+//   scanVelocity        (vector, optional)
+//   pulseFrequency      [1/s, optional]
+//   pulseDutyCycle      [-, optional]
+//   reflectivity        [-]
+//   gaussianProfile     [bool]
+//   continuousLaser     [bool]
+//   pulseCenterTime     [s, optional]
+//   gasAbsorptionCoeff  [1/m, optional, default 0]
+// Parameter checks enforce pulseWidth 10fs–10ps, wavelength 100nm–2µm
+// and peakIntensity ≤6e16 W/m^2.
+// ✅ CORRECTED: Gaussian pulse focused in the 71.4 nm donor film (y=8.0000–8.0714 µm)
+
+// Domain: x∈[0,50e-6], y∈[0,28.0714e-6], z∈[0,10e-6]
+
+// Film thickness matches blockMeshDict geometry
+
+filmThicknessExpected    71.4e-9;    // 71.4 nm (matches y2 - y1 = 8.0714 - 8.0000)
+
+filmCenterY              8.0357e-6;  // center of Ti film at focus.y
+
+// geometry coupling
+gasAbsorptionCoeff 0;     // [1/m] gas absorption (0 disables direct gas heating)
+
+// --- Energy & timing ---
+// CRITICAL: Keep pulse energy compatible with interface heat-flux limit
+// NOTE: Omit pulseCenterTime to fire the single pulse immediately after
+//       laserStartTime.  Supplying a later center delays deposition.
+pulseEnergy              5e-8;      // 50 nJ (typical LIFT)
+pulseWidth               200e-15;   // 200 fs FWHM
+wavelength               343e-9;    // 343 nm (Ti absorption peak)
+
+ 
+
+// --- Spatial Gaussian (match the box center and film depth) ---
+
+spotSize        3.2e-6;       // [m] beam diameter (3 μm 1/e² radius)
+
+// ✅ CORRECTED: Beam center at x,z mid-plane, inside donor film at y≈8.0357 μm
+
+focus            (25e-6 8.0357e-6 5e-6);
+
+// ✅ CORRECTED: Laser shoots UPWARD (+Y) through transparent substrate into Ti film
+
+direction       (0 1 0);
+// Fresnel + absorption calculated internally
+absorptionCoeff          1.5e7;     // 1/m (α = 2k/λ for Ti at 800 nm)
+                                    // Gives ~67 nm penetration depth
+
+// Reflectivity / profile
+reflectivity        0.55;        // 45% absorption -> F_peak ≈0.057 J/cm² (≈0.06 baseline)
+
+temporalShape       gaussian;
+spatialShape        gaussian;
+
+gaussianProfile     true;
+
+// Optional intensity entry (consistent with pulseEnergy & pulseWidth)
+continuousLaser     false;
+maxVolumetricSource 0;  // [W/m³] disable cap so absorbed pulse energy is not clipped
+
+// CRITICAL: Enable pulse frequency for extended operation
+//pulseFrequency      1e12;     // [1/s] 1 THz repetition rate for sustained heating
+//pulseDutyCycle      0.1;      // 10% duty cycle
+pulseFrequency      0;        // [1/s] disabled for single pulse operation
+pulseDutyCycle      0;        // [-] duty cycle unused when pulses disabled
+
+// Energy tolerance for validation
+pulseEnergyToleranceRel 0.05; // 5% relative tolerance
+pulseEnergyToleranceAbs 5e-10; // 1 nJ absolute tolerance
+
+// NOTE: If peakIntensity is specified, it must match the derived value within 5% or
+// the solver now aborts, so omit it to accept the computed value when iterating setups.
+// ************************************************************************* //
