@@ -78,95 +78,100 @@ while (pimple.correctNonOrthogonal())
     pEqn.setReference(pRefCell, pRefValue);
     pEqn.solve();
 
-    if (pimple.finalNonOrthogonalIter())
-    {
-        const Foam::dictionary& clampCoeffs = compInterFoamCoeffsDict(mesh);
-        const Foam::Switch pressureClamp
-        (
-            clampCoeffs.lookupOrDefault<Foam::Switch>("pressureClamp", false)
-        );
+    // CRITICAL FIX: Apply pressure clamp AFTER EACH iteration to prevent
+    // pressure field from becoming unphysical during the iterative solve.
+    // Previously this was only applied on the final iteration, but by then
+    // the pressure could reach extreme values (e.g., -8e13 Pa) that would
+    // drive unphysical velocities even after clamping.
+    const Foam::dictionary& clampCoeffs = compInterFoamCoeffsDict(mesh);
+    const Foam::Switch pressureClamp
+    (
+        clampCoeffs.lookupOrDefault<Foam::Switch>("pressureClamp", false)
+    );
 
-        if (pressureClamp)
-        {
-             Foam::dimensionedScalar minPressure
+    if (pressureClamp)
+    {
+         Foam::dimensionedScalar minPressure
+        (
+            "minPressure",
+            Foam::dimPressure,
+            clampCoeffs.lookupOrDefault<Foam::scalar>
             (
                 "minPressure",
-                Foam::dimPressure,
-                clampCoeffs.lookupOrDefault<Foam::scalar>
-                (
-                    "minPressure",
-                    -Foam::GREAT
-                )
-            );
-            Foam::dimensionedScalar maxPressure
+                -Foam::GREAT
+            )
+        );
+        Foam::dimensionedScalar maxPressure
+        (
+            "maxPressure",
+            Foam::dimPressure,
+            clampCoeffs.lookupOrDefault<Foam::scalar>
+            (
+                "maxPressure",
+                Foam::GREAT
+            )
+        );
+
+        // Read recoil configuration consistently (same logic as UEqn.H)
+        const dictionary& aicDict =
+            runTime.controlDict().subOrEmptyDict("advancedInterfaceCapturing");
+        scalar recoilClampTarget = 0.0;
+
+        if (!aicDict.empty())
+        {
+            // Try maxRecoilPressure first, then recoilMax (legacy)
+            scalar maxRecoil = aicDict.lookupOrDefault<scalar>("maxRecoilPressure", 0.0);
+            if (maxRecoil <= SMALL)
+            {
+                maxRecoil = aicDict.lookupOrDefault<scalar>("recoilMax", 0.0);
+            }
+            if (std::isfinite(maxRecoil) && maxRecoil > SMALL)
+            {
+                recoilClampTarget = Foam::mag(maxRecoil);
+            }
+
+        }
+        // Adjust for actual recoil pressure if higher than configured
+        if (recoilPressurePtr)
+        {
+            const scalar observedRecoil = Foam::gMax(*recoilPressurePtr);
+
+            recoilClampTarget = Foam::max(recoilClampTarget, Foam::mag(observedRecoil));
+        }
+        // Raise pressure clamp to accommodate recoil if needed
+        if
+        (
+            recoilClampTarget > Foam::SMALL
+         && maxPressure.value() < recoilClampTarget
+        )
+        {
+            if (Foam::Pstream::master())
+            {
+                Info<< "    pressureClamp: raising maxPressure from "
+                    << maxPressure.value() << " Pa to recoil limit "
+                    << recoilClampTarget << " Pa" << Foam::nl;
+            }
+
+            maxPressure = Foam::dimensionedScalar
             (
                 "maxPressure",
                 Foam::dimPressure,
-                clampCoeffs.lookupOrDefault<Foam::scalar>
-                (
-                    "maxPressure",
-                    Foam::GREAT
-                )
+                recoilClampTarget
             );
-
-            // Read recoil configuration consistently (same logic as UEqn.H)
-            const dictionary& aicDict =
-                runTime.controlDict().subOrEmptyDict("advancedInterfaceCapturing");
-            scalar recoilClampTarget = 0.0;
-            
-            if (!aicDict.empty())
-            {
-                // Try maxRecoilPressure first, then recoilMax (legacy)
-                scalar maxRecoil = aicDict.lookupOrDefault<scalar>("maxRecoilPressure", 0.0);
-                if (maxRecoil <= SMALL)
-                {
-                    maxRecoil = aicDict.lookupOrDefault<scalar>("recoilMax", 0.0);
-                }
-                if (std::isfinite(maxRecoil) && maxRecoil > SMALL)
-                {
-                    recoilClampTarget = Foam::mag(maxRecoil);
-                }
-
-            }
-            // Adjust for actual recoil pressure if higher than configured
-            if (recoilPressurePtr)
-            {
-                const scalar observedRecoil = Foam::gMax(*recoilPressurePtr);
-
-                recoilClampTarget = Foam::max(recoilClampTarget, Foam::mag(observedRecoil));
-            }
-            // Raise pressure clamp to accommodate recoil if needed
-            if
-            (
-                recoilClampTarget > Foam::SMALL
-             && maxPressure.value() < recoilClampTarget
-            )
-            {
-                if (Foam::Pstream::master())
-                {
-                    Info<< "    pressureClamp: raising maxPressure from "
-                        << maxPressure.value() << " Pa to recoil limit "
-                        << recoilClampTarget << " Pa" << Foam::nl;
-                }
-
-                maxPressure = Foam::dimensionedScalar
-                (
-                    "maxPressure",
-                    Foam::dimPressure,
-                    recoilClampTarget
-                );
-            }
-
-            Foam::tmp<Foam::volScalarField> tpTmp = p_rgh + rho*gh;
-            Foam::volScalarField& pTmp = tpTmp.ref();
-
-            pTmp = Foam::max(pTmp, minPressure);
-            pTmp = Foam::min(pTmp, maxPressure);
-
-            p_rgh = pTmp - rho*gh;
-            p_rgh.correctBoundaryConditions();
         }
 
+        Foam::tmp<Foam::volScalarField> tpTmp = p_rgh + rho*gh;
+        Foam::volScalarField& pTmp = tpTmp.ref();
+
+        pTmp = Foam::max(pTmp, minPressure);
+        pTmp = Foam::min(pTmp, maxPressure);
+
+        p_rgh = pTmp - rho*gh;
+        p_rgh.correctBoundaryConditions();
+    }
+
+    if (pimple.finalNonOrthogonalIter())
+    {
         phi = phiHbyA + pEqn.flux();
 
         U = HbyA + rAU*fvc::reconstruct((phig + pEqn.flux())/rAUf);
