@@ -1184,7 +1184,19 @@ void Foam::twoPhaseMixtureThermo::computePhaseChange()
         const scalar j_cond = evaporationCoeff_*p_metalVapor/(sqrt_2piR*sqrt_T);
 
         scalar j_net = j_evap - j_cond;
-
+// ADD THIS DEBUG CODE temporarily after j_net calculation:
+if (Pstream::master() && cellI == 0 && mesh.time().timeIndex() % 10 == 0)
+{
+    Info<< "DEBUG Hertz-Knudsen at cell 0:" << nl
+        << "  T_eff = " << T_eff << " K" << nl
+        << "  p_vapor (psat) = " << p_vapor << " Pa" << nl
+        << "  sqrt_2piR = " << sqrt_2piR << nl
+        << "  sqrt_T = " << sqrt_T << nl
+        << "  evaporationCoeff = " << evaporationCoeff_ << nl
+        << "  j_evap = " << j_evap << " kg/m²/s" << nl
+        << "  j_net = " << j_net << " kg/m²/s" << nl
+        << "  Expected at 5000K: ~90 kg/m²/s" << endl;
+}
         const scalar Cl = ClTTM_.value();
 
         if (Cl <= SMALL)
