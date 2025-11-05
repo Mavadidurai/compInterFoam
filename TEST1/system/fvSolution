@@ -116,39 +116,39 @@ solvers
 PIMPLE
 {
     momentumPredictor           true;
-    nOuterCorrectors            3;           // REDUCE: was 2 (emergency mode)
+    nOuterCorrectors            5;           // REDUCE: was 2 (emergency mode)
     nCorrectors                 3;
     nNonOrthogonalCorrectors    2;
 
     residualControl
     {
         "alpha.*" { tolerance 1e-5;  relTol 0.01; }
-        p_rgh     { tolerance 1e-5;  relTol 0.01; }
-        U         { tolerance 1e-6;  relTol 0.01; }
+        p_rgh     { tolerance 1e-4;  relTol 0.01; }
+        U         { tolerance 1e-5;  relTol 0.01; }
         Te        { tolerance 5e-9;  relTol 0.0;  }   // thermal is stiff; be stricter
         Tl        { tolerance 5e-9;  relTol 0.0;  }
         T         { tolerance 1e-8;  relTol 0.01;  }   // if gas T exists
     }
     
     p_rghRefCell                0;
-    p_rghRefValue               0;
+    p_rghRefValue               101325;
 }
 
 relaxationFactors
 {
     fields
     {
-        p_rgh           0.2;
-        "alpha.*"       0.5;
+        p_rgh           0.1;
+        "alpha.*"       0.3;
     }
     equations
     {
-        U               0.7;
-        T               0.5;
-        Te              0.6;
-        Tl              0.6;
-        "alpha.*"       0.5;
-        ".*Final"       0.9;
+        U               0.3;
+        T               0.3;
+        Te              0.3;
+        Tl              0.3;
+        "alpha.*"       0.3;
+        ".*Final"       0.7;
     }
 }
 
@@ -172,7 +172,7 @@ compInterFoamCoeffs
 
     // CRITICAL FIX: Disable pressure clamping during active phase
     pressureClamp      true;          // DISABLED: was distorting physics
-    maxPressure        1e8;
+    maxPressure        5e8;
     minPressure       -1e5;
 
     // Density clamp settings
