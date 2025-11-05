@@ -1349,7 +1349,7 @@ if (verbose && master && timeIndex % 10 == 0)
         // Diagnostic: Total heat flux from metal to gas
         const dimensionedScalar totalHeatOut =
             fvc::domainIntegrate(gasMetalHeatFlux);
-        Info<< "    net heat flux metalâ†’gas: "
+        Info<< "    net heat flux metal to gas: "
             << totalHeatOut.value() << " W" << endl;
 
         if (enableTClamp)
