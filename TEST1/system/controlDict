@@ -124,19 +124,22 @@ twoTemperatureProperties
     }
     
     // Temperature-dependent coupling
-    G
-    {
-        type        table;
-        values
-        (
-            (300    3e16)
-            (1000   4.2e16)
-            (2000   4.8e16)
-            (3000   5.2e16)
-            (5000   6e16)
-            (10000  7.5e16)
-        );
-    }
+G
+{
+    type table;
+    values
+    (
+        (300      1.0e18)   // ✓ CORRECT
+        (1000     3.0e18)   // ✓ CORRECT
+        (2000     6.0e18)   // ✓ CORRECT
+        (3000     1.0e19)   // ✓ CORRECT
+        (5000     2.0e19)   // ✓ CORRECT
+        (7000     3.0e19)
+        (10000    5.0e19)   // ✓ CORRECT
+        (15000    7.0e19)
+        (20000    1.0e20)   // ✓ CORRECT
+    );
+}
     
     Cl  [1 -1 -2 -1 0 0 0] 2.5e6;
     De  [0  2 -1  0 0 0 0] 1e-4;
