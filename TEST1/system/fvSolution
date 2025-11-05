@@ -172,8 +172,8 @@ compInterFoamCoeffs
 
     // CRITICAL FIX: Disable pressure clamping during active phase
     pressureClamp      true;          // DISABLED: was distorting physics
-    maxPressure        5e8;
-    minPressure       -1e5;
+    maxPressure        2e8;
+    minPressure       -5e6;
 
     // Density clamp settings
     densityClamp       false;
