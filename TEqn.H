@@ -1105,7 +1105,7 @@ if (verbose && master && timeIndex % 10 == 0)
     );
 
     TEqn += fvm::Sp(relaxedInterfaceExchange, T);
-    TEqn.source() += relaxedInterfaceExchange*Tl;
+    TEqn.source() += mesh.V()*relaxedInterfaceExchange*Tl;
 
     if (applyGasLaserHeating)
     {

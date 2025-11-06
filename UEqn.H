@@ -61,16 +61,16 @@ const Foam::scalar minUEqnDiagVal =
 
 if (minUEqnDiagVal > 0)
 {
-    volScalarField& UEqnDiagRef = UEqn.diag();
+    const tmp<volScalarField> tUEqnDiagTmp = UEqn.A();
+    const volScalarField& UEqnDiagField = tUEqnDiagTmp();
     const dimensionedScalar diagFloor
     (
         "minUEqnDiag",
-        UEqnDiagRef.dimensions(),
+        UEqnDiagField.dimensions(),
         minUEqnDiagVal
     );
 
-    const dimensionedScalar currentMinDiag = gMin(UEqnDiagRef);
-
+    const dimensionedScalar currentMinDiag = gMin(UEqnDiagField);
     if (currentMinDiag.value() < diagFloor.value())
     {
         UEqn += fvm::Sp(diagFloor, U);
