@@ -50,7 +50,12 @@ gasAbsorptionCoeff 0;     // [1/m] gas absorption (0 disables direct gas heating
 // --- Energy & timing ---
 // CRITICAL: Keep pulse energy compatible with interface heat-flux limit
 // NOTE: Omit pulseCenterTime to fire the single pulse immediately after laserStartTime.  Supplying a later center delays deposition.
-pulseEnergy              1.2e-6;      //1.2 µJ (~0.15 J/cm^2 fs-LIFT plateau)
+//pulseEnergy              1.2e-6;      //1.2 µJ (~0.15 J/cm^2 fs-LIFT plateau)
+// A 3.2 µm diameter Gaussian spot needs ~12 nJ to deliver the 0.15 J/cm^2
+// plateau fluence reported for Ti donor films (Piqué et al., Appl. Phys. A 79, 2004).
+//  Ep = F·πw^2 with w = 1.6 µm ⇒ Ep ≈ 0.15 J/cm^2 · 8.04e-8 cm^2 ≈ 1.2e-8 J.
+pulseEnergy              1.2e-8;    // 12 nJ (0.15 J/cm^2 for w = 1.6 µm)
+
 pulseWidth               200e-15;   // 200 fs FWHM
 wavelength               343e-9;    // 343 nm (Ti absorption peak)
 
