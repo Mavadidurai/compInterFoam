@@ -52,6 +52,36 @@ const Foam::scalar kineticEnergyCeiling =
         "maxKineticEnergyDensity",
         1e12
     );
+const Foam::scalar minUEqnDiagVal =
+    solverCoeffs.lookupOrDefault<Foam::scalar>
+(
+    "minUEqnDiag",
+    1e-9
+);
+
+if (minUEqnDiagVal > 0)
+{
+    volScalarField& UEqnDiagRef = UEqn.diag();
+    const dimensionedScalar diagFloor
+    (
+        "minUEqnDiag",
+        UEqnDiagRef.dimensions(),
+        minUEqnDiagVal
+    );
+
+    const dimensionedScalar currentMinDiag = gMin(UEqnDiagRef);
+
+    if (currentMinDiag.value() < diagFloor.value())
+    {
+        UEqn += fvm::Sp(diagFloor, U);
+
+        if (verbose && master)
+        {
+            Info<< "UEqn: added stabilizing diagonal " << diagFloor.value()
+                << " to avoid singular momentum matrix" << endl;
+        }
+    }
+}
 
 if (kineticEnergyCeiling > 0 && kineticEnergyCeiling < Foam::GREAT)
 {
@@ -540,12 +570,6 @@ const Foam::scalar maxUEqnVelocity = solverCoeffs.lookupOrDefault<Foam::scalar>
 (
     "maxUEqnVelocity",
     Foam::GREAT
-);
-
-const scalar minUEqnDiagVal = solverCoeffs.lookupOrDefault<scalar>
-(
-    "minUEqnDiag",
-    1e-9
 );
 
 if (minUEqnDiagVal > 0)

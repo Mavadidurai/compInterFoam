@@ -967,8 +967,8 @@ void Foam::advancedInterfaceCapturing::correct()
             << alpha1Avg
             << "  Min(" << alpha1Name << ") = " << min(alpha1_).value()
             << "  Max(" << alpha1Name << ") = " << max(alpha1_).value()
-            << "  Max recoil pressure = " << max(recoilPressure_).value()
-            << endl;
+            << "  Max recoil pressure = " << max(recoilPressure_).value()/1e6
+            << " MPa" << endl;
 
         const volScalarField* alpha2Ptr = nullptr;
 
