@@ -50,7 +50,7 @@ gasAbsorptionCoeff 0;     // [1/m] gas absorption (0 disables direct gas heating
 // --- Energy & timing ---
 // CRITICAL: Keep pulse energy compatible with interface heat-flux limit
 // NOTE: Omit pulseCenterTime to fire the single pulse immediately after laserStartTime.  Supplying a later center delays deposition.
-pulseEnergy              1.2e-6;      // 50 nJ (typical LIFT)
+pulseEnergy              1.2e-6;      //1.2 µJ (~0.15 J/cm^2 fs-LIFT plateau)
 pulseWidth               200e-15;   // 200 fs FWHM
 wavelength               343e-9;    // 343 nm (Ti absorption peak)
 
