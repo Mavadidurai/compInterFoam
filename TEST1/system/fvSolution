@@ -42,16 +42,16 @@ solvers
     {
         solver          GAMG;
         smoother        DICGaussSeidel;
-        tolerance       1e-8;
-        relTol          0.01;
-        maxIter         100;
+        tolerance       1e-6;
+        relTol          0.05;
+        maxIter         50;
         nPreSweeps      0;
         nPostSweeps     2;
         cacheAgglomeration true;
         nCellsInCoarsestLevel 20;
         agglomerator    faceAreaPair;
         mergeLevels     2;
-        relaxationFactor 0.2;
+        relaxationFactor 0.7;
     }
 
     p_rghFinal
@@ -116,14 +116,14 @@ solvers
 PIMPLE
 {
     momentumPredictor           true;
-    nOuterCorrectors            5;           // REDUCE: was 2 (emergency mode)
+    nOuterCorrectors            3;           // REDUCE: was 2 (emergency mode)
     nCorrectors                 3;
     nNonOrthogonalCorrectors    2;
 
     residualControl
     {
         "alpha.*" { tolerance 1e-5;  relTol 0.01; }
-        p_rgh     { tolerance 1e-4;  relTol 0.01; }
+        p_rgh     { tolerance 1e-4;  relTol 0.05; }
         U         { tolerance 1e-5;  relTol 0.01; }
         Te        { tolerance 5e-9;  relTol 0.0;  }   // thermal is stiff; be stricter
         Tl        { tolerance 5e-9;  relTol 0.0;  }
@@ -138,16 +138,16 @@ relaxationFactors
 {
     fields
     {
-        p_rgh           0.1;
-        "alpha.*"       0.3;
+        p_rgh           0.3;
+        "alpha.*"       0.5;
     }
     equations
     {
-        U               0.3;
-        T               0.3;
-        Te              0.3;
-        Tl              0.3;
-        "alpha.*"       0.3;
+        U               0.5;
+        T               0.5;
+        Te              0.5;
+        Tl              0.5;
+        "alpha.*"       0.5;
         ".*Final"       0.7;
     }
 }
@@ -160,7 +160,9 @@ compInterFoamCoeffs
     // CRITICAL FIX: Remove artificial velocity clamping
     maxVelocity            0;         // DISABLED: was causing uniform 500 m/s field
     maxReasonableVelocity  800;       // Keep for validation warnings only
-    
+    // CRITICAL: Limit pressure gradients to prevent acoustic shock amplification
+    maxPressureGradient    1e14;      // 100 TPa/m (still huge but prevents infinity)
+        
     defaultMetalDensity    4500;        
     defaultAirDensity      1.2;         
     maxInitialResidual     10;
@@ -172,7 +174,7 @@ compInterFoamCoeffs
 
     // CRITICAL FIX: Disable pressure clamping during active phase
     pressureClamp      true;          // DISABLED: was distorting physics
-    maxPressure        2e8;
+    maxPressure        5e8;
     minPressure       -5e6;
 
     // Density clamp settings
