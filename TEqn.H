@@ -291,7 +291,7 @@ if (verbose && master && timeIndex % 10 == 0)
         }
         else
         {
-            Info<< "  Cooling rate â‰¤ 0 (heating or steady); skipping equilibrium"
+            Info<< "  Cooling rate = 0 (heating or steady); skipping equilibrium"
                 " estimate." << endl;
         }
     }

@@ -649,17 +649,20 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
             sqrtTerm = Foam::sqrt(hkArgument);
         }
 
-        scalar alphaMask = (alpha - alphaMin_)*invAlphaWindow;
-        alphaMask = Foam::min(Foam::max(alphaMask, scalar(0)), scalar(1));
+        scalar alphaMask = scalar(1);
+        if (scaleRecoilMax_)
+        {
+            scalar ramp = (alpha - alphaMin_)*invAlphaWindow;
+            alphaMask = Foam::min(Foam::max(ramp, scalar(0)), scalar(1));
+        }
 
         // Knight (Phys. Rev. B 20, 1979) recoil model:
         //   p_recoil = ((2 - beta_m)/(2*alpha_e)) * j_net * sqrt(2*pi*R*T)
         // The evaporation coefficient already scales j_net, so dividing by
         // alpha_e restores the physical momentum flux.
         const scalar pRecoil = scaledKnightCoeff*jNet*sqrtTerm;
-        const scalar unclampedRecoil = pRecoil*alphaMask;
-        const scalar rawRecoil = unclampedRecoil;
-        scalar recoilValue = unclampedRecoil;
+        const scalar rawRecoil = pRecoil;
+        scalar recoilValue = rawRecoil;
         if (clampRecoil_)
         {
             scalar localMax = recoilMax_;
@@ -696,7 +699,7 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
 
             localMax = Foam::max(localMax, scalar(0));
 
-            const scalar unclampedMag = Foam::mag(unclampedRecoil);
+            const scalar unclampedMag = Foam::mag(rawRecoil);
 
             if (localMax > SMALL && unclampedMag > localMax)
             {
@@ -705,7 +708,7 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
 
                 recoilValue = Foam::min
                 (
-                    Foam::max(unclampedRecoil, -localMax),
+                    Foam::max(rawRecoil, -localMax),
                     localMax
                 );
             }

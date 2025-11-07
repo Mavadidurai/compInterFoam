@@ -98,15 +98,18 @@ while (pimple.correctNonOrthogonal())
                     -Foam::GREAT
                 )
             );
-            Foam::dimensionedScalar maxPressure
-            (
-                "maxPressure",
-                Foam::dimPressure,
+            const scalar configuredClampMax =
                 clampCoeffs.lookupOrDefault<Foam::scalar>
                 (
                     "maxPressure",
                     Foam::GREAT
-                )
+                );
+
+            Foam::dimensionedScalar maxPressure
+            (
+                "maxPressure",
+                Foam::dimPressure,
+                configuredClampMax
             );
 
             // Read recoil configuration consistently (same logic as UEqn.H)
@@ -135,11 +138,20 @@ while (pimple.correctNonOrthogonal())
 
                 recoilClampTarget = Foam::max(recoilClampTarget, Foam::mag(observedRecoil));
             }
+            if
+            (
+                configuredClampMax > Foam::SMALL
+             && configuredClampMax < 0.99*Foam::GREAT
+            )
+            {
+                recoilClampTarget = Foam::min(recoilClampTarget, configuredClampMax);
+            }
+
             // Raise pressure clamp to accommodate recoil if needed
             if
             (
                 recoilClampTarget > Foam::SMALL
-             && maxPressure.value() < recoilClampTarget
+             && maxPressure.value() + Foam::SMALL < recoilClampTarget
             )
             {
                 if (Foam::Pstream::master())
@@ -204,15 +216,18 @@ Foam::dimensionedScalar minPressure
     )
 );
 
-Foam::dimensionedScalar maxPressure
-(
-    "maxPressure",
-    Foam::dimPressure,
+const Foam::scalar configuredMaxPressure =
     solverCoeffs.lookupOrDefault<Foam::scalar>
     (
         "maxPressure",
         Foam::GREAT
-    )
+    );
+
+Foam::dimensionedScalar maxPressure
+(
+    "maxPressure",
+    Foam::dimPressure,
+    configuredMaxPressure
 );
 
 if (pressureClamp)
@@ -243,8 +258,17 @@ if (pressureClamp)
         const scalar observedRecoil = Foam::gMax(*recoilPressurePtr);
         recoilClampTarget = Foam::max(recoilClampTarget, Foam::mag(observedRecoil));
     }
+    if
+    (
+        configuredMaxPressure > Foam::SMALL
+     && configuredMaxPressure < 0.99*Foam::GREAT
+    )
+    {
+        recoilClampTarget = Foam::min(recoilClampTarget, configuredMaxPressure);
+    }
+
     // Raise pressure clamp to accommodate recoil if needed
-    if (recoilClampTarget > Foam::SMALL && maxPressure.value() < recoilClampTarget)
+    if (recoilClampTarget > Foam::SMALL && maxPressure.value() + Foam::SMALL < recoilClampTarget)
     {
         maxPressure = Foam::dimensionedScalar
         (

@@ -1089,6 +1089,8 @@ void Foam::twoPhaseMixtureThermo::computePhaseChange()
     const bool enforceUpper = alphaMax_ < (scalar(1) - Foam::SMALL);
 
     const scalarField& cellVolumes = mesh.V();
+    const cellList& cellFaces = mesh.cells();
+    const scalarField& magSf = mesh.magSf();
     const bool restrictToVapor = onlyAboveVapor_;
 
     const scalar Tmax = maxPhaseChangeTemperature_;
@@ -1217,15 +1219,21 @@ void Foam::twoPhaseMixtureThermo::computePhaseChange()
             continue;
         }
 
-        const scalar metalFraction = Foam::max(alpha, scalar(0));
-
-        if (metalFraction <= VSMALL)
+      if (alpha <= VSMALL)
         {
             continue;
         }
 
-        const scalar cellLength = std::pow(cellVolume, 1.0/3.0);
-        const scalar meltThickness = Foam::max(metalFraction*cellLength, VSMALL);
+        const labelList& faces = cellFaces[cellI];
+        scalar maxFaceArea = VSMALL;
+
+        forAll(faces, faceI)
+        {
+            const label faceId = faces[faceI];
+            maxFaceArea = Foam::max(maxFaceArea, magSf[faceId]);
+        }
+
+        const scalar meltThickness = Foam::max(cellVolume/maxFaceArea, VSMALL);
         const scalar maxSource = maxPhaseChangeSource_.value();
 
         if (maxSource > SMALL)
