@@ -176,10 +176,10 @@ compInterFoamCoeffs
     maxAlpha          0.999;
 
     // Clamp p_rgh to a physically defensible range so GAMG cannot run away.
-    // Feinaeugle et al. observe Ti recoil plateaus close to 80 MPa, so keep the ceiling
-    // above that to avoid throttling the kinetic-theory recoil driver.
+    // Gas-phase shock compression naturally exceeds recoil driving pressure,
+    // so set ceiling high enough to allow proper vapor dynamics (~2-5 GPa).
     pressureClamp      true;
-    maxPressure        8e8;
+    maxPressure        3e9;    // 3 GPa - allows recoil-driven flow without numerical runaway
     minPressure       -5e6;
 
     // Density clamp settings
