@@ -27,10 +27,10 @@ solvers
 
         nAlphaCorr      1;              // Keep at 1
         nAlphaSubCycles 3;              // Increased to stabilise transport
-        cAlpha          0.5;            // Softer compression to avoid overshoot
+        cAlpha          1.0;            // Softer compression to avoid overshoot
         icAlpha         0;
         scAlpha         0;
-        compressionLimiter 0.5;         // Caps phic relative to |phi|
+        compressionLimiter 1.0;         // Caps phic relative to |phi|
         MULESCorr       true;
         nLimiterIter    3;
         alphaApplyPrevCorr false;
@@ -179,7 +179,7 @@ compInterFoamCoeffs
     // Feinaeugle et al. observe Ti recoil plateaus close to 80 MPa, so keep the ceiling
     // above that to avoid throttling the kinetic-theory recoil driver.
     pressureClamp      true;
-    maxPressure        8e8;
+    maxPressure        3e9;
     minPressure       -5e6;
 
     // Density clamp settings
