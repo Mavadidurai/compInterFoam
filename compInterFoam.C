@@ -149,10 +149,13 @@ namespace
         const Foam::scalar minTl = Foam::gMin(Tl);
         const Foam::scalar avgTl = Foam::gAverage(Tl);
         const Foam::scalar maxRecoil = recoilPressurePtr ? Foam::gMax(*recoilPressurePtr) : 0.0;
+        const Foam::scalar minRecoil = recoilPressurePtr ? Foam::gMin(*recoilPressurePtr) : 0.0;
         const Foam::scalar peakQLaser = Foam::gMax(QLaser);
         const Foam::scalar laserPowerMetal =
             fvc::domainIntegrate(alpha1*QLaser).value();
         const Foam::scalar maxPressure = Foam::gMax(p);
+        const Foam::scalar minPressure = Foam::gMin(p);
+        const Foam::scalar avgPressure = Foam::gAverage(p);
         const Foam::scalar tempSpread = maxTl - minTl;
 
         auto scalarValue = [&](Foam::scalar val, const std::string& unit)
@@ -282,7 +285,32 @@ namespace
         {
             avgVel = weightedVelSum/metalVolumeWeight;
         }
-
+        if (Foam::Pstream::master())
+        {
+            Info<< "══════ LIFT STATE SNAPSHOT ══════" << Foam::nl
+                << "Time: " << t*1e12 << " ps" << Foam::nl
+                << "Temperatures [K]:" << Foam::nl
+                << "  max(Te): " << maxTe << Foam::nl
+                << "  max(Tl): " << maxTl << Foam::nl
+                << "  min(Tl): " << minTl << Foam::nl
+                << "  avg(Tl): " << avgTl << Foam::nl
+                << "Pressure [MPa]:" << Foam::nl
+                << "  min(p): " << minPressure/1e6 << Foam::nl
+                << "  avg(p): " << avgPressure/1e6 << Foam::nl
+                << "  max(p): " << maxPressure/1e6 << Foam::nl
+                << "Velocity [m/s]:" << Foam::nl
+                << "  max(|U|): " << maxVel << Foam::nl
+                << "  avg(|U|) (metal): " << avgVel << Foam::nl
+                << "Recoil pressure [MPa]:" << Foam::nl
+                << "  min: " << minRecoil/1e6 << Foam::nl
+                << "  max: " << maxRecoil/1e6 << Foam::nl
+                << "Laser coupling:" << Foam::nl
+                << "  Peak volumetric source: " << peakQLaser << " W/m^3" << Foam::nl
+                << "  Metal-absorbed power: " << laserPowerMetal << " W" << Foam::nl
+                << "Metal volume: " << metalVol << " µm³" << Foam::nl
+                << "Metal loss: " << metalLoss << " %" << Foam::nl
+                << "════════════════════════════════" << Foam::endl;
+        }
         static Foam::label currentPhase = 0;
         static bool phaseReported[17] = {};
         static bool initialised = false;

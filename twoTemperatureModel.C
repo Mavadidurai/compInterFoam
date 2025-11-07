@@ -1630,7 +1630,94 @@ void twoTemperatureModel::solve
             clampPower = clampEnergyCorrection.value()/dtValue;
         }
 
-        Info<< "══════ ENERGY BALANCE ══════" << nl
+        scalar maxVelocity = 0.0;
+        scalar avgVelocity = 0.0;
+        bool haveVelocity = false;
+
+        if (mesh_.foundObject<volVectorField>("U"))
+        {
+            const volVectorField& UField =
+                mesh_.lookupObject<volVectorField>("U");
+            tmp<volScalarField> tMagU = mag(UField);
+            const volScalarField& magU = tMagU();
+
+            maxVelocity = gMax(magU);
+
+            const scalar metalVolumeValue = metalVolume.value();
+            if (metalVolumeValue > SMALL)
+            {
+                const dimensionedScalar weightedVel =
+                    fvc::domainIntegrate(metalPhysical*magU);
+                avgVelocity = weightedVel.value()/metalVolumeValue;
+            }
+
+            haveVelocity = true;
+        }
+
+        scalar maxPressure = 0.0;
+        bool havePressure = false;
+        if (mesh_.foundObject<volScalarField>("p"))
+        {
+            const volScalarField& pField =
+                mesh_.lookupObject<volScalarField>("p");
+            maxPressure = gMax(pField);
+            havePressure = true;
+        }
+
+        scalar maxRecoil = 0.0;
+        bool haveRecoil = false;
+        if (mesh_.foundObject<volScalarField>("recoilPressure"))
+        {
+            const volScalarField& recoilField =
+                mesh_.lookupObject<volScalarField>("recoilPressure");
+            maxRecoil = gMax(recoilField);
+            haveRecoil = true;
+        }
+
+        const dimensionedScalar avgTl = gAverage(Tl_);
+        const dimensionedScalar avgTe = gAverage(Te_);
+
+        Info<< "══════ STATE SNAPSHOT ══════" << nl
+            << "Metal volume: " << metalVolume.value()*1e18 << " µm³" << nl;
+
+        if (haveVelocity)
+        {
+            Info<< "Velocity [m/s]:" << nl
+                << "  max(|U|): " << maxVelocity << nl
+                << "  avg(|U|): " << avgVelocity << nl;
+        }
+        else
+        {
+            Info<< "Velocity data unavailable (field 'U' not found)." << nl;
+        }
+
+        if (havePressure)
+        {
+            Info<< "Pressure:" << nl
+                << "  max(p): " << maxPressure/1e6 << " MPa" << nl;
+        }
+        else
+        {
+            Info<< "Pressure data unavailable (field 'p' not found)." << nl;
+        }
+
+        if (haveRecoil)
+        {
+            Info<< "Recoil pressure:" << nl
+                << "  max(p_recoil): " << maxRecoil/1e6 << " MPa" << nl;
+        }
+        else
+        {
+            Info<< "Recoil pressure data unavailable." << nl;
+        }
+
+        Info<< "Temperatures:" << nl
+            << "  max(Te): " << gMax(Te_) << " K" << nl
+            << "  avg(Te): " << avgTe.value() << " K" << nl
+            << "  max(Tl): " << gMax(Tl_) << " K" << nl
+            << "  avg(Tl): " << avgTl.value() << " K" << nl
+            << "════════════════════════════" << nl
+            << "══════ ENERGY BALANCE ══════" << nl
             << "Metal volume: " << metalVolume.value()*1e18 << " µm³" << nl
             << "Power terms [W]:" << nl
             << "  Laser input:        " << laserPower.value() << nl
