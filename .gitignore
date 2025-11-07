@@ -1,0 +1,30 @@
+# OpenFOAM runtime files
+**/0/
+**/[1-9]*
+**/[1-9]*e-*
+**/processor*
+**/*.foam
+**/*.OpenFOAM
+
+# Log files
+*.log
+log.*
+**/log
+**/log.*
+
+# Compiled binaries
+Make/linux*
+
+# ParaView/VTK
+**/*.vtk
+**/*.vtu
+**/*.pvd
+
+# Backup files
+*~
+*.bak
+*.swp
+
+# Python
+__pycache__/
+*.py[cod]
