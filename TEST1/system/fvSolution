@@ -161,8 +161,10 @@ compInterFoamCoeffs
     // CRITICAL FIX: Remove artificial velocity clamping
     maxVelocity            0;         // DISABLED: was causing uniform 500 m/s field
     maxReasonableVelocity  800;       // Keep for validation warnings only
-    // CRITICAL: Limit pressure gradients to prevent acoustic shock amplification
-    maxPressureGradient    1e14;      // 100 TPa/m (still huge but prevents infinity)
+    // NOTE: Feinaeugle et al. (Appl. Surf. Sci. 418, 2017) report fs-LIFT recoil
+    // peaks around 70–80 MPa.  Resolving that across the 71.4 nm film requires
+    // |∇p| ≈ 1×10^15 Pa/m, so lift the limiter accordingly.
+    maxPressureGradient    1e16;
         
     defaultMetalDensity    4500;        
     defaultAirDensity      1.2;         
@@ -173,12 +175,11 @@ compInterFoamCoeffs
     minAlpha          0.001;
     maxAlpha          0.999;
 
-    // Clamp p_rgh to a physically defensible range so GAMG cannot run away
-    // Experimental femtosecond LIFT measurements (e.g. Brown et al., Appl. Phys. A 97, 2009)
-    // report recoil pressures of only a few MPa; values above a few tens of MPa indicate
-    // numerical drift rather than physics.  Keep the clamp enabled and cap to ~50 MPa.
-    pressureClamp      true;
-    maxPressure        5e7;
+    // Clamp p_rgh to a physically defensible range so GAMG cannot run away.
+    // Feinaeugle et al. observe Ti recoil plateaus close to 80 MPa, so keep the ceiling
+    // above that to avoid throttling the kinetic-theory recoil driver.
+    pressureClamp      false;
+    maxPressure        8e7;
     minPressure       -5e6;
 
     // Density clamp settings
