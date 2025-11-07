@@ -89,7 +89,7 @@ advancedInterfaceCapturing
     model               kinetic_theory;  // Not arbitrary scaling!
     stickingCoeff       0.18;
     momentumAccom       0.18;
-    recoilMax             8e7;	// 80 MPa (Feinaeugle et al., Appl. Surf. Sci. 418, 2017)
+    recoilMax             3.5e8;	// 350 MPa - Allow kinetic theory predictions at high T
     clampRecoil           true;
     scaleRecoilMax        false;
     recoilTempOffset      0;
@@ -99,7 +99,7 @@ advancedInterfaceCapturing
     alphaMax              1;
     maxPhysicalTemperature 10000;
         // Physical limits
-    maxRecoilPressure   8e7;    // Match measured Ti fs-LIFT recoil ceiling (~80 MPa)
+    maxRecoilPressure   3.5e8;    // Increased to accommodate high-T kinetic theory (was 80 MPa)
 }
 logRecoilSuppression true;
 
