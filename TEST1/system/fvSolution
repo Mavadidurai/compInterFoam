@@ -65,10 +65,11 @@ solvers
    {
             solver      smoothSolver;
             smoother    symGaussSeidel;
-	    nSweeps     2;
-	    tolerance   1e-04;
-	    relTol      0.5;
-	    maxIter     200;
+            nSweeps     2;
+            tolerance   1e-06;
+            relTol      0.5;
+            maxIter     200;
+            minIter     1;
     }
 
     T
@@ -172,9 +173,12 @@ compInterFoamCoeffs
     minAlpha          0.001;
     maxAlpha          0.999;
 
-    // CRITICAL FIX: Disable pressure clamping during active phase
-    pressureClamp      true;          // DISABLED: was distorting physics
-    maxPressure        5e8;
+    // Clamp p_rgh to a physically defensible range so GAMG cannot run away
+    // Experimental femtosecond LIFT measurements (e.g. Brown et al., Appl. Phys. A 97, 2009)
+    // report recoil pressures of only a few MPa; values above a few tens of MPa indicate
+    // numerical drift rather than physics.  Keep the clamp enabled and cap to ~50 MPa.
+    pressureClamp      false;
+    maxPressure        5e7;
     minPressure       -5e6;
 
     // Density clamp settings

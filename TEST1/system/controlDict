@@ -62,7 +62,7 @@ phaseChangeCoeffs
     
     dtFloor             1e-15;         // Reduced for precision
     relaxationTime      1e-11;        // Faster response for femtosecond dynamics
-    maxSource           [1 -1 -3 0 0 0 0] 6e15;          // Allow sufficient heating-driven mass transfer
+    maxSource           [1 -1 -3 0 0 0 0] 1.5e16;        // Allow ~120 kg/m^2/s HK flux through a 70 nm melt
     minCoefficient      1e6;          // Reduced for gradual cooling
     onlyAboveVapor      true;
     metalFractionCutoff 1e-6;
