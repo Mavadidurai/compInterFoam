@@ -169,3 +169,41 @@ entries and their in-code defaults are:
 
 Any other keys placed in `compInterFoamCoeffs` are ignored by the current
 code, so make sure to set the values above if you need runtime clamping.
+
+## Solver field symbols
+The solver allocates the following named fields and helper scalars during
+startup. Units follow the dimensions supplied when the objects are
+constructed in `createFields.H` and the equation includes; the short
+descriptions summarise their role in the femtosecond LIFT workflow.
+
+| Symbol | Units | Short description |
+| --- | --- | --- |
+| `trDeltaT` | s⁻¹ | Inverse local time-step used when LTS is active (`fv::localEulerDdt::rDeltaTName`). 【F:createFields.H†L4-L34】 |
+| `trSubDeltaT` | s⁻¹ | Inverse sub-cycled time-step companion to `trDeltaT` for LTS momentum updates. 【F:createFields.H†L4-L41】 |
+| `p_rgh` | Pa | Pressure relative to the hydrostatic column, read from the latest time directory. 【F:createFields.H†L46-L68】 |
+| `U` | m s⁻¹ | Mixture velocity field solved by the momentum predictor. 【F:createFields.H†L70-L93】 |
+| `phi` | m³ s⁻¹ | Face volumetric flux obtained from `fvc::flux(U)` for use in transport terms. 【F:createFields.H†L95-L118】 |
+| `recoilTractionf` | N m⁻³ | Face-based recoil traction initialised to zero and later populated by the recoil model. 【F:createFields.H†L120-L143】 |
+| `T` | K | Single-temperature field (initialised to 300 K) that seeds metal/gas temperatures. 【F:createFields.H†L145-L170】 |
+| `gasMetalHeatFlux` | W m⁻³ | Volumetric accumulator for Kapitza-style heat exchange between gas and metal. 【F:createFields.H†L172-L195】 |
+| `alpha1`, `alpha2` | – | Phase-fraction fields for metal (`alpha.metal`) and gas (`alpha.gas`) retrieved from the mixture. 【F:createFields.H†L324-L341】 |
+| `rho` | kg m⁻³ | Mixture density assembled from `alpha1*rho1 + alpha2*rho2`. 【F:createFields.H†L353-L369】 |
+| `g` | m s⁻² | Uniform gravitational acceleration vector read from `constant/g`. 【F:createFields.H†L381-L401】 |
+| `hRef` | m | Reference height used when reconstructing hydrostatic pressure. 【F:createFields.H†L403-L412】 |
+| `ghRef` | m² s⁻² | Reference gravitational potential (`g·hRef`) preserving the gravity direction. 【F:createFields.H†L414-L427】 |
+| `gh`, `ghf` | m² s⁻² | Cell- and face-based gravitational potentials used when forming `p` and flux corrections. 【F:createFields.H†L429-L436】 |
+| `p` | Pa | Absolute pressure field defined as `p_rgh + rho*gh` for output and diagnostics. 【F:createFields.H†L438-L454】 |
+| `pRefCell`, `pRefValue` | –, Pa | Reference cell index and pressure used to stabilise the pressure solve. 【F:createFields.H†L456-L463】 |
+| `rhoPhi` | kg s⁻¹ | Mass flux computed from interpolated density and volumetric flux. 【F:createFields.H†L465-L478】 |
+| `dgdt` | kg m⁻³ s⁻¹ | Volumetric mass-transfer rate supplied by the phase-change thermo model. 【F:createFields.H†L480-L488】 |
+| `alphaPhi10` | m³ s⁻¹ | Face flux of the metal phase used in the compressive VOF transport. 【F:createFields.H†L490-L520】 |
+| `nAlphaSubCycles`, `nAlphaCorr` | count | Controls for the alpha equation sub-cycling and correction passes read from `fvSolution`. 【F:createFields.H†L522-L539】 |
+| `MULESCorr`, `alphaApplyPrevCorr` | Boolean | Switches governing the compressive VOF algorithm behaviour. 【F:createFields.H†L541-L551】 |
+| `icAlpha`, `scAlpha` | – | Interface-compression and smoothing coefficients applied in the alpha transport. 【F:createFields.H†L553-L561】 |
+| `recoilPressure` | Pa | Legacy recoil-pressure field allocated when advanced interface capturing is disabled. 【F:createFields.H†L642-L688】 |
+| `K` | m² s⁻² | Specific kinetic energy (`0.5·|U|²`) updated after the momentum correction for diagnostics. 【F:createFields.H†L571-L579】【F:UEqn.H†L602-L610】 |
+| `rAU` | aP⁻¹ | Reciprocal diagonal of the momentum matrix (`1/A`) with dimensions inherited from `UEqn.A()`. 【F:UEqn.H†L612-L624】 |
+| `rhoPhi` (post-momentum) | kg s⁻¹ | Updated mass flux after the velocity-limiting pass before the pressure solve. 【F:UEqn.H†L646-L656】 |
+| `p_rgh` (corrected) | Pa | Pressure-relative field repeatedly refreshed in the pressure equation include. 【F:pEqn.H†L172-L207】 |
+| `magUAll`, `magULiquid` | m s⁻¹ | Velocity magnitude diagnostics for mixture and metal-dominated regions. 【F:pEqn.H†L378-L405】 |
+| `phaseChangeSource`, `phaseChangeRelaxCoeff` | K s⁻¹, s⁻¹ | Temperature-source term and its implicit relaxation coefficient imported from the thermo model. 【F:compInterFoam.C†L724-L734】【F:twoPhaseMixtureThermo.C†L70-L101】 |
