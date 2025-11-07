@@ -177,7 +177,7 @@ compInterFoamCoeffs
     // Experimental femtosecond LIFT measurements (e.g. Brown et al., Appl. Phys. A 97, 2009)
     // report recoil pressures of only a few MPa; values above a few tens of MPa indicate
     // numerical drift rather than physics.  Keep the clamp enabled and cap to ~50 MPa.
-    pressureClamp      false;
+    pressureClamp      true;
     maxPressure        5e7;
     minPressure       -5e6;
 
