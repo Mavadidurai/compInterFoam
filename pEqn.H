@@ -88,7 +88,7 @@ while (pimple.correctNonOrthogonal())
 
         if (pressureClamp)
         {
-             Foam::dimensionedScalar minPressure
+            Foam::dimensionedScalar minPressure
             (
                 "minPressure",
                 Foam::dimPressure,
@@ -98,7 +98,8 @@ while (pimple.correctNonOrthogonal())
                     -Foam::GREAT
                 )
             );
-            const scalar configuredClampMax =
+
+            const Foam::scalar configuredClampMax =
                 clampCoeffs.lookupOrDefault<Foam::scalar>
                 (
                     "maxPressure",
@@ -230,77 +231,19 @@ Foam::dimensionedScalar maxPressure
     configuredMaxPressure
 );
 
-if (pressureClamp)
-{
-    // Read recoil configuration consistently (same logic as above and UEqn.H)
-    const dictionary& aicDict =
-        runTime.controlDict().subOrEmptyDict("advancedInterfaceCapturing");
-
-    scalar recoilClampTarget = 0.0;
-    
-    if (!aicDict.empty())
-    {
-        // Try maxRecoilPressure first, then recoilMax (legacy)
-        scalar maxRecoil = aicDict.lookupOrDefault<scalar>("maxRecoilPressure", 0.0);
-
-        if (maxRecoil <= SMALL)
-        {
-            maxRecoil = aicDict.lookupOrDefault<scalar>("recoilMax", 0.0);
-        }
-        if (std::isfinite(maxRecoil) && maxRecoil > SMALL)
-        {
-            recoilClampTarget = Foam::mag(maxRecoil);
-        }
-    }
-    // Adjust for actual recoil pressure if higher than configured
-    if (recoilPressurePtr)
-    {
-        const scalar observedRecoil = Foam::gMax(*recoilPressurePtr);
-        recoilClampTarget = Foam::max(recoilClampTarget, Foam::mag(observedRecoil));
-    }
-    if
-    (
-        configuredMaxPressure > Foam::SMALL
-     && configuredMaxPressure < 0.99*Foam::GREAT
-    )
-    {
-        recoilClampTarget = Foam::min(recoilClampTarget, configuredMaxPressure);
-    }
-
-    // Raise pressure clamp to accommodate recoil if needed
-    if (recoilClampTarget > Foam::SMALL && maxPressure.value() + Foam::SMALL < recoilClampTarget)
-    {
-        maxPressure = Foam::dimensionedScalar
-        (
-            "maxPressure",
-            Foam::dimPressure,
-            recoilClampTarget
-        );
-    }
-}
-
 const Foam::dimensionedScalar fallbackMinPressure
 (
     "fallbackMinPressure",
     Foam::dimPressure,
     -1e7
 );
+
 const Foam::dimensionedScalar fallbackMaxPressure
 (
     "fallbackMaxPressure",
     Foam::dimPressure,
     1e9
 );
-
-if (minPressure.value() <= -0.99*Foam::GREAT)
-{
-    minPressure = fallbackMinPressure;
-}
-
-if (maxPressure.value() >= 0.99*Foam::GREAT)
-{
-    maxPressure = fallbackMaxPressure;
-}
 
 const Foam::dimensionedScalar observedMinP = Foam::gMin(p);
 const Foam::dimensionedScalar observedMaxP = Foam::gMax(p);
@@ -311,15 +254,14 @@ const bool pressureNonFinite =
 const bool pressureOutOfBounds =
     (observedMinP.value() < minPressure.value() || observedMaxP.value() > maxPressure.value());
 
-if (!pressureClamp && (pressureNonFinite || pressureOutOfBounds))
+if (pressureClamp && (pressureNonFinite || pressureOutOfBounds))
 {
-    WarningInFunction
-        << "Pressure field exceeded physical range while pressureClamp=false"
-        << Foam::nl
-        << "    min(p) = " << observedMinP.value() << " Pa, max(p) = "
-        << observedMaxP.value() << " Pa" << Foam::nl
-        << "    Applying emergency clamp to [" << minPressure.value() << ", "
-        << maxPressure.value() << "] Pa" << Foam::endl;
+    if (Foam::Pstream::master())
+    {
+        Info<< "    pressureClamp: enforcing bounds ["
+            << minPressure.value() << ", "
+            << maxPressure.value() << "] Pa" << Foam::endl;
+    }
 
     Foam::scalarField& pInternal = p.primitiveFieldRef();
 
@@ -349,6 +291,59 @@ if (!pressureClamp && (pressureNonFinite || pressureOutOfBounds))
             }
 
             val = Foam::max(minPressure.value(), Foam::min(val, maxPressure.value()));
+        }
+    }
+
+    p_rgh = p - rho*gh;
+    p_rgh.correctBoundaryConditions();
+    p.correctBoundaryConditions();
+}
+else if (!pressureClamp && (pressureNonFinite || pressureOutOfBounds))
+{
+    WarningInFunction
+        << "Pressure field exceeded physical range while pressureClamp=false"
+        << Foam::nl
+        << "    min(p) = " << observedMinP.value() << " Pa, max(p) = "
+        << observedMaxP.value() << " Pa" << Foam::nl
+        << "    Applying emergency clamp to [" << fallbackMinPressure.value() << ", "
+        << fallbackMaxPressure.value() << "] Pa" << Foam::endl;
+
+    Foam::scalarField& pInternal = p.primitiveFieldRef();
+
+    forAll(pInternal, celli)
+    {
+        Foam::scalar& val = pInternal[celli];
+
+        if (!std::isfinite(val))
+        {
+            val = 0.0;
+        }
+
+        val = Foam::max
+        (
+            fallbackMinPressure.value(),
+            Foam::min(val, fallbackMaxPressure.value())
+        );
+    }
+
+    forAll(p.boundaryField(), patchi)
+    {
+        Foam::scalarField& patchField = p.boundaryFieldRef()[patchi];
+
+        forAll(patchField, facei)
+        {
+            Foam::scalar& val = patchField[facei];
+
+            if (!std::isfinite(val))
+            {
+                val = 0.0;
+            }
+
+            val = Foam::max
+            (
+                fallbackMinPressure.value(),
+                Foam::min(val, fallbackMaxPressure.value())
+            );
         }
     }
 
