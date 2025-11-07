@@ -89,7 +89,10 @@ advancedInterfaceCapturing
     model               kinetic_theory;  // Not arbitrary scaling!
     stickingCoeff       0.18;
     momentumAccom       0.18;
-    recoilMax             8e7;	// 80 MPa (Feinaeugle et al., Appl. Surf. Sci. 418, 2017)
+    // Knight (Phys. Rev. B 20, 1979) predicts recoil pressures exceeding
+    // 0.3 GPa near 6000 K.  The fs deposition pushes Tl well beyond that, so
+    // allow the kinetic-theory recoil driver to reach 0.35 GPa before clamping.
+    recoilMax             3.5e8;
     clampRecoil           true;
     scaleRecoilMax        false;
     recoilTempOffset      0;
@@ -99,7 +102,9 @@ advancedInterfaceCapturing
     alphaMax              1;
     maxPhysicalTemperature 10000;
         // Physical limits
-    maxRecoilPressure   8e7;    // Match measured Ti fs-LIFT recoil ceiling (~80 MPa)
+    // Keep the absolute bound consistent with the Knight-model prediction
+    // (~0.35 GPa) so the pressure clamp follows the physically expected recoil.
+    maxRecoilPressure   3.5e8;
 }
 logRecoilSuppression true;
 
