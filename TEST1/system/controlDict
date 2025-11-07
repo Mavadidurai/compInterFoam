@@ -90,10 +90,10 @@ advancedInterfaceCapturing
     stickingCoeff       0.18;
     momentumAccom       0.18;
     // Knight (Phys. Rev. B 20, 1979) predicts recoil pressures exceeding
-    // 0.3 GPa near 6000 K.  The fs deposition pushes Tl well beyond that, so
-    // allow the kinetic-theory recoil driver to reach 0.35 GPa before clamping.
+    // 0.3 GPa near 6000 K.  The fs deposition pushes Tl well beyond that.
+    // Disable recoil clamp to allow full pressure development for ejection.
     recoilMax             3.5e8;
-    clampRecoil           true;
+    clampRecoil           false;
     scaleRecoilMax        false;
     recoilTempOffset      0;
     phaseChangeTempOffset 0;

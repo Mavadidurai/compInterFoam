@@ -27,10 +27,10 @@ solvers
 
         nAlphaCorr      1;              // Keep at 1
         nAlphaSubCycles 3;              // Increased to stabilise transport
-        cAlpha          0.5;            // Softer compression to avoid overshoot
+        cAlpha          1.0;            // Sharper compression for ejection/detachment
         icAlpha         0;
         scAlpha         0;
-        compressionLimiter 0.5;         // Caps phic relative to |phi|
+        compressionLimiter 1.0;         // Full compression for droplet formation
         MULESCorr       true;
         nLimiterIter    3;
         alphaApplyPrevCorr false;
