@@ -281,6 +281,22 @@ advancedInterfaceCapturing::advancedInterfaceCapturing
     pressureScale_ = pressureCfg;
     recoilMax_ = aicDict.lookupOrDefault<scalar>("recoilMax", recoilMax_);
 
+    // Honour the more common maxRecoilPressure control when present.  In
+    // femtosecond LIFT experiments the recoil load rarely exceeds
+    // 100 MPa (Feinaeugle et al., Appl. Surf. Sci. 418, 2017), so use the
+    // tightest cap from either entry to prevent the solver from driving the
+    // pressure clamp into the hard ceiling reported in the run log.
+    const scalar recoilMaxPressure =
+        aicDict.lookupOrDefault<scalar>("maxRecoilPressure", -1.0);
+
+    if (recoilMaxPressure > SMALL)
+    {
+        recoilMax_ =
+            (recoilMax_ > SMALL)
+          ? Foam::min(recoilMax_, recoilMaxPressure)
+          : recoilMaxPressure;
+    }
+    
     const scalar recoilOffsetValue =
         aicDict.lookupOrDefault<scalar>
         (

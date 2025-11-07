@@ -139,35 +139,45 @@ while (pimple.correctNonOrthogonal())
 
                 recoilClampTarget = Foam::max(recoilClampTarget, Foam::mag(observedRecoil));
             }
-            if
-            (
-                configuredClampMax > Foam::SMALL
-             && configuredClampMax < 0.99*Foam::GREAT
-            )
-            {
-                recoilClampTarget = Foam::min(recoilClampTarget, configuredClampMax);
-            }
+            scalar safeClampTarget = recoilClampTarget;
 
-            // Raise pressure clamp to accommodate recoil if needed
-            if
-            (
-                recoilClampTarget > Foam::SMALL
-             && maxPressure.value() + Foam::SMALL < recoilClampTarget
-            )
+            if (safeClampTarget > Foam::SMALL)
             {
-                if (Foam::Pstream::master())
+                // Allow a modest overshoot above the nominal recoil plateau
+                // so the melt can accelerate realistically.  Fs-LIFT studies
+                // (e.g. Feinaeugle et al., Appl. Surf. Sci. 418, 2017) report
+                // transient spikes exceeding the 70–80 MPa steady recoil, so
+                // expand the clamp by ~10% instead of pinning it exactly.
+                const scalar safetyFactor = 1.1;
+                safeClampTarget *= safetyFactor;
+
+                if
+                (
+                    configuredClampMax > Foam::SMALL
+                 && configuredClampMax < 0.99*Foam::GREAT
+                )
                 {
-                    Info<< "    pressureClamp: raising maxPressure from "
-                        << maxPressure.value() << " Pa to recoil limit "
-                        << recoilClampTarget << " Pa" << Foam::nl;
+                    safeClampTarget = Foam::max(safeClampTarget, configuredClampMax);
                 }
 
-                maxPressure = Foam::dimensionedScalar
-                (
-                    "maxPressure",
-                    Foam::dimPressure,
-                    recoilClampTarget
-                );
+                safeClampTarget = Foam::min(safeClampTarget, 0.99*Foam::GREAT);
+
+                if (maxPressure.value() + Foam::SMALL < safeClampTarget)
+                {
+                    if (Foam::Pstream::master())
+                    {
+                        Info<< "    pressureClamp: raising maxPressure from "
+                            << maxPressure.value() << " Pa to "
+                            << safeClampTarget << " Pa" << Foam::nl;
+                    }
+
+                    maxPressure = Foam::dimensionedScalar
+                    (
+                        "maxPressure",
+                        Foam::dimPressure,
+                        safeClampTarget
+                    );
+                }
             }
 
             Foam::tmp<Foam::volScalarField> tpTmp = p_rgh + rho*gh;
