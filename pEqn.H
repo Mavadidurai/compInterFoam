@@ -231,18 +231,64 @@ Foam::dimensionedScalar maxPressure
     configuredMaxPressure
 );
 
+Foam::scalar fallbackMinValue = -1e7;
+Foam::scalar fallbackMaxValue = 1e9;
+
+if (configuredMaxPressure > Foam::SMALL && configuredMaxPressure < fallbackMaxValue)
+{
+    fallbackMaxValue = configuredMaxPressure;
+    fallbackMinValue = Foam::min(fallbackMinValue, -configuredMaxPressure);
+}
+
+Foam::scalar recoilLimit = 0.0;
+const Foam::dictionary& aicDict =
+    runTime.controlDict().subOrEmptyDict("advancedInterfaceCapturing");
+
+if (!aicDict.empty())
+{
+    recoilLimit = aicDict.lookupOrDefault<Foam::scalar>("maxRecoilPressure", 0.0);
+
+    if (recoilLimit <= Foam::SMALL)
+    {
+        recoilLimit = aicDict.lookupOrDefault<Foam::scalar>("recoilMax", 0.0);
+    }
+}
+
+if (recoilPressurePtr)
+{
+    const Foam::scalar observedRecoil = Foam::mag(Foam::gMax(*recoilPressurePtr));
+
+    if (observedRecoil > Foam::SMALL)
+    {
+        recoilLimit = Foam::max(recoilLimit, observedRecoil);
+    }
+}
+
+if (recoilLimit > Foam::SMALL)
+{
+    fallbackMaxValue = Foam::min(fallbackMaxValue, recoilLimit);
+    fallbackMinValue = Foam::min(fallbackMinValue, -recoilLimit);
+}
+
+if (fallbackMaxValue <= fallbackMinValue)
+{
+    const Foam::scalar symmetricLimit = Foam::max(Foam::mag(fallbackMaxValue), Foam::mag(fallbackMinValue));
+    fallbackMaxValue = symmetricLimit;
+    fallbackMinValue = -symmetricLimit;
+}
+
 const Foam::dimensionedScalar fallbackMinPressure
 (
     "fallbackMinPressure",
     Foam::dimPressure,
-    -1e7
+    fallbackMinValue
 );
 
 const Foam::dimensionedScalar fallbackMaxPressure
 (
     "fallbackMaxPressure",
     Foam::dimPressure,
-    1e9
+    fallbackMaxValue
 );
 
 const Foam::dimensionedScalar observedMinP = Foam::gMin(p);
