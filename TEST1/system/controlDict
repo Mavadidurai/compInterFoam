@@ -98,8 +98,8 @@ advancedInterfaceCapturing
     recoilTempOffset      0;
     phaseChangeTempOffset 0;
     recoilRelax           0.5;
-    alphaMin              0.01;
-    alphaMax              1;
+    alphaMin              0.001;      // CRITICAL: Allow phase change in interface cells (was 0.01, too restrictive)
+    alphaMax              0.999;      // Also limit upper bound for symmetry
     maxPhysicalTemperature 10000;
         // Physical limits
     // Keep the absolute bound consistent with the Knight-model prediction
