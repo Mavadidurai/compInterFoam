@@ -21,19 +21,19 @@ solvers
     {
         solver          PBiCGStab;
         preconditioner  DILU;
-        tolerance       1e-06;
+        tolerance       1e-08;
         relTol          0.0;
-        maxIter         50;
+        maxIter         100;
 
-        nAlphaCorr      1;              // Keep at 1
-        nAlphaSubCycles 3;              // Increased to stabilise transport
+        nAlphaCorr      2;              // Keep at 1
+        nAlphaSubCycles 5;              // Increased to stabilise transport
         cAlpha          1.0;            // Softer compression to avoid overshoot
         icAlpha         0;
         scAlpha         0;
         compressionLimiter 1.0;         // Caps phic relative to |phi|
         MULESCorr       true;
-        nLimiterIter    3;
-        alphaApplyPrevCorr false;
+        nLimiterIter    5;
+        alphaApplyPrevCorr true;
         sharpeningScheme standard;
         thinFilmCoeff   0.0;
     }
