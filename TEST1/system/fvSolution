@@ -21,19 +21,19 @@ solvers
     {
         solver          PBiCGStab;
         preconditioner  DILU;
-        tolerance       1e-06;
+        tolerance       1e-08;
         relTol          0.0;
-        maxIter         50;
+        maxIter         100;
 
-        nAlphaCorr      1;              // Keep at 1
-        nAlphaSubCycles 3;              // Increased to stabilise transport
+        nAlphaCorr      2;              // Increased from 1 to force interface evolution
+        nAlphaSubCycles 5;              // Increased from 3 for finer temporal resolution
         cAlpha          1.0;            // Sharper compression for ejection/detachment
         icAlpha         0;
         scAlpha         0;
         compressionLimiter 1.0;         // Full compression for droplet formation
         MULESCorr       true;
-        nLimiterIter    3;
-        alphaApplyPrevCorr false;
+        nLimiterIter    5;              // Increased from 3 for better limiting
+        alphaApplyPrevCorr true;        // Use previous correction to break frozen state
         sharpeningScheme standard;
         thinFilmCoeff   0.0;
     }
