@@ -316,6 +316,8 @@ extern const bool master;
                     alpha1,
                     phiAlphaRef,
                     alphaPhi10,
+                    Sp(),           // Include phase change diagonal
+		    Su(),           // Include phase change source
                     oneField(),
                     zeroField()
                 );
