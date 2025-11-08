@@ -21,11 +21,11 @@ solvers
     {
         solver          PBiCGStab;
         preconditioner  DILU;
-        tolerance       1e-08;
+        tolerance       1e-12;
         relTol          0.0;
         maxIter         100;
-
-        nAlphaCorr      2;              // Keep at 1
+        minIter         2;
+        nAlphaCorr      5;
         nAlphaSubCycles 5;              // Increased to stabilise transport
         cAlpha          1.0;            // Softer compression to avoid overshoot
         icAlpha         0;
@@ -123,7 +123,7 @@ PIMPLE
 
     residualControl
     {
-        "alpha.*" { tolerance 1e-5;  relTol 0.01; }
+        "alpha.*" { tolerance 1e-9;  relTol 0.0; }
         p_rgh     { tolerance 1e-4;  relTol 0.05; }
         U         { tolerance 1e-5;  relTol 0.01; }
         Te        { tolerance 5e-9;  relTol 0.0;  }   // thermal is stiff; be stricter
@@ -179,7 +179,7 @@ compInterFoamCoeffs
     // Feinaeugle et al. observe Ti recoil plateaus close to 80 MPa, so keep the ceiling
     // above that to avoid throttling the kinetic-theory recoil driver.
     pressureClamp      true;
-    maxPressure        3e9;
+    maxPressure        3.3e9;
     minPressure       -5e6;
 
     // Density clamp settings
