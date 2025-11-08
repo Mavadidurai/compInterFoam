@@ -31,7 +31,7 @@ minDeltaT       1e-14;         // Minimum 0.01 fs (reduced from 5e-14)
 
 verbose         true;
 thermalFluxRelax 0.1;          // Stronger damping of interface heat flux
-maxThermalCourant 0.02;         // Tightened for thermal stability
+maxThermalCourant 0.5;          // Increased from 0.02 - allow dt growth!
 
 // ADAPTIVE OUTPUT - more frequent during active phase, less during cooling
 writeControl    adjustableRunTime;
