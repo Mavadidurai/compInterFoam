@@ -63,7 +63,7 @@ wavelength               343e-9;    // 343 nm (Ti absorption peak)
 spotSize        3.2e-6;       // [m] beam diameter (3 μm 1/e² radius)
 
 // Beam center at x,z mid-plane, inside donor film at y≈8.0357 μm
-focus            (25e-6 8.0714e-6 5e-6);
+focus            (25e-6 8.0357e-6 5e-6);
 
 // Laser shoots UPWARD (+Y) through transparent substrate into Ti film
 direction       (0 1 0);
