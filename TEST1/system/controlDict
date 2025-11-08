@@ -66,7 +66,7 @@ phaseChangeCoeffs
     alphaMax            0.999;        // Symmetric upper bound
     maxSource           [1 -1 -3 0 0 0 0] 1e22;         // Permit HK flux to sustain the ~80 MPa recoil plateau at 6.6 kK (Feinaeugle et al., Appl. Surf. Sci. 418, 2017)
     minCoefficient      1e6;          // Reduced for gradual cooling
-    onlyAboveVapor      true;
+    onlyAboveVapor      false;        // CRITICAL: Allow phase change at interface (not just superhot pure metal cells)
     metalFractionCutoff 1e-6;
     // EXTENDED ACTIVATION - through transfer and cooling
     activationTime      ((0 2e-10));  // Active through 400 ps
