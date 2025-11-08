@@ -205,6 +205,11 @@ extern const bool master;
         );
         const dimensionedScalar minDiag = gMin(alpha1Eqn.diag());
 
+        // DISABLED: Stabilizing diagonal was freezing interface motion at femtosecond timescales
+        // The diagThreshold = SMALL/dt becomes huge (0.3) with dt = 1e-14 s, preventing
+        // alpha.metal from evolving despite sufficient driving forces (recoil, velocity).
+        // With the MULES limiter and other safeguards, the matrix should remain stable.
+        /*
         if (minDiag.value() < diagThreshold.value())
         {
             alpha1Eqn += fvm::Sp(diagThreshold, alpha1);
@@ -216,6 +221,7 @@ extern const bool master;
                     << " to avoid singular matrix" << endl;
             }
         }
+        */
 
         SolverPerformance<scalar> solverPerf = alpha1Eqn.solve(alpha1.name());
 
