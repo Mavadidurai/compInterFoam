@@ -24,9 +24,10 @@ endTime         2e-9;           // EXTENDED: 2 ns total for complete LIFT proces
 
 deltaT          1e-13;         // Base time step (1 fs)
 adjustTimeStep  yes;           // ENABLE adaptive time stepping
-maxCo           0.1;          // Allow reasonable growth while staying stable
-maxAlphaCo      0.02;         // Aggressive interface limit
-maxDeltaT       2e-13;         // Cap adaptive growth (10 fs)
+maxCo           0.5;           // Reasonable Courant limit for stability
+maxAlphaCo      0.5;           // Interface Courant limit
+maxDeltaT       1e-11;         // INCREASED: Allow dt to grow to 10 ps (was 0.2 ps - too restrictive!)
+                                // After laser pulse (t > 0.2 ps), femtosecond resolution not needed
 minDeltaT       1e-14;         // Minimum 0.01 fs for precision
 
 verbose         true;
