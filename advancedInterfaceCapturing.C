@@ -983,11 +983,53 @@ void Foam::advancedInterfaceCapturing::correct()
         const scalar alpha1Avg = alpha1_.weightedAverage(mesh_.V()).value();
 
         Info<< "Phase-1 volume fraction (" << alpha1Name << ") = "
-            << alpha1Avg
-            << "  Min(" << alpha1Name << ") = " << min(alpha1_).value()
-            << "  Max(" << alpha1Name << ") = " << max(alpha1_).value()
+            << alpha1Avg << nl
+            << "  (domain average - includes donor and receiver substrates)"
+            << nl
+            << "  Min(" << alpha1Name << ") = " << min(alpha1_).value() << nl
+            << "  Max(" << alpha1Name << ") = " << max(alpha1_).value() << nl
             << "  Max recoil pressure = " << max(recoilPressure_).value()/1e6
             << " MPa" << endl;
+
+        // The domain-average alpha is dominated by the stationary substrates,
+        // so it barely changes even when the thin donor film evolves. Report
+        // an additional diagnostic restricted to cells that currently
+        // participate in phase change so users can track the active film.
+        const volScalarField& massFlux = mixture_.phaseChangeMassFlux();
+        const scalarField& alphaField = alpha1_.internalField();
+        const scalarField& volField = mesh_.V();
+        const scalarField& massFluxField = massFlux.internalField();
+
+        scalar activeVolume = 0.0;
+        scalar activeMetalVolume = 0.0;
+
+        forAll(massFluxField, cellI)
+        {
+            if (mag(massFluxField[cellI]) > massRateEps_)
+            {
+                const scalar cellVol = volField[cellI];
+                activeVolume += cellVol;
+                activeMetalVolume += alphaField[cellI]*cellVol;
+            }
+        }
+
+        reduce(activeVolume, sumOp<scalar>());
+        reduce(activeMetalVolume, sumOp<scalar>());
+
+        if (activeVolume > VSMALL)
+        {
+            const scalar activeAlphaAvg = activeMetalVolume/activeVolume;
+
+            Info<< "  Active-film alpha average (phase-change cells) = "
+                << activeAlphaAvg
+                << " (evaluated over " << activeVolume*1e18
+                << " µm^3 participating in mass transfer)" << endl;
+        }
+        else
+        {
+            Info<< "  Active-film alpha average (phase-change cells) = n/a"
+                << " (no cells above massRateEps)" << endl;
+        }
 
         const volScalarField* alpha2Ptr = nullptr;
 
