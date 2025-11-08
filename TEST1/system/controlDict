@@ -24,9 +24,9 @@ endTime         2e-9;           // EXTENDED: 2 ns total for complete LIFT proces
 
 deltaT          1e-13;         // Base time step (1 fs)
 adjustTimeStep  yes;           // ENABLE adaptive time stepping
-maxCo           0.1;          // Allow reasonable growth while staying stable
-maxAlphaCo      0.02;         // Aggressive interface limit
-maxDeltaT       2e-13;         // Cap adaptive growth (10 fs)
+maxCo           0.5;          // Allow reasonable growth while staying stable
+maxAlphaCo      0.5;         // Aggressive interface limit
+maxDeltaT       1e-11;         // Cap adaptive growth (10 fs)
 minDeltaT       1e-14;         // Minimum 0.01 fs for precision
 
 verbose         true;

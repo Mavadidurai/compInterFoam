@@ -32,7 +32,7 @@ solvers
         icAlpha         0;
         scAlpha         0;
         compressionLimiter 1.0;         // Caps phic relative to |phi|
-        MULESCorr       false;
+        MULESCorr       true;
         nLimiterIter    5;
         alphaApplyPrevCorr true;
         sharpeningScheme standard;
