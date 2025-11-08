@@ -672,6 +672,10 @@ label nAlphaCorr
 (
     alphaSolverControls.lookupOrDefault<label>("nAlphaCorr", 2)
 );
+label nLimiterIter
+(
+    alphaSolverControls.lookupOrDefault<label>("nLimiterIter", 3)
+);
 bool MULESCorr
 (
     alphaSolverControls.lookupOrDefault<Foam::Switch>("MULESCorr", false)
@@ -692,6 +696,7 @@ scalar scAlpha
 // is not executed (eg, post-processing builds)
 (void)nAlphaSubCycles;
 (void)nAlphaCorr;
+(void)nLimiterIter;
 (void)MULESCorr;
 (void)alphaApplyPrevCorr;
 (void)icAlpha;

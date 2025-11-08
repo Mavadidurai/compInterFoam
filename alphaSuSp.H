@@ -57,10 +57,12 @@ forAll(SpField, celli)
     const scalar evapWeight = (a2*rho2Field[celli])/rhoMix;
     const scalar condWeight = (a1*rho1Field[celli])/rhoMix;
 
-    const scalar diag = -(evapRate*evapWeight + condRate*condWeight);
+    // Store diagonal magnitude explicitly positive for stable implicit treatment
+    // Following Hardt & Wondra (J. Comput. Phys. 227, 2008)
+    const scalar diagMag = evapRate*evapWeight + condRate*condWeight;
 
-    SpField[celli] = diag;
-    SuField[celli] = -rate - diag*a1;
+    SpField[celli] = diagMag;  // Positive diagonal strengthens matrix
+    SuField[celli] = -rate + diagMag*a1;  // Explicit source term
 }
 
 tmp<volScalarField> divU
