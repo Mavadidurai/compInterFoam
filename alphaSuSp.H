@@ -59,7 +59,7 @@ forAll(SpField, celli)
 
     const scalar diag = -(evapRate*evapWeight + condRate*condWeight);
 
-    SpField[celli] = diag;
+    SpField[celli] = -diag;  // CRITICAL FIX: Negate to make Sp positive for stable diagonal
     SuField[celli] = -rate - diag*a1;
 }
 
