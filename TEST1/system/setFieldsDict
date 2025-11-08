@@ -29,106 +29,50 @@ defaultFieldValues
 regions
 (
     // ✅ CORRECTED LIFT GEOMETRY (bottom to top):
-
- 
-
     // Transparent donor substrate (bottom, 0-8 µm)
-
-    // NOTE: Treat as solid metal with alpha.metal=1 for structural stability,
-
-    // but laser model will not deposit energy here (only in Ti film)
+    // NOTE: Treat as solid metal with alpha.metal=1 for structural stability,but laser model will not deposit energy here (only in Ti film)
 
     boxToCell
-
     {
-
         box (0        0          0)
-
             (50.0e-06 8.0000e-06 10.0e-06);
 
- 
-
         fieldValues
-
         (
-
             volScalarFieldValue alpha.metal 1  // solid substrate
-
             volScalarFieldValue alpha.air   0
-
         );
-
     }
-
- 
-
     // Ti donor film on top of substrate (8.0-8.0714 µm, 71.4 nm thick)
-
     // This is the material that will be ablated and transferred
-
     boxToCell
-
     {
-
         box (0        8.0000e-06 0)
-
             (50.0e-06 8.0714e-06 10.0e-06);
-
- 
-
         fieldValues
-
         (
-
             volScalarFieldValue alpha.metal 1  // pure Ti donor film
-
             volScalarFieldValue alpha.air   0
-
         );
-
     }
-
- 
-
     // Air gap between donor film and receiver (8.0714-20.0714 µm, 12 µm)
-
     boxToCell
-
     {
-
         box (0        8.0714e-06 0)
-
             (50.0e-06 20.0714e-06 10.0e-06);
-
- 
-
         fieldValues
-
         (
-
             volScalarFieldValue alpha.metal 0
-
             volScalarFieldValue alpha.air   1  // air-filled gap
-
         );
-
     }
-
- 
-
     // Receiver substrate at top (20.0714-28.0714 µm, 8 µm)
-
     // This is where ablated material will deposit
-
     boxToCell
-
     {
-
         box (0        20.0714e-06 0)
-
             (50.0e-06 28.0714e-06 10.0e-06);
         fieldValues
-
         (
             volScalarFieldValue alpha.metal 1  // solid receiver
             volScalarFieldValue alpha.air   0
