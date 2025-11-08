@@ -192,8 +192,9 @@ extern const bool master;
         }
         else
         {
-            alpha1Eqn += fvm::Sp(Sp(), alpha1);
-            alpha1Eqn += Su();
+            // FIX: Use -= to strengthen diagonal with positive Sp
+            alpha1Eqn -= fvm::Sp(Sp(), alpha1);
+            alpha1Eqn -= Su();
         }
 
         const scalar dt = mesh.time().deltaTValue();
@@ -289,12 +290,15 @@ extern const bool master;
             }
             else
             {
+                // FIX: Include phase change source terms in incompressible case
                 MULES::correct
                 (
                     geometricOneField(),
                     alpha1,
                     talphaPhi1Un(),
                     talphaPhi1Corr.ref(),
+                    Sp(),
+                    Su(),
                     oneField(),
                     zeroField()
                 );
@@ -330,12 +334,15 @@ extern const bool master;
             }
             else
             {
+                // FIX: Include phase change source terms in incompressible case
                 MULES::explicitSolve
                 (
                     geometricOneField(),
                     alpha1,
                     phiAlphaRef,
                     alphaPhi10,
+                    Sp(),
+                    Su(),
                     oneField(),
                     zeroField()
                 );
