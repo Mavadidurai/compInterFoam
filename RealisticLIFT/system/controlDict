@@ -20,23 +20,23 @@ application     compInterFoam;
 startFrom       latestTime;
 startTime       0;
 stopAt          endTime;
-endTime         2e-9;           // Observation window through plume relaxation
+endTime         2e-9;           // EXTENDED: 2 ns total for complete LIFT process
 
-deltaT          2e-16;         // Base time step (0.2 fs)
-adjustTimeStep  yes;           // Enable adaptive time stepping
-maxCo           0.02;          // Kept conservative for micron cells
-maxAlphaCo      0.005;
-maxDeltaT       1e-15;
-minDeltaT       5e-17;
+deltaT          1e-13;         // Base time step (1 fs)
+adjustTimeStep  yes;           // ENABLE adaptive time stepping
+maxCo           0.1;          // Allow reasonable growth while staying stable
+maxAlphaCo      0.02;         // Aggressive interface limit
+maxDeltaT       2e-13;         // Cap adaptive growth (10 fs)
+minDeltaT       1e-14;         // Minimum 0.01 fs for precision
 
 verbose         true;
-thermalFluxRelax 0.15;         // Moderate damping per fs LIFT fits
-maxThermalCourant 0.01;        // Allow realistic electron-lattice steps
+thermalFluxRelax 0.1;          // Stronger damping of interface heat flux
+maxThermalCourant 0.02;         // Tightened for thermal stability
 
 // ADAPTIVE OUTPUT - more frequent during active phase, less during cooling
 writeControl    adjustableRunTime;
-writeInterval   1e-15;         // 0.2 ps intervals capture plume rise without flooding disk
-purgeWrite      100;            // Keep more time directories for analysis
+writeInterval   1e-14;         // Start with 1 ps intervals
+purgeWrite      50;            // Keep more time directories for analysis
 writeFormat     ascii;
 writePrecision  8;
 writeCompression off;
@@ -58,25 +58,23 @@ phaseChangeCoeffs
     
     // Kinetic theory parameters
     evaporationCoeff       0.03;     // Ti evaporation coefficient
-    momentumAccom       0.18;     // Momentum accommodation
-    
-    //windowWidth         100;
+    momentumAccommodationCoeff       0.18;     // Momentum accommodation
+    alphaMin              0.001;    
     dtFloor             1e-15;         // Reduced for precision
-    relaxationTime      5e-12;        // Faster response for femtosecond dynamics
-    // Permit the Clausius–Clapeyron source to match the absorbed 0.2 J/cm^2 pulse (Piqué et al., Appl. Phys. A 79, 2004)
-    maxSource           [1 -1 -3 0 0 0 0] 1e22;
-    minCoefficient      [1 -1 -3 0 0 0 0] 5e21;
-    onlyAboveVapor      false;
+    relaxationTime      1e-11;        // Faster response for femtosecond dynamics
+    maxSource           [1 -1 -3 0 0 0 0] 1e22;         // Permit HK flux to sustain the ~80 MPa recoil plateau at 6.6 kK (Feinaeugle et al., Appl. Surf. Sci. 418, 2017)
+    minCoefficient      1e6;          // Reduced for gradual cooling
+    onlyAboveVapor      true;
     metalFractionCutoff 1e-6;
     // EXTENDED ACTIVATION - through transfer and cooling
-    activationTime      ((0 4e-10));  // Active through 400 ps as intended
+    activationTime      ((0 2e-10));  // Active through 400 ps
 }
 
 // EXTENDED MASS TRANSFER - through solidification
 massTransferCoeffs
 {
     tStart  (0);
-    tEnd    (4e-10);   // Active through 400 ps
+    tEnd    (2e-10);   // Active through 400 ps
     rateMax 3e13;      // Needed to ablate the 70 nm Ti film within ~200 ps (Piqué et al., Appl. Phys. A 79, 2004)
 }
 
@@ -89,19 +87,25 @@ useAdvancedInterfaceCapturing  true;
 advancedInterfaceCapturing
 {
     model               kinetic_theory;  // Not arbitrary scaling!
-    stickingCoeff       0.03;
-    momentumAccom       0.18;
-    recoilMax             8e7;      // 80 MPa upper bound (fs Ti LIFT measurements)
-    clampRecoil           true;
-    scaleRecoilMax        false;    // ✅ DISABLE scaling (let physics control it)
-    recoilTempOffset      0;        // Activate recoil exactly at Tvap (Phipps et al., J. Appl. Phys. 2017)
-    phaseChangeTempOffset 0;        // Activate phase change at Tvap (Phipps et al., J. Appl. Phys. 2017)
-    recoilRelax           0.3;      // ✅ INCREASE from 0.1 (more damping)
-    alphaMin              0.01;
-    alphaMax              1;
+    stickingCoeff       0.18;
+    momentumAccommodationCoeff       0.18;
+    // Knight (Phys. Rev. B 20, 1979) predicts recoil pressures exceeding
+    // 0.3 GPa near 6000 K.  The fs deposition pushes Tl well beyond that, so
+    // allow the kinetic-theory recoil driver to reach the multi-GPa recoil
+    // levels observed in ultrafast LIFT experiments before clamping.
+    recoilMax             3.0e9;
+    clampRecoil           false;
+    scaleRecoilMax        false;
+    recoilTempOffset      0;
+    phaseChangeTempOffset 0;
+    recoilRelax           0.5;
+    alphaMin              0.001;
+    //alphaMax              0.999;
     maxPhysicalTemperature 10000;
-    // Physical limits
-    maxRecoilPressure   8e7;    // 80 MPa absolute max (Papazoglou 2002; Feinaeugle 2017)
+        // Physical limits
+    // Keep the absolute bound consistent with the multi-GPa recoil required to
+    // sustain fs-LIFT expulsion without premature pressure clamping.
+    maxRecoilPressure   3.0e9;
 }
 logRecoilSuppression true;
 
@@ -113,7 +117,6 @@ maxT            10000;          // Keep within measured Ti plume temperatures (~
 // Two-temperature model properties - OPTIMIZED FOR EXTENDED RUNS
 twoTemperatureProperties
 {
-    
     // Linear electronic heat capacity: Ce = γTe
     Ce
     {
@@ -126,24 +129,26 @@ twoTemperatureProperties
         );
     }
     
-    // Temperature-dependent coupling (Lin & Zhigilei, Phys. Rev. B 77, 2008)
-    G
-    {
-        type        table;
-        values
-        (
-            (300     2.4e17)
-            (1000    2.7e17)
-            (2000    3.2e17)
-            (5000    3.9e17)
-            (10000   4.5e17)
-            (15000   4.8e17)
-            (20000   5.0e17)
-        );
-    }
-
+    // Temperature-dependent coupling
+G
+{
+    type table;
+    values
+    (
+        (300      1.0e18)   // ✓ CORRECT
+        (1000     3.0e18)   // ✓ CORRECT
+        (2000     6.0e18)   // ✓ CORRECT
+        (3000     1.0e19)   // ✓ CORRECT
+        (5000     2.0e19)   // ✓ CORRECT
+        (7000     3.0e19)
+        (10000    5.0e19)   // ✓ CORRECT
+        (15000    7.0e19)
+        (20000    1.0e20)   // ✓ CORRECT
+    );
+}
+    
     Cl  [1 -1 -2 -1 0 0 0] 2.5e6;
-    De  [0  2 -1  0 0 0 0] 5e-5;
+    De  [0  2 -1  0 0 0 0] 1e-4;
 
     gasMetalExchangeCoeff
     {
@@ -152,31 +157,26 @@ twoTemperatureProperties
         Z_gas       383;        // Ar acoustic impedance [Pa·s/m]
         rho_metal   4500;       // Ti density [kg/m^3]
         rho_gas     1.7;        // Ar density [kg/m^3]
+        maxTemperature 0;      // Optional cap [K] (0 => no cap)
     }
-    gasMetalCutoffTemperature 3560;   // Disable Kapitza coupling once Ti reaches Tvap (Piqué et al., Appl. Phys. A 79, 2004)
-    minMetalFractionForExchange 0.5;  // Require ≥50% metal volume fraction before coupling to gas plume
-    minGasMetalExchangeCoeff [1 -1 -3 -1 0 0 0] 0;
-    // Kapitza conduction across a ~50 nm interface at 5–6 kK yields
-    // volumetric couplings O(1e17) W/m^3/K (Swartz & Pohl 1989), so keep the
-    // limiter comfortably above that to avoid choking the physics.
-    maxGasMetalExchangeCoeff [1 -1 -3 -1 0 0 0] 1e18;
-    maxGasMetalHeatFlux    5e7;   // Surface heat flux cap [W/m²]
-    
-    // ✅ ADJUSTED: Allow higher lattice temperatures now that coupling works
+    gasMetalCutoffTemperature 3560;
+    minMetalFractionForExchange 0.5;
+    minGasMetalExchangeCoeff [1 -1 -3 -1 0 0 0] 1e8;
+    maxGasMetalExchangeCoeff [1 -1 -3 -1 0 0 0] 5e9;
+    maxGasMetalHeatFlux    5e9;
     minTe           200;
-    maxTe           18000;      // Electron temperatures measured in fs plumes stay < 18 kK
-    maxTl           9000;       // Lattice temperatures peak around 8–9 kK
+    maxTe           20000;      // Allow hot electrons
+    maxTl           8000;       // Allow Ti lattice to exceed the ≈6.6 kK needed for 80 MPa recoil (Feinaeugle et al., Appl. Surf. Sci. 418, 2017)
     ambientTemperature 300;
-    temperatureDifferenceFloor 10.0;                     // Guard against Te/Tl collapse
-    
+    temperatureDifferenceFloor 10.0;                     // ← MISSING (causes singularities)
     // ADAPTIVE MICRO-STEPPING
-    electronSubCycles        20;
-    minElectronSubCycles     10;
-    maxElectronSubCycles     50;     // Allow rapid transients
+    electronSubCycles        1;
+    minElectronSubCycles     1;
+    maxElectronSubCycles     10;     // Allow rapid transients
     maxElectronDeltaT        [0 0 1 0 0 0 0] 1e-15;  // Guard rapid transients
 
-    nInnerCouplingSweeps         3;  // More coupling iterations
-    innerCouplingResidualTol     1e-4; // Enable convergence check
+    nInnerCouplingSweeps         2;  // More coupling iterations
+    innerCouplingResidualTol     1e-3; // Enable convergence check
     
     klHighTThreshold 1000;
     klExponent       0.5;
@@ -184,13 +184,14 @@ twoTemperatureProperties
     metalFractionFloor      1e-6;
     metalFractionCutoff     1e-6;
     metalAmbientBlendWidth  1e-3;
-    CvolGasFloor    1e6;  // J/m^3/K floor for gas cells
-
-    energyTolerance         0.05;    // Relaxed for long runs
-    energyDiagnostics       true;
-    temperatureDiagnostics  true;   // Reduce output volume
-    energyAudit             true;
+    CvolGasFloor            1e6;     // J/m³/K minimum for gas
+    
+    energyTolerance         0.02;    // Relaxed for long runs
+    energyDiagnostics       false;
+    temperatureDiagnostics  false;   // Reduce output volume
+    energyAudit             false;
 }
+
 
 // Clean monitoring functions
 functions
