@@ -59,10 +59,7 @@ forAll(SpField, celli)
 
     const scalar diag = -(evapRate*evapWeight + condRate*condWeight);
 
-    // CRITICAL FIX: Sp must be positive for proper implicit treatment
-    // The negative sign is handled in alphaEqn.H (alpha1Eqn -= fvm::Sp(...))
-    // so we negate diag here to get the correct diagonal contribution
-    SpField[celli] = -diag;
+    SpField[celli] = diag;
     SuField[celli] = -rate - diag*a1;
 }
 
