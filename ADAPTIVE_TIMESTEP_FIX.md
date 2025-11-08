@@ -46,17 +46,18 @@ if (writeControl == adjustableRunTime)
 
 ## The Fix
 
-**Changed:** `writeInterval = 1e-14` → `writeInterval = 1e-11`
+**Changed:** `writeInterval = 1e-14` → `writeInterval = 1e-10`
 
 ```cpp
 writeControl    adjustableRunTime;
-writeInterval   1e-11;         // Write every 10 ps (matches maxDeltaT)
+writeInterval   1e-10;         // Write every 100 ps (10× maxDeltaT)
 ```
 
 Now:
 - deltaT can grow up to 1e-11 s (limited by maxDeltaT and Courant)
-- Output written every 10 ps (reasonable frequency)
+- Output written every 100 ps (~10 timesteps at max dt)
 - No artificial timestep cap
+- Reasonable output frequency (not excessive I/O)
 
 ## Alternative Approaches
 
