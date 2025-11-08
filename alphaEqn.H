@@ -192,8 +192,8 @@ extern const bool master;
         }
         else
         {
-            alpha1Eqn += fvm::Sp(Sp(), alpha1);
-            alpha1Eqn += Su();
+            alpha1Eqn -= fvm::Sp(Sp(), alpha1);
+            alpha1Eqn -= Su();
         }
 
         // NOTE: We intentionally avoid adding the historical "stabilizing" diagonal
