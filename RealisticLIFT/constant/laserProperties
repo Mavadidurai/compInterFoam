@@ -35,6 +35,9 @@ FoamFile
 // and peakIntensity ≤6e16 W/m^2.
 // Gaussian pulse focused in the 71.4 nm donor film (y=20.0000–20.0714 µm)
 // Domain: x∈[0,50e-6], y∈[0,32.0714e-6], z∈[0,10e-6]
+// LASER TIMING - shorter pulse, longer observation
+laserStartTime      0;
+laserEndTime    2e-10;
 // CORRECTED: Specify exact film thickness to match blockMeshDict geometry
 filmThicknessExpected    71.4e-9;    // 71.4 nm (matches y3 - y2 = 20.0714 - 20.0000)
 filmCenterY              20.0357e-6;    // center at focus.y
@@ -71,11 +74,11 @@ gaussianProfile     true;
 
 // Optional intensity entry (consistent with pulseEnergy & pulseWidth)
 continuousLaser     false;
-maxVolumetricSource 1e24;  // [W/m³] keep above the 0.2 J/cm^2, 200 fs Ti peak (~9e23 W/m³; Piqué et al., Appl. Phys. A 79, 2004)
+maxVolumetricSource 7e24;  // [W/m³] keep above the 0.2 J/cm^2, 200 fs Ti peak (~9e23 W/m³; Piqué et al., Appl. Phys. A 79, 2004)
 
 // Repeating pulse train aligned with controlDict laser window
-pulseFrequency      1e11;  // [1/s] 10 ps spacing so multiple pulses fire in 0–200 ps window
-pulseDutyCycle      0.1;   // [-] 1 ps gate comfortably covers the 200 fs width each period
+pulseFrequency      0;  // [1/s] 10 ps spacing so multiple pulses fire in 0–200 ps window
+pulseDutyCycle      0;   // [-] 1 ps gate comfortably covers the 200 fs width each period
 // Energy tolerance for validation
 pulseEnergyToleranceRel 0.05; // 5% relative tolerance
 pulseEnergyToleranceAbs 5e-10; // 1 nJ absolute tolerance
