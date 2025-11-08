@@ -185,17 +185,18 @@ extern const bool master;
             ).fvmDiv(phiAlphaRef, alpha1)
         );
 
+        // Apply phase change diagonal (with compressibility if available)
         if (divU.valid())
         {
             alpha1Eqn -= fvm::Sp(Sp() + divU(), alpha1);
-            alpha1Eqn -= Su();
         }
         else
         {
-            // FIX: Use -= to strengthen diagonal with positive Sp
             alpha1Eqn -= fvm::Sp(Sp(), alpha1);
-            alpha1Eqn -= Su();
         }
+
+        // Apply phase change explicit source (common to both cases)
+        alpha1Eqn -= Su();
 
         const scalar dt = mesh.time().deltaTValue();
          const dimensionedScalar diagThreshold
