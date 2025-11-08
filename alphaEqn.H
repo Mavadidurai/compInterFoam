@@ -196,32 +196,12 @@ extern const bool master;
             alpha1Eqn += Su();
         }
 
-        const scalar dt = mesh.time().deltaTValue();
-         const dimensionedScalar diagThreshold
-        (
-            "alphaDiagThreshold",
-            dimless/dimTime,
-            Foam::SMALL/max(dt, Foam::VSMALL)
-        );
-        const dimensionedScalar minDiag = gMin(alpha1Eqn.diag());
-
-        // DISABLED: Stabilizing diagonal was freezing interface motion at femtosecond timescales
-        // The diagThreshold = SMALL/dt becomes huge (0.3) with dt = 1e-14 s, preventing
-        // alpha.metal from evolving despite sufficient driving forces (recoil, velocity).
-        // With the MULES limiter and other safeguards, the matrix should remain stable.
-/*
-        if (minDiag.value() < diagThreshold.value())
-        {
-            alpha1Eqn += fvm::Sp(diagThreshold, alpha1);
-
-            if (verbose && master)
-            {
-                Info<< "alpha1Eqn: added stabilizing diagonal "
-                    << diagThreshold.value()
-                    << " to avoid singular matrix" << endl;
-            }
-        }
-*/
+        // NOTE: We intentionally avoid adding the historical "stabilizing" diagonal
+        // term here.  On femtosecond timesteps (dt ~ 1e-14 s) the resulting
+        // SMALL/dt contribution (O(1e-1)) overwhelms the physical diagonal (O(1e-3)),
+        // forcing alpha1 to remain equal to its previous value and freezing the
+        // phase-field evolution.
+        
         SolverPerformance<scalar> solverPerf = alpha1Eqn.solve(alpha1.name());
 
         if (solverPerf.singular())
