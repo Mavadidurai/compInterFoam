@@ -31,7 +31,9 @@ solvers
         icAlpha         0;
         scAlpha         0;
         compressionLimiter 1.0;         // Full compression for droplet formation
-        MULESCorr       true;
+        MULESCorr       false;          // CRITICAL FIX: Use explicit MULES at femtosecond timescales
+                                         // Implicit correction creates ill-conditioned matrix: 1/dt = 1e14
+                                         // dominates phase change sources (~0.2) by 14 orders of magnitude
         nLimiterIter    5;              // Increased from 3 for better limiting
         alphaApplyPrevCorr true;        // Use previous correction to break frozen state
         sharpeningScheme standard;
