@@ -21,11 +21,11 @@ solvers
     {
         solver          PBiCGStab;
         preconditioner  DILU;
-        tolerance       1e-08;
-        relTol          0.0;
+        tolerance       1e-12;
+        relTol          0.0;            
         maxIter         100;
 
-        nAlphaCorr      2;              // Keep at 1
+        nAlphaCorr      5;                            // Keep at 1
         nAlphaSubCycles 5;              // Increased to stabilise transport
         cAlpha          1.0;            // Softer compression to avoid overshoot
         icAlpha         0;
@@ -123,11 +123,11 @@ PIMPLE
 
     residualControl
     {
-        "alpha.*" { tolerance 1e-5;  relTol 0.01; }
+        "alpha.*" { tolerance 1e-9;  relTol 0.01; }
         p_rgh     { tolerance 1e-4;  relTol 0.05; }
         U         { tolerance 1e-5;  relTol 0.01; }
-        Te        { tolerance 5e-9;  relTol 0.0;  }   // thermal is stiff; be stricter
-        Tl        { tolerance 5e-9;  relTol 0.0;  }
+        Te        { tolerance 5e-9;  relTol          0.0;              }   // thermal is stiff; be stricter
+        Tl        { tolerance 5e-9;  relTol          0.0;              }
         T         { tolerance 1e-8;  relTol 0.01;  }   // if gas T exists
     }
     
