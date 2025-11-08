@@ -35,7 +35,7 @@ maxThermalCourant 0.5;          // Increased from 0.02 - allow dt growth!
 
 // ADAPTIVE OUTPUT - more frequent during active phase, less during cooling
 writeControl    adjustableRunTime;
-writeInterval   1e-14;         // Start with 1 ps intervals
+writeInterval   1e-11;         // Write every 10 ps (matches maxDeltaT)
 purgeWrite      50;            // Keep more time directories for analysis
 writeFormat     ascii;
 writePrecision  8;
