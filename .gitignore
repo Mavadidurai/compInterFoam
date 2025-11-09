@@ -1,0 +1,34 @@
+# OpenFOAM simulation output files
+# Time directories
+*/[0-9]*/
+*/[0-9].[0-9]*/
+*/0/
+*/0.orig/
+
+# Log files
+*.log
+log.*
+*.out
+
+# Processor directories (parallel decomposition)
+processor*/
+
+# Post-processing
+postProcessing/
+
+# Mesh files (binary)
+*.obj
+
+# Dynamic code
+dynamicCode/
+
+# VTK output
+*.vtk
+*.vtu
+
+# Other temporary files
+*~
+*.swp
+*.swo
+.*.swp
+nohup.out
