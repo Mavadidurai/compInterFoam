@@ -20,9 +20,9 @@ application     compInterFoam;
 startFrom       startTime;
 startTime       0;
 stopAt          endTime;
-endTime         2e-9;           // EXTENDED: 2 ns total for complete LIFT process
+endTime         5e-10;           // EXTENDED: 2 ns total for complete LIFT process
 
-deltaT          1e-12;         // Base time step (1 fs)
+deltaT          5e-14;         // Base time step (1 fs)
 adjustTimeStep  yes;           // ENABLE adaptive time stepping
 maxCo           0.5;          // Increased from 0.02 - allow dt growth!
 maxAlphaCo      0.5;         // Aggressive interface limit
