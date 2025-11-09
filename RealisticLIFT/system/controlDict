@@ -35,8 +35,8 @@ maxThermalCourant 0.5;         // Increased from 0.02 - allow dt growth!
 
 // ADAPTIVE OUTPUT - more frequent during active phase, less during cooling
 writeControl    adjustableRunTime;
-writeInterval   1e-9;          // 1 ps intervals (minimize I/O overhead)
-purgeWrite      10;            // Keep minimal time directories to save disk space
+writeInterval   5e-12;         // 5 ps intervals (20 snapshots for 100 ps run)
+purgeWrite      0;             // Keep all timesteps for post-processing
 writeFormat     ascii;
 writePrecision  8;
 writeCompression off;
