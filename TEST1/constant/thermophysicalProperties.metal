@@ -60,7 +60,8 @@ mixture
 Tsol                1941.0;             // K - Solidus temperature
 Tliq                1941.0;             // K - Liquidus temperature
 Tvap                3560.0;             // K - Vaporisation temperature
-hf    		    3.65e5;     	// ← vaporization latent heat (Ti), not fusion
+hf    		    9.1e6;     	        // J/kg - Correct Ti vaporization latent heat (Palik)
+                                        // Previous value 3.65e5 was fusion heat (25× too low)
 kappa               17.2;               // W/m·K - Thermal conductivity
 
 // ************************************************************************* //
