@@ -61,8 +61,11 @@ focus            (25e-6 20.0357e-6 5e-6);
 direction       (0 -1 0);
 
 // Fresnel + absorption calculated internally
-absorptionCoeff          6e7;       // 1/m (α = 2k/λ for Ti)
-                                    // Gives ~17 nm penetration depth
+// Ti optical constants at 343 nm (Palik, Handbook of Optical Constants Vol. 1):
+//   n ≈ 2.0-2.2, k ≈ 2.8
+//   α = 4πk/λ = 4π(2.8)/(343e-9) ≈ 1.03e8 m⁻¹
+absorptionCoeff          1.03e8;    // 1/m (Ti at 343 nm, validated against Palik)
+                                    // Gives ~9.7 nm penetration depth (δ = 1/α)
 
 // Reflectivity / profile
 reflectivity        0.35;
