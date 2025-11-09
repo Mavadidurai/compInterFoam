@@ -114,7 +114,7 @@ logRecoilSuppression true;
 // Temperature clamping - EXTENDED RANGE
 enableTClamp    false;
 minT            200;           // Allow cooling below room temp
-maxT            8000;          // Clamp high temperatures in line with lattice limit
+maxT            10000;         // Allow measured Ti plume temperatures (was 8000, too restrictive)
 
 // Two-temperature model properties - OPTIMIZED FOR EXTENDED RUNS
 twoTemperatureProperties
@@ -168,7 +168,7 @@ G
     maxGasMetalHeatFlux    5e9;
     minTe           200;
     maxTe           20000;      // Allow hot electrons
-    maxTl           8000;       // Allow Ti lattice to exceed the ≈6.6 kK needed for 80 MPa recoil (Feinaeugle et al., Appl. Surf. Sci. 418, 2017)
+    maxTl           10000;      // Allow measured Ti plume temperatures (was 8000, now matches RealisticLIFT)
     ambientTemperature 300;
     temperatureDifferenceFloor 10.0;                     // ← MISSING (causes singularities)
     // ADAPTIVE MICRO-STEPPING
