@@ -35,8 +35,8 @@ maxThermalCourant 0.5;         // Increased from 0.02 - allow dt growth!
 
 // ADAPTIVE OUTPUT - more frequent during active phase, less during cooling
 writeControl    adjustableRunTime;
-writeInterval   1e-10;         // Start with 1 ps intervals
-purgeWrite      50;            // Keep more time directories for analysis
+writeInterval   5e-11;         // Write every 50 fs (0.05 ps) to capture LIFT dynamics
+purgeWrite      100;           // Keep more time directories for detailed analysis
 writeFormat     ascii;
 writePrecision  8;
 writeCompression off;
