@@ -15,8 +15,8 @@ FoamFile
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
 // METAL PHASE PROPERTIES for LIFT Test Case
-// Density is now temperature dependent via a polynomial relation derived from
-// representative solid/liquid titanium data (ρ ≈ 4500 kg/m3 at 300 K decreasing
+// Density is temperature-dependent using Boussinesq approximation for thermal expansion
+// Representative solid/liquid titanium data (ρ ≈ 4500 kg/m3 at 300 K decreasing
 // to ≈ 3400 kg/m3 in the high-temperature liquid state).
 thermoType
 {
@@ -24,7 +24,7 @@ thermoType
     mixture         pureMixture;
     transport       const;
     thermo          hConst;
-    equationOfState rhoConst;
+    equationOfState Boussinesq;
     specie          specie;
     energy          sensibleEnthalpy;
 }
@@ -38,7 +38,7 @@ mixture
     
     thermodynamics
    {
-        Cp              560;            // J/kg·K - Heat capacity
+        Cp              650;            // J/kg·K - Heat capacity (liquid Ti, Keene 1993)
         Hf              0.0;            // J/kg - Heat of formation
         Tref            300;            // K - Reference temperature
         Href            0;              // J/kg - Reference enthalpy
@@ -46,13 +46,15 @@ mixture
     
     transport
     {
-        mu              2.25e-3;        // Pa·s - Dynamic viscosity
-        Pr              0.03;           // Prandtl number (liquid metals)
+        mu              2.35e-3;        // Pa·s - Dynamic viscosity (liquid Ti, Keene 1993)
+        Pr              0.032;          // Prandtl number (consistent with Ti data)
     }
-    
+
     equationOfState
     {
-        rho             4515;           // kg/m3 - use stable constant density
+        rho0            4515;           // kg/m³ - Reference density at T0
+        beta            7.6e-5;         // 1/K - Thermal expansion coefficient for Ti
+        T0              300;            // K - Reference temperature
     }
 }
 
