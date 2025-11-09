@@ -1,0 +1,37 @@
+#!/bin/sh
+cd "${0%/*}" || exit                                # Run from this directory
+. ${WM_PROJECT_DIR:?}/bin/tools/RunFunctions        # Tutorial run functions
+#------------------------------------------------------------------------------
+
+# Clean any previous run
+./Allclean
+
+# Restore 0 directory from 0.orig
+restore0Dir
+
+echo "=========================================="
+echo " LIFT Simulation Setup"
+echo "=========================================="
+
+# Generate mesh
+echo "Generating mesh with blockMesh..."
+runApplication blockMesh
+
+# Check mesh quality
+echo "Checking mesh quality..."
+runApplication checkMesh
+
+# Create cell zones for substrate and metal film
+echo "Creating cell zones..."
+runApplication topoSet
+
+# Initialize fields (metal film, temperatures, etc.)
+echo "Initializing field values..."
+runApplication setFields
+
+echo "=========================================="
+echo " Setup complete!"
+echo " Run './compInterFoam' to start simulation"
+echo "=========================================="
+
+#------------------------------------------------------------------------------

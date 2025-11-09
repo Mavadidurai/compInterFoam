@@ -74,13 +74,12 @@ solvers
 
     T
     {
-        solver          smoothSolver;
-        smoother        symGaussSeidel;
-        nSweeps         6;
+        solver          PBiCGStab;
+        preconditioner  DILU;
         tolerance       1e-8;
         relTol          0.01;             // Allow 1% relative convergence
         maxIter         1000;             // Increased iteration limit
-        minIter         3;                // Ensure minimum work
+        minIter         1;                // Ensure minimum work
     }
 
     TFinal
@@ -93,24 +92,22 @@ solvers
 
     Te
     {
-         solver          smoothSolver;
-        smoother        symGaussSeidel;
-        nSweeps         6;
+        solver          PBiCGStab;
+        preconditioner  DILU;
         tolerance       1e-8;
         relTol          0;
         maxIter         1000;
-        minIter         3;
+        minIter         1;
     }
 
     Tl
     {
-        solver          smoothSolver;
-        smoother        symGaussSeidel;
-        nSweeps         6;
+        solver          PBiCGStab;
+        preconditioner  DILU;
         tolerance       1e-8;
         relTol          0;
         maxIter         1000;
-        minIter         3;
+        minIter         1;
     }
 }
 
