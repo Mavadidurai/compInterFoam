@@ -22,7 +22,7 @@ startTime       0;
 stopAt          endTime;
 endTime         2e-9;           // EXTENDED: 2 ns total for complete LIFT process
 
-deltaT          1e-12;         // Increased starting timestep to accelerate growth
+deltaT          5e-14;         // Conservative start to allow temperature field development
 adjustTimeStep  yes;           // ENABLE adaptive time stepping
 maxCo           0.5;           // Increased from 0.1 - allow faster growth
 maxAlphaCo      0.5;           // Increased from 0.02 - interface can handle it

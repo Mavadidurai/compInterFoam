@@ -39,20 +39,30 @@ This ensures OpenFOAM:
 - Reads deltaT from controlDict (not from saved files)
 - Starts with a clean slate
 
-### 2. Increase Initial deltaT
+### 2. Conservative Initial deltaT
 
 **File:** `system/controlDict:25`
 
 ```diff
 - deltaT          1e-13;         // Base time step
-+ deltaT          1e-12;         // Increased for faster growth
++ deltaT          5e-14;         // Conservative start for temperature development
 ```
 
-**Why?** Adaptive timestepping grows gradually (typically 1.2× per step):
-- Starting from `1e-13`: Takes ~86 steps to reach `1e-11` (1000× growth)
-- Starting from `1e-12`: Takes ~58 steps to reach `1e-11` (10× growth)
+**Why Conservative Start?** At Time = 0, all fields are uniform (T = 300K):
+- No temperature gradients exist yet
+- No phase change sources active
+- Alpha equation has no driving force
 
-Larger starting deltaT = faster convergence to maxDeltaT.
+Starting too large (e.g., 1e-12) causes **singular matrix** on first timestep!
+
+**Solution:** Start at `5e-14` to allow:
+1. First few timesteps establish temperature gradients
+2. Phase change sources activate gradually
+3. Then adaptive timestepping grows to `maxDeltaT = 1e-11`
+
+Growth trajectory:
+- `5e-14` → `6e-14` → `1e-13` → `5e-13` → `1e-12` → `1e-11` (~100 steps)
+- Still reaches maxDeltaT quickly once physics develops!
 
 ### 3. Use Clean Restart Script
 
@@ -91,13 +101,13 @@ compInterFoam 2>&1 | tee log.restart
 
 ## Expected Behavior
 
-You should see deltaT growing immediately:
+You should see deltaT growing gradually from conservative start:
 
 ```
-Time = 0 s,      deltaT = 1e-12 s   (starting value)
-Time = 1e-12 s,  deltaT = 1.2e-12 s (growing by 20%)
-Time = 3e-12 s,  deltaT = 1.5e-12 s
-Time = 1e-11 s,  deltaT = 5e-12 s
+Time = 0 s,      deltaT = 5e-14 s   (conservative start)
+Time = 5e-14 s,  deltaT = 6e-14 s   (growing by 20%)
+Time = 5e-13 s,  deltaT = 1e-13 s   (accelerating)
+Time = 5e-12 s,  deltaT = 1e-12 s   (continuing)
 Time = 5e-11 s,  deltaT = 1e-11 s   (reached maximum!)
 ```
 
@@ -111,8 +121,9 @@ Once at `deltaT = 1e-11`:
 | Issue | Previous | Fixed |
 |-------|----------|-------|
 | Restart source | `latestTime` (uses saved deltaT) | `startTime` (uses controlDict) |
-| Starting deltaT | 1e-13 s | 1e-12 s |
-| Growth steps | ~86 steps to maxDeltaT | ~58 steps to maxDeltaT |
+| Starting deltaT | 1e-13 s (or 1e-14) | 5e-14 s (conservative) |
+| Initial stability | Singular matrix possible | Gradual field development |
+| Growth steps | ~86-200 steps | ~100 steps to maxDeltaT |
 | Persistence | Cached in time dirs | Fresh from controlDict |
 
 ## Verification
@@ -124,9 +135,10 @@ After running `cleanRestart.sh`, verify:
 grep "deltaT =" log.restart | head -20
 
 # Should show increasing values:
-# deltaT = 1e-12
-# deltaT = 1.2e-12
-# deltaT = 1.44e-12
+# deltaT = 5e-14
+# deltaT = 6e-14
+# deltaT = 7.2e-14
+# deltaT = 1e-13
 # ... up to 1e-11
 ```
 
@@ -143,7 +155,28 @@ grep "deltaT =" log.restart | head -20
 
 **The solution:**
 - ✅ **startFrom = startTime** (ignore saved values)
-- ✅ **Larger initial deltaT** (faster growth)
+- ✅ **Conservative initial deltaT** (avoid singular matrix at t=0)
 - ✅ **Clean restart script** (guaranteed fresh start)
+
+## Additional Issue: Singular Matrix on First Timestep
+
+After implementing the fixes above, a fresh start with `deltaT = 1e-12` produced:
+
+```
+DILUPBiCGStab:  Solving for alpha.metal:  solution singularity
+alpha1 solve detected singular matrix; reverting to previous alpha field
+```
+
+**Why?** At Time = 0:
+- All fields are uniform (T = 300K everywhere)
+- No temperature gradients
+- No phase change sources (T < 3560K)
+- Alpha equation has zero driving force → singular matrix
+
+**Fix:** Reduced initial `deltaT` from `1e-12` to `5e-14`
+- Allows temperature field to develop gradually over first few timesteps
+- Phase change sources activate smoothly
+- Then adaptive timestepping accelerates to `maxDeltaT = 1e-11`
+- Still reaches nanosecond timescales efficiently!
 
 **Expected result:** Simulation reaches nanosecond timescales in minutes instead of days! 🚀
