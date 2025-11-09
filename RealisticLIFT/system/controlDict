@@ -20,7 +20,7 @@ application     compInterFoam;
 startFrom       startTime;
 startTime       0;
 stopAt          endTime;
-endTime         3e-10;          // 300 ps - captures laser absorption + material transfer
+endTime         1e-10;          // 100 ps - captures laser absorption + initial material transfer
 
 deltaT          1e-12;         // Base time step (1 fs)
 adjustTimeStep  yes;           // ENABLE adaptive time stepping
