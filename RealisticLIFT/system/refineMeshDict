@@ -19,6 +19,7 @@ FoamFile
 // LIFT tests by Piqué et al. (Appl. Phys. A 1999), so refineMesh must not
 // touch the mesh or it will recreate the concave sliver cells that
 // checkMesh flagged in the user's log.
+set                 focusBox;
 coordinateSystem    global;
 globalCoeffs
 {
