@@ -15,18 +15,19 @@ FoamFile
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
 // METAL PHASE PROPERTIES for LIFT Test Case
-// Density is now temperature dependent via a polynomial relation derived from
+// Density is treated with a linear thermal expansion (Boussinesq) fit to
 // representative solid/liquid titanium data (ρ ≈ 4500 kg/m3 at 300 K decreasing
-// to ≈ 3400 kg/m3 in the high-temperature liquid state).
+// to ≈ 3400 kg/m3 near vaporisation).
 thermoType
 {
     type            heRhoThermo;
     mixture         pureMixture;
     transport       const;
     thermo          hConst;
-    equationOfState rhoConst;
+    equationOfState Boussinesq;
     specie          specie;
     energy          sensibleEnthalpy;
+
 }
 
 mixture
@@ -38,21 +39,23 @@ mixture
     
     thermodynamics
    {
-        Cp              560;            // J/kg·K - Heat capacity
+        Cp              650;            // J/kg·K - Heat capacity (molten Ti, Keene 1993)
         Hf              0.0;            // J/kg - Heat of formation
         Tref            300;            // K - Reference temperature
         Href            0;              // J/kg - Reference enthalpy
     }
-    
+
     transport
     {
-        mu              2.25e-3;        // Pa·s - Dynamic viscosity
-        Pr              0.03;           // Prandtl number (liquid metals)
+        mu              2.35e-3;        // Pa·s - Dynamic viscosity (Keene 1993)
+        Pr              0.032;          // Prandtl number (consistent with Ti data)
     }
     
     equationOfState
     {
-        rho             4515;           // kg/m3 - use stable constant density
+        rho0            4515;           // kg/m3 at reference temperature
+        beta            7.6e-5;         // 1/K thermal expansion coefficient
+        T0              300;            // Reference temperature [K]
     }
 }
 
@@ -60,7 +63,7 @@ mixture
 Tsol                1941.0;             // K - Solidus temperature
 Tliq                1941.0;             // K - Liquidus temperature
 Tvap                3560.0;             // K - Vaporisation temperature
-hf    		    9.1e6;     	// J/kg - vaporization latent heat (Ti)
+hf                  9.1e6;             // Latent heat of vaporisation for Ti (J/kg)
 kappa               17.2;               // W/m·K - Thermal conductivity
 
 // ************************************************************************* //
