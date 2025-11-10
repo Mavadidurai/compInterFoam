@@ -22,12 +22,12 @@ internalField   uniform 1e5;     // ambient reference
 
 boundaryField
 {
-  left          { type symmetryPlane; }
-  right         { type symmetryPlane; }
-  front         { type symmetryPlane; }
-  back          { type symmetryPlane; }
-    donorSubstrate     { type calculated; value uniform 1e5; }
-  receiver         { type calculated; value uniform 1e5; }
+  left           { type symmetryPlane; }
+  right          { type symmetryPlane; }
+  front          { type symmetryPlane; }
+  back           { type symmetryPlane; }
+  receiver       { type calculated; value uniform 1e5; }  // BOTTOM - receiver substrate (deposition target)
+  donorSubstrate { type calculated; value uniform 1e5; }  // TOP - transparent donor substrate (laser entry)
 }
 
 // ************************************************************************* //
