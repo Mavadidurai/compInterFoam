@@ -17,10 +17,10 @@ FoamFile
 
 application     compInterFoam;
 
-startFrom       startTime;
+startFrom       latestTime;
 startTime       0;
 stopAt          endTime;
-endTime         5e-10;           // EXTENDED: 2 ns total for complete LIFT process
+endTime         5e-10;
 
 deltaT          5e-14;         // Base time step (1 fs)
 adjustTimeStep  yes;           // ENABLE adaptive time stepping
@@ -35,8 +35,8 @@ maxThermalCourant 0.5;         // Increased from 0.02 - allow dt growth!
 
 // ADAPTIVE OUTPUT - more frequent during active phase, less during cooling
 writeControl    adjustableRunTime;
-writeInterval   1e-10;         // Start with 1 ps intervals
-purgeWrite      50;            // Keep more time directories for analysis
+writeInterval   1e-11;         // Start with 1 ps intervals
+purgeWrite      100;            // Keep more time directories for analysis
 writeFormat     ascii;
 writePrecision  8;
 writeCompression off;
@@ -168,7 +168,7 @@ G
     maxGasMetalHeatFlux    5e9;
     minTe           200;
     maxTe           20000;      // Allow hot electrons
-    maxTl           8000;       // Allow Ti lattice to exceed the ≈6.6 kK needed for 80 MPa recoil (Feinaeugle et al., Appl. Surf. Sci. 418, 2017)
+    maxTl           10000;       // Allow Ti lattice to exceed the ≈6.6 kK needed for 80 MPa recoil (Feinaeugle et al., Appl. Surf. Sci. 418, 2017)
     ambientTemperature 300;
     temperatureDifferenceFloor 10.0;                     // ← MISSING (causes singularities)
     // ADAPTIVE MICRO-STEPPING
