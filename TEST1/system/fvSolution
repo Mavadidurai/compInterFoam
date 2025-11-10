@@ -165,8 +165,9 @@ compInterFoamCoeffs
     // NOTE: Feinaeugle et al. (Appl. Surf. Sci. 418, 2017) report fs-LIFT recoil
     // peaks around 70–80 MPa.  Resolving that across the 71.4 nm film requires
     // |∇p| ≈ 1×10^15 Pa/m, so lift the limiter accordingly.
+    
     maxPressureGradient    1e16;
-        
+    maxUEqnVelocity        1000;  // Hard cap at 1000 m/s
     defaultMetalDensity    4500;
     defaultAirDensity      1.2;
     maxInitialResidual     10;
