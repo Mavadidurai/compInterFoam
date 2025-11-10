@@ -23,19 +23,17 @@ internalField   uniform 0;
 
 boundaryField
 {
-      back 		{ 	 type        symmetryPlane;	}
-      front   		{        type        symmetryPlane;     }
-      left  		{        type        symmetryPlane;     }
-      right    		{        type        symmetryPlane;     }
-      donorSubstrate     {	 type        zeroGradient;      }  // ✅ CORRECTED
+      back           { type symmetryPlane; }
 
-    receiver
+      front          { type symmetryPlane; }
 
-    {
+      left           { type symmetryPlane; }
 
-        type        zeroGradient;  // ✅ CORRECTED
+      right          { type symmetryPlane; }
 
-    }
+      receiver       { type zeroGradient;   }  // BOTTOM - receiver substrate (deposition target)
+
+      donorSubstrate { type zeroGradient;   }  // TOP - transparent donor substrate (laser entry)
 }
 
 // ************************************************************************* //

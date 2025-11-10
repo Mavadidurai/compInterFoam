@@ -27,15 +27,9 @@ boundaryField
   front     { type symmetryPlane; }
   back      { type symmetryPlane; }
 
-donorSubstrate { type fixedValue; value uniform 300; }  // ✅ CORRECTED: bottom boundary
+receiver       { type zeroGradient; }                   // BOTTOM - receiver substrate (deposition target)
 
-receiver
-
-{
-
-    type            zeroGradient;  // ✅ CORRECTED: top boundary
-
-}
+donorSubstrate { type fixedValue; value uniform 300; }  // TOP - transparent donor substrate (fixed temp)
 
 }
 
