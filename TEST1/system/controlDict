@@ -22,11 +22,11 @@ startTime       0;
 stopAt          endTime;
 endTime         5e-10;
 
-deltaT          5e-14;         // Base time step (1 fs)
+deltaT          5e-14;         // Base time step (0.05 fs)
 adjustTimeStep  yes;           // ENABLE adaptive time stepping
 maxCo           0.25;          // IMPROVED: Reduced for refined mesh stability (was 0.5)
 maxAlphaCo      0.5;           // Aggressive interface limit
-maxDeltaT       5e-12;         // IMPROVED: Stricter cap for refined mesh (was 1e-11)
+maxDeltaT       6e-13;         // IMPROVED: 0.6 ps cap for CFL < 0.25 at 800 m/s (was 5 ps)
 minDeltaT       1e-14;         // Minimum 0.01 fs for precision
 
 verbose         true;
