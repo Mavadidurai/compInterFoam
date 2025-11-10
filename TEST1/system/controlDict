@@ -55,11 +55,11 @@ phaseChangeCoeffs
     gasConstant         [0 2 -2 -1 0 0 0] 174;    // J/kg/K (Ti vapor)
     Tsol                [0 0 0 1 0 0 0] 1941;     // K
     Tvap                [0 0 0 1 0 0 0] 3560;     // K
-    
+
     // Kinetic theory parameters
     evaporationCoeff       0.03;     // Ti evaporation coefficient
     momentumAccom       0.18;     // Momentum accommodation
-    
+
     dtFloor             1e-15;         // Reduced for precision
     relaxationTime      1e-11;        // Faster response for femtosecond dynamics
     alphaMin            0.001;        // CRITICAL: Allow phase change in interface cells (was defaulting to 0.01)
@@ -68,6 +68,8 @@ phaseChangeCoeffs
     minCoefficient      1e6;          // Reduced for gradual cooling
     onlyAboveVapor      false;
     metalFractionCutoff 1e-6;
+    // CRITICAL FIX: Constrain phase-change to Ti film only
+    cellZone            tiFilm;       // Only allow ablation in Ti donor film (y=28.0-28.0714 µm)
     // EXTENDED ACTIVATION - through transfer and cooling
     activationTime      ((0 2e-10));  // Active through 400 ps
 }
@@ -104,7 +106,9 @@ advancedInterfaceCapturing
     alphaMin              0.001;
     //alphaMax              0.999;
     maxPhysicalTemperature 10000;
-        // Physical limits
+    // CRITICAL FIX: Constrain recoil pressure to Ti film only
+    cellZone              tiFilm;     // Only generate recoil in Ti donor film
+    // Physical limits
     // Keep the absolute bound consistent with the multi-GPa recoil required to
     // sustain fs-LIFT expulsion without premature pressure clamping.
     maxRecoilPressure   3.0e9;

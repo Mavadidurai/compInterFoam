@@ -46,15 +46,39 @@ actions
         } 
     }
     
-    { 
-        name substrate; 
-        type cellZoneSet; 
-        action new; 
+    {
+        name substrate;
+        type cellZoneSet;
+        action new;
         source setToCellZone;
-        sourceInfo 
-        { 
-            set substrateSet; 
-        } 
+        sourceInfo
+        {
+            set substrateSet;
+        }
+    }
+
+    // Ti donor film region - ONLY this region should undergo phase-change
+    {
+        name tiFilmSet;
+        type cellSet;
+        action new;
+        source boxToCell;
+        sourceInfo
+        {
+            // Ti donor film: y: [28.0, 28.0714] µm (71.4 nm thick at top)
+            box (0 28.0e-06 0) (50.0e-06 28.0714e-06 10.0e-06);
+        }
+    }
+
+    {
+        name tiFilm;
+        type cellZoneSet;
+        action new;
+        source setToCellZone;
+        sourceInfo
+        {
+            set tiFilmSet;
+        }
     }
 );
 

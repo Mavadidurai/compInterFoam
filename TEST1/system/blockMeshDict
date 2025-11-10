@@ -39,11 +39,11 @@ vertices
 blocks
 (
 
-    // Resolution: 250 nm in X,Z (captures 3.2µm laser spot); 4.76 nm in Ti film Y-direction
+    // Resolution: 250 nm in X,Z (captures 3.2µm laser spot); 2.38 nm in Ti film Y-direction
     hex ( 0  3  2  1   4  7  6  5)   ( 40 200  40)  simpleGrading (1 1 1)  // Receiver substrate (8 µm): 0.2 µm/cell in Y
     hex ( 4  7  6  5   8 11 10  9)   ( 40 200  60)  simpleGrading (1 1 1)  // Air gap (12 µm): 0.2 µm/cell in Y
     hex ( 8 11 10  9  12 15 14 13)   ( 40 200  40)  simpleGrading (1 1 1)  // Transparent donor substrate (8 µm): 0.2 µm/cell in Y
-    hex (12 15 14 13  16 19 18 17)   ( 40 200  15)  simpleGrading (1 1 1)  // Ti film (71.4 nm): 4.76 nm/cell in Y, 3.5 cells/penetration depth
+    hex (12 15 14 13  16 19 18 17)   ( 40 200  30)  simpleGrading (1 1 1)  // Ti film (71.4 nm): 2.38 nm/cell in Y, 4.08 cells/penetration depth
 );
 
 edges ();

@@ -118,14 +118,14 @@ solvers
 PIMPLE
 {
     momentumPredictor           true;
-    nOuterCorrectors            3;           // REDUCE: was 2 (emergency mode)
+    nOuterCorrectors            7;           // Increased from 3 for better convergence
     nCorrectors                 3;
     nNonOrthogonalCorrectors    2;
 
     residualControl
     {
         "alpha.*" { tolerance 1e-9;  relTol 0.0; }
-        p_rgh     { tolerance 1e-4;  relTol 0.05; }
+        p_rgh     { tolerance 1e-6;  relTol 0.01; }  // Tightened from 1e-4 and 0.05
         U         { tolerance 1e-5;  relTol 0.01; }
         Te        { tolerance 5e-9;  relTol 0.0;  }   // thermal is stiff; be stricter
         Tl        { tolerance 5e-9;  relTol 0.0;  }
