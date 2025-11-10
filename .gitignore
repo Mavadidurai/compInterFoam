@@ -1,9 +1,9 @@
 # OpenFOAM simulation output files
-# Time directories
+# Time directories (runtime outputs - exclude from version control)
 */[0-9]*/
 */[0-9].[0-9]*/
 */0/
-*/0.orig/
+# Note: 0.orig/ is NOT ignored - it contains template initial conditions
 
 # Log files
 *.log

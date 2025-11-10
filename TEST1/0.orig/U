@@ -27,14 +27,9 @@ boundaryField
   front     { type symmetryPlane; }
   back     { type symmetryPlane; }
 
-    donorSubstrate { type fixedValue; value uniform (0 0 0); }  // ✅ CORRECTED: bottom wall
+    receiver       { type zeroGradient; }                       // BOTTOM - receiver substrate (deposition target)
 
-    receiver
-
-    {
-
-        type            zeroGradient;  // ✅ CORRECTED: top boundary }   // donor glass wall
-}
+    donorSubstrate { type fixedValue; value uniform (0 0 0); }  // TOP - transparent donor substrate (fixed wall)
 }
 
 // ************************************************************************* //
