@@ -45,8 +45,8 @@ divSchemes
     div(phir,alpha.metal)            Gauss interfaceCompression; // REQUIRED: specialised scheme for compression flux
     div(phi,alpha.air)               Gauss vanLeer;        // ✓ GOOD
 
-    // Momentum - could be more conservative
-    div(rhoPhi,U)                    Gauss linearUpwind grad(U); // IMPROVE: Add gradient limiting
+    // Momentum - upwind for stability on refined mesh with aspect ratio ~100:1
+    div(rhoPhi,U)                    Gauss upwind; // IMPROVED: More stable than linearUpwind on stretched cells
     
     div(phi,T)       Gauss upwind;           // Changed from limitedLinear
     div(phi,Te)      Gauss upwind;           // Changed from limitedLinear

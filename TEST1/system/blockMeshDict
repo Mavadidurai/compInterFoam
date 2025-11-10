@@ -38,12 +38,18 @@ vertices
 
 blocks
 (
+    // IMPROVED MESH: Reduced aspect ratio from 263:1 to ~105:1 (X/Y) and ~21:1 (Z/Y)
+    // X: 200 cells → 250 nm/cell (was 1.25 µm/cell)
+    // Z: 200 cells → 50 nm/cell (unchanged)
+    // Y (Ti): 30 cells → 2.38 nm/cell (was 4.76 nm/cell)
+    // Total: 200×200×170 = 6.8M cells (was 1.24M)
+    // Laser spot resolution: 3.2 µm / 250 nm = 12.8 cells across diameter (was 2.5)
+    // Penetration depth resolution: 9.7 nm / 2.38 nm = 4.1 cells (was 2.0)
 
-    // Resolution: 250 nm in X,Z (captures 3.2µm laser spot); 4.76 nm in Ti film Y-direction
-    hex ( 0  3  2  1   4  7  6  5)   ( 40 200  40)  simpleGrading (1 1 1)  // Receiver substrate (8 µm): 0.2 µm/cell in Y
-    hex ( 4  7  6  5   8 11 10  9)   ( 40 200  60)  simpleGrading (1 1 1)  // Air gap (12 µm): 0.2 µm/cell in Y
-    hex ( 8 11 10  9  12 15 14 13)   ( 40 200  40)  simpleGrading (1 1 1)  // Transparent donor substrate (8 µm): 0.2 µm/cell in Y
-    hex (12 15 14 13  16 19 18 17)   ( 40 200  15)  simpleGrading (1 1 1)  // Ti film (71.4 nm): 4.76 nm/cell in Y, 3.5 cells/penetration depth
+    hex ( 0  3  2  1   4  7  6  5)   (200 200  40)  simpleGrading (1 1 1)  // Receiver substrate (8 µm): 0.2 µm/cell in Y
+    hex ( 4  7  6  5   8 11 10  9)   (200 200  60)  simpleGrading (1 1 1)  // Air gap (12 µm): 0.2 µm/cell in Y
+    hex ( 8 11 10  9  12 15 14 13)   (200 200  40)  simpleGrading (1 1 1)  // Transparent donor substrate (8 µm): 0.2 µm/cell in Y
+    hex (12 15 14 13  16 19 18 17)   (200 200  30)  simpleGrading (1 1 1)  // Ti film (71.4 nm): 2.38 nm/cell in Y, 4.1 cells/penetration depth
 );
 
 edges ();
