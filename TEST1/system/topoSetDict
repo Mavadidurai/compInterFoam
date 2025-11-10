@@ -17,33 +17,33 @@ FoamFile
 
 actions
 (
-    // CORRECTED: Focus/jet region around Ti film (now at top)
-    { 
-        name focusBox; 
-        type cellSet; 
-        action new; 
+    // FORWARD TRANSFER: Focus/jet region around Ti film at TOP
+    {
+        name focusBox;
+        type cellSet;
+        action new;
         source boxToCell;
         sourceInfo
         {
-            // Refined region around laser focus and expected jet trajectory
+            // Refined region around laser focus and expected DOWNWARD jet trajectory
             // x: [16.6667, 33.3333] µm (aligned to blockMesh cell planes)
-            // y: [18.0, 24.0] µm (covers Ti film + some air gap below)  
+            // y: [20.0, 28.0714] µm (donor substrate + Ti film at top)
             // z: [2.5, 7.5] µm (centered around z=5 µm focus)
-            box (16.6666667e-06 18.0e-06 2.5e-06)
-                (33.3333333e-06 24.0e-06 7.5e-06);
+            box (16.6666667e-06 20.0e-06 2.5e-06)
+                (33.3333333e-06 28.0714e-06 7.5e-06);
         }
     }
 
-    // CORRECTED: Substrate zone at BOTTOM of domain
+    // FORWARD TRANSFER: Receiver substrate at BOTTOM of domain
     { 
         name substrateSet; 
         type cellSet; 
         action new; 
         source boxToCell;
-        sourceInfo 
-        { 
-            // Substrate region: bottom layer only
-            box (0 0 0) (50.0e-06 8.0000e-06 10.0e-06); 
+        sourceInfo
+        {
+            // Receiver substrate region: y: [0, 8] µm (bottom layer, deposition target)
+            box (0 0 0) (50.0e-06 8.0000e-06 10.0e-06);
         } 
     }
     
