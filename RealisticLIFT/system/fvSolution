@@ -178,9 +178,10 @@ compInterFoamCoeffs
     // Clamp p_rgh to a physically defensible range so GAMG cannot run away.
     // Feinaeugle et al. observe Ti recoil plateaus close to 80 MPa, so keep the ceiling
     // above that to avoid throttling the kinetic-theory recoil driver.
+    // Vacuum lower bound (0 Pa) prevents unphysical tension in vapor/gas phases.
     pressureClamp      true;
     maxPressure        3.3e9;
-    minPressure       -5e6;
+    minPressure        0;
 
     // Density clamp settings
     densityClamp       false;
