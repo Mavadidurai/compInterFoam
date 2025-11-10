@@ -181,7 +181,7 @@ compInterFoamCoeffs
     // above that to avoid throttling the kinetic-theory recoil driver.
     // Vacuum lower bound (0 Pa) prevents unphysical tension in vapor/gas phases.
     pressureClamp      true;
-    maxPressure        3.3e9;
+    maxPressure        2.0e8;           // 200 MPa (2.5× experimental max for safety)
     minPressure        0;
 
     // Density clamp settings

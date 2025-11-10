@@ -54,7 +54,7 @@ gasAbsorptionCoeff 0;     // [1/m] gas absorption (0 disables direct gas heating
 // A 3.2 µm diameter Gaussian spot needs ~12 nJ to deliver the 0.15 J/cm^2
 // plateau fluence reported for Ti donor films (Piqué et al., Appl. Phys. A 79, 2004).
 //  Ep = F·πw^2 with w = 1.6 µm ⇒ Ep ≈ 0.15 J/cm^2 · 8.04e-8 cm^2 ≈ 1.2e-8 J.
-pulseEnergy              3.0e-8;    // 30 nJ (≈0.38 J/cm^2 for w = 1.6 µm)
+pulseEnergy              1.86e-8;   // 18.6 nJ → 0.15 J/cm² absorbed (Piqué 2004 threshold)
 
 pulseWidth               200e-15;   // 200 fs FWHM
 wavelength               343e-9;    // 343 nm (Ti absorption peak)
