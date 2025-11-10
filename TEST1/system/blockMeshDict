@@ -16,37 +16,37 @@ FoamFile
 
 scale 1e-6; // coordinates in micrometers
 
-// ✅ CORRECTED LIFT GEOMETRY (bottom to top) - matches experimental physics:
+// ✅ FORWARD TRANSFER (LIFT) GEOMETRY (bottom to top):
 
-// y0 = 0.0000     - Transparent donor substrate bottom (glass/quartz)
+// y0 = 0.0000     - Receiver substrate bottom (deposition target)
 
-// y1 = 8.0000     - Donor substrate top / Ti film bottom
+// y1 = 8.0000     - Receiver substrate top / Air gap bottom
 
-// y2 = 8.0714     - Ti film top (71.4 nm thick) / Air gap bottom
+// y2 = 20.0000    - Air gap top / Donor substrate bottom
 
-// y3 = 20.0714    - Air gap top (12 µm) / Receiver substrate bottom
+// y3 = 28.0000    - Donor substrate top (transparent glass/quartz) / Ti film bottom
 
-// y4 = 28.0714    - Receiver substrate top (8 µm)
+// y4 = 28.0714    - Ti film top (71.4 nm thick) - laser entry point
 
 vertices
 (
 
-    // y0 = 0.0000 (transparent donor substrate bottom)
+    // y0 = 0.0000 (receiver substrate bottom - deposition target)
 
     (0   0.0000  0)  (50  0.0000  0)  (50  0.0000 10)  (0   0.0000 10)
 
- 
 
-    // y1 = 8.0000 (donor substrate top / Ti film bottom)
+
+    // y1 = 8.0000 (receiver substrate top / air gap bottom)
     (0   8.0000  0)  (50  8.0000  0)  (50  8.0000 10)  (0   8.0000 10)
 
-    // y2 = 8.0714 (Ti film top / air gap bottom) - 71.4 nm thick film
-    (0   8.0714  0)  (50  8.0714  0)  (50  8.0714 10)  (0   8.0714 10)
+    // y2 = 20.0000 (air gap top / donor substrate bottom)
+    (0  20.0000  0)  (50 20.0000  0)  (50 20.0000 10)  (0  20.0000 10)
 
-    // y3 = 20.0714 (air gap top / receiver substrate bottom)
-    (0  20.0714  0)  (50 20.0714  0)  (50 20.0714 10)  (0  20.0714 10)
-    
-    // y4 = 28.0714 (receiver substrate top)
+    // y3 = 28.0000 (donor substrate top / Ti film bottom)
+    (0  28.0000  0)  (50 28.0000  0)  (50 28.0000 10)  (0  28.0000 10)
+
+    // y4 = 28.0714 (Ti film top - laser entry from above)
     (0  28.0714  0)  (50 28.0714  0)  (50 28.0714 10)  (0  28.0714 10)
 
 );
@@ -55,13 +55,13 @@ blocks
 (
     // Resolution: 250 nm in X,Z (captures 3.2µm laser spot); 4.76 nm in Ti film Y-direction
 
-    hex ( 0  3  2  1   4  7  6  5)   ( 40 200  40)  simpleGrading (1 1 1)  // Donor substrate (8 µm): 0.2 µm/cell in Y
+    hex ( 0  3  2  1   4  7  6  5)   ( 40 200  40)  simpleGrading (1 1 1)  // Receiver substrate (8 µm): 0.2 µm/cell in Y
 
-    hex ( 4  7  6  5   8 11 10  9)   ( 40 200  15)  simpleGrading (1 1 1)  // Ti film (71.4 nm): 4.76 nm/cell in Y, 3.5 cells/penetration depth
+    hex ( 4  7  6  5   8 11 10  9)   ( 40 200  60)  simpleGrading (1 1 1)  // Air gap (12 µm): 0.2 µm/cell in Y
 
-    hex ( 8 11 10  9  12 15 14 13)   ( 40 200  60)  simpleGrading (1 1 1)  // Air gap (12 µm): 0.2 µm/cell in Y
+    hex ( 8 11 10  9  12 15 14 13)   ( 40 200  40)  simpleGrading (1 1 1)  // Transparent donor substrate (8 µm): 0.2 µm/cell in Y
 
-    hex (12 15 14 13  16 19 18 17)   ( 40 200  40)  simpleGrading (1 1 1)  // Receiver substrate (8 µm): 0.2 µm/cell in Y
+    hex (12 15 14 13  16 19 18 17)   ( 40 200  15)  simpleGrading (1 1 1)  // Ti film (71.4 nm): 4.76 nm/cell in Y, 3.5 cells/penetration depth
 
 );
 
@@ -85,11 +85,11 @@ boundary
 
  
 
-    // ✅ CORRECTED: Laser enters through donor substrate at BOTTOM, deposits on receiver at TOP
+    // ✅ FORWARD TRANSFER: Laser enters through donor substrate at TOP, deposits on receiver at BOTTOM
 
-    donorSubstrate  { type wall;  faces ((0 3 2 1)); }      // BOTTOM - transparent donor substrate (laser entry)
+    receiver        { type wall;  faces ((0 3 2 1)); }      // BOTTOM - receiver substrate (deposition target)
 
-    receiver        { type wall;  faces ((16 19 18 17)); }  // TOP - receiver substrate (deposition target)
+    donorSubstrate  { type wall;  faces ((16 19 18 17)); }  // TOP - transparent donor substrate (laser entry)
 );
 
 mergePatchPairs();
