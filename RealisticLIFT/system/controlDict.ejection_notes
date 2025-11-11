@@ -1,0 +1,199 @@
+// ============================================================================
+// EJECTION-OPTIMIZED SETTINGS FOR GRADED MESH
+// ============================================================================
+// Add/modify these in your system/controlDict
+
+// IMPROVED INTERFACE CAPTURING FOR EJECTION
+// ==========================================
+advancedInterfaceCapturing
+{
+    model               kinetic_theory;
+
+    // Accommodation coefficients (keep current values)
+    stickingCoeff       0.18;
+    momentumAccommodationCoeff       0.18;
+
+    // Recoil pressure settings
+    recoilMax             3.0e9;
+    clampRecoil           false;
+    scaleRecoilMax        false;
+    recoilTempOffset      0;
+    phaseChangeTempOffset 0;
+
+    // IMPROVED FOR EJECTION: Smoother pressure application
+    recoilRelax           0.3;         // Reduced from 0.5 → smoother ejection
+
+    alphaMin              0.001;
+    maxPhysicalTemperature 10000;
+    maxRecoilPressure   3.0e9;
+}
+
+// TIME STEP CONTROL FOR EJECTION PHASES
+// ======================================
+// These settings allow adaptive behavior through different phases:
+//
+// Phase 1: Laser heating (0-0.5 ps)
+//   - Very small time steps (1-5 fs)
+//   - Resolving rapid electron-phonon coupling
+//
+// Phase 2: Vaporization onset (0.5-2 ps)
+//   - Growing time steps (5-10 fs)
+//   - Capturing phase change initiation
+//
+// Phase 3: Ejection (2-100 ps)
+//   - Larger allowed steps (10+ fs)
+//   - Following jet propagation
+//
+deltaT          1e-15;         // Start: 1 fs
+maxDeltaT       1e-14;         // Allow up to 10 fs (or 2e-14 for 20 fs in ejection)
+minDeltaT       1e-16;         // Floor: 0.1 fs
+adjustTimeStep  yes;
+
+// Courant numbers (keep conservative for graded mesh)
+maxCo           0.5;
+maxAlphaCo      0.5;
+maxThermalCourant 0.5;
+maxDi           10;            // Interface dilation Courant
+
+// EXTENDED SIMULATION TIME FOR FULL EJECTION
+// ===========================================
+// To capture complete jet formation and transfer:
+//
+startTime       0;
+endTime         2e-10;         // 200 ps (was 100 ps)
+//
+// Typical LIFT timeline:
+//   t < 0.5 ps:    Heating
+//   t = 0.5-2 ps:  Melting/vaporization
+//   t = 2-10 ps:   Jet initiation
+//   t = 10-50 ps:  Jet propagation
+//   t = 50-200 ps: Jet impact & solidification
+//
+// Extend to 200 ps to capture full process
+
+// OUTPUT SETTINGS FOR EJECTION ANALYSIS
+// ======================================
+writeControl    adjustableRunTime;
+writeInterval   5e-12;         // 5 ps intervals (adjust based on disk space)
+purgeWrite      50;            // Keep 50 snapshots max
+
+// OPTIONAL: More frequent output during ejection phase
+// Create a function to change writeInterval dynamically:
+functions
+{
+    // Detailed output during ejection (optional)
+    /*
+    timeActivatedOutput
+    {
+        type    timeActivatedFileUpdate;
+        libs    ("libutilityFunctionObjects.so");
+        enabled true;
+
+        // Different output frequencies for different phases:
+        timeVsFile
+        (
+            (0      "outputFreq_laser.cfg")    // 0-1 ps: every 1 ps
+            (1e-12  "outputFreq_ejection.cfg") // 1-100 ps: every 5 ps
+        );
+    }
+    */
+
+    // Track jet velocity and position
+    jetProbes
+    {
+        type            probes;
+        libs            ("libsampling.so");
+        enabled         true;
+        writeControl    timeStep;
+        writeInterval   100;
+
+        fields          (U alpha.metal T Tl p_rgh);
+
+        // Probe locations along expected jet path (Y-axis)
+        probeLocations
+        (
+            (25e-6 20.00e-6  5e-6)   // Ti surface
+            (25e-6 19.00e-6  5e-6)   // 1 μm into air
+            (25e-6 18.00e-6  5e-6)   // 2 μm
+            (25e-6 16.00e-6  5e-6)   // 4 μm
+            (25e-6 14.00e-6  5e-6)   // 6 μm
+            (25e-6 12.00e-6  5e-6)   // 8 μm (mid gap)
+            (25e-6 10.00e-6  5e-6)   // 10 μm
+            (25e-6  8.50e-6  5e-6)   // Near substrate
+        );
+    }
+
+    // Monitor maximum values
+    fieldMinMax
+    {
+        type            fieldMinMax;
+        libs            ("libfieldFunctionObjects.so");
+        enabled         true;
+        writeControl    timeStep;
+        writeInterval   10;
+
+        fields
+        (
+            U
+            alpha.metal
+            Tl
+            Te
+            p_rgh
+        );
+    }
+}
+
+// ELECTRON SUB-CYCLING (already set, verify these values)
+// ========================================================
+twoTemperatureProperties
+{
+    // ... (keep your existing Ce, G, Cl, De settings)
+
+    // Verify these for graded mesh:
+    electronSubCycles        1;
+    minElectronSubCycles     1;
+    maxElectronSubCycles     20;       // Adequate for fine mesh
+    maxElectronDeltaT        5e-16;    // 0.5 fs limit
+
+    nInnerCouplingSweeps         2;
+    innerCouplingResidualTol     1e-3;
+}
+
+// MASS TRANSFER & PHASE CHANGE (verify activation window)
+// ========================================================
+phaseChangeCoeffs
+{
+    model               clausius_clapeyron;
+    // ... (keep your existing coefficients)
+
+    // IMPORTANT: Ensure long enough activation for full ejection
+    activationTime      ((0 2e-10));   // Active through full 200 ps
+}
+
+massTransferCoeffs
+{
+    tStart  (0);
+    tEnd    (2e-10);   // Active through 200 ps
+    rateMax 3e13;
+}
+
+// ============================================================================
+// IMPLEMENTATION INSTRUCTIONS
+// ============================================================================
+//
+// 1. Backup your current controlDict:
+//    cp system/controlDict system/controlDict.simple
+//
+// 2. Add/modify the settings above in your controlDict
+//
+// 3. Key changes for ejection:
+//    - recoilRelax = 0.3 (smoother)
+//    - maxDeltaT can go to 2e-14 after initial heating
+//    - endTime = 2e-10 (capture full process)
+//    - Add jetProbes for tracking
+//
+// 4. Test with graded mesh:
+//    blockMesh -dict system/blockMeshDict.graded
+//    checkMesh
+//
+// ============================================================================
