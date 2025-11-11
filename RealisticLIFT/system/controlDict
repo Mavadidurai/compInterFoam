@@ -22,12 +22,12 @@ startTime       0;
 stopAt          endTime;
 endTime         1e-10;
 
-deltaT          1e-13;         // Base time step (1 fs)
+deltaT          1e-15;         // Base time step (1 fs)
 adjustTimeStep  yes;           // ENABLE adaptive time stepping
 maxCo           0.5;          // Increased from 0.02 - allow dt growth!
-maxAlphaCo      0.1;         // Aggressive interface limit
-maxDeltaT       2e-13;         // Cap adaptive growth (10 fs)
-minDeltaT       1e-14;         // Minimum 0.01 fs for precision
+maxAlphaCo      0.5;         // Aggressive interface limit
+maxDeltaT       1e-14;         // Cap adaptive growth (10 fs)
+minDeltaT       1e-16;         // Minimum 0.01 fs for precision
 
 verbose         true;
 thermalFluxRelax 0.1;          // Stronger damping of interface heat flux
@@ -171,8 +171,8 @@ G
     // ADAPTIVE MICRO-STEPPING
     electronSubCycles        1;
     minElectronSubCycles     1;
-    maxElectronSubCycles     10;     // Allow rapid transients
-    maxElectronDeltaT        [0 0 1 0 0 0 0] 1e-15;  // Guard rapid transients
+    maxElectronSubCycles     20;     // Fine 2 nm cells need more electron micro-steps increased from 10 to 20
+    maxElectronDeltaT        [0 0 1 0 0 0 0] 5e-16;  // Limit to 0.5 fs for stability //reduced from 1e-15 to 5e-16
 
     nInnerCouplingSweeps         2;  // More coupling iterations
     innerCouplingResidualTol     1e-3; // Enable convergence check
