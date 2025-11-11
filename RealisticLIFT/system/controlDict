@@ -22,20 +22,20 @@ startTime       0;
 stopAt          endTime;
 endTime         1e-10;
 
-deltaT          5e-14;         // Base time step (1 fs)
+deltaT          1e-13;         // Base time step (1 fs)
 adjustTimeStep  yes;           // ENABLE adaptive time stepping
 maxCo           0.5;          // Increased from 0.02 - allow dt growth!
-maxAlphaCo      0.5;         // Aggressive interface limit
-maxDeltaT       5e-11;         // Cap adaptive growth (10 fs)
-minDeltaT       5e-14;         // Minimum 0.01 fs for precision
+maxAlphaCo      0.1;         // Aggressive interface limit
+maxDeltaT       2e-13;         // Cap adaptive growth (10 fs)
+minDeltaT       1e-14;         // Minimum 0.01 fs for precision
 
-verbose         false;
+verbose         true;
 thermalFluxRelax 0.1;          // Stronger damping of interface heat flux
 maxThermalCourant 0.5;         // Increased from 0.02 - allow dt growth!
 
 // ADAPTIVE OUTPUT - more frequent during active phase, less during cooling
 writeControl    adjustableRunTime;
-writeInterval   5e-12;         // Start with 1 ps intervals
+writeInterval   1e-14;         // Start with 1 ps intervals
 purgeWrite      100;            // Keep more time directories for analysis
 writeFormat     ascii;
 writePrecision  8;
