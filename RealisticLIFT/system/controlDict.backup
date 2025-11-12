@@ -24,14 +24,14 @@ endTime         1e-10;
 
 deltaT          1e-15;         // Base time step (1 fs)
 adjustTimeStep  yes;           // ENABLE adaptive time stepping
-maxCo           0.2;          // Reduced from 0.5 for stability during thermal transitions
-maxAlphaCo      0.3;         // Reduced interface limit for better interface tracking
-maxDeltaT       5e-15;         // Reduced from 1e-14 to prevent large jumps (5 fs max)
+maxCo           0.5;          // Increased from 0.02 - allow dt growth!
+maxAlphaCo      0.5;         // Aggressive interface limit
+maxDeltaT       1e-14;         // Cap adaptive growth (10 fs)
 minDeltaT       1e-16;         // Minimum 0.01 fs for precision
 
 verbose         true;
 thermalFluxRelax 0.1;          // Stronger damping of interface heat flux
-maxThermalCourant 0.2;         // Reduced from 0.5 for thermal stability
+maxThermalCourant 0.5;         // Increased from 0.02 - allow dt growth!
 
 // ADAPTIVE OUTPUT - more frequent during active phase, less during cooling
 writeControl    adjustableRunTime;
