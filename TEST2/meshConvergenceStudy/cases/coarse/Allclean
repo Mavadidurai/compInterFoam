@@ -1,0 +1,27 @@
+#!/bin/sh
+cd "${0%/*}" || exit 1    # Run from this directory
+
+# Remove time directories (except 0)
+echo "Removing time directories..."
+for f in [1-9]* processor*; do
+    if [ -e "$f" ]; then
+        rm -rf "$f"
+    fi
+done
+
+# Remove logs
+echo "Removing logs..."
+rm -f log.* *.log
+
+# Remove mesh
+echo "Removing mesh..."
+rm -rf constant/polyMesh
+
+# Remove post-processing
+echo "Removing post-processing data..."
+rm -rf postProcessing
+
+# Remove dynamic code
+rm -rf dynamicCode
+
+echo "Case cleaned"

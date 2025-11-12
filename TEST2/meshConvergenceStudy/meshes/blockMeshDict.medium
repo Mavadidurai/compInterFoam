@@ -1,0 +1,106 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+| =========                 |                                                 |
+| \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox           |
+|  \\    /   O peration     | Version:  v2406                                 |
+|   \\  /    A nd           | Website:  www.openfoam.com                      |
+|    \\/     M anipulation  |                                                 |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    object      blockMeshDict;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+// Generated for mesh convergence study - TEST2 GRADED MESH
+// Refinement level: medium
+// Refinement factor: 1.0x baseline
+// Total cells: ~4.99M
+
+scale 1e-6; // coordinates in micrometers
+
+// OPTIMIZED GRADED MESH FOR fs-LIFT EJECTION
+// ==========================================
+// Improvements over uniform mesh:
+//   1. Ti film: Finer at top (peak laser absorption, laser enters from top)
+//   2. Air gap: Finer near Ti (jet formation)
+//   3. Substrate: Finer at top (interface with air)
+
+vertices
+(
+    // y0 = 0.0000 (substrate/receiver bottom)
+    (0   0.0000  0)  (50  0.0000  0)  (50  0.0000 10)  (0   0.0000 10)
+
+    // y1 = 8.0000 (substrate top / air gap bottom)
+    (0   8.0000  0)  (50  8.0000  0)  (50  8.0000 10)  (0   8.0000 10)
+
+    // y2 = 20.0000 (air gap top / Ti film bottom)
+    (0  20.0000  0)  (50 20.0000  0)  (50 20.0000 10)  (0  20.0000 10)
+
+    // y3 = 20.0714 (Ti film top) - 71.4 nm thick film
+    (0  20.0714  0)  (50 20.0714  0)  (50 20.0714 10)  (0  20.0714 10)
+);
+
+blocks
+(
+    // SUBSTRATE (receiver, 8 μm thick)
+    // Grading: (1 1 0.5) = finer cells at TOP (near air gap interface)
+    // Benefits: Better thermal coupling, smooth transition to air gap
+    hex ( 0  3  2  1   4  7  6  5)
+        (80 400 40)
+        simpleGrading (1 1 0.5)
+
+    // AIR GAP (12 μm, jet trajectory zone) - CRITICAL FOR EJECTION
+    // Grading: (1 1 2.0) = finer cells at BOTTOM (near Ti film)
+    // Benefits:
+    //   - Captures jet formation with fine resolution near Ti
+    //   - Resolves recoil pressure gradients
+    //   - Bottom cells finer than top cells
+    hex ( 4  7  6  5   8 11 10  9)
+        (80 400 80)
+        simpleGrading (1 1 2.0)
+
+    // Ti FILM (71.4 nm, ablation zone) - MOST CRITICAL
+    // Grading: (1 1 0.67) = finer cells at TOP (laser entry surface)
+    //
+    // IMPORTANT: Laser enters from TOP (donor side, y3) going DOWN
+    // Beer-Lambert absorption: I(y) = I₀ exp(-α(y3-y))
+    // Peak absorption at top surface → needs finest cells there
+    //
+    // Result: Finer cells at top (y3) → coarser at bottom (y2)
+    // Gives better resolution in first penetration depth
+    hex ( 8 11 10  9  12 15 14 13)
+        (80 400 36)
+        simpleGrading (1 1 0.67)
+);
+
+edges ();
+
+boundary
+(
+    // Symmetry planes
+    left          { type symmetryPlane; faces ((0 3 7 4)(4 7 11 8)(8 11 15 12)); }
+    right         { type symmetryPlane; faces ((1 5 6 2)(5 9 10 6)(9 13 14 10)); }
+    front         { type symmetryPlane; faces ((0 4 5 1)(4 8 9 5)(8 12 13 9)); }
+    back          { type symmetryPlane; faces ((3 2 6 7)(7 6 10 11)(11 10 14 15)); }
+
+    // Physical walls
+    substrate     { type wall;  faces ((0 3 2 1)); }      // BOTTOM
+    donor         { type wall;  faces ((12 15 14 13)); }   // TOP
+);
+
+mergePatchPairs();
+
+// Cell count information:
+// Substrate: 80 × 400 × 40 (graded 0.5 - finer at top)
+// Air gap:   80 × 400 × 80 (graded 2.0 - finer at bottom)
+// Ti film:   80 × 400 × 36 (graded 0.67 - finer at top)
+
+// Nominal cell sizes (actual varies due to grading):
+// Substrate: 0.625 × 0.020 × 0.250 μm (avg)
+// Air gap:   0.625 × 0.030 × 0.125 μm (avg)
+// Ti film:   0.625 × 0.000 × 0.2778 μm (0.18 nm avg in z)
+
+// ************************************************************************* //
