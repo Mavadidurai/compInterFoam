@@ -27,22 +27,25 @@ boundaryField
     front    { type symmetryPlane; }
     back     { type symmetryPlane; }
 
-receiver       { type zeroGradient; }  // BOTTOM - receiver substrate (deposition target)
-
-donorSubstrate
+    // BOTTOM - substrate (receiver) - strong heat sink
+    substrate
     {
         type            fixedValue;
-        value           uniform 300;  // TOP - transparent donor substrate (heat sink)
+        value           uniform 300;  // Heat sink effect
     }
-
+    
+    // TOP - donor (transparent glass) - now treated as open boundary
+    donor
+    {
+        type            zeroGradient;
+    }
 }
-// FORWARD TRANSFER (LIFT) CONFIGURATION:
 
-// - receiver (bottom): Receiver substrate - deposition target
+// REASONING:
+// - Substrate (bottom): Strong heat sink - removes excess energy
+// - Donor (top): Glass substrate - minimal thermal interference
+// - This allows proper temperature buildup in metal film
+// - Prevents over-cooling from both sides
 
-// - donorSubstrate (top): Transparent substrate acts as heat sink
 
-// - Ti donor film (28.0-28.0714 µm): Laser heats from above
-
-// - Material ejects downward toward receiver
 // ************************************************************************* //

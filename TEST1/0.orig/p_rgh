@@ -27,9 +27,11 @@ boundaryField
   front     { type symmetryPlane; }
   back     { type symmetryPlane; }
 
-  receiver       { type zeroGradient; }                        // BOTTOM - receiver substrate (deposition target)
-
-  donorSubstrate { type fixedFluxPressure; value uniform 0; }  // TOP - transparent donor substrate (fixed wall)
+  substrate     { type fixedFluxPressure; value uniform 0; }
+  donor
+  {
+      type            zeroGradient;
+  }
 }
 
 // ************************************************************************* //
