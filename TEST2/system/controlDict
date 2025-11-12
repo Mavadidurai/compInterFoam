@@ -62,7 +62,7 @@ phaseChangeCoeffs
     hf                  [0 2 -2 0 0 0 0] 9.1e6;   // J/kg (Ti vaporisation)
     gasConstant         [0 2 -2 -1 0 0 0] 174;    // J/kg/K (Ti vapor)
     Tsol                [0 0 0 1 0 0 0] 1941;     // K
-    Tvap                [0 0 0 1 0 0 0] 3560;     // K
+    Tvap                [0 0 0 1 0 0 0] 2200;     // K
     
     // Kinetic theory parameters
     evaporationCoeff       0.03;     // Ti evaporation coefficient
@@ -71,7 +71,7 @@ phaseChangeCoeffs
     relaxationTime      1e-11;        // Faster response for femtosecond dynamics
     maxSource           [1 -1 -3 0 0 0 0] 1e22;         // Permit HK flux to sustain the ~80 MPa recoil plateau at 6.6 kK (Feinaeugle et al., Appl. Surf. Sci. 418, 2017)
     minCoefficient      1e6;          // Reduced for gradual cooling
-    onlyAboveVapor      true;
+    onlyAboveVapor      false;
     metalFractionCutoff 1e-6;
     // EXTENDED ACTIVATION - through transfer and cooling
     activationTime      ((0 2e-10));  // Active through 400 ps
@@ -99,7 +99,7 @@ advancedInterfaceCapturing
     recoilMax             3.0e9;
     clampRecoil           false;
     scaleRecoilMax        false;
-    recoilTempOffset      0;
+    recoilTempOffset      -300;
     phaseChangeTempOffset 0;
     interfaceDilutionThreshold  0.5; // Prevents over-dilation
     
@@ -131,7 +131,7 @@ twoTemperatureProperties
         coeffs
         (
             (0   0)  // Constant term = 0
-            (630 1)  // Linear term: Ce = 630 · Te [J/m³/K²]
+            (150 1)  // Linear term: Ce = 150 · Te [J/m³/K²] Wellershoff (2000) experimental data
         );
     }
     
@@ -141,14 +141,12 @@ G
     type table;
     values
     (
-        (300      1.0e18)   // ✓ CORRECT
+        (300      2.0e17)   // ✓ CORRECT
         (1000     3.0e18)   // ✓ CORRECT
         (2000     6.0e18)   // ✓ CORRECT
         (3000     1.0e19)   // ✓ CORRECT
         (5000     2.0e19)   // ✓ CORRECT
-        (7000     3.0e19)
         (10000    5.0e19)   // ✓ CORRECT
-        (15000    7.0e19)
         (20000    1.0e20)   // ✓ CORRECT
     );
 }
@@ -179,7 +177,7 @@ G
     electronSubCycles        1;
     minElectronSubCycles     1;
     maxElectronSubCycles     20;     // Fine 2 nm cells need more electron micro-steps increased from 10 to 20
-    maxElectronDeltaT        [0 0 1 0 0 0 0] 5e-16;  // Limit to 0.5 fs for stability //reduced from 1e-15 to 5e-16
+    maxElectronDeltaT        [0 0 1 0 0 0 0] 1e-15;  // Limit to 0.5 fs for stability //reduced from 1e-15 to 5e-16
 
     nInnerCouplingSweeps         2;  // More coupling iterations
     innerCouplingResidualTol     1e-3; // Enable convergence check
@@ -187,7 +185,7 @@ G
     klHighTThreshold 1000;
     klExponent       0.5;
 
-    metalFractionFloor      1e-6;
+    metalFractionFloor      1e-9;
     metalFractionCutoff     1e-6;
     metalAmbientBlendWidth  1e-3;
     CvolGasFloor            1e6;     // J/m³/K minimum for gas
@@ -269,5 +267,4 @@ functions
             p_rgh
         );
     }
-}
 }
