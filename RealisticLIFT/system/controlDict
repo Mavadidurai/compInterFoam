@@ -172,7 +172,7 @@ G
     electronSubCycles        1;
     minElectronSubCycles     1;
     maxElectronSubCycles     20;     // Fine 2 nm cells need more electron micro-steps increased from 10 to 20
-    maxElectronDeltaT        [0 0 1 0 0 0 0] 5e-16;  // Limit to 0.5 fs for stability //reduced from 1e-15 to 5e-16
+    maxElectronDeltaT        [0 0 1 0 0 0 0] 1e-15;  // Limit to 0.5 fs for stability //reduced from 1e-15 to 5e-16
 
     nInnerCouplingSweeps         2;  // More coupling iterations
     innerCouplingResidualTol     1e-3; // Enable convergence check
@@ -186,9 +186,9 @@ G
     CvolGasFloor            1e6;     // J/m³/K minimum for gas
     
     energyTolerance         0.02;    // Relaxed for long runs
-    energyDiagnostics       false;
-    temperatureDiagnostics  false;   // Reduce output volume
-    energyAudit             false;
+    energyDiagnostics       true;
+    temperatureDiagnostics  true;   // Reduce output volume
+    energyAudit             true;
 }
 
 

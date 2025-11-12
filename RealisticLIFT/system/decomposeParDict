@@ -14,7 +14,7 @@ FoamFile
 }
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 // Decompose for 12 cores (Intel i7-9750H with 12 threads)
-numberOfSubdomains 12;
+numberOfSubdomains 6;
 // Decomposition method
 // scotch - automatic load balancing (recommended for complex geometries)
 // hierarchical - decompose along coordinate directions
@@ -23,7 +23,7 @@ method          scotch;
 // Optional: scotch coefficients for fine-tuning
 scotchCoeffs
 {
-    processorWeights (1 1 1 1 1 1 1 1 1 1 1 1);
+    processorWeights (1 1 1 1 1 1);
 }
 
 /*
