@@ -3,13 +3,21 @@
 The extended `compInterFoam` solver introduces several optional dictionaries and
 switches to control the laser, two-temperature, and phase-change models. The
 following tables summarize the key entries, their purpose, and in-code defaults.
+## Model documentation
+
+- **Femtosecond laser energy deposition** ([report](Models/FemtosecondLaserModel_Implementation_Report.md)) – Summarises the pulse envelope, absorption depth, and energy audits used to conserve deposited power; configure these knobs in `constant/laserProperties` and keep the coupled tolerances in `system/controlDict` (`phaseChangeCoeffs`, `recoilPressureCoeffs`) consistent with the report’s diagnostics.
+- **Two-temperature coupling** ([report](Models/TwoTemperatureModel_Detailed_Report.md)) – Reviews the electron–lattice energy paths and validation metrics; tune the critical `Ce`, `Cl`, `G`, and related bounds in `system/controlDict` → `twoTemperatureProperties` (or the optional `constant/twoTemperatureProperties`) exactly as tabulated.
+- **Advanced interface capturing** ([report](Models/AdvancedInterfaceCapturing_Thesis_Report.md)) – Explains how recoil pressure drives jet ejection and the safeguards that stabilise it; activate and adjust `alphaMin`, `alphaMax`, `recoilMax`, and diagnostic `verbose` switches inside the `advancedInterfaceCapturing` block of `system/controlDict` before running.
+- **Compressible inter-phase transport** ([report](Models/compressibleInterPhaseTransportModel_Thesis_Report.md)) – Details the mixture transport closures and required solver settings; ensure `constant/turbulenceProperties`, both phase `constant/thermophysicalProperties.*` files, and the `system/fvSolution` solvers match the recommended entries.
+- **Two-phase mixture thermodynamics** ([report](Models/twoPhaseMixtureThermo_Technical_Report.md)) – Covers the phase-change source, mixture property blending, and diagnostic fields; populate `constant/transportProperties` and the `system/controlDict` → `phaseChangeCoeffs` block with the parameter sets highlighted for titanium LIFT cases.
 ## Building the solver
-## RealisticLIFT restart policy
-The `RealisticLIFT/system/controlDict` case disables `purgeWrite` so every
-checkpoint directory is preserved until post-processing. This keeps restart
-points consistent with the archived log. If you must re-enable purging for
-storage reasons, also change `startFrom` to `startTime` so the solver always
-restarts from a clean state rather than a potentially pruned intermediate time.
+## TEST1 restart policy
+The `TEST1/system/controlDict` case keeps `purgeWrite 100`, preserving the most
+recent checkpoints without letting the time directories grow without bound.
+This strikes a balance between restart coverage and disk usage. If you adjust
+`purgeWrite` for a different retention policy, keep `startFrom startTime` (as
+already configured in the case) so the solver consistently restarts from a
+well-defined state.
 The code relies on OpenFOAM's `wmake` build system. To avoid the
 `bash: command not found: wmake` error, first source the OpenFOAM
 environment (replace the path with the one that matches your installation):
@@ -35,12 +43,12 @@ the helper script in the repository root:
 It will delegate to the system `wmake` when available or print a clear
 instruction when the OpenFOAM environment is missing.
 ## `system/controlDict`
-The reference case in [`Latest/system/controlDict`](Latest/system/controlDict)
-keeps the base time step fixed with `adjustTimeStep no`, so the Courant-number
-limits (`maxCo`, `maxAlphaCo`, `maxThermalCourant`) act as documentation only
-unless you explicitly set `adjustTimeStep yes`. Output is controlled with
-`writeControl runTime`, where `writeInterval` is specified in seconds of
-simulated time (`5e-13` corresponds to 0.5 ps in the default case).
+The reference case in [`TEST2/system/controlDict`](TEST2/system/controlDict)
+enables adaptive stepping with `adjustTimeStep yes`, so the Courant-number
+limits (`maxCo`, `maxAlphaCo`, `maxThermalCourant`) actively bound the solver
+time step. Output is controlled with `writeControl adjustableRunTime`, where
+`writeInterval` is specified in seconds of simulated time (`5e-13` corresponds
+to 0.5 ps in the default case).
 
 ### `verbose`
 * **Type:** `Switch`
