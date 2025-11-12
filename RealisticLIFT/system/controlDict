@@ -54,10 +54,10 @@ phaseChangeCoeffs
     hf                  [0 2 -2 0 0 0 0] 9.1e6;   // J/kg (Ti vaporisation)
     gasConstant         [0 2 -2 -1 0 0 0] 174;    // J/kg/K (Ti vapor)
     Tsol                [0 0 0 1 0 0 0] 1941;     // K (melting point)
-    Tvap                [0 0 0 1 0 0 0] 2200;     // K - FIXED: superheated liquid regime
-                                                   // Not equilibrium boiling (3560K)!
-                                                   // Zhigilei: surface evaporation > 2000K
-                                                   // Will reach ~2200K at t ≈ 0.2ps (end of pulse)
+    Tvap                [0 0 0 1 0 0 0] 1941;     // K - FIXED: Use melting point for ultrafast regime
+                                                   // Surface evaporation starts immediately after melting
+                                                   // Zhigilei: superheated liquid evaporation > T_melt
+                                                   // Will reach 1941K at t ≈ 0.17ps
 
     // Kinetic theory parameters
     evaporationCoeff       0.03;     // Ti evaporation coefficient
@@ -94,10 +94,11 @@ advancedInterfaceCapturing
     stickingCoeff       0.18;
     momentumAccommodationCoeff       0.18;
 
-    // CRITICAL FIX: Enable recoil in superheated liquid regime
-    // Tvap = 2200K, start recoil at Tl > 1900K (just below melting)
-    recoilTempOffset      -300;         // FIXED: was 0, now allows recoil at Tvap - 300K
-                                        // Recoil starts at ~1900K (superheated/melting regime)
+    // CRITICAL FIX: Enable recoil immediately at melting point
+    // Tvap = 1941K (melting), recoil starts at Tl > 1941K
+    recoilTempOffset      0;            // Code requires non-negative value
+                                        // Recoil starts at Tvap = 1941K (melting point)
+                                        // Ultrafast regime: evaporation begins with melting
     phaseChangeTempOffset 0;
 
     // Mass flux threshold - RELAXED for fs-LIFT
@@ -174,7 +175,7 @@ G
         rho_gas     1.7;        // Ar density [kg/m^3]
         maxTemperature 0;      // Optional cap [K] (0 => no cap)
     }
-    gasMetalCutoffTemperature 2200;    // FIXED: matched to new Tvap
+    gasMetalCutoffTemperature 1941;    // FIXED: matched to Tvap (melting point)
     minMetalFractionForExchange 0.5;
     minGasMetalExchangeCoeff [1 -1 -3 -1 0 0 0] 1e8;
     maxGasMetalExchangeCoeff [1 -1 -3 -1 0 0 0] 5e9;
