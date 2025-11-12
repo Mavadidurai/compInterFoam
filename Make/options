@@ -17,7 +17,6 @@ EXE_LIBS = \
     -lspecie \
     -lturbulenceModels \
     -lcompressibleTurbulenceModels \
-    -lphaseCompressibleTurbulenceModels \
     -ltwoPhaseProperties \
     -linterfaceProperties \
     -lfiniteVolume \
