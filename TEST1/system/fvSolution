@@ -124,11 +124,11 @@ PIMPLE
     residualControl
     {
         "alpha.*" { tolerance 1e-8;  relTol 0.0; }
-        p_rgh     { tolerance 5e-5;  relTol 0.05; }  // Tightened tolerance, reduced relTol from { tolerance 1e-4;  relTol 0.1; }
-        U         { tolerance 1e-4;  relTol 0.05; }
-        Te        { tolerance 1e-8;  relTol 0.0;  }   // thermal is stiff; be stricter
-        Tl        { tolerance 1e-8;  relTol 0.0;  }
-        T         { tolerance 1e-7;  relTol 0.01;  }   // if gas T exists
+        p_rgh     { tolerance 1e-4;  relTol 0.1; }  // Relaxed for early-time convergence
+        U         { tolerance 1e-3;  relTol 0.1; }  // Relaxed - velocities are very small initially
+        Te        { tolerance 1e-7;  relTol 0.01;  }   // Slightly relaxed for electron temp
+        Tl        { tolerance 1e-7;  relTol 0.01;  }   // Slightly relaxed for lattice temp
+        T         { tolerance 1e-6;  relTol 0.01;  }   // Relaxed for gas temp
     }
     
     p_rghRefCell                0;
