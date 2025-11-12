@@ -22,20 +22,21 @@ startTime       0;
 stopAt          endTime;
 endTime         1e-10;
 
-deltaT          1e-15;         // Base time step (1 fs)
-maxDeltaT       1e-14;         // Cap adaptive growth (10 fs)
-minDeltaT       1e-16;         // Minimum 0.01 fs for precision
+deltaT          1e-14;         // Increased from 1e-15 - allow physics to evolve (10 fs)
+maxDeltaT       1e-13;         // Cap adaptive growth (100 fs) - increased to allow faster evolution
+minDeltaT       1e-15;         // Minimum 1 fs for precision (increased from 0.1 fs)
 writeInterval   1e-14;         // Start with 1 ps intervals
 
 // LASER TIMING - shorter pulse, longer observation
 laserStartTime      0;
 laserEndTime    2e-10;
 
-maxThermalCourant 0.2;         // Increased from 0.02 - allow dt growth! // Reduced from 0.5 for thermal stability
+// RELAXED COURANT LIMITS - previous values too conservative, causing tiny time steps
+maxThermalCourant 0.5;         // Increased from 0.2 - allow larger thermal time steps
 thermalFluxRelax 0.1;          // Stronger damping of interface heat flux
-maxCo           0.2;          // Increased from 0.02 - allow dt growth!  // Reduced from 0.5 for stability during thermal transitions
-maxAlphaCo      0.3;         // Aggressive interface limit // Reduced from 0.5 interface limit for better interface tracking
-maxDi           10;  // Limit interface dilation Courant number
+maxCo           0.5;           // Increased from 0.2 - allow larger hydrodynamic time steps
+maxAlphaCo      0.5;           // Increased from 0.3 - allow interface to move
+maxDi           10;            // Limit interface dilation Courant number
 
 verbose         true;
 enableLiftProcessTracker true;
@@ -146,19 +147,20 @@ twoTemperatureProperties
         );
     }
     
-    // Temperature-dependent coupling
+    // Temperature-dependent coupling - STRENGTHENED at low T for fs-laser regime
+    // Reference: Lin et al., Phys Rev B 77, 075133 (2008) - fs-laser Ti coupling
 G
 {
     type table;
     values
     (
-        (300      2.0e17)   // ✓ CORRECT
-        (1000     5.0e17)   // ✓ CORRECT
-        (2000     1.5e18)   // ✓ CORRECT
-        (3000     4.0e18)   // ✓ CORRECT
-        (5000     1.5e19)   // ✓ CORRECT
-        (10000    8.0e19)   // ✓ CORRECT
-        (20000    2.5e20)   // ✓ CORRECT
+        (300      1.0e18)   // Increased 5x from 2e17 - critical for initial heating
+        (1000     2.0e18)   // Increased 4x from 5e17 - faster e-lattice equilibration
+        (2000     1.5e18)   // Kept same - matches literature
+        (3000     4.0e18)   // Kept same
+        (5000     1.5e19)   // Kept same
+        (10000    8.0e19)   // Kept same
+        (20000    2.5e20)   // Kept same
     );
 }
     
