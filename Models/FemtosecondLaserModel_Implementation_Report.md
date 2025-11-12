@@ -485,6 +485,452 @@ The model is designed to be robust, physically accurate, and comprehensively val
 
 ---
 
+## 14. Required Input Parameters for Case Setup
+
+A complete femtosecond LIFT simulation requires careful specification of parameters across multiple configuration files. This section details all necessary parameters, their physical significance, typical values, and where they must be specified.
+
+### 14.1 Laser Parameters (constant/laserProperties)
+
+This dictionary contains all parameters defining the laser pulse characteristics and its interaction with the material.
+
+#### Core Energy Parameters (REQUIRED)
+
+**pulseEnergy** [J]
+- Physical meaning: Total energy contained in a single laser pulse
+- Typical range: 10 nJ to 10 μJ for LIFT applications
+- Example value: 60 nJ (6e-8 J)
+- Selection basis: Experimental ablation threshold for titanium is approximately 0.1-0.3 J/cm². For a 6 μm diameter spot (area ≈ 2.83×10^-7 cm²), 60 nJ gives fluence ≈ 0.21 J/cm², just above threshold
+- Critical note: This is the TOTAL energy in the pulse, before accounting for reflection or absorption losses
+
+**pulseWidth** [s]
+- Physical meaning: Full-width at half-maximum (FWHM) duration of the Gaussian temporal pulse
+- Typical range: 100 fs to 500 fs for femtosecond LIFT
+- Example value: 200 fs (200e-15 s)
+- Selection basis: Commercial Ti:Sapphire femtosecond lasers typically produce 100-200 fs pulses. This duration ensures non-equilibrium heating (pulse duration << electron-phonon coupling time ≈ 1-10 ps for titanium)
+- Validation constraint: Model enforces 10 fs ≤ pulseWidth ≤ 10 ps
+
+**wavelength** [m]
+- Physical meaning: Wavelength of the laser radiation
+- Typical range: 343 nm (UV) to 1030 nm (IR) depending on laser system
+- Example value: 343 nm (343e-9 m) for UV Ti:Sapphire third harmonic
+- Selection basis: Absorption coefficient is wavelength-dependent. Titanium shows strong absorption at UV wavelengths (343 nm is near peak absorption). For 800 nm fundamental, absorption is lower but still significant
+- Physical importance: Determines penetration depth through wavelength-dependent absorption coefficient
+
+#### Spatial Distribution Parameters (REQUIRED)
+
+**spotSize** [m]
+- Physical meaning: Beam diameter at the focal plane (defined at 1/e² intensity for Gaussian beams)
+- Typical range: 5 μm to 50 μm for LIFT
+- Example value: 6 μm (6e-6 m)
+- Selection basis: Larger spots reduce peak intensity and may not reach ablation threshold; smaller spots concentrate energy but may be difficult to align. 5-10 μm is typical for single-pixel LIFT
+- Mesh requirement: Beam diameter should span at least 8-10 cells for accurate Gaussian profile resolution
+
+**focus** (x y z) [m]
+- Physical meaning: 3D coordinates of the laser focal point in the computational domain
+- Example value: (25e-6 20.0357e-6 5e-6) 
+- Selection basis: 
+  - x-coordinate: Centered in domain width (0 to 50 μm → center at 25 μm)
+  - y-coordinate: CRITICAL - Must lie within the titanium film bounds. For film at y = 20.0 to 20.0714 μm, center is 20.0357 μm
+  - z-coordinate: Centered in depth (0 to 10 μm → center at 5 μm)
+- Common error: Placing focus outside film region results in zero film heating
+
+**direction** (x y z) [dimensionless]
+- Physical meaning: Unit vector specifying laser propagation direction
+- Standard LIFT value: (0 -1 0)
+- Physical interpretation: Laser propagates in negative y-direction (downward), entering the top surface of the film
+- Critical note: Must be consistent with film orientation. For film perpendicular to y-axis with laser from above, direction MUST be (0 -1 0), not (0 1 0)
+- Model behavior: Automatically normalized to unit vector
+
+#### Optical Properties (REQUIRED)
+
+**absorptionCoeff** [1/m]
+- Physical meaning: Linear absorption coefficient α, determining exponential decay of intensity with depth according to Beer-Lambert law I(z) = I₀ × exp(-α × z)
+- Typical range: 10^6 to 10^8 m^-1 for metals
+- Example value: 1.03×10^8 m^-1 for titanium at 343 nm
+- Literature basis: Palik's Handbook of Optical Constants provides refractive index data. For titanium at 343 nm: n ≈ 2.0-2.2, k ≈ 2.8. Absorption coefficient α = 4πk/λ = 4π(2.8)/(343×10^-9) ≈ 1.03×10^8 m^-1
+- Physical significance: Penetration depth δ = 1/α ≈ 9.7 nm for this value, meaning 63% of transmitted energy is absorbed in the first 9.7 nm
+- Titanium at 800 nm: α ≈ 5×10^6 m^-1 (δ ≈ 200 nm) from Wellershoff et al. (2000)
+
+**reflectivity** [dimensionless, 0-1]
+- Physical meaning: Fraction of incident intensity reflected at the air-metal interface (Fresnel reflection)
+- Typical range: 0.3 to 0.6 for metals at optical wavelengths
+- Example value: 0.35 for titanium at 343 nm
+- Calculation: From complex refractive index n+ik, normal incidence reflectivity R = [(n-1)² + k²] / [(n+1)² + k²]. For Ti at 343 nm with n≈2.1, k≈2.8: R ≈ 0.35
+- Titanium at 800 nm: R ≈ 0.50 (50% reflection)
+- Model conversion: Internally converted to transmission T = 1 - R before application to beam intensity
+
+**gasAbsorptionCoeff** [1/m] (OPTIONAL, default 0)
+- Physical meaning: Absorption coefficient for the surrounding gas phase (air or argon)
+- Typical value: 0 (gas transparent at LIFT wavelengths)
+- When to use: Non-zero only if modeling plasma formation in air at very high intensities (>10^13 W/m²)
+- Recommendation: Keep at 0 for standard LIFT to avoid spurious gas heating
+
+#### Temporal Window (REQUIRED)
+
+**laserStartTime** [s]
+- Physical meaning: Simulation time when laser pulse begins
+- Standard value: 0 (pulse starts at beginning of simulation)
+- Alternative: Can be delayed if modeling pre-heating conditions or multiple pulses
+
+**laserEndTime** [s]
+- Physical meaning: Simulation time when laser source turns off
+- Typical range: 200 ps to 2 ns
+- Example value: 2×10^-10 s (200 ps)
+- Selection basis: Must be long enough to capture entire pulse (pulse effectively ends at center + 3σ, where σ = FWHM/(2√(2ln2)) ≈ FWHM/2.35). For 200 fs pulse, 3σ ≈ 250 fs, but set window to 200 ps to allow observation of post-pulse dynamics
+- Cost consideration: Longer windows increase computational cost; 200 ps is sufficient to observe initial ablation and jet formation
+
+#### Profile Options (RECOMMENDED)
+
+**gaussianProfile** [boolean]
+- Physical meaning: Whether to use Gaussian (true) or uniform top-hat (false) spatial distribution
+- Recommended value: true
+- Physical justification: Real laser beams have Gaussian intensity profiles due to fundamental mode propagation (TEM₀₀)
+- Top-hat alternative: Only for idealized studies or comparison with simplified models
+
+**continuousLaser** [boolean]
+- Physical meaning: Continuous wave (true) versus pulsed (false) operation
+- Standard LIFT value: false
+- When true: Ignores pulseWidth and applies constant intensity during active window
+
+**temporalShape** [word] (OPTIONAL)
+- Options: "gaussian" (default) or "square"
+- Typical value: "gaussian" for realistic femtosecond pulses
+- Square pulse: Instantaneous on/off, useful for limiting cases but not physical
+
+**spatialShape** [word] (OPTIONAL)
+- Options: "gaussian" (default) or "tophat"
+- Should match gaussianProfile boolean
+
+#### Advanced Parameters (OPTIONAL)
+
+**pulseCenterTime** [s] (OPTIONAL)
+- Physical meaning: Center time of Gaussian temporal profile
+- Default behavior: If omitted, pulse is centered early in the [laserStartTime, laserEndTime] window
+- When to specify: For delaying pulse peak or aligning with specific events
+- Constraint: Automatically clamped to [laserStartTime, laserEndTime]
+
+**maxVolumetricSource** [W/m³] (OPTIONAL)
+- Physical meaning: Upper limit on volumetric heat source to prevent numerical instability
+- Typical range: 10^24 to 10^25 W/m³
+- Example value: 7×10^24 W/m³
+- When needed: Very thin films with high absorption can produce extreme local source terms (>10^25 W/m³) that cause solver divergence
+- Trade-off: Capping reduces accuracy near surface but improves stability. Model adjusts scaling to maintain energy conservation
+
+**pulseFrequency** [1/s] (OPTIONAL, default 0)
+- Physical meaning: Repetition rate for multiple pulses
+- Example: 100 kHz = 10^5 s^-1 gives 10 μs between pulses
+- Use case: Modeling burst-mode LIFT or high-repetition-rate systems
+- Single pulse: Set to 0 or omit
+
+**pulseDutyCycle** [dimensionless, 0-1] (OPTIONAL, default 1)
+- Physical meaning: Fraction of pulse period during which laser is active
+- Typical value: 1.0 (full duty cycle) for single pulses
+- Use case: High-repetition-rate systems where pulses don't overlap
+
+**scanVelocity** (x y z) [m/s] (OPTIONAL)
+- Physical meaning: Velocity vector for translating laser focus during simulation
+- Example: (100 0 0) moves focus at 100 m/s in x-direction
+- Use case: Modeling line scanning or multi-pixel LIFT patterns
+- Default: (0 0 0) for stationary focus
+
+**incidenceAngle** [radians] (OPTIONAL, default 0)
+- Physical meaning: Angle between beam propagation and surface normal
+- Typical value: 0 (normal incidence)
+- Effect: Modifies Fresnel reflectivity according to angle-dependent formulas
+- Small angle approximation: For angles < 10°, effect on reflectivity is minor
+
+**transmission** [dimensionless, 0-1] (OPTIONAL)
+- Physical meaning: Direct specification of transmission coefficient, overriding reflectivity
+- When to use: If transmission is known from experiment but reflectivity is not
+- Relationship: T = 1 - R at normal incidence
+- Priority: If specified (≥0), overrides reflectivity parameter
+
+#### Film Geometry (ALTERNATIVE SPECIFICATION)
+
+Option 1: Specify film bounds directly
+- **filmYMin** [m]: Bottom surface y-coordinate
+- **filmYMax** [m]: Top surface y-coordinate  
+- Example: filmYMin = 20.0e-6, filmYMax = 20.0714e-6 for 71.4 nm film
+
+Option 2: Specify thickness and center
+- **filmThickness** (or filmThicknessExpected) [m]: Film thickness
+- **filmCenterY** [m]: Y-coordinate of film center
+- Example: filmThickness = 71.4e-9, filmCenterY = 20.0357e-6
+- Model computes: filmYMin = center - thickness/2, filmYMax = center + thickness/2
+
+**Critical requirement**: Film bounds must encompass the focus position for effective heating
+
+#### Energy Conservation Tolerances (OPTIONAL)
+
+**pulseEnergyToleranceRel** [dimensionless] (default 0.01)
+- Physical meaning: Maximum acceptable relative error in pulse energy conservation
+- Example: 0.05 = 5% tolerance
+- Stricter than 1% may require very fine mesh
+
+**pulseEnergyToleranceAbs** [J] (default 1e-12)
+- Physical meaning: Absolute energy error tolerance
+- Example: 5×10^-10 J = 500 pJ
+- Relevant for low-energy pulses where relative error is less meaningful
+
+### 14.2 Complete Example laserProperties File
+
+```
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    location    "constant";
+    object      laserProperties;
+}
+
+// Laser timing - 200 ps observation window
+laserStartTime           0;
+laserEndTime             2e-10;
+
+// Film geometry (71.4 nm Ti film at y = 20.0 to 20.0714 μm)
+filmThicknessExpected    71.4e-9;
+filmCenterY              20.0357e-6;
+
+// Energy parameters - 60 nJ pulse (~0.21 J/cm² fluence)
+pulseEnergy              6e-8;
+pulseWidth               200e-15;
+wavelength               343e-9;
+
+// Spatial profile - 6 μm Gaussian spot
+spotSize                 6.0e-6;
+focus                    (25e-6 20.0357e-6 5e-6);
+direction                (0 -1 0);
+
+// Optical properties - Ti at 343 nm (Palik data)
+absorptionCoeff          1.03e8;
+reflectivity             0.35;
+
+// Profile options
+gaussianProfile          true;
+continuousLaser          false;
+temporalShape            gaussian;
+spatialShape             gaussian;
+
+// Gas absorption (disabled for standard LIFT)
+gasAbsorptionCoeff       0;
+
+// Stability limit
+maxVolumetricSource      7e24;
+
+// Single pulse (no repetition)
+pulseFrequency           0;
+pulseDutyCycle           0;
+
+// Energy verification tolerances
+pulseEnergyToleranceRel  0.05;
+pulseEnergyToleranceAbs  5e-10;
+```
+
+### 14.3 Two-Temperature Model Parameters (system/controlDict or constant/twoTemperatureProperties)
+
+The femtosecond laser model couples to the two-temperature model, which requires its own parameter set:
+
+**Ce0** [J/m³/K] - Electron heat capacity coefficient
+- For titanium: Ce = γ×Te where γ ≈ 150 J/m³/K² (Wellershoff et al., 2000)
+- Linear in electron temperature: Ce(Te) = γ×Te
+
+**Cl** [J/m³/K] - Lattice heat capacity
+- For titanium: Cl ≈ 2.4×10^6 J/m³/K (roughly constant)
+- Much larger than Ce at room temperature: Cl >> Ce|T=300K
+
+**G** [W/m³/K] - Electron-phonon coupling constant
+- For titanium: G ≈ 2.4×10^16 to 3.8×10^17 W/m³/K (Lin et al., 2008; Wellershoff et al., 2000)
+- Critical parameter controlling energy transfer rate from electrons to lattice
+- Higher G → faster thermalization → closer to equilibrium behavior
+
+**ke** [W/m/K] - Electron thermal conductivity
+- For titanium: ke ≈ 21.9 W/m/K at room temperature
+- Temperature-dependent: often ke(Te) = ke0 × (Tl/Te) accounting for electron-phonon scattering
+
+### 14.4 Phase Change Parameters (system/controlDict: phaseChangeCoeffs)
+
+**Tvapor** [K] - Vaporization temperature
+- For titanium: 3287 K (normal boiling point at 1 atm)
+
+**gasConstant** [J/kg/K] - Specific gas constant for Hertz-Knudsen equation  
+- For titanium: R = R_universal / M_Ti = 8.314 / 0.04788 ≈ 173.6 J/kg/K
+
+**evaporationCoeff** [dimensionless] - Evaporation accommodation coefficient
+- Typical range: 0.01 to 0.1 for metals
+- Example: 0.03 to 0.18 depending on calibration
+- Physical meaning: Probability of evaporation attempt resulting in actual vapor departure
+
+**relaxationRate** [1/s] - Implicit source term relaxation
+- Typical value: 10^9 to 10^12 s^-1
+- Higher values → tighter coupling but require smaller time steps
+
+### 14.5 Recoil Pressure Parameters (system/controlDict: recoilPressureCoeffs)
+
+**momentumAccommodationCoeff** [dimensionless]
+- Typical value: 0.18
+- Range: 0.1 to 1.0
+- Physical meaning: Efficiency of momentum transfer from evaporating atoms to condensed phase
+
+**alphaMin / alphaMax** [dimensionless]
+- Define phase fraction window for recoil pressure application
+- Typical: alphaMin = 0.001, alphaMax = 0.999
+- Prevents evaluation in pure phases where interface is not present
+
+### 14.6 Mesh Resolution Requirements
+
+Based on the laser parameters, mesh must satisfy:
+
+**Film thickness resolution**
+- Minimum: 3-5 cells across film thickness
+- For 71.4 nm film: cell height ≤ 15-20 nm in y-direction
+- Recommended: 8-16 cells for accurate thermal gradients
+
+**Penetration depth resolution**  
+- Minimum: 2-3 cells within 1/α
+- For α = 1.03×10^8 m^-1: δ = 9.7 nm requires cells ≤ 3-5 nm
+- This is the most restrictive constraint for UV wavelengths
+
+**Spot size resolution**
+- Minimum: 8-10 cells across beam diameter
+- For 6 μm spot: cell size ≤ 600-750 nm in x and z directions
+- Resolves Gaussian profile to 1/e² intensity
+
+**Typical cell dimensions for 71.4 nm Ti film, 343 nm wavelength, 6 μm spot:**
+- Δx ≈ 500-625 nm (10-12 cells across 6 μm spot)
+- Δy ≈ 4-5 nm near film (16 cells across 71.4 nm)
+- Δz ≈ 500-625 nm (matches Δx for near-isotropic lateral resolution)
+
+### 14.7 Time Step Requirements
+
+**Pulse resolution criterion**
+- Minimum: 10-20 time steps within pulse FWHM
+- For 200 fs pulse: Δt ≤ 10-20 fs during pulse
+- Ensures accurate temporal envelope integration
+
+**CFL stability criterion**  
+- Standard CFL limit: Co = |U|Δt/Δx < 0.5
+- For post-ablation velocities ~100 m/s and Δx ~ 5 nm: Δt < 25 fs
+- May need Δt ~ 1-5 fs during jet formation
+
+**Thermal diffusion criterion**
+- For explicit schemes: Δt < Δx²/(2α) where α = k/(ρCp)
+- For titanium: α ~ 10^-5 m²/s, Δx ~ 5 nm → Δt < 1.25 ps
+- Less restrictive than CFL for femtosecond LIFT
+
+**Recommended strategy:**
+- Initial pulse (0-500 fs): Δt = 0.5-1 fs (resolve pulse + electron heating)
+- Thermalization (500 fs - 10 ps): Δt = 5-10 fs
+- Ablation/jet (10 ps - 1 ns): Δt = 1-10 fs (CFL-limited)
+- Late dynamics (>1 ns): Δt = 10-50 fs
+
+### 14.8 Initial Conditions (0/ directory)
+
+All temperature fields should be initialized consistently:
+
+**T** [K] - Combined/mixture temperature
+- Initial value: 300 K (room temperature)
+- Boundary conditions: fixedValue or zeroGradient
+
+**Te** [K] - Electron temperature
+- Initial value: 300 K (thermal equilibrium with lattice)
+- Must match Tl initially
+
+**Tl** [K] - Lattice temperature  
+- Initial value: 300 K
+- Must match Te initially
+- Critical: Te = Tl at t=0 to avoid spurious initial G(Te-Tl) source
+
+**alpha1** [dimensionless] - Metal phase fraction
+- Film region: 1.0 (pure metal)
+- Gas region: 0.0 (pure gas)
+- Set using setFieldsDict with boxToCell for film geometry
+
+**p_rgh** [Pa] - Relative pressure
+- Initial value: 0 Pa (atmospheric reference)
+- Absolute pressure p = p_rgh + ρgh
+
+**U** [m/s] - Velocity
+- Initial value: (0 0 0) (quiescent fluid)
+
+### 14.9 Common Parameter Selection Errors and Fixes
+
+**Error 1: Zero Heating Despite Active Laser**
+- Symptom: Model reports laser active but no temperature rise
+- Causes:
+  - Focus outside film bounds (check focus.y vs filmYMin/filmYMax)
+  - Laser direction wrong (should be (0 -1 0) for standard LIFT)
+  - absorptionCoeff = 0 or too small
+- Fix: Verify geometric consistency and optical properties
+
+**Error 2: Energy Conservation Violations**
+- Symptom: Deposited energy differs from pulseEnergy by >5%
+- Causes:
+  - Mesh too coarse to integrate Gaussian×exponential profile
+  - Time step too large to resolve 200 fs pulse
+  - Spot extends outside domain (boundary energy loss)
+- Fix: Refine mesh in beam path, reduce time step, or enlarge domain
+
+**Error 3: Numerical Instability During Pulse**
+- Symptom: Solver crashes with exploding temperatures or velocities
+- Causes:
+  - maxVolumetricSource not set, allowing Q > 10^26 W/m³
+  - Time step too large for explicit thermal source
+  - Electron heat capacity Ce too small at low Te
+- Fix: Set maxVolumetricSource = 5e24 to 1e25, reduce Δt, check Ce formulation
+
+**Error 4: Spurious Gas Heating**
+- Symptom: Temperature rise in gas cells far from film
+- Causes:
+  - gasAbsorptionCoeff > 0 causing unphysical absorption
+  - Film bounds incorrectly specified, treating gas as metal
+- Fix: Set gasAbsorptionCoeff = 0, verify filmYMin/filmYMax encompass correct region
+
+**Error 5: Laser Pulse Arrives at Wrong Time**
+- Symptom: Temperature rise occurs too early or too late
+- Causes:
+  - pulseCenterTime specified incorrectly
+  - laserStartTime ≠ 0 when simulation starts at t=0
+- Fix: Omit pulseCenterTime for immediate pulse, or set to laserStartTime + pulseWidth
+
+### 14.10 Parameter Validation Checklist
+
+Before running simulation, verify:
+
+**Geometric consistency:**
+- [ ] filmYMin < focus.y < filmYMax (focus inside film)
+- [ ] 0 < focus.x < domainLength_x (focus inside domain)
+- [ ] 0 < focus.z < domainLength_z (focus inside domain)
+- [ ] direction = (0, -1, 0) for standard LIFT geometry
+
+**Energy scaling:**
+- [ ] Fluence = pulseEnergy / (π(spotSize/2)²) ≈ 0.1-1 J/cm² (ablation threshold range)
+- [ ] Peak intensity = pulseEnergy / (pulseWidth × π(spotSize/2)²) < 10^14 W/cm² (avoids plasma)
+
+**Temporal consistency:**
+- [ ] pulseWidth = 100-500 fs (femtosecond regime)
+- [ ] laserEndTime > laserStartTime + 3×pulseWidth×2.35 (captures full pulse)
+- [ ] Time step Δt ≤ pulseWidth/10 (resolves temporal profile)
+
+**Optical properties:**
+- [ ] absorptionCoeff matches wavelength (check Palik or Wellershoff)
+- [ ] Penetration depth 1/α < filmThickness × 10 (significant absorption in film)
+- [ ] 0 ≤ reflectivity ≤ 0.7 (physical range for metals)
+
+**Mesh resolution:**
+- [ ] Film has ≥5 cells in thickness
+- [ ] Penetration depth has ≥3 cells
+- [ ] Spot diameter has ≥8 cells
+
+**Field initialization:**
+- [ ] Te = Tl = 300 K everywhere at t=0 (equilibrium)
+- [ ] alpha1 = 1 in film, 0 elsewhere (sharp interface)
+- [ ] U = (0 0 0) everywhere (quiescent)
+
+This comprehensive parameter specification ensures that the femtosecond laser model is properly configured to deliver physically accurate energy deposition profiles that drive realistic LIFT dynamics.
+
+---
+
 ## References
 
 1. Wellershoff, S. S., Hohlfeld, J., Güdde, J., & Matthias, E. (2000). The role of electron–phonon coupling in femtosecond laser damage of metals. Applied Physics A, 69(1), S99-S107.
@@ -502,3 +948,5 @@ The model is designed to be robust, physically accurate, and comprehensively val
 7. Chen, J. K., Tzou, D. Y., & Beraun, J. E. (2006). A semiclassical two-temperature model for ultrafast laser heating. International Journal of Heat and Mass Transfer, 49(1-2), 307-316.
 
 8. Rethfeld, B., Ivanov, D. S., Garcia, M. E., & Anisimov, S. I. (2017). Modelling ultrafast laser ablation. Journal of Physics D: Applied Physics, 50(19), 193001.
+
+9. Palik, E. D. (Ed.). (1998). Handbook of optical constants of solids (Vols. 1-3). Academic press.
