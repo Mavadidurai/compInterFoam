@@ -14,8 +14,11 @@ FoamFile
     object      refineMeshDict;
 }
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
-// Keep the focusBox cellSet for debugging, but all refinement is now handled
-// directly in blockMesh.  refineMesh therefore behaves as a pass-through copy.
+// Keep the focusBox cellSet for diagnostics only; blockMesh already resolves
+// the donor film according to the ~70 nm Ti layers reported for femtosecond
+// LIFT tests by Piqué et al. (Appl. Phys. A 1999), so refineMesh must not
+// touch the mesh or it will recreate the concave sliver cells that
+// checkMesh flagged in the user's log.
 set                 focusBox;
 coordinateSystem    global;
 globalCoeffs
@@ -25,10 +28,13 @@ globalCoeffs
     normal (0 1 0);   // y-direction (film thickness)
 }
 
-// Re-enable refinement along the film normal to capture the thin layers.
-directions           (normal);
+// BlockMesh now resolves the Ti film thickness directly, so keep refineMesh as
+// a true pass-through.  Leaving the directions list empty prevents any of the
+// focusBox cells from being subdivided even if refineMesh is called out of
+// habit after blockMesh.
+directions           ();
 
-useHexTopology      no;
+useHexTopology      yes;
 geometricCut        no;              // ensure no geometric splitting occurs
 writeMesh           no;
 
@@ -38,7 +44,5 @@ maxLocalCells        30000000;
 minRefinementCells   0;
 
 refinementRegions
-{
-  // With the film resolved directly in blockMesh, no additional refinement is required.
-}
+{}
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //

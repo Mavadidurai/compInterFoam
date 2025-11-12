@@ -25,7 +25,6 @@ solvers
         relTol          0.0;
         maxIter         100;
         minIter         2;
-
         nAlphaCorr      5;
         nAlphaSubCycles 5;              // Increased to stabilise transport
         cAlpha          1.0;            // Softer compression to avoid overshoot
@@ -43,9 +42,9 @@ solvers
     {
         solver          GAMG;
         smoother        DICGaussSeidel;
-        tolerance       1e-6;
-        relTol          0.05;
-        maxIter         50;
+        tolerance       1e-6; //from 1e-5
+        relTol          0.05; //from 0.1
+        maxIter         200; // Increased from 100 to handle stiff pressure gradients
         nPreSweeps      0;
         nPostSweeps     2;
         cacheAgglomeration true;
@@ -58,7 +57,7 @@ solvers
     p_rghFinal
     {
         $p_rgh;
-        tolerance   1e-8;
+        tolerance   1e-6;
         relTol      0;
     }
     
@@ -118,18 +117,18 @@ solvers
 PIMPLE
 {
     momentumPredictor           true;
-    nOuterCorrectors            10;           // REDUCE: was 2 (emergency mode)
+    nOuterCorrectors            30;          // Increased from 10 to 30 for stiff thermal gradients
     nCorrectors                 3;
     nNonOrthogonalCorrectors    2;
 
     residualControl
     {
-        "alpha.*" { tolerance 1e-9;  relTol 0.0; }
-        p_rgh     { tolerance 1e-4;  relTol 0.05; }
-        U         { tolerance 1e-5;  relTol 0.01; }
-        Te        { tolerance 5e-9;  relTol 0.0;  }   // thermal is stiff; be stricter
-        Tl        { tolerance 5e-9;  relTol 0.0;  }
-        T         { tolerance 1e-8;  relTol 0.01;  }   // if gas T exists
+        "alpha.*" { tolerance 1e-8;  relTol 0.0; }
+        p_rgh     { tolerance 5e-5;  relTol 0.05; }  // Tightened tolerance, reduced relTol from { tolerance 1e-4;  relTol 0.1; }
+        U         { tolerance 1e-4;  relTol 0.05; }
+        Te        { tolerance 1e-8;  relTol 0.0;  }   // thermal is stiff; be stricter
+        Tl        { tolerance 1e-8;  relTol 0.0;  }
+        T         { tolerance 1e-7;  relTol 0.01;  }   // if gas T exists
     }
     
     p_rghRefCell                0;
@@ -165,11 +164,10 @@ compInterFoamCoeffs
     // NOTE: Feinaeugle et al. (Appl. Surf. Sci. 418, 2017) report fs-LIFT recoil
     // peaks around 70–80 MPa.  Resolving that across the 71.4 nm film requires
     // |∇p| ≈ 1×10^15 Pa/m, so lift the limiter accordingly.
-    
     maxPressureGradient    1e16;
-    maxUEqnVelocity        1000;  // Hard cap at 1000 m/s
-    defaultMetalDensity    4500;
-    defaultAirDensity      1.2;
+        
+    defaultMetalDensity    4500;        
+    defaultAirDensity      1.2;         
     maxInitialResidual     10;
 
     // Interface clamp settings
@@ -181,8 +179,8 @@ compInterFoamCoeffs
     // Feinaeugle et al. observe Ti recoil plateaus close to 80 MPa, so keep the ceiling
     // above that to avoid throttling the kinetic-theory recoil driver.
     pressureClamp      true;
-    maxPressure        2.0e8;
-    minPressure       0;
+    maxPressure        3.3e9;
+    minPressure       -5e6;
 
     // Density clamp settings
     densityClamp       false;

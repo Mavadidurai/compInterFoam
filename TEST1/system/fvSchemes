@@ -46,7 +46,7 @@ divSchemes
     div(phi,alpha.air)               Gauss vanLeer;        // ✓ GOOD
 
     // Momentum - could be more conservative
-    div(rhoPhi,U)                    Gauss upwind;  // Was: linearUpwind grad(U)
+    div(rhoPhi,U)                    Gauss linearUpwind grad(U); // IMPROVE: Add gradient limiting
     
     div(phi,T)       Gauss upwind;           // Changed from limitedLinear
     div(phi,Te)      Gauss upwind;           // Changed from limitedLinear
