@@ -97,8 +97,10 @@ advancedInterfaceCapturing
     momentumAccommodationCoeff       0.18;
     // CRITICAL FIX: Enable recoil in superheated liquid regime
     // Tvap = 2200K, start recoil at Tl > 1900K (just below melting)
-    recoilTempOffset      -300;         // FIXED: was 0, now allows recoil at Tvap - 300K
-                                        // Recoil starts at ~1900K (superheated/melting regime)
+    // Tvap = 1941K (melting), recoil starts at Tl > 1941K
+
+    recoilTempOffset      0;            // Code requires non-negative value
+                                        // Recoil starts at Tvap = 1941K (melting point) // Ultrafast regime: evaporation begins with melting
     phaseChangeTempOffset 0;
     // Mass flux threshold - RELAXED for fs-LIFT
     massRateEps           1e-6;         // FIXED: was 1e-12 (too restrictive!)
