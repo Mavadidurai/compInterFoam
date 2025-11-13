@@ -163,7 +163,7 @@ G
 }
     
     Cl  [1 -1 -2 -1 0 0 0] 2.5e6;
-    De  [0  2 -1  0 0 0 0] 1e-4;
+    De  [0  2 -1  0 0 0 0] 1e-2;  // Increased from 1e-4 - enable ballistic electron transport (Hohlfeld 2000)
 
     gasMetalExchangeCoeff
     {
@@ -187,10 +187,10 @@ G
     // ADAPTIVE MICRO-STEPPING
     electronSubCycles        1;
     minElectronSubCycles     1;
-    maxElectronSubCycles     20;     // Fine 2 nm cells need more electron micro-steps increased from 10 to 20
-    maxElectronDeltaT        [0 0 1 0 0 0 0] 1e-15;  // Limit to 0.5 fs for stability //reduced from 1e-15 to 5e-16
+    maxElectronSubCycles     50;     // Increased from 20 - allow more flexibility for steep gradients
+    maxElectronDeltaT        [0 0 1 0 0 0 0] 1e-14;  // Match main deltaT (was 1e-15) - allow electron solver to keep pace
 
-    nInnerCouplingSweeps         2;  // More coupling iterations
+    nInnerCouplingSweeps         10;  // Increased from 2 - critical for resolving 590K Te gradient
     innerCouplingResidualTol     1e-3; // Enable convergence check
     
     klHighTThreshold 1000;
