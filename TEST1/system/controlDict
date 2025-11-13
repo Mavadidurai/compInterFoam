@@ -152,8 +152,8 @@ G
     type table;
     values
     (
-        (300      2.0e17)   // ✓ CORRECT
-        (1000     5.0e17)   // ✓ CORRECT
+        (300      1.0e18)   // ✓ CORRECT
+        (1000     2.0e18)   // ✓ CORRECT
         (2000     1.5e18)   // ✓ CORRECT
         (3000     4.0e18)   // ✓ CORRECT
         (5000     1.5e19)   // ✓ CORRECT
