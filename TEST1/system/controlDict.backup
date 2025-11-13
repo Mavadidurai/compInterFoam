@@ -22,9 +22,9 @@ startTime       0;
 stopAt          endTime;
 endTime         1e-10;
 
-deltaT          5e-16;         // Base time step (0.5 fs) - reduced for convergence during rapid heating
-maxDeltaT       5e-15;         // Cap adaptive growth (5 fs) - reduced from 10 fs
-minDeltaT       1e-17;         // Minimum 0.01 fs for precision
+deltaT          1e-15;         // Base time step (1 fs)
+maxDeltaT       1e-14;         // Cap adaptive growth (10 fs)
+minDeltaT       1e-16;         // Minimum 0.01 fs for precision
 writeInterval   1e-14;         // Start with 1 ps intervals
 
 // LASER TIMING - shorter pulse, longer observation
@@ -152,13 +152,13 @@ G
     type table;
     values
     (
-        (300      3.0e17)   // Reduced from 1.0e18 (factor ~3) to reduce Te-Tl stiffness
-        (1000     6.0e17)   // Reduced from 2.0e18
-        (2000     5.0e17)   // Reduced from 1.5e18
-        (3000     1.2e18)   // Reduced from 4.0e18
-        (5000     5.0e18)   // Reduced from 1.5e19
-        (10000    2.5e19)   // Reduced from 8.0e19
-        (20000    8.0e19)   // Reduced from 2.5e20
+        (300      1.0e18)   // ✓ CORRECT
+        (1000     2.0e18)   // ✓ CORRECT
+        (2000     1.5e18)   // ✓ CORRECT
+        (3000     4.0e18)   // ✓ CORRECT
+        (5000     1.5e19)   // ✓ CORRECT
+        (10000    8.0e19)   // ✓ CORRECT
+        (20000    2.5e20)   // ✓ CORRECT
     );
 }
     
