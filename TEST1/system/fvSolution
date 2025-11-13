@@ -41,17 +41,16 @@ solvers
     p_rgh
     {
         solver          GAMG;
-        smoother        DICGaussSeidel;
-        tolerance       1e-6; //from 1e-5
-        relTol          0.05; //from 0.1
-        maxIter         200; // Increased from 100 to handle stiff pressure gradients
-        nPreSweeps      0;
+        smoother        GaussSeidel;     // Changed from DICGaussSeidel for better convergence
+        tolerance       5e-6;            // Relaxed from 1e-6
+        relTol          0.01;            // Tightened from 0.05 for better convergence per iteration
+        maxIter         50;              // Reduced from 200 - should converge faster with better settings
+        nPreSweeps      1;               // Added 1 pre-sweep
         nPostSweeps     2;
         cacheAgglomeration true;
-        nCellsInCoarsestLevel 20;
+        nCellsInCoarsestLevel 10;        // Reduced from 20 for faster coarse solve
         agglomerator    faceAreaPair;
-        mergeLevels     2;
-        relaxationFactor 0.7;
+        mergeLevels     1;               // Reduced from 2
     }
 
     p_rghFinal
@@ -117,18 +116,18 @@ solvers
 PIMPLE
 {
     momentumPredictor           true;
-    nOuterCorrectors            30;          // Increased from 15 to 30 for stiff thermal gradients (convergence was failing at 15)
+    nOuterCorrectors            10;          // Reduced to 10 - aim for fast convergence with better relaxation
     nCorrectors                 3;
     nNonOrthogonalCorrectors    2;
 
     residualControl
     {
-        "alpha.*" { tolerance 1e-8;  relTol 0.0; }
-        p_rgh     { tolerance 1e-4;  relTol 0.1; }  // Relaxed from 5e-5 to help convergence during rapid heating
-        U         { tolerance 1e-4;  relTol 0.1; }  // Relaxed from 0.05
-        Te        { tolerance 1e-7;  relTol 0.01;  }   // Slightly relaxed from 1e-8 for convergence
-        Tl        { tolerance 1e-7;  relTol 0.01;  }   // Slightly relaxed from 1e-8 for convergence
-        T         { tolerance 1e-6;  relTol 0.02;  }   // Relaxed from 1e-7
+        "alpha.*" { tolerance 1e-7;  relTol 0.0; }
+        p_rgh     { tolerance 1e-3;  relTol 0.1; }  // More relaxed - focus on stability over precision
+        U         { tolerance 5e-4;  relTol 0.1; }  // More relaxed
+        Te        { tolerance 1e-6;  relTol 0.02;  }   // More relaxed for faster convergence
+        Tl        { tolerance 1e-6;  relTol 0.02;  }   // More relaxed for faster convergence
+        T         { tolerance 5e-6;  relTol 0.05;  }   // More relaxed
     }
     
     p_rghRefCell                0;
@@ -139,17 +138,17 @@ relaxationFactors
 {
     fields
     {
-        p_rgh           0.3;
-        "alpha.*"       0.5;
+        p_rgh           0.5;        // Increased from 0.3 for faster convergence
+        "alpha.*"       0.7;        // Increased from 0.5
     }
     equations
     {
-        U               0.5;
-        T               0.5;
-        Te              0.5;
-        Tl              0.5;
-        "alpha.*"       0.5;
-        ".*Final"       0.7;
+        U               0.7;        // Increased from 0.5
+        T               0.6;        // Increased from 0.5
+        Te              0.7;        // Increased from 0.5 - allow faster electron temperature changes
+        Tl              0.7;        // Increased from 0.5 - allow faster lattice temperature changes
+        "alpha.*"       0.7;        // Increased from 0.5
+        ".*Final"       0.9;        // Increased from 0.7
     }
 }
 
