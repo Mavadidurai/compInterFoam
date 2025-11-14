@@ -745,8 +745,23 @@ int main(int argc, char *argv[])
     #include "addCheckCaseOptions.H"
     #include "setRootCaseLists.H"
     #include "createTime.H"
-    #include "createDynamicFvMesh.H"
-    #include "createTimeControls.H" 
+
+    // Create mesh with dynamic capability
+    Info<< "Create mesh for time = " << runTime.timeName() << nl << endl;
+
+    autoPtr<fvMesh> meshPtr = fvMesh::New
+    (
+        IOobject
+        (
+            fvMesh::defaultRegion,
+            runTime.timeName(),
+            runTime,
+            IOobject::MUST_READ
+        )
+    );
+    fvMesh& mesh = meshPtr();
+
+    #include "createTimeControls.H"
     #ifndef CREATE_FIELDS_DONE
     #include "createFields.H"
     #define CREATE_FIELDS_DONE
