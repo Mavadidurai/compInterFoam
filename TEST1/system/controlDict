@@ -17,12 +17,12 @@ FoamFile
 
 application     compInterFoam;
 
-startFrom       startTime;
+startFrom       latestTime;
 startTime       0;
 stopAt          endTime;
 endTime         1e-10;
 
-deltaT          1e-15;         // Base time step (1 fs)
+deltaT          2e-16;         // Base time step (1 fs)
 maxDeltaT       1e-14;         // Cap adaptive growth (10 fs)
 minDeltaT       1e-16;         // Minimum 0.01 fs for precision
 writeInterval   1e-14;         // Start with 1 ps intervals
@@ -66,7 +66,7 @@ phaseChangeCoeffs
                                                    // Will reach ~2200K at t ≈ 0.2ps (end of pulse)
     
     // Kinetic theory parameters
-    evaporationCoeff       0.03;     // Ti evaporation coefficient
+    evaporationCoeff       0.3;     // Ti evaporation coefficient
     alphaMin              0.001;    
     dtFloor             1e-15;         // Reduced for precision
     relaxationTime      1e-11;        // Faster response for femtosecond dynamics
@@ -142,7 +142,7 @@ twoTemperatureProperties
         coeffs
         (
             (0   0)  // Constant term = 0
-            (150 1)  // Linear term: Ce = 630 · Te [J/m³/K²]
+            (630 1)  // Linear term: Ce = 630 · Te [J/m³/K²]
         );
     }
     

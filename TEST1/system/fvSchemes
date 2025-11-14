@@ -28,10 +28,10 @@ gradSchemes
     default         Gauss linear;
     grad(U)         cellLimited Gauss linear 0.5;
     grad(alpha.metal) cellLimited Gauss linear 1;
-    grad(Te)        cellLimited Gauss linear 0.5;
-    grad(Tl)        cellLimited Gauss linear 0.5;
+    grad(Te)        cellLimited Gauss linear 1;
+    grad(Tl)        cellLimited Gauss linear 1;
     // If you have a single-phase gas T field too:
-    grad(T)         cellLimited Gauss linear 0.5;
+    grad(T)         cellLimited Gauss linear 1;
 }
 
 divSchemes
@@ -44,13 +44,13 @@ divSchemes
     div(phi,alpha.metal)             Gauss vanLeer;        // ✓ GOOD
     div(phir,alpha.metal)            Gauss interfaceCompression; // REQUIRED: specialised scheme for compression flux
     div(phi,alpha.air)               Gauss vanLeer;        // ✓ GOOD
-
+div(phir,alpha.air) 	Gauss interfaceCompression;
     // Momentum - could be more conservative
     div(rhoPhi,U)                    Gauss linearUpwind grad(U); // IMPROVE: Add gradient limiting
     
-    div(phi,T)       Gauss upwind;           // Changed from limitedLinear
-    div(phi,Te)      Gauss upwind;           // Changed from limitedLinear
-    div(phi,Tl)      Gauss upwind;           // Changed from limitedLinear
+    div(phi,T)       Gauss linearUpwind;           // Changed from limitedLinear
+    div(phi,Te)      Gauss linearUpwind;           // Changed from limitedLinear
+    div(phi,Tl)      Gauss linearUpwind;           // Changed from limitedLinear
     
     // Pressure gradient - good change
     div(phi,p_rgh)                   Gauss upwind;           // ✓ GOOD change from linear

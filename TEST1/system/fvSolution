@@ -43,7 +43,7 @@ solvers
         solver          GAMG;
         smoother        DICGaussSeidel;
         tolerance       1e-6; //from 1e-5
-        relTol          0.05; //from 0.1
+        relTol          0.005; //from 0.1
         maxIter         200; // Increased from 100 to handle stiff pressure gradients
         nPreSweeps      0;
         nPostSweeps     2;
@@ -67,7 +67,7 @@ solvers
             smoother    symGaussSeidel;
             nSweeps     2;
             tolerance   1e-06;
-            relTol      0.5;
+            relTol      0.1;
             maxIter     200;
             minIter     1;
     }
@@ -117,14 +117,14 @@ solvers
 PIMPLE
 {
     momentumPredictor           true;
-    nOuterCorrectors            15;          // Increased from 10 to 30 for stiff thermal gradients
+    nOuterCorrectors            10;          // Increased from 10 to 30 for stiff thermal gradients
     nCorrectors                 3;
     nNonOrthogonalCorrectors    2;
 
     residualControl
     {
         "alpha.*" { tolerance 1e-8;  relTol 0.0; }
-        p_rgh     { tolerance 5e-5;  relTol 0.05; }  // Tightened tolerance, reduced relTol from { tolerance 1e-4;  relTol 0.1; }
+        p_rgh     { tolerance 1e-5;  relTol 0.01; }  // Tightened tolerance, reduced relTol from { tolerance 1e-4;  relTol 0.1; }
         U         { tolerance 1e-4;  relTol 0.05; }
         Te        { tolerance 1e-8;  relTol 0.0;  }   // thermal is stiff; be stricter
         Tl        { tolerance 1e-8;  relTol 0.0;  }
