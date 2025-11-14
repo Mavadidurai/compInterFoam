@@ -47,22 +47,21 @@ blocks
 (
     // SUBSTRATE (receiver): 0 → 8 μm
     // Cells: 400 × 250 × 25 = 2.5M
-    // Grading: finer toward top (toward interface with air)
-    // Y-grading 0.2 = cells 5× smaller at top
-    // FIXED: X subdivision set to 250 (was 200) for conformality with other blocks
-    hex ( 0  3  2  1   4  7  6  5)   (400 250 25)  simpleGrading (1 0.2 1)
+    // Uniform grading for conformal interface with air gap
+    // FIXED: X subdivision set to 250 (was 200) for conformality
+    // FIXED: Y grading set to 1.0 (was 0.2) to match interface cell spacing
+    hex ( 0  3  2  1   4  7  6  5)   (400 250 25)  simpleGrading (1 1 1)
 
     // AIR GAP: 8 → 20 μm (12 μm thick)
     // Cells: 400 × 250 × 25 = 2.5M
-    // Grading: strongly finer toward top (toward film)
-    // Y-grading 0.1 = cells 10× smaller at top (near film)
-    hex ( 4  7  6  5   8 11 10  9)   (400 250 25)  simpleGrading (1 0.1 1)
+    // Uniform grading for conformal interfaces with substrate and Ti film
+    // FIXED: Y grading set to 1.0 (was 0.1) to match interface cell spacing
+    hex ( 4  7  6  5   8 11 10  9)   (400 250 25)  simpleGrading (1 1 1)
 
     // TI FILM: 20 → 20.0714 μm (71.4 nm thick)
     // Cells: 400 × 250 × 25 = 2.5M
-    // Uniform grading (already tiny cells due to air gap grading)
-    // FIXED: X subdivision set to 250 (was 36) for conformality with other blocks
-    // Note: This increases resolution significantly in X direction
+    // Uniform grading for conformal interface with air gap
+    // FIXED: X subdivision set to 250 (was 36) for conformality
     hex ( 8 11 10  9  12 15 14 13)   (400 250 25)  simpleGrading (1 1 1)
 );
 
@@ -81,23 +80,24 @@ boundary
 );
 mergePatchPairs();
 
-// NANOSCALE MESH INFORMATION (UPDATED):
-// ======================================
+// MESH INFORMATION (UPDATED - UNIFORM GRADING):
+// ==============================================
 // Total cells: 7.5 Million (400 × 250 × 25 per block × 3 blocks)
-// Cell sizes (nominal, varies with grading):
-// -------------------------------------------
-// Substrate:  7.5 nm × 120 nm × varies (graded in Y)
-// Air gap:    7.5 nm × 120 nm × varies (graded in Y)
-// Ti film:    7.5 nm × 120 nm × ~2.9 nm (uniform)
-//
-// Subdivision details:
-// --------------------
+// Cell sizes (uniform spacing in each direction):
+// ------------------------------------------------
 // Z-direction: 400 cells across 3 μm = 7.5 nm/cell
-// X-direction: 250 cells across 30 μm = 120 nm/cell (FIXED for conformality)
-// Y-direction: 25 cells per block (varies by block thickness)
-//   - Substrate: 25 cells across 8 μm (graded)
-//   - Air gap: 25 cells across 12 μm (graded)
-//   - Ti film: 25 cells across 71.4 nm (~2.9 nm/cell)
+// X-direction: 250 cells across 30 μm = 120 nm/cell
+// Y-direction (varies by block thickness):
+//   - Substrate: 25 cells across 8 μm = 320 nm/cell
+//   - Air gap:   25 cells across 12 μm = 480 nm/cell
+//   - Ti film:   25 cells across 71.4 nm = ~2.9 nm/cell
+//
+// Mesh characteristics:
+// ---------------------
+// - Uniform grading (1 1 1) ensures conformal interfaces between all blocks
+// - No grading discontinuities at y=8 μm or y=20 μm interfaces
+// - Nanoscale resolution in Ti film (2.9 nm cells in thickness direction)
+// - Moderate resolution in substrate and air gap
 //
 // Physics captured:
 // -----------------
