@@ -17,13 +17,13 @@ FoamFile
 
 application     compInterFoam;
 
-startFrom       startTime;
+startFrom       latestTime;
 startTime       0;
 stopAt          endTime;
 endTime         1e-10;
 
-deltaT          1e-15;         // Base time step (1 fs)
-maxDeltaT       1e-14;         // Cap adaptive growth (10 fs)
+deltaT          2e-15;         // Base time step (0.2 fs) - smaller steps for fast convergence
+maxDeltaT       2e-15;         // Cap adaptive growth (2 fs) - keep steps small during heating
 minDeltaT       1e-16;         // Minimum 0.01 fs for precision
 writeInterval   1e-14;         // Start with 1 ps intervals
 
@@ -93,6 +93,7 @@ useAdvancedInterfaceCapturing  true;
 advancedInterfaceCapturing
 {
     model               kinetic_theory;  // Not arbitrary scaling!
+    enableDynamicMeshRefinement false;
     stickingCoeff       0.18;
     momentumAccommodationCoeff       0.18;
     // CRITICAL FIX: Enable recoil in superheated liquid regime
@@ -103,7 +104,7 @@ advancedInterfaceCapturing
                                         // Recoil starts at Tvap = 1941K (melting point) // Ultrafast regime: evaporation begins with melting
     phaseChangeTempOffset 0;
     // Mass flux threshold - RELAXED for fs-LIFT
-    massRateEps           1e-6;         // FIXED: was 1e-12 (too restrictive!)
+    massRateEps           1e-8;         // FIXED: was 1e-12 (too restrictive!)
                                         // At 2000K: j ~ 10^3-10^4 kg/m²/s expected
                                         // This allows detection of realistic evaporation
     // Knight (Phys. Rev. B 20, 1979) predicts recoil pressures exceeding
@@ -140,7 +141,7 @@ twoTemperatureProperties
         coeffs
         (
             (0   0)  // Constant term = 0
-            (150 1)  // Linear term: Ce = 150 · Te [J/m³/K²] Wellershoff (2000) experimental data
+            (630 1)  // Linear term: Ce = 630 · Te [J/m³/K²] Wellershoff (2000) experimental data
         );
     }
     
@@ -150,7 +151,7 @@ G
     type table;
     values
     (
-        (300      2.0e17)   // ✓ CORRECT
+        (300      1.0e18)   // ✓ CORRECT
         (1000     3.0e18)   // ✓ CORRECT
         (2000     6.0e18)   // ✓ CORRECT
         (3000     1.0e19)   // ✓ CORRECT

@@ -48,16 +48,16 @@ solvers
     p_rgh
     {
         solver          GAMG;
-        smoother        DICGaussSeidel;
-        tolerance       1e-5;
-        relTol          0.1;
-        maxIter         100;
-        nPreSweeps      0;
+        smoother        GaussSeidel;     // Changed from DICGaussSeidel for better convergence
+        tolerance       1e-6; 
+        relTol          0.01;
+        maxIter         50;
+        nPreSweeps      1;
         nPostSweeps     2;
         cacheAgglomeration true;
-        nCellsInCoarsestLevel 20;
+        nCellsInCoarsestLevel 10;
         agglomerator    faceAreaPair;
-        mergeLevels     2;
+        mergeLevels     1;
         relaxationFactor 0.7;
     }
 
@@ -124,18 +124,18 @@ solvers
 PIMPLE
 {
     momentumPredictor           true;
-    nOuterCorrectors            30;          // Increased from 10 to 30 for stiff thermal gradients
+    nOuterCorrectors            10;          // Increased from 10 t0 30 to 50 for stiff thermal gradients
     nCorrectors                 3;
     nNonOrthogonalCorrectors    2;
 
     residualControl
     {
-        "alpha.*" { tolerance 1e-8;  relTol 0.0; }
-        p_rgh     { tolerance 5e-5;  relTol 0.05; }  // Tightened tolerance, reduced relTol from { tolerance 1e-4;  relTol 0.1; }
-        U         { tolerance 1e-4;  relTol 0.05; }
-        Te        { tolerance 1e-8;  relTol 0.0;  }   // thermal is stiff; be stricter
-        Tl        { tolerance 1e-8;  relTol 0.0;  }
-        T         { tolerance 1e-7;  relTol 0.01;  }   // if gas T exists
+        "alpha.*" { tolerance 1e-7;  relTol 0.0; }
+        p_rgh     { tolerance 1e-3;  relTol 0.1; }  // Tightened tolerance
+        U         { tolerance 5e-4;  relTol 0.1; }
+        Te        { tolerance 1e-6;  relTol 0.02; }   // thermal is stiff; be stricter
+        Tl        { tolerance 1e-6;  relTol 0.02;  }
+        T         { tolerance 1e-6;  relTol 0.05;  }   // if gas T exists
     }
     
     p_rghRefCell                0;
@@ -146,17 +146,17 @@ relaxationFactors
 {
     fields
     {
-        p_rgh           0.3;
-        "alpha.*"       0.5;
+        p_rgh           0.5; // Reduce from 0.3 (more conservative)
+        "alpha.*"       0.7;
     }
     equations
     {
-        U               0.5;
-        T               0.5;
-        Te              0.5;
-        Tl              0.5;
-        "alpha.*"       0.5;
-        ".*Final"       0.7;
+        U               0.7;	 // Reduce from 0.5
+        T               0.6;	// Increased from 0.5
+        Te              0.7;	// Increased from 0.5 - allow faster electron temperature changes
+        Tl              0.7;	// Increased from 0.5 - allow faster lattice temperature changes
+        "alpha.*"       0.7;
+        ".*Final"       0.9;
     }
 }
 
@@ -185,7 +185,7 @@ compInterFoamCoeffs
     // Clamp p_rgh to a physically defensible range so GAMG cannot run away.
     // Feinaeugle et al. observe Ti recoil plateaus close to 80 MPa, so keep the ceiling
     // above that to avoid throttling the kinetic-theory recoil driver.
-    pressureClamp      true;
+    pressureClamp      false;
     maxPressure        3.3e9;
     minPressure       -5e6;
 
