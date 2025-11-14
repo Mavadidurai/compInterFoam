@@ -1,0 +1,37 @@
+#!/bin/sh
+cd "${0%/*}" || exit 1    # Run from this directory
+
+# Source OpenFOAM run functions
+. ${WM_PROJECT_DIR:?}/bin/tools/RunFunctions
+
+# Clean old results
+./Allclean 2>/dev/null || true
+
+echo "Setting up TEST2 case with dynamic mesh refinement"
+echo "==================================================="
+echo
+
+# Generate mesh
+runApplication blockMesh
+echo "Mesh generated successfully"
+echo
+
+# Initialize fields (alpha.metal, temperatures, etc.)
+if [ -f system/setFieldsDict ]; then
+    runApplication setFields
+    echo "Fields initialized successfully"
+    echo
+fi
+
+# Optional: Check mesh quality
+# runApplication checkMesh
+
+echo "==================================================="
+echo "Case setup complete!"
+echo
+echo "To run the simulation:"
+echo "  compInterFoam"
+echo
+echo "To run in parallel (if decomposed):"
+echo "  mpirun -np <nprocs> compInterFoam -parallel"
+echo "==================================================="
