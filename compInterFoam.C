@@ -49,6 +49,7 @@ Description
 
 #include "fvCFD.H"
 #include "dynamicFvMesh.H"
+#include "OSspecific.H"
 #include "CMULES.H"
 #include "EulerDdtScheme.H"
 #include "localEulerDdtScheme.H"
@@ -746,6 +747,18 @@ int main(int argc, char *argv[])
     #include "addCheckCaseOptions.H"
     #include "setRootCaseLists.H"
     #include "createTime.H"
+    //#include "createMesh.H"
+
+    const Foam::fileName meshDir = runTime.constant()/"polyMesh";
+        if (!Foam::isDir(meshDir) || !Foam::isFile(meshDir/"points"))
+    {
+        FatalErrorInFunction
+            << "Missing initial mesh: " << meshDir/"points" << '\n'
+            << "Generate the background mesh (e.g. blockMesh or surface meshing) "
+            << "before launching compInterFoam."
+            << exit(FatalError);
+    }
+
     autoPtr<dynamicFvMesh> meshPtr(dynamicFvMesh::New(runTime));
     dynamicFvMesh& mesh = meshPtr();
     #include "createTimeControls.H" 
