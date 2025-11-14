@@ -46,10 +46,11 @@ vertices
 blocks
 (
     // SUBSTRATE (receiver): 0 → 8 μm
-    // Cells: 400 × 200 × 25 = 2M
+    // Cells: 400 × 250 × 25 = 2.5M
     // Grading: finer toward top (toward interface with air)
     // Y-grading 0.2 = cells 5× smaller at top
-    hex ( 0  3  2  1   4  7  6  5)   (400 200 25)  simpleGrading (1 0.2 1)
+    // FIXED: X subdivision set to 250 (was 200) for conformality with other blocks
+    hex ( 0  3  2  1   4  7  6  5)   (400 250 25)  simpleGrading (1 0.2 1)
 
     // AIR GAP: 8 → 20 μm (12 μm thick)
     // Cells: 400 × 250 × 25 = 2.5M
@@ -58,10 +59,11 @@ blocks
     hex ( 4  7  6  5   8 11 10  9)   (400 250 25)  simpleGrading (1 0.1 1)
 
     // TI FILM: 20 → 20.0714 μm (71.4 nm thick)
-    // Cells: 400 × 36 × 25 = 360k
+    // Cells: 400 × 250 × 25 = 2.5M
     // Uniform grading (already tiny cells due to air gap grading)
-    // 71.4 nm / 36 cells = ~2 nm per cell!
-    hex ( 8 11 10  9  12 15 14 13)   (400 36 25)  simpleGrading (1 1 1)
+    // FIXED: X subdivision set to 250 (was 36) for conformality with other blocks
+    // Note: This increases resolution significantly in X direction
+    hex ( 8 11 10  9  12 15 14 13)   (400 250 25)  simpleGrading (1 1 1)
 );
 
 edges ();
@@ -79,25 +81,28 @@ boundary
 );
 mergePatchPairs();
 
-// NANOSCALE MESH INFORMATION:
-// =============================
-// Total cells: ~102 Million
-// Cell sizes:
-// -----------
-// Substrate:  200 nm × 5 nm × 100 nm
-// Air gap:    200 nm × 5 nm × 100 nm
-// Ti film:    200 nm × 1 nm × 100 nm (NANOSCALE!)
+// NANOSCALE MESH INFORMATION (UPDATED):
+// ======================================
+// Total cells: 7.5 Million (400 × 250 × 25 per block × 3 blocks)
+// Cell sizes (nominal, varies with grading):
+// -------------------------------------------
+// Substrate:  7.5 nm × 120 nm × varies (graded in Y)
+// Air gap:    7.5 nm × 120 nm × varies (graded in Y)
+// Ti film:    7.5 nm × 120 nm × ~2.9 nm (uniform)
 //
-// Aspect ratios:
-// --------------
-// Substrate:  40:1:20 (reasonable for diffusion)
-// Air gap:    40:1:20 (reasonable for heat transfer)
-// Ti film:    200:1:100 (high aspect ratio for nanoscale layer)
+// Subdivision details:
+// --------------------
+// Z-direction: 400 cells across 3 μm = 7.5 nm/cell
+// X-direction: 250 cells across 30 μm = 120 nm/cell (FIXED for conformality)
+// Y-direction: 25 cells per block (varies by block thickness)
+//   - Substrate: 25 cells across 8 μm (graded)
+//   - Air gap: 25 cells across 12 μm (graded)
+//   - Ti film: 25 cells across 71.4 nm (~2.9 nm/cell)
 //
 // Physics captured:
 // -----------------
-// - Nanoscale heat diffusion in Ti film (1 nm resolution)
-// - Electron-phonon coupling at sub-10nm scale
+// - Nanoscale heat diffusion in Ti film
+// - Electron-phonon coupling at nanometer scale
 // - Interface tracking during phase change
 // - Thermal gradients during heating and solidification
 // - Recoil pressure and material ejection
