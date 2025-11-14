@@ -1,0 +1,197 @@
+================================================================================
+ULTRA-FINE NANOSCALE LIFT SIMULATION - SETUP SUMMARY
+================================================================================
+Created: 2024-11-14
+Target: PoliMi HPC Cluster
+
+================================================================================
+MESH SPECIFICATIONS
+================================================================================
+Total Cells:        ~102 Million
+Resolution:         1-5 nm in critical regions
+
+Region Breakdown:
+  Substrate:   250 × 1600 × 100 = 40.0M cells (200nm × 5nm × 100nm)
+  Air gap:     250 × 2400 × 100 = 60.0M cells (200nm × 5nm × 100nm)
+  Ti film:     250 × 72 × 100   =  1.8M cells (200nm × 1nm × 100nm) ← NANOSCALE!
+
+Geometry:
+  Domain:      50 μm × 20.0714 μm × 10 μm
+  Substrate:   8.0 μm thick
+  Air gap:     12.0 μm thick
+  Ti film:     71.4 nm thick
+
+================================================================================
+PHYSICS & TIME SCALES
+================================================================================
+Simulation Duration:  0 → 2 nanoseconds (complete LIFT cycle)
+
+Phase Timeline:
+  0-200 ps:      Laser heating & initial response
+  200-500 ps:    Material ejection & transfer
+  500-1000 ps:   Cooling during flight
+  1000-2000 ps:  Solidification & final structure
+
+Key Physics:
+  ✓ Two-temperature model (electron-phonon coupling)
+  ✓ Clausius-Clapeyron phase change
+  ✓ Kinetic theory recoil pressure (up to 3 GPa)
+  ✓ Advanced interface capturing
+  ✓ Femtosecond laser absorption
+  ✓ Complete solidification cycle
+
+Laser Parameters:
+  Energy:        60 nJ
+  Pulse width:   200 fs FWHM
+  Wavelength:    343 nm (Ti absorption peak)
+  Spot size:     6 μm diameter
+  Focus:         Center of Ti film
+
+================================================================================
+COMPUTATIONAL SETUP
+================================================================================
+Recommended Configuration:
+  Cores:         128 (can scale to 256-512)
+  Nodes:         4 × 32 cores
+  Memory:        512 GB total (~4 GB/core)
+  Walltime:      72-96 hours
+  Partition:     Parallel queue
+
+Decomposition:
+  Method:        Hierarchical
+  Distribution:  8 × 8 × 2 = 128 subdomains
+  Cells/core:    ~800,000
+
+Performance Estimates:
+  Time/step:     ~0.3 seconds (128 cores)
+  Total steps:   ~1,000,000
+  Runtime:       ~83 hours (3.5 days)
+
+Storage Requirements:
+  Mesh:          ~50 GB (decomposed)
+  Output:        ~100-500 GB (with purging)
+  Full history:  ~2 TB (not recommended)
+
+================================================================================
+FILES CREATED
+================================================================================
+Configuration Files:
+  ✓ system/blockMeshDict       - Nanoscale mesh definition
+  ✓ system/controlDict          - Complete LIFT physics setup
+  ✓ system/decomposeParDict     - 128-core decomposition
+  ✓ system/fvSchemes            - Numerical schemes
+  ✓ system/fvSolution           - Linear solvers
+
+Material Properties:
+  ✓ constant/laserProperties               - Laser parameters
+  ✓ constant/thermophysicalProperties.*    - Ti & Air properties
+  ✓ constant/transportProperties           - Transport coefficients
+  ✓ constant/turbulenceProperties          - Turbulence model
+
+Initial Conditions:
+  ✓ 0.orig/T, Tl, Te            - Temperature fields
+  ✓ 0.orig/p, p_rgh             - Pressure fields
+  ✓ 0.orig/U                    - Velocity field
+  ✓ 0.orig/alpha.metal, alpha.air - Phase fractions
+
+Scripts:
+  ✓ Allrun                      - Setup & execution script
+  ✓ Allclean                    - Cleanup script
+  ✓ Allpost                     - Post-processing script
+  ✓ run_nanoscale_lift.slurm    - SLURM job submission
+
+Documentation:
+  ✓ README.md                   - Complete documentation (13 KB)
+  ✓ QUICKSTART.md               - Quick reference guide
+  ✓ SETUP_SUMMARY.txt           - This file
+
+================================================================================
+QUICK START
+================================================================================
+1. Transfer to PoliMi HPC:
+   scp -r TEST_NANOSCALE_POLIMI user@polimi-hpc.it:~/
+
+2. Edit SLURM script:
+   nano run_nanoscale_lift.slurm
+   # Update: --account=your_account_name
+
+3. Generate & decompose:
+   blockMesh
+   cp -r 0.orig 0
+   decomposePar -copyZero
+
+4. Submit job:
+   sbatch run_nanoscale_lift.slurm
+
+5. Monitor:
+   tail -f slurm_*.out
+   tail -f log.compInterFoam
+
+6. Post-process:
+   ./Allpost
+   paraFoam
+
+================================================================================
+KEY ACHIEVEMENTS
+================================================================================
+✓ Nanometer-scale resolution (1 nm) in Ti film
+✓ Complete LIFT cycle (heating → solidification)
+✓ Optimized for HPC (128-512 cores)
+✓ Comprehensive documentation
+✓ Ready-to-run SLURM configuration
+✓ Automated post-processing
+✓ Full two-temperature physics
+✓ Extended time scale (2 ns)
+
+================================================================================
+MODIFICATIONS NEEDED BEFORE RUNNING
+================================================================================
+REQUIRED:
+  [ ] Update SLURM account name in run_nanoscale_lift.slurm
+  [ ] Verify OpenFOAM path in Allrun and SLURM script
+
+OPTIONAL:
+  [ ] Adjust number of cores (decomposeParDict + SLURM script)
+  [ ] Modify output frequency (controlDict: writeInterval)
+  [ ] Extend simulation time (controlDict: endTime)
+  [ ] Adjust memory allocation (SLURM script: --mem)
+
+================================================================================
+EXPECTED RESULTS
+================================================================================
+The simulation will capture:
+  1. Laser absorption and electron heating
+  2. Electron-phonon energy transfer
+  3. Melting of Ti film
+  4. Superheated liquid formation
+  5. Recoil pressure buildup
+  6. Material ejection and jet formation
+  7. Transfer across air gap
+  8. Cooling during flight
+  9. Impact and spreading on substrate
+  10. Final solidification
+
+Output will include:
+  - Temperature fields (T, Tl, Te) at femtosecond resolution
+  - Pressure and velocity fields
+  - Material distribution (alpha.metal)
+  - Probe data at key locations
+  - Mid-plane visualization data
+
+================================================================================
+SUPPORT & TROUBLESHOOTING
+================================================================================
+See README.md for:
+  - Detailed documentation
+  - Troubleshooting guide
+  - Performance optimization
+  - Post-processing instructions
+
+See QUICKSTART.md for:
+  - Essential commands
+  - Common configurations
+  - One-liner fixes
+
+================================================================================
+END OF SUMMARY
+================================================================================

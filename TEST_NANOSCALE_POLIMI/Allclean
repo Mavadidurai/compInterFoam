@@ -1,0 +1,111 @@
+#!/bin/bash
+#------------------------------------------------------------------------------
+# Allclean script for NANOSCALE LIFT simulation
+# Removes all generated files and resets to initial state
+#------------------------------------------------------------------------------
+
+cd "${0%/*}" || exit 1    # Run from this directory
+
+# Source run functions if available
+if [ -f "${WM_PROJECT_DIR}/bin/tools/CleanFunctions" ]; then
+    . "${WM_PROJECT_DIR}/bin/tools/CleanFunctions"
+else
+    # Define basic clean function if CleanFunctions not available
+    cleanCase() {
+        echo "Cleaning case..."
+    }
+fi
+
+echo ""
+echo "============================================================================"
+echo "Cleaning NANOSCALE LIFT case"
+echo "============================================================================"
+echo ""
+
+#------------------------------------------------------------------------------
+# Remove time directories
+#------------------------------------------------------------------------------
+echo "Removing time directories..."
+rm -rf [0-9]* [1-9]*[.]*[0-9]* 2>/dev/null
+echo "✓ Time directories removed"
+
+#------------------------------------------------------------------------------
+# Remove 0 directory (keep 0.orig)
+#------------------------------------------------------------------------------
+if [ -d "0" ]; then
+    echo "Removing 0 directory..."
+    rm -rf 0
+    echo "✓ 0 directory removed (0.orig preserved)"
+fi
+
+#------------------------------------------------------------------------------
+# Remove processor directories
+#------------------------------------------------------------------------------
+if compgen -G "processor*" > /dev/null; then
+    echo "Removing processor directories..."
+    rm -rf processor*
+    echo "✓ Processor directories removed"
+fi
+
+#------------------------------------------------------------------------------
+# Remove mesh
+#------------------------------------------------------------------------------
+if [ -d "constant/polyMesh" ]; then
+    echo "Removing mesh..."
+    rm -rf constant/polyMesh
+    echo "✓ Mesh removed"
+fi
+
+#------------------------------------------------------------------------------
+# Remove logs
+#------------------------------------------------------------------------------
+echo "Removing log files..."
+rm -f log.* *.log 2>/dev/null
+rm -f slurm_*.out slurm_*.err 2>/dev/null
+echo "✓ Log files removed"
+
+#------------------------------------------------------------------------------
+# Remove post-processing
+#------------------------------------------------------------------------------
+if [ -d "postProcessing" ]; then
+    echo "Removing postProcessing directory..."
+    rm -rf postProcessing
+    echo "✓ postProcessing directory removed"
+fi
+
+#------------------------------------------------------------------------------
+# Remove ParaView/VTK files
+#------------------------------------------------------------------------------
+echo "Removing ParaView files..."
+rm -f *.foam *.OpenFOAM 2>/dev/null
+rm -rf VTK 2>/dev/null
+echo "✓ ParaView files removed"
+
+#------------------------------------------------------------------------------
+# Remove dynamicCode
+#------------------------------------------------------------------------------
+if [ -d "dynamicCode" ]; then
+    echo "Removing dynamicCode..."
+    rm -rf dynamicCode
+    echo "✓ dynamicCode removed"
+fi
+
+#------------------------------------------------------------------------------
+# Summary
+#------------------------------------------------------------------------------
+echo ""
+echo "============================================================================"
+echo "Case cleaned successfully!"
+echo "============================================================================"
+echo ""
+echo "Preserved:"
+echo "  - 0.orig/          (initial conditions template)"
+echo "  - constant/        (material properties, mesh dictionary)"
+echo "  - system/          (control dictionaries)"
+echo "  - Allrun           (run script)"
+echo "  - Allclean         (this script)"
+echo ""
+echo "To regenerate the case, run: ./Allrun"
+echo ""
+
+# EOF

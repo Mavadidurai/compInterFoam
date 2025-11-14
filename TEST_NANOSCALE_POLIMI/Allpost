@@ -1,0 +1,303 @@
+#!/bin/bash
+#------------------------------------------------------------------------------
+# Allpost - Post-processing script for NANOSCALE LIFT simulation
+# Reconstructs parallel data and prepares for visualization
+#------------------------------------------------------------------------------
+
+cd "${0%/*}" || exit 1    # Run from this directory
+
+# Source OpenFOAM environment
+if [ -f "${WM_PROJECT_DIR}/bin/tools/RunFunctions" ]; then
+    . "${WM_PROJECT_DIR}/bin/tools/RunFunctions"
+fi
+
+echo ""
+echo "============================================================================"
+echo "POST-PROCESSING NANOSCALE LIFT SIMULATION"
+echo "============================================================================"
+echo ""
+
+#------------------------------------------------------------------------------
+# Check if simulation has run
+#------------------------------------------------------------------------------
+
+if [ ! -d "processor0" ]; then
+    echo "ERROR: No processor directories found!"
+    echo "The case has not been run yet or was already reconstructed."
+    exit 1
+fi
+
+#------------------------------------------------------------------------------
+# User options
+#------------------------------------------------------------------------------
+
+echo "Post-processing options:"
+echo "1. Reconstruct all times (WARNING: Very large disk space!)"
+echo "2. Reconstruct latest time only (recommended)"
+echo "3. Reconstruct specific times"
+echo "4. Reconstruct selected fields only"
+echo "5. Skip reconstruction, create ParaView file only"
+echo ""
+read -p "Choose option [1-5] (default: 2): " OPTION
+OPTION=${OPTION:-2}
+
+echo ""
+
+#------------------------------------------------------------------------------
+# Reconstruction
+#------------------------------------------------------------------------------
+
+case $OPTION in
+    1)
+        echo "Reconstructing ALL times..."
+        echo "This may take a long time and use significant disk space!"
+        read -p "Are you sure? [y/N]: " CONFIRM
+        if [[ $CONFIRM =~ ^[Yy]$ ]]; then
+            runApplication reconstructPar
+        else
+            echo "Cancelled."
+            exit 0
+        fi
+        ;;
+
+    2)
+        echo "Reconstructing latest time only..."
+        runApplication reconstructPar -latestTime
+        ;;
+
+    3)
+        echo "Enter times to reconstruct (e.g., '1e-10,5e-10,1e-9'):"
+        read -p "Times: " TIMES
+        if [ -n "$TIMES" ]; then
+            runApplication reconstructPar -time "$TIMES"
+        else
+            echo "No times specified. Exiting."
+            exit 1
+        fi
+        ;;
+
+    4)
+        echo "Available fields: T, Tl, Te, p, p_rgh, U, alpha.metal, alpha.air"
+        echo "Enter fields to reconstruct (e.g., 'T,Tl,alpha.metal'):"
+        read -p "Fields: " FIELDS
+        if [ -n "$FIELDS" ]; then
+            read -p "Reconstruct all times or latest? [all/latest]: " TIME_OPT
+            if [[ $TIME_OPT == "all" ]]; then
+                runApplication reconstructPar -fields "($FIELDS)"
+            else
+                runApplication reconstructPar -latestTime -fields "($FIELDS)"
+            fi
+        else
+            echo "No fields specified. Exiting."
+            exit 1
+        fi
+        ;;
+
+    5)
+        echo "Skipping reconstruction..."
+        ;;
+
+    *)
+        echo "Invalid option. Exiting."
+        exit 1
+        ;;
+esac
+
+#------------------------------------------------------------------------------
+# Create ParaView file
+#------------------------------------------------------------------------------
+
+echo ""
+echo "Creating ParaView file..."
+
+# Remove old .foam file
+rm -f case.foam 2>/dev/null
+
+# Create new .foam file
+touch case.foam
+echo "✓ Created case.foam for ParaView"
+
+# Alternative: Create .OpenFOAM file
+touch case.OpenFOAM
+echo "✓ Created case.OpenFOAM for ParaView"
+
+#------------------------------------------------------------------------------
+# Extract key data
+#------------------------------------------------------------------------------
+
+echo ""
+echo "Extracting simulation statistics..."
+
+if [ -f "log.compInterFoam" ]; then
+    # Create summary file
+    SUMMARY="postProcessing_summary.txt"
+
+    echo "NANOSCALE LIFT SIMULATION - POST-PROCESSING SUMMARY" > $SUMMARY
+    echo "====================================================" >> $SUMMARY
+    echo "" >> $SUMMARY
+    echo "Generated: $(date)" >> $SUMMARY
+    echo "" >> $SUMMARY
+
+    # Extract timing info
+    echo "TIMING INFORMATION:" >> $SUMMARY
+    echo "-------------------" >> $SUMMARY
+    FINAL_TIME=$(grep "^Time = " log.compInterFoam | tail -1 | awk '{print $3}')
+    TIMESTEPS=$(grep "^Time = " log.compInterFoam | wc -l)
+    echo "Final simulation time: $FINAL_TIME seconds" >> $SUMMARY
+    echo "Total timesteps: $TIMESTEPS" >> $SUMMARY
+
+    if [ -n "$TIMESTEPS" ] && [ -n "$FINAL_TIME" ] && [ "$TIMESTEPS" -gt 0 ]; then
+        AVG_DT=$(echo "scale=15; $FINAL_TIME / $TIMESTEPS" | bc)
+        echo "Average timestep: $AVG_DT seconds" >> $SUMMARY
+    fi
+    echo "" >> $SUMMARY
+
+    # Extract temperature info
+    echo "TEMPERATURE EXTREMES:" >> $SUMMARY
+    echo "---------------------" >> $SUMMARY
+    echo "Maximum lattice temperature (Tl):" >> $SUMMARY
+    grep "max(Tl)" log.compInterFoam | tail -10 >> $SUMMARY
+    echo "" >> $SUMMARY
+    echo "Maximum electron temperature (Te):" >> $SUMMARY
+    grep "max(Te)" log.compInterFoam | tail -10 >> $SUMMARY
+    echo "" >> $SUMMARY
+
+    # Courant numbers
+    echo "COURANT NUMBERS (final values):" >> $SUMMARY
+    echo "--------------------------------" >> $SUMMARY
+    grep "Courant Number" log.compInterFoam | tail -5 >> $SUMMARY
+    grep "Interface Courant Number" log.compInterFoam | tail -5 >> $SUMMARY
+    echo "" >> $SUMMARY
+
+    # Warnings and errors
+    echo "DIAGNOSTICS:" >> $SUMMARY
+    echo "------------" >> $SUMMARY
+    WARNINGS=$(grep -i "warning" log.compInterFoam | wc -l)
+    ERRORS=$(grep -i "error" log.compInterFoam | wc -l)
+    echo "Total warnings: $WARNINGS" >> $SUMMARY
+    echo "Total errors: $ERRORS" >> $SUMMARY
+    echo "" >> $SUMMARY
+
+    if [ "$ERRORS" -gt 0 ]; then
+        echo "ERROR MESSAGES:" >> $SUMMARY
+        grep -i "error" log.compInterFoam | tail -20 >> $SUMMARY
+        echo "" >> $SUMMARY
+    fi
+
+    # Execution time
+    if [ -f "log.compInterFoam" ]; then
+        START_TIME=$(head -20 log.compInterFoam | grep "^ExecutionTime" | head -1)
+        END_TIME=$(tail -20 log.compInterFoam | grep "^ExecutionTime" | tail -1)
+        echo "EXECUTION TIME:" >> $SUMMARY
+        echo "---------------" >> $SUMMARY
+        echo "Start: $START_TIME" >> $SUMMARY
+        echo "End: $END_TIME" >> $SUMMARY
+    fi
+
+    echo "✓ Summary saved to: $SUMMARY"
+    echo ""
+    echo "Summary contents:"
+    cat $SUMMARY
+fi
+
+#------------------------------------------------------------------------------
+# Post-processing functions data
+#------------------------------------------------------------------------------
+
+if [ -d "postProcessing" ]; then
+    echo ""
+    echo "Processing function objects data..."
+
+    # List available data
+    echo "Available postProcessing data:"
+    find postProcessing -type f -name "*.dat" -o -name "*.xy" 2>/dev/null | head -10
+
+    # You can add custom plotting/analysis here
+    # Example: gnuplot scripts, Python analysis, etc.
+fi
+
+#------------------------------------------------------------------------------
+# Data size report
+#------------------------------------------------------------------------------
+
+echo ""
+echo "============================================================================"
+echo "Data Size Report:"
+echo "============================================================================"
+
+if command -v du &> /dev/null; then
+    echo "Processor directories:"
+    du -sh processor* 2>/dev/null | head -5
+    echo "..."
+
+    if ls -d [0-9]* >/dev/null 2>&1; then
+        echo ""
+        echo "Reconstructed time directories:"
+        du -sh [0-9]* 2>/dev/null | tail -10
+    fi
+
+    echo ""
+    echo "Total case size:"
+    du -sh .
+fi
+
+#------------------------------------------------------------------------------
+# Visualization instructions
+#------------------------------------------------------------------------------
+
+echo ""
+echo "============================================================================"
+echo "VISUALIZATION"
+echo "============================================================================"
+echo ""
+echo "To visualize results:"
+echo ""
+echo "1. ParaView (GUI):"
+echo "   paraview case.foam"
+echo "   or"
+echo "   paraFoam"
+echo ""
+echo "2. ParaView (remote):"
+echo "   - Download case.foam and time directories to local machine"
+echo "   - Open case.foam in ParaView"
+echo ""
+echo "3. Python (matplotlib, mayavi, pyvista):"
+echo "   - Use foamToVTK to convert to VTK format first"
+echo "   - Or use PyFoam/fluidfoam libraries"
+echo ""
+echo "Recommended visualization fields:"
+echo "  - alpha.metal: Material distribution"
+echo "  - T, Tl, Te: Temperature fields"
+echo "  - p_rgh: Pressure field"
+echo "  - U: Velocity field"
+echo ""
+echo "Recommended visualizations:"
+echo "  1. Mid-plane (y-z) slice at x=25μm showing material transfer"
+echo "  2. Temperature contours with alpha.metal iso-surface"
+echo "  3. Time animation of phase change process"
+echo "  4. Probe data plots (if available in postProcessing/)"
+echo ""
+
+#------------------------------------------------------------------------------
+# Cleanup options
+#------------------------------------------------------------------------------
+
+echo "============================================================================"
+echo "Cleanup options:"
+echo "============================================================================"
+echo ""
+read -p "Remove processor directories to save space? [y/N]: " CLEANUP
+if [[ $CLEANUP =~ ^[Yy]$ ]]; then
+    echo "Removing processor directories..."
+    rm -rf processor*
+    echo "✓ Processor directories removed"
+    echo "Note: You cannot restart or reconstruct additional times now."
+fi
+
+echo ""
+echo "============================================================================"
+echo "Post-processing complete!"
+echo "============================================================================"
+echo ""
+
+# EOF

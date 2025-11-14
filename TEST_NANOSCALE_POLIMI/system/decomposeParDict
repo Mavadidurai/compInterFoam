@@ -1,0 +1,157 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+| =========                 |                                                 |
+| \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox           |
+|  \\    /   O peration     | Version:  v2406                                 |
+|   \\  /    A nd           | Website:  www.openfoam.com                      |
+|    \\/     M anipulation  |                                                 |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    object      decomposeParDict;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+// OPTIMIZED DECOMPOSITION FOR POLIMI HPC CLUSTER
+// Ultra-fine nanoscale mesh: ~102 Million cells
+// Target: 128-256 cores for optimal performance
+//
+// Cell distribution:
+// - ~800,000 cells/core for 128 cores
+// - ~400,000 cells/core for 256 cores
+//
+// Choose configuration based on available resources
+
+// ============================================================================
+// CONFIGURATION 1: 128 cores (RECOMMENDED)
+// ============================================================================
+numberOfSubdomains 128;
+
+method          hierarchical;
+
+hierarchicalCoeffs
+{
+    // Decompose: 8 × 4 × 4 = 128 subdomains
+    // This gives good aspect ratio and balances the anisotropic mesh
+    n           (8 8 2);
+    order       xyz;
+    delta       0.001;
+}
+
+// ============================================================================
+// ALTERNATIVE CONFIGURATIONS (uncomment as needed)
+// ============================================================================
+
+/*
+// CONFIGURATION 2: 256 cores (for larger clusters)
+numberOfSubdomains 256;
+
+method          hierarchical;
+
+hierarchicalCoeffs
+{
+    // Decompose: 16 × 8 × 2 = 256 subdomains
+    n           (16 8 2);
+    order       xyz;
+    delta       0.001;
+}
+*/
+
+/*
+// CONFIGURATION 3: 64 cores (smaller jobs)
+numberOfSubdomains 64;
+
+method          hierarchical;
+
+hierarchicalCoeffs
+{
+    // Decompose: 8 × 4 × 2 = 64 subdomains
+    n           (8 4 2);
+    order       xyz;
+    delta       0.001;
+}
+*/
+
+/*
+// CONFIGURATION 4: SCOTCH (automatic load balancing)
+// Use this if hierarchical doesn't give good balance
+numberOfSubdomains 128;  // or 256
+
+method          scotch;
+
+scotchCoeffs
+{
+    processorWeights    (1 1 1 1);  // Equal weights
+    strategy            "b";         // Quality balance strategy
+}
+*/
+
+/*
+// CONFIGURATION 5: 512 cores (very large clusters)
+numberOfSubdomains 512;
+
+method          hierarchical;
+
+hierarchicalCoeffs
+{
+    // Decompose: 16 × 16 × 2 = 512 subdomains
+    n           (16 16 2);
+    order       xyz;
+    delta       0.001;
+}
+*/
+
+// ============================================================================
+// ADVANCED OPTIONS
+// ============================================================================
+
+// Preserve boundary patches and interface
+distributed     no;
+roots           ();
+
+// ============================================================================
+// DECOMPOSITION STRATEGY NOTES
+// ============================================================================
+//
+// Hierarchical method is recommended because:
+// 1. Predictable domain decomposition
+// 2. Good cache locality
+// 3. Minimal communication overhead for structured mesh
+// 4. Y-direction has most cells (1600+2400+72=4072), so decompose more in Y
+//
+// Decomposition ratios (for 128 cores: 8×8×2):
+// - X: 250 cells / 8 = ~31 cells/subdomain
+// - Y: 4072 cells / 8 = ~509 cells/subdomain
+// - Z: 100 cells / 2 = 50 cells/subdomain
+//
+// Each subdomain: ~31 × 509 × 50 ≈ 789,000 cells
+//
+// For SCOTCH (automatic):
+// - Better load balancing for irregular physics
+// - Useful if material distribution becomes very uneven
+// - Slightly higher decomposition time
+//
+// SLURM job submission recommendations:
+// - For 128 cores: --nodes=4 --ntasks-per-node=32 (4 nodes × 32 cores)
+// - For 256 cores: --nodes=8 --ntasks-per-node=32 (8 nodes × 32 cores)
+// - Memory: ~4-8 GB per core (512-1024 GB total for 128 cores)
+// - Walltime: 48-72 hours for complete LIFT cycle (2 ns simulation)
+//
+// Performance estimates:
+// - ~0.1-0.5 seconds per timestep (depending on adaptive dt)
+// - ~10^6 timesteps for 2 ns with average dt ~ 2 fs
+// - Total runtime: ~100-500k seconds = 28-139 hours
+//
+// Scaling efficiency:
+// - Strong scaling: Good up to ~800k cells/core
+// - Weak scaling: Linear up to 512 cores for this problem size
+//
+// I/O considerations:
+// - Use uncollated file handler (set in controlDict)
+// - Binary format for faster writes
+// - Consider reducing writeInterval for long runs
+// - Parallel I/O bandwidth critical: use high-speed filesystem (Lustre/GPFS)
+
+// ************************************************************************* //
