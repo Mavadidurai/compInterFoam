@@ -745,7 +745,7 @@ int main(int argc, char *argv[])
     #include "addCheckCaseOptions.H"
     #include "setRootCaseLists.H"
     #include "createTime.H"
-    #include "createMesh.H"
+    #include "createDynamicFvMesh.H"
     #include "createTimeControls.H" 
     #ifndef CREATE_FIELDS_DONE
     #include "createFields.H"
@@ -925,9 +925,12 @@ int main(int argc, char *argv[])
 
         ++runTime;
 
-        runTime.functionObjects().execute();
-
         Info<< "Time = " << runTime.timeName() << nl << endl;
+
+        // Update mesh for dynamic refinement
+        mesh.update();
+
+        runTime.functionObjects().execute();
 
         // Update laser model
         laser.update();

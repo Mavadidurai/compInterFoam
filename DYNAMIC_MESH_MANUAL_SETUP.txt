@@ -1,0 +1,21 @@
+MANUAL DYNAMIC MESH SETUP (if createDynamicFvMesh.H doesn't exist)
+=======================================================================
+
+If you get error "createDynamicFvMesh.H: No such file or directory",
+replace line 748 with the following code:
+
+REPLACE THIS:
+    #include "createDynamicFvMesh.H"
+
+WITH THIS:
+    // Create dynamic mesh
+    autoPtr<dynamicFvMesh> meshPtr
+    (
+        dynamicFvMesh::New(runTime)
+    );
+    dynamicFvMesh& mesh = meshPtr();
+
+ALSO ADD THIS INCLUDE at the top (around line 50):
+    #include "dynamicFvMesh.H"
+
+This creates the mesh object directly without relying on an include file.
