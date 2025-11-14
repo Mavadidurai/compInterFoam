@@ -1,0 +1,151 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+| =========                 |                                                 |
+| \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox           |
+|  \\    /   O peration     | Version:  v2406                                 |
+|   \\  /    A nd           | Website:  www.openfoam.com                      |
+|    \\/     M anipulation  |                                                 |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    object      blockMeshDict;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+// SMART GRADED MESH FOR POLIMI HPC CLUSTER
+// Resolution: nano-scale WHERE IT MATTERS (film + near-film zone)
+// Total cells: ~5 Million (practical for 128-256 cores)
+//
+// Strategy:
+// - Ultra-fine in Y near the film (2-5 nm cells)
+// - Graded coarser away from film
+// - Focused resolution in X around laser spot
+// - Thin in Z (quasi-3D)
+
+scale 1e-6; // coordinates in micrometers
+
+// LIFT GEOMETRY (same as before):
+// y0 = 0.0000     - Substrate (receiver) bottom
+// y1 = 8.0000     - Substrate top / Air gap bottom
+// y2 = 20.0000    - Air gap top / Ti film bottom
+// y3 = 20.0714    - Ti film top (71.4 nm thick)
+
+vertices
+(
+    // y0 = 0.0000 (substrate/receiver bottom)
+    (0   0.0000  0)  (30  0.0000  0)  (30  0.0000  3)  (0   0.0000  3)
+
+    // y1 = 8.0000 (substrate top / air gap bottom)
+    (0   8.0000  0)  (30  8.0000  0)  (30  8.0000  3)  (0   8.0000  3)
+
+    // y2 = 20.0000 (air gap top / Ti film bottom)
+    (0  20.0000  0)  (30 20.0000  0)  (30 20.0000  3)  (0  20.0000  3)
+
+    // y3 = 20.0714 (Ti film top) - 71.4 nm thick film
+    (0  20.0714  0)  (30 20.0714  0)  (30 20.0714  3)  (0  20.0714  3)
+);
+
+blocks
+(
+    // SUBSTRATE (receiver): 0 → 8 μm
+    // Cells: 400 × 200 × 25 = 2M
+    // Grading: finer toward top (toward interface with air)
+    // Y-grading 0.2 = cells 5× smaller at top
+    hex ( 0  3  2  1   4  7  6  5)   (400 200 25)  simpleGrading (1 0.2 1)
+
+    // AIR GAP: 8 → 20 μm (12 μm thick)
+    // Cells: 400 × 250 × 25 = 2.5M
+    // Grading: strongly finer toward top (toward film)
+    // Y-grading 0.1 = cells 10× smaller at top (near film)
+    hex ( 4  7  6  5   8 11 10  9)   (400 250 25)  simpleGrading (1 0.1 1)
+
+    // TI FILM: 20 → 20.0714 μm (71.4 nm thick)
+    // Cells: 400 × 36 × 25 = 360k
+    // Uniform grading (already tiny cells due to air gap grading)
+    // 71.4 nm / 36 cells = ~2 nm per cell!
+    hex ( 8 11 10  9  12 15 14 13)   (400 36 25)  simpleGrading (1 1 1)
+);
+
+edges ();
+
+boundary
+(
+    // Symmetry planes
+    left          { type symmetryPlane; faces ((0 3 7 4)(4 7 11 8)(8 11 15 12)); }
+    right         { type symmetryPlane; faces ((1 5 6 2)(5 9 10 6)(9 13 14 10)); }
+    front         { type symmetryPlane; faces ((0 4 5 1)(4 8 9 5)(8 12 13 9)); }
+    back          { type symmetryPlane; faces ((3 2 6 7)(7 6 10 11)(11 10 14 15)); }
+
+    // Physical walls
+    substrate     { type wall;  faces ((0 3 2 1)); }      // BOTTOM
+    donor         { type wall;  faces ((12 15 14 13)); }   // TOP
+);
+
+mergePatchPairs();
+
+// ============================================================================
+// SMART MESH SPECIFICATIONS
+// ============================================================================
+//
+// Total cells: 400 × (200+250+36) × 25 = 400 × 486 × 25 ≈ 4.86 Million
+//
+// GRADING STRATEGY:
+// ----------------
+// Substrate (Y: 0→8μm, 200 cells, grading 0.2):
+//   - Bottom cells: ~80 nm
+//   - Top cells:    ~16 nm (5× finer)
+//   - Smooth transition
+//
+// Air gap (Y: 8→20μm, 250 cells, grading 0.1):
+//   - Bottom cells: ~96 nm
+//   - Top cells:    ~9.6 nm (10× finer)
+//   - Strongly focused toward film interface
+//
+// Ti film (Y: 20→20.0714μm, 36 cells, uniform):
+//   - All cells:    ~2 nm
+//   - Perfect for electron-phonon coupling
+//   - Captures phase change dynamics
+//
+// X-direction (0→30μm, 400 cells, uniform):
+//   - Cell size:    75 nm
+//   - Laser spot:   6 μm diameter = 80 cells
+//   - Good resolution for Gaussian profile
+//
+// Z-direction (0→3μm, 25 cells, uniform):
+//   - Cell size:    120 nm
+//   - Thin domain (quasi-3D)
+//   - Reduces computational cost
+//
+// MESH QUALITY:
+// -------------
+// - Aspect ratios reasonable (with grading)
+// - Film cells: 75 × 2 × 120 nm = 37:1:60 → acceptable
+// - Air cells at film: 75 × 10 × 120 nm = 7.5:1:12 → excellent
+//
+// COMPUTATIONAL COST:
+// -------------------
+// - ~4.86M cells
+// - 128 cores → ~38k cells/core → excellent load balance
+// - 256 cores → ~19k cells/core → still good
+// - Memory: ~2-3 GB/core
+// - Runtime: Days, not weeks
+//
+// PHYSICS CAPTURED:
+// -----------------
+// ✓ Nanoscale heat diffusion in film (2 nm)
+// ✓ Interface dynamics (10 nm near film)
+// ✓ Bulk thermal response (coarser away)
+// ✓ Laser absorption profile (75 nm lateral)
+// ✓ Complete LIFT cycle feasible
+//
+// COMPARED TO "ULTRA-FINE EVERYWHERE" (102M cells):
+// --------------------------------------------------
+// This mesh is 20× smaller, but puts resolution WHERE IT MATTERS.
+// The film and near-film region have the same quality, but we don't
+// waste cells on coarse regions far from the action.
+//
+// This is how you run LIFT on a cluster without suicide.
+
+// ************************************************************************* //

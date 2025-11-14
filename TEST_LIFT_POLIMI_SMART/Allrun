@@ -1,0 +1,111 @@
+#!/bin/bash
+#------------------------------------------------------------------------------
+# Allrun - SMART LIFT simulation for PoliMi HPC
+# Complete physics, practical mesh (~5M cells), realistic runtime
+#------------------------------------------------------------------------------
+
+cd "${0%/*}" || exit 1
+
+# Source OpenFOAM (MODIFY FOR YOUR CLUSTER)
+if [ -f "/opt/openfoam2406/etc/bashrc" ]; then
+    source /opt/openfoam2406/etc/bashrc
+elif [ -f "$HOME/OpenFOAM/OpenFOAM-v2406/etc/bashrc" ]; then
+    source "$HOME/OpenFOAM/OpenFOAM-v2406/etc/bashrc"
+else
+    echo "ERROR: OpenFOAM not found! Update path in Allrun"
+    exit 1
+fi
+
+. "${WM_PROJECT_DIR:?}/bin/tools/RunFunctions"
+
+echo ""
+echo "============================================================================"
+echo " SMART LIFT SIMULATION - PoliMi HPC"
+echo "============================================================================"
+echo " Mesh:         ~5M cells (PRACTICAL!)"
+echo " Resolution:   2 nm in film, graded elsewhere"
+echo " Decomp:       ny=1 (keeps film intact per processor)"
+echo " Target:       50 ps in 1-2 days runtime"
+echo "============================================================================"
+echo ""
+
+#------------------------------------------------------------------------------
+# STEP 1: Generate mesh
+#------------------------------------------------------------------------------
+echo "Step 1: Generating smart graded mesh..."
+echo "------------------------------------------------------------"
+
+if [ ! -d "constant/polyMesh" ]; then
+    runApplication blockMesh
+    echo ""
+    echo "Mesh generated! Checking quality..."
+    runApplication checkMesh -allTopology -allGeometry
+
+    echo ""
+    echo "Mesh statistics:"
+    grep "cells:" log.blockMesh
+    grep "points:" log.blockMesh
+    grep "faces:" log.blockMesh
+else
+    echo "Mesh exists. Skipping blockMesh."
+fi
+
+#------------------------------------------------------------------------------
+# STEP 2: Initial conditions
+#------------------------------------------------------------------------------
+echo ""
+echo "Step 2: Setting initial conditions..."
+echo "------------------------------------------------------------"
+
+if [ ! -d "0" ]; then
+    cp -r 0.orig 0
+    echo "✓ Initial conditions copied"
+else
+    echo "0/ exists. Skipping."
+fi
+
+#------------------------------------------------------------------------------
+# STEP 3: Decompose for parallel
+#------------------------------------------------------------------------------
+echo ""
+echo "Step 3: Decomposing domain..."
+echo "------------------------------------------------------------"
+
+NPROCS=$(grep "numberOfSubdomains" system/decomposeParDict | awk '{print $2}' | tr -d ';')
+echo "Target: $NPROCS subdomains"
+
+if [ ! -d "processor0" ]; then
+    runApplication decomposePar -copyZero
+
+    # Verify decomposition
+    ACTUAL=$(ls -d processor* 2>/dev/null | wc -l)
+    if [ "$ACTUAL" -eq "$NPROCS" ]; then
+        echo "✓ Decomposition successful: $ACTUAL subdomains"
+    else
+        echo "✗ ERROR: Expected $NPROCS, got $ACTUAL"
+        exit 1
+    fi
+else
+    echo "Already decomposed. Skipping."
+fi
+
+#------------------------------------------------------------------------------
+# STEP 4: Submit to cluster
+#------------------------------------------------------------------------------
+echo ""
+echo "============================================================================"
+echo " READY TO RUN"
+echo "============================================================================"
+echo ""
+echo "Submit to SLURM queue:"
+echo "  sbatch run_lift_smart.slurm"
+echo ""
+echo "Or run interactively (NOT recommended for full run):"
+echo "  mpirun -np $NPROCS compInterFoam -parallel | tee log.compInterFoam"
+echo ""
+echo "Monitor:"
+echo "  tail -f log.compInterFoam"
+echo "  grep '^Time = ' log.compInterFoam | tail -5"
+echo ""
+
+# EOF

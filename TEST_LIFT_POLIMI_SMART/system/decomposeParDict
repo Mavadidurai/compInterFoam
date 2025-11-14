@@ -1,0 +1,166 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+| =========                 |                                                 |
+| \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox           |
+|  \\    /   O peration     | Version:  v2406                                 |
+|   \\  /    A nd           | Website:  www.openfoam.com                      |
+|    \\/     M anipulation  |                                                 |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    object      decomposeParDict;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+// SMART DECOMPOSITION FOR POLIMI HPC
+// ===================================
+// Mesh: ~4.86M cells
+// Strategy: DON'T SPLIT THE THIN FILM IN Y!
+//
+// We use hierarchical decomposition with ny=1 so each processor
+// owns the FULL vertical stack (including the 71.4 nm film).
+// This avoids crazy thin-layer communication and maintains
+// physics integrity in the film.
+
+// ============================================================================
+// CONFIGURATION 1: 128 cores (RECOMMENDED for ~5M cells)
+// ============================================================================
+
+numberOfSubdomains 128;
+
+method          hierarchical;
+
+hierarchicalCoeffs
+{
+    // Split: 32 in X, 1 in Y, 4 in Z
+    // = 32 × 1 × 4 = 128 subdomains
+    //
+    // Each subdomain:
+    // - X: 400/32 = 12.5 cells → ~13 cells wide
+    // - Y: 486/1 = 486 cells → FULL HEIGHT (includes film!)
+    // - Z: 25/4 = 6.25 → ~6 cells deep
+    //
+    // Load balance: ~38k cells/core
+
+    n           (32 1 4);
+    order       xyz;
+    delta       0.001;
+}
+
+distributed     no;
+roots           ();
+
+// ============================================================================
+// WHY ny=1 IS CRITICAL
+// ============================================================================
+//
+// The Ti film is only 71.4 nm = 36 cells thick.
+// If we split in Y (e.g., ny=4), each subdomain would get ~9 cells of film.
+// Problems:
+// 1. Processor boundaries cut through the film
+// 2. Heat transfer across boundaries is slow
+// 3. Phase change at boundaries is tricky
+// 4. Interface tracking gets messy
+//
+// With ny=1:
+// - Each processor owns substrate + air + full film
+// - No vertical communication needed for film physics
+// - Clean phase change and interface dynamics
+// - Film acts as continuous layer
+//
+// Trade-off: More cells per processor in Y, but:
+// - We only have 486 cells total in Y (not crazy)
+// - Mesh is graded, so top/bottom are cheap
+// - Film region is small relative to total
+// - X and Z splits give good parallelism
+
+// ============================================================================
+// ALTERNATIVE CONFIGURATIONS
+// ============================================================================
+
+/*
+// CONFIGURATION 2: 64 cores (smaller test run)
+numberOfSubdomains 64;
+method          hierarchical;
+hierarchicalCoeffs
+{
+    n           (16 1 4);    // 16×1×4 = 64
+    order       xyz;
+    delta       0.001;
+}
+// Load: ~76k cells/core
+*/
+
+/*
+// CONFIGURATION 3: 256 cores (production, large cluster)
+numberOfSubdomains 256;
+method          hierarchical;
+hierarchicalCoeffs
+{
+    n           (64 1 4);    // 64×1×4 = 256
+    order       xyz;
+    delta       0.001;
+}
+// Load: ~19k cells/core
+*/
+
+/*
+// CONFIGURATION 4: SCOTCH (automatic, if hierarchical has issues)
+numberOfSubdomains 128;
+method          scotch;
+// SCOTCH is smart and usually respects thin layers,
+// but hierarchical with ny=1 gives us explicit control.
+*/
+
+// ============================================================================
+// LOAD BALANCE ESTIMATES
+// ============================================================================
+//
+// Mesh: 400(x) × 486(y) × 25(z) = 4,860,000 cells
+//
+// 64 cores:   76k cells/core  (good for testing)
+// 128 cores:  38k cells/core  (RECOMMENDED)
+// 256 cores:  19k cells/core  (great for production)
+//
+// Memory per core (rough):
+// - Mesh + fields: ~2-3 GB/core at 128 cores
+// - Total: ~256-384 GB for 128 cores
+//
+// Scaling:
+// - Strong scaling should be good up to ~20k cells/core
+// - Beyond 256 cores, returns diminish for this mesh
+//
+// Communication:
+// - Mainly in X and Z directions
+// - Each X-face: 486×6 = ~3k cells → reasonable
+// - Each Z-face: 13×486 = ~6k cells → fine
+
+// ============================================================================
+// RUNNING ON POLIMI CLUSTER
+// ============================================================================
+//
+// Typical workflow:
+//
+// 1. Decompose:
+//    decomposePar -force
+//
+// 2. Check balance:
+//    ls -d processor* | wc -l    # Should match numberOfSubdomains
+//
+// 3. Run (SLURM example):
+//    #!/bin/bash
+//    #SBATCH --nodes=4
+//    #SBATCH --ntasks-per-node=32
+//    #SBATCH --time=48:00:00
+//    #SBATCH --mem=384G
+//
+//    mpirun -np 128 compInterFoam -parallel | tee log.compInterFoam
+//
+// 4. Reconstruct:
+//    reconstructPar -latestTime
+//    # or
+//    reconstructPar -time "0.1,0.5,1,5,10"
+
+// ************************************************************************* //
