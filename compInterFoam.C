@@ -747,8 +747,8 @@ int main(int argc, char *argv[])
     #include "addCheckCaseOptions.H"
     #include "setRootCaseLists.H"
     #include "createTime.H"
-    //#include "createMesh.H"
-
+    #include "createMesh.H"
+/*
     const Foam::fileName meshDir = runTime.constant()/"polyMesh";
         if (!Foam::isDir(meshDir) || !Foam::isFile(meshDir/"points"))
     {
@@ -761,6 +761,7 @@ int main(int argc, char *argv[])
 
     autoPtr<dynamicFvMesh> meshPtr(dynamicFvMesh::New(runTime));
     dynamicFvMesh& mesh = meshPtr();
+    */
     #include "createTimeControls.H" 
     #ifndef CREATE_FIELDS_DONE
     #include "createFields.H"
@@ -939,7 +940,7 @@ int main(int argc, char *argv[])
         }
 
         ++runTime;
-        
+/*        
         static bool dynamicMeshSuppressedPrinted = false;
 
         if (mesh.dynamic())
@@ -951,7 +952,7 @@ int main(int argc, char *argv[])
 
             if (useAdvancedCapturing && enableDynamicMeshRefinement)
             {
-                const bool meshChangedThisStep = mesh.update();
+               const bool meshChangedThisStep = mesh.update();
 
                 if (meshChangedThisStep)
                 {
@@ -977,7 +978,7 @@ int main(int argc, char *argv[])
                 dynamicMeshSuppressedPrinted = true;
             }
         }
-
+*/
         runTime.functionObjects().execute();
 
         Info<< "Time = " << runTime.timeName() << nl << endl;
