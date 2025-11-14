@@ -750,7 +750,7 @@ int main(int argc, char *argv[])
     //#include "createMesh.H"
 
     const Foam::fileName meshDir = runTime.constant()/"polyMesh";
-        if (!Foam::isDir(meshDir) || !Foam::isFile(meshDir/"points"))
+    if (!Foam::isDir(meshDir) || !Foam::isFile(meshDir/"points"))
     {
         FatalErrorInFunction
             << "Missing initial mesh: " << meshDir/"points" << '\n'
