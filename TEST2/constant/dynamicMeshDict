@@ -21,13 +21,13 @@ dynamicRefineFvMeshCoeffs
 {
     field            alpha.metal;
     refineInterval   1;
-    lowerRefineLevel 0.1;
-    upperRefineLevel 0.9;
-    unrefineLevel    0.05;
+    lowerRefineLevel 0.01;
+    upperRefineLevel 0.99;
+    unrefineLevel    0.005;
     nBufferLayers    2;
-    maxRefinement    4;
+    maxRefinement    2;
     maxCells         30000000;
-    correctFluxes    (phi alphaPhi10 rhoPhi);
+    correctFluxes    (phi alphaPhi10 rhoPhi alphaPhi);
 }
 
 // ************************************************************************* //

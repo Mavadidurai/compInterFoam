@@ -65,7 +65,7 @@ direction       (0 -1 0);
 absorptionCoeff          1.03e8;    // 1/m (Ti at 343 nm, validated against Palik) Gives ~9.7 nm penetration depth (δ = 1/α)
 
 // Reflectivity / profile
-reflectivity        0.35;
+reflectivity        0.5;
 
 temporalShape       gaussian;
 spatialShape        gaussian;

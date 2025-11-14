@@ -19,21 +19,13 @@ FoamFile
 // Changed from rhoConst to perfectGas to match main thermophysicalProperties
 thermoType
 {
-
     type            heRhoThermo;     // ✅ CORRECTED: Use hePsiThermo for compressible gas
-
     mixture         pureMixture;
-
     transport       const;
-
     thermo          hConst;
-
     equationOfState perfectGas;      // ✅ CORRECTED: Use perfectGas (was rhoConst)
-
     specie          specie;
-
     energy          sensibleEnthalpy;
-
 }
 
 mixture
