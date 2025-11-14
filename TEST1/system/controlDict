@@ -22,20 +22,20 @@ startTime       0;
 stopAt          endTime;
 endTime         1e-10;
 
-deltaT          2e-16;         // Base time step (1 fs)
-maxDeltaT       1e-14;         // Cap adaptive growth (10 fs)
-minDeltaT       1e-16;         // Minimum 0.01 fs for precision
+deltaT          1e-16;         // Reduced base time step for stability
+maxDeltaT       5e-15;         // Reduced cap to prevent instability during recoil
+minDeltaT       1e-17;         // Lower minimum for extreme events
 writeInterval   1e-14;         // Start with 1 ps intervals
 
 // LASER TIMING - shorter pulse, longer observation
 laserStartTime      0;
 laserEndTime    2e-10;
 
-maxThermalCourant 0.2;         // Increased from 0.02 - allow dt growth! // Reduced from 0.5 for thermal stability
+maxThermalCourant 0.1;         // Reduced for extreme recoil stability
 thermalFluxRelax 0.1;          // Stronger damping of interface heat flux
-maxCo           0.2;          // Increased from 0.02 - allow dt growth!  // Reduced from 0.5 for stability during thermal transitions
-maxAlphaCo      0.3;         // Aggressive interface limit // Reduced from 0.5 interface limit for better interface tracking
-maxDi           10;  // Limit interface dilation Courant number
+maxCo           0.15;          // Reduced for better convergence during recoil
+maxAlphaCo      0.2;           // Reduced for interface stability
+maxDi           5;             // Reduced interface dilation limit
 
 verbose         true;
 enableLiftProcessTracker true;
@@ -112,7 +112,7 @@ advancedInterfaceCapturing
     // 0.3 GPa near 6000 K.  The fs deposition pushes Tl well beyond that, so
     // allow the kinetic-theory recoil driver to reach the multi-GPa recoil
     // levels observed in ultrafast LIFT experiments before clamping.
-    recoilMax             3.0e9;
+    recoilMax             2.5e10;      // 25 GPa - consistent with pressure clamp
     clampRecoil           false;
     scaleRecoilMax        false;
     recoilRelax           0.5;
@@ -122,7 +122,7 @@ advancedInterfaceCapturing
     // Physical limits
     // Keep the absolute bound consistent with the multi-GPa recoil required to
     // sustain fs-LIFT expulsion without premature pressure clamping.
-    maxRecoilPressure   3.0e9;
+    maxRecoilPressure   2.5e10;        // 25 GPa - allows ultrafast dynamics
 }
 logRecoilSuppression true;
 
