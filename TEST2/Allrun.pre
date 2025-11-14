@@ -1,0 +1,76 @@
+#!/bin/sh
+cd "${0%/*}" || exit 1    # Run from this directory
+
+# Source OpenFOAM environment
+# Try common OpenFOAM installation paths
+if [ -f "/opt/openfoam/etc/bashrc" ]; then
+    . /opt/openfoam/etc/bashrc
+elif [ -f "${HOME}/OpenFOAM/OpenFOAM-v2406/etc/bashrc" ]; then
+    . "${HOME}/OpenFOAM/OpenFOAM-v2406/etc/bashrc"
+elif [ -n "$WM_PROJECT_DIR" ]; then
+    echo "OpenFOAM environment already loaded: $WM_PROJECT_VERSION"
+else
+    echo "ERROR: OpenFOAM environment not found"
+    echo "Please source your OpenFOAM bashrc file before running this script"
+    exit 1
+fi
+
+echo "TEST2 - Mesh Generation Only"
+echo "============================="
+echo ""
+
+# Generate mesh
+echo "Generating mesh with blockMesh..."
+blockMesh > log.blockMesh 2>&1
+if [ $? -ne 0 ]; then
+    echo "ERROR: blockMesh failed! Check log.blockMesh"
+    exit 1
+fi
+echo "Mesh generated successfully"
+echo ""
+
+# Check mesh quality
+echo "Checking mesh quality..."
+checkMesh > log.checkMesh 2>&1
+if [ $? -ne 0 ]; then
+    echo "WARNING: checkMesh reported issues. Check log.checkMesh"
+else
+    echo "Mesh quality check passed"
+fi
+echo ""
+
+# Extract startTime from controlDict
+startTime=$(grep -E "^\s*startTime\s+" system/controlDict | awk '{print $2}' | tr -d ';')
+if [ -z "$startTime" ]; then
+    startTime="0"
+fi
+
+# Copy initial conditions if needed
+if [ ! -d "$startTime" ]; then
+    echo "Copying initial conditions from 0.orig to $startTime..."
+    cp -r 0.orig "$startTime"
+fi
+
+# Initialize fields
+if [ "$startTime" != "0" ]; then
+    echo "Setting initial fields for time $startTime..."
+    setFields -time "$startTime" > log.setFields 2>&1
+    if [ $? -ne 0 ]; then
+        echo "WARNING: setFields reported issues. Check log.setFields"
+    fi
+else
+    echo "Setting initial fields..."
+    setFields > log.setFields 2>&1
+    if [ $? -ne 0 ]; then
+        echo "WARNING: setFields reported issues. Check log.setFields"
+    fi
+fi
+echo ""
+
+echo "Mesh generation complete!"
+echo "========================="
+echo ""
+echo "Mesh statistics:"
+checkMesh -latestTime 2>&1 | grep -E "cells:|points:|faces:|patches:"
+echo ""
+echo "To run the solver, execute: ./Allrun or compInterFoam"
