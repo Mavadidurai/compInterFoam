@@ -1,0 +1,48 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+| =========                 |                                                 |
+| \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox           |
+|  \\    /   O peration     | Version:  v2406                                  |
+|   \\  /    A nd           | Website:  www.openfoam.com                      |
+|    \\/     M anipulation  |                                                 |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    arch        "LSB;label=32;scalar=64";
+    class       volScalarField;
+    location    "0";
+    object      Te;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+dimensions      [0 0 0 1 0 0 0];
+
+internalField   uniform 300;
+
+boundaryField
+{
+    left     { type symmetryPlane; }
+    right    { type symmetryPlane; }
+    front    { type symmetryPlane; }
+    back     { type symmetryPlane; }
+
+receiver       { type zeroGradient; }  // BOTTOM - receiver substrate (deposition target)
+
+donorSubstrate
+    {
+        type            fixedValue;
+        value           uniform 300;  // TOP - transparent donor substrate (heat sink)
+    }
+
+}
+// FORWARD TRANSFER (LIFT) CONFIGURATION:
+
+// - receiver (bottom): Receiver substrate - deposition target
+
+// - donorSubstrate (top): Transparent substrate acts as heat sink
+
+// - Ti donor film (28.0-28.0714 µm): Laser heats from above
+
+// - Material ejects downward toward receiver
+// ************************************************************************* //

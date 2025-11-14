@@ -1,0 +1,109 @@
+#!/bin/bash
+#------------------------------------------------------------------------------
+# Allrun script for NANOSCALE LIFT simulation on PoliMi HPC
+# Complete process: Heating → Melting → Vaporization → Ejection → Solidification
+# Mesh: ~102 Million cells
+# Recommended: 128-256 cores
+#------------------------------------------------------------------------------
+cd "${0%/*}" || exit 1    # Run from this directory
+# Source OpenFOAM environment
+# MODIFY THIS PATH according to your PoliMi HPC OpenFOAM installation
+if [ -f "/opt/openfoam2406/etc/bashrc" ]; then
+    source /opt/openfoam2406/etc/bashrc
+elif [ -f "$HOME/OpenFOAM/OpenFOAM-v2406/etc/bashrc" ]; then
+    source "$HOME/OpenFOAM/OpenFOAM-v2406/etc/bashrc"
+else
+    echo "ERROR: OpenFOAM environment not found!"
+    echo "Please modify the Allrun script with the correct OpenFOAM path"
+    exit 1
+fi
+# Source run functions
+. "${WM_PROJECT_DIR:?}/bin/tools/RunFunctions"
+echo ""
+echo "============================================================================"
+echo "NANOSCALE LIFT SIMULATION - PoliMi HPC"
+echo "============================================================================"
+echo "Mesh resolution: 1-5 nm in critical regions"
+echo "Total cells: ~102 Million"
+echo "Simulation time: 0 → 2 ns (complete LIFT cycle)"
+echo "============================================================================"
+echo ""
+
+# Clean previous run (optional - comment out to restart)
+# ./Allclean
+#------------------------------------------------------------------------------
+# STEP 1: Generate mesh
+#------------------------------------------------------------------------------
+echo ""
+echo "Step 1: Generating ultra-fine nanoscale mesh..."
+echo "------------------------------------------------------------"
+if [ ! -d "constant/polyMesh" ]; then
+    runApplication blockMesh
+    echo "Mesh generated successfully!"
+    echo "Checking mesh quality..."
+    runApplication checkMesh -allTopology -allGeometry
+else
+    echo "Mesh already exists. Skipping blockMesh."
+fi
+#------------------------------------------------------------------------------
+# STEP 2: Set initial conditions
+#------------------------------------------------------------------------------
+echo ""
+echo "Step 2: Setting initial conditions..."
+echo "------------------------------------------------------------"
+if [ ! -d "0" ]; then
+    cp -r 0.orig 0
+    echo "Initial conditions copied from 0.orig to 0"
+else
+    echo "0 directory already exists. Skipping."
+fi
+#------------------------------------------------------------------------------
+# STEP 3: Decompose for parallel run
+#------------------------------------------------------------------------------
+echo ""
+echo "Step 3: Decomposing domain for parallel execution..."
+echo "------------------------------------------------------------"
+# Read number of subdomains from decomposeParDict
+NPROCS=$(grep "numberOfSubdomains" system/decomposeParDict | awk '{print $2}' | tr -d ';')
+echo "Decomposing into $NPROCS subdomains..."
+if [ ! -d "processor0" ]; then
+    runApplication decomposePar -copyZero
+    echo "Domain decomposed successfully!"
+else
+    echo "Case already decomposed. Skipping decomposePar."
+fi
+#------------------------------------------------------------------------------
+# STEP 4: Run parallel simulation
+#------------------------------------------------------------------------------
+echo ""
+echo "Step 5: Running parallel simulation..."
+echo "------------------------------------------------------------"
+echo "This will take significant time (~28-139 hours for 2 ns simulation)"
+echo "Make sure you submit this to the SLURM queue!"
+echo ""
+# For interactive testing (NOT recommended for full simulation):
+# mpirun -np $NPROCS compInterFoam -parallel | tee log.compInterFoam
+# For SLURM submission (RECOMMENDED):
+echo "To submit to SLURM queue, use:"
+echo "sbatch run_nanoscale_lift.slurm"
+echo ""
+echo "Or run interactively with:"
+echo "mpirun -np $NPROCS compInterFoam -parallel | tee log.compInterFoam"
+#------------------------------------------------------------------------------
+# STEP 5: Post-processing (after simulation completes)
+#------------------------------------------------------------------------------
+echo ""
+echo "Post-processing instructions:"
+echo "------------------------------------------------------------"
+echo "After simulation completes, run:"
+echo "  ./Allpost          # Reconstruct and post-process"
+echo ""
+echo "Or manually:"
+echo "  reconstructPar     # Reconstruct parallel data"
+echo "  paraFoam          # Visualize in ParaView"
+echo ""
+echo "============================================================================"
+echo "Setup complete!"
+echo "============================================================================"
+echo ""
+# EOF

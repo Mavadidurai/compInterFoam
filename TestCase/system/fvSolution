@@ -1,0 +1,205 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+| =========                 |                                                 |
+| \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox           |
+|  \\    /   O peration     | Version:  v2406                                 |
+|   \\  /    A nd           | Website:  www.openfoam.com                      |
+|    \\/     M anipulation  |                                                 |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    location    "system";
+    object      fvSolution;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+solvers
+{
+    "alpha.*"
+    {
+        solver          PBiCGStab;
+        preconditioner  DILU;
+        tolerance       1e-12;
+        relTol          0.0;
+        maxIter         100;
+        minIter         2;
+
+        nAlphaCorr      5;
+        nAlphaSubCycles 5;              // Increased to stabilise transport
+        cAlpha          1.0;            // Softer compression to avoid overshoot
+        icAlpha         0;
+        scAlpha         0;
+        compressionLimiter 1.0;         // Caps phic relative to |phi|
+        MULESCorr       true;
+        nLimiterIter    5;
+        alphaApplyPrevCorr true;
+        sharpeningScheme standard;
+        thinFilmCoeff   0.0;
+    }
+
+    p_rgh
+    {
+        solver          GAMG;
+        smoother        DICGaussSeidel;
+        tolerance       1e-6;
+        relTol          0.05;
+        maxIter         50;
+        nPreSweeps      0;
+        nPostSweeps     2;
+        cacheAgglomeration true;
+        nCellsInCoarsestLevel 20;
+        agglomerator    faceAreaPair;
+        mergeLevels     2;
+        relaxationFactor 0.7;
+    }
+
+    p_rghFinal
+    {
+        $p_rgh;
+        tolerance   1e-8;
+        relTol      0;
+    }
+    
+    "U.*"
+   {
+            solver      smoothSolver;
+            smoother    symGaussSeidel;
+            nSweeps     2;
+            tolerance   1e-06;
+            relTol      0.5;
+            maxIter     200;
+            minIter     1;
+    }
+
+    T
+    {
+        solver          smoothSolver;
+        smoother        symGaussSeidel;
+        nSweeps         6;
+        tolerance       1e-8;
+        relTol          0.01;             // Allow 1% relative convergence
+        maxIter         1000;             // Increased iteration limit
+        minIter         3;                // Ensure minimum work
+    }
+
+    TFinal
+    {
+        $T;
+        tolerance       1e-9;
+        relTol          0;
+        maxIter         1000;
+    }
+
+    Te
+    {
+         solver          smoothSolver;
+        smoother        symGaussSeidel;
+        nSweeps         6;
+        tolerance       1e-8;
+        relTol          0;
+        maxIter         1000;
+        minIter         3;
+    }
+
+    Tl
+    {
+        solver          smoothSolver;
+        smoother        symGaussSeidel;
+        nSweeps         6;
+        tolerance       1e-8;
+        relTol          0;
+        maxIter         1000;
+        minIter         3;
+    }
+}
+
+PIMPLE
+{
+    momentumPredictor           true;
+    nOuterCorrectors            10;           // REDUCE: was 2 (emergency mode)
+    nCorrectors                 3;
+    nNonOrthogonalCorrectors    2;
+
+    residualControl
+    {
+        "alpha.*" { tolerance 1e-9;  relTol 0.0; }
+        p_rgh     { tolerance 1e-4;  relTol 0.05; }
+        U         { tolerance 1e-5;  relTol 0.01; }
+        Te        { tolerance 5e-9;  relTol 0.0;  }   // thermal is stiff; be stricter
+        Tl        { tolerance 5e-9;  relTol 0.0;  }
+        T         { tolerance 1e-8;  relTol 0.01;  }   // if gas T exists
+    }
+    
+    p_rghRefCell                0;
+    p_rghRefValue               101325;
+}
+
+relaxationFactors
+{
+    fields
+    {
+        p_rgh           0.3;
+        "alpha.*"       0.5;
+    }
+    equations
+    {
+        U               0.5;
+        T               0.5;
+        Te              0.5;
+        Tl              0.5;
+        "alpha.*"       0.5;
+        ".*Final"       0.7;
+    }
+}
+
+// Pressure relaxation control
+targetResP  0.5;
+
+compInterFoamCoeffs
+{
+    // CRITICAL FIX: Remove artificial velocity clamping
+    maxVelocity            0;         // DISABLED: was causing uniform 500 m/s field
+    maxReasonableVelocity  800;       // Keep for validation warnings only
+    // NOTE: Feinaeugle et al. (Appl. Surf. Sci. 418, 2017) report fs-LIFT recoil
+    // peaks around 70–80 MPa.  Resolving that across the 71.4 nm film requires
+    // |∇p| ≈ 1×10^15 Pa/m, so lift the limiter accordingly.
+    
+    maxPressureGradient    1e16;
+    maxUEqnVelocity        1000;  // Hard cap at 1000 m/s
+    defaultMetalDensity    4500;
+    defaultAirDensity      1.2;
+    maxInitialResidual     10;
+
+    // Interface clamp settings
+    enableAlphaClamp  false;
+    minAlpha          0.001;
+    maxAlpha          0.999;
+
+    // Clamp p_rgh to a physically defensible range so GAMG cannot run away.
+    // Feinaeugle et al. observe Ti recoil plateaus close to 80 MPa, so keep the ceiling
+    // above that to avoid throttling the kinetic-theory recoil driver.
+    pressureClamp      true;
+    maxPressure        2.0e8;
+    minPressure       0;
+
+    // Density clamp settings
+    densityClamp       false;
+    maxDensity         10000;
+    minDensity         0.5;
+
+    // RAU clamp settings  
+    enableRAUClamp     false;
+    minRAU             1e-10;
+    maxRAU             1e6;
+    minRAUf            1e-14;
+    maxRAUf            1e6;
+
+    // Diagonal safety (keep this)
+    minUEqnDiag        1e-9;
+
+    // RELAX RESIDUAL TARGETS
+    targetResU         0.1;
+    targetResP         0.5;
+}
