@@ -13,36 +13,62 @@ FoamFile
     object      decomposeParDict;
 }
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
 // Decompose for 12 cores (Intel i7-9750H with 12 threads)
-numberOfSubdomains 6;
+numberOfSubdomains 4;
+
 // Decomposition method
-// scotch - automatic load balancing (recommended for complex geometries)
+
 // hierarchical - decompose along coordinate directions
 // simple - simple geometric decomposition
-method          scotch;
+method          hierarchical;
 // Optional: scotch coefficients for fine-tuning
-scotchCoeffs
-{
-    processorWeights (1 1 1 1 1 1);
-}
 
-/*
- Alternative: hierarchical method (uncomment if preferred)
- hierarchicalCoeffs
+hierarchicalCoeffs
  {
-    n           (3 2 2);  // 3*2*2 = 12 subdomains
+     n           (2 2 1);    // 2*2*1 = 4 → ~1.26M cells/core
      delta       0.001;
      order       xyz;
-}
- Alternative: simple method (uncomment if preferred)
- simpleCoeffs
-{
-     n           (3 2 2);  // 3*2*2 = 12 subdomains
-     delta       0.001;
  }
+/*
+ OPTION 2: Alternative 6-core config (more Z-direction slices)
+ numberOfSubdomains 6;
+ hierarchicalCoeffs
+ {
+     n           (1 6 1);    // 1*6*1 = 6 → 80×67×158 cells/subdomain
+     delta       0.001;      // More balanced cell aspect ratio
+     order       xyz;        // but creates thin Z slices (1.67 μm)
+ }
+
+ OPTION 3: For 12 cores (all threads with HyperThreading)
+ numberOfSubdomains 12;
+ hierarchicalCoeffs
+ {
+     n           (3 4 1);    // 3*4*1 = 12 → ~421k cells/core
+     delta       0.001;
+     order       xyz;
+ }
+
+ OPTION 4: For 4 cores (older/lower-power laptops)
+ numberOfSubdomains 4;
+hierarchicalCoeffs
+ {
+     n           (2 2 1);    // 2*2*1 = 4 → ~1.26M cells/core
+     delta       0.001;
+     order       xyz;
+ }
+
+ OPTION 5: For 16 cores (workstation/server)
+ numberOfSubdomains 16;
+ hierarchicalCoeffs
+ {
+     n           (4 4 1);    // 4*4*1 = 16 → ~316k cells/core
+     delta       0.001;
+     order       xyz;
  */
  
 // Preserve patches and cyclic boundaries
 distributed     no;
 roots           ();
+
 // ************************************************************************* //

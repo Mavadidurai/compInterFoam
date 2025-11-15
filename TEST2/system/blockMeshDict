@@ -14,7 +14,7 @@ FoamFile
 }
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
-convertToMeters 1e-6; // coordinates in micrometers
+scales 1e-6; // coordinates in micrometers
 
 // OPTIMIZED GRADED MESH FOR fs-LIFT EJECTION
 // ==========================================

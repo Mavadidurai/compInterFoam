@@ -37,7 +37,7 @@ maxCo           0.2;          // Increased from 0.02 - allow dt growth!  // Redu
 maxAlphaCo      0.3;         // Aggressive interface limit // Reduced from 0.5 interface limit for better interface tracking
 maxDi           10;  // Limit interface dilation Courant number
 
-verbose         true;
+verbose         false;
 enableLiftProcessTracker true;
 
 // ADAPTIVE OUTPUT - more frequent during active phase, less during cooling
@@ -50,7 +50,7 @@ writePrecision  8;
 writeCompression off;
 timeFormat      general;
 timePrecision   8;             // Increased precision for longer runs
-fileHandler     uncollated;
+fileHandler     collated;
 
 runTimeModifiable yes;
 
@@ -205,8 +205,23 @@ G
     temperatureDiagnostics  false;   // Reduce output volume
     energyAudit             false;
 }
-
-
+/*
+libs
+(
+    "libfluidThermophysicalModels.so"
+    "libcompressibleTransportModels.so"
+    "libtwoPhaseProperties.so"
+    "libinterfaceProperties.so"
+    "libfvOptions.so"
+    "libsampling.so"
+    "libfieldFunctionObjects.so"
+);
+*/
+libs
+(
+    "libfluidThermophysicalModels.so"
+    "libcompressibleTransportModels.so"
+);
 // Clean monitoring functions
 functions
 {
