@@ -14,30 +14,32 @@ FoamFile
 }
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
-// OPTIMIZED DECOMPOSITION FOR TEST2 CASE - LOCAL PC
-// ==================================================
+// OPTIMIZED DECOMPOSITION FOR TEST2 CASE - LOCAL PC (6 CORES)
+// =============================================================
 // Mesh: 80 (X) × 400 (Z) × 158 (Y) = 5,056,000 cells
-// Target: 6-core/12-thread laptop (e.g., Intel i7-9750H)
-// Cores: 12 → ~421,000 cells/core (optimal for HyperThreading)
+// Target: 6-core laptop (physical cores, e.g., Intel i7-9750H)
+// Cores: 6 → ~843,000 cells/core
 //
-// Strategy: Hierarchical decomposition (3, 4, 1)
-//   - X: 80/3 ≈ 27 cells per subdomain
-//   - Z: 400/4 = 100 cells per subdomain
+// Strategy: Hierarchical decomposition (2, 3, 1)
+//   - X: 80/2 = 40 cells per subdomain
+//   - Z: 400/3 ≈ 133 cells per subdomain
 //   - Y: 158/1 = 158 cells per subdomain (PRESERVE layer structure)
+//
+// Physical subdomain size: ~25 μm × 3.33 μm × 20.07 μm
 //
 // Benefits:
 //   1. Preserves substrate/air/Ti interfaces (no splitting in Y)
-//   2. Utilizes all 12 threads efficiently
-//   3. Balanced subdomains → minimal inter-processor communication
-//   4. Optimized for local PC performance (not server)
+//   2. Uses physical cores (better thermal management)
+//   3. Balanced decomposition along X and Z directions
+//   4. Subdomain: 40×133×158 = 842,400 cells (well-balanced load)
 
-numberOfSubdomains 12;
+numberOfSubdomains 6;
 
 method          hierarchical;
 
 hierarchicalCoeffs
 {
-    n           (3 4 1);    // X, Z, Y decomposition
+    n           (2 3 1);    // X, Z, Y decomposition
     delta       0.001;      // Cell skew tolerance
     order       xyz;        // Decomposition order
 }
@@ -51,17 +53,25 @@ roots           ();
 // ========================================================================
 
 /*
-// OPTION 2: For 6 cores only (physical cores, no HT)
-// Better for older laptops or to reduce thermal load
+// OPTION 2: Alternative 6-core config (more Z-direction slices)
 // numberOfSubdomains 6;
 // hierarchicalCoeffs
 // {
-//     n           (2 3 1);    // 2*3*1 = 6 → ~843k cells/core
+//     n           (1 6 1);    // 1*6*1 = 6 → 80×67×158 cells/subdomain
+//     delta       0.001;      // More balanced cell aspect ratio
+//     order       xyz;        // but creates thin Z slices (1.67 μm)
+// }
+
+// OPTION 3: For 12 cores (all threads with HyperThreading)
+// numberOfSubdomains 12;
+// hierarchicalCoeffs
+// {
+//     n           (3 4 1);    // 3*4*1 = 12 → ~421k cells/core
 //     delta       0.001;
 //     order       xyz;
 // }
 
-// OPTION 3: For 4 cores (older laptops)
+// OPTION 4: For 4 cores (older/lower-power laptops)
 // numberOfSubdomains 4;
 // hierarchicalCoeffs
 // {
@@ -70,20 +80,13 @@ roots           ();
 //     order       xyz;
 // }
 
-// OPTION 4: For 16 cores (workstation/server)
+// OPTION 5: For 16 cores (workstation/server)
 // numberOfSubdomains 16;
 // hierarchicalCoeffs
 // {
 //     n           (4 4 1);    // 4*4*1 = 16 → ~316k cells/core
 //     delta       0.001;
 //     order       xyz;
-// }
-
-// OPTION 5: Scotch (automatic, for irregular meshes)
-// method          scotch;
-// scotchCoeffs
-// {
-//     // processorWeights (1 1 1 ... 1);  // equal weights
 // }
 */
 
