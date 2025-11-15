@@ -15,39 +15,6 @@ FoamFile
 }
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
-// NOTE: fvOptions constraints below are DISABLED (active=no)
-// They reference a 'substrate' cellZone that is not defined in the mesh
-// To enable these constraints, you would need to:
-//   1. Create a topoSetDict defining the substrate cellZone
-//   2. Run topoSet to create the zone
-//   3. Set active=yes below
-
-/*
-substrateFixedVelocity
-{
-    type            vectorFixedValueConstraint;
-    active          no;
-    selectionMode   cellZone;
-    cellZone        substrate;
-
-    fieldValues
-    {
-        U   (0 0 0);
-    }
-}
-
-substrateFixedTemperature
-{
-    type            scalarFixedValueConstraint;
-    active          no;
-    selectionMode   cellZone;
-    cellZone        substrate;
-
-    fieldValues
-    {
-        //T   500;
-    }
-}
-*/
+// No finite volume options specified for this case
 
 // ************************************************************************* //
