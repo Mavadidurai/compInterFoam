@@ -38,7 +38,6 @@ SourceFiles
 #define compressibleInterPhaseTransportModel_H
 
 #include "compressibleTurbulenceModel.H"
-#include "PhaseCompressibleTurbulenceModel.H"
 #include "rhoThermo.H"
 
 #include "twoPhaseMixture.H"
@@ -78,13 +77,7 @@ class compressibleInterPhaseTransportModel
     tmp<surfaceScalarField> alphaRhoPhi2_;
 
     //- Single turbulence model for the mixture
-autoPtr<compressible::turbulenceModel> turbulence_;
-
-    //- Phase-1 transport model when two-phase transport is enabled
-autoPtr<PhaseCompressibleTurbulenceModel<rhoThermo>> turbulence1_;
-
-    //- Phase-2 transport model when two-phase transport is enabled
-autoPtr<PhaseCompressibleTurbulenceModel<rhoThermo>> turbulence2_;
+    autoPtr<compressible::turbulenceModel> turbulence_;
 
 public:
 
