@@ -32,17 +32,17 @@ FoamFile
 //   pulseCenterTime     [s, optional]
 //   gasAbsorptionCoeff  [1/m, optional, default 0]
 // Parameter checks enforce pulseWidth 10fs–10ps, wavelength 100nm–2µm and peakIntensity ≤6e16 W/m^2.
-// Gaussian pulse focused in the 71.4 nm donor film (y=28.0000–28.0714 µm) - FORWARD TRANSFER
+// Gaussian pulse focused in the 71.4 nm donor film (y=20.0000–20.0714 µm)
 
-// Domain: x∈[0,50e-6], y∈[0,28.0714e-6], z∈[0,10e-6]
+// Domain: x∈[0,30e-6], y∈[0,20.0714e-6], z∈[0,3e-6]
 // LASER TIMING - shorter pulse, longer observation
 laserStartTime      0;
 laserEndTime    2e-10;
 // Film thickness matches blockMeshDict geometry
 
-filmThicknessExpected    71.4e-9;    // 71.4 nm (matches y4 - y3 = 28.0714 - 28.0000)
+filmThicknessExpected    71.4e-9;    // 71.4 nm (matches y3 - y2 = 20.0714 - 20.0000)
 
-filmCenterY              28.0357e-6; // center of Ti film at focus.y (FORWARD TRANSFER: film at top)
+filmCenterY              20.0357e-6; // center of Ti film at focus.y
 
 // geometry coupling
 gasAbsorptionCoeff 0;     // [1/m] gas absorption (0 disables direct gas heating)
@@ -62,10 +62,10 @@ wavelength               343e-9;    // 343 nm (Ti absorption peak)
 // --- Spatial Gaussian (match the box center and film depth) ---
 spotSize        3.2e-6;       // [m] beam diameter (3 μm 1/e² radius)
 
-// Beam center at x,z mid-plane, inside donor film at y≈28.0357 μm (FORWARD TRANSFER)
-focus            (25e-6 28.0357e-6 5e-6);
+// Beam center at x,z mid-plane, inside donor film at y≈20.0357 μm
+focus            (15e-6 20.0357e-6 1.5e-6);
 
-// Laser shoots DOWNWARD (-Y) through transparent substrate into Ti film (FORWARD TRANSFER)
+// Laser shoots DOWNWARD (-Y) through transparent substrate into Ti film
 direction       (0 -1 0);
 
 // Fresnel + absorption calculated internally
