@@ -1,0 +1,42 @@
+#!/bin/sh
+cd "${0%/*}" || exit 1                                # Run from this directory
+. ${WM_PROJECT_DIR:?}/bin/tools/RunFunctions          # Tutorial run functions
+#------------------------------------------------------------------------------
+
+echo "=========================================="
+echo " OpenFOAM LIFT Simulation Setup"
+echo "=========================================="
+
+# Clean previous run
+echo "Cleaning previous results..."
+./Allclean
+
+# Create initial field directory
+echo "Copying initial fields from 0.orig to 0..."
+cp -r 0.orig 0
+
+# Generate mesh
+echo "Generating mesh with blockMesh..."
+runApplication blockMesh
+
+# Check mesh quality
+echo "Checking mesh..."
+runApplication checkMesh
+
+# Initialize phase fields
+echo "Initializing alpha.metal and alpha.air fields with setFields..."
+runApplication setFields
+
+# Decompose for parallel run
+echo "Decomposing mesh for 4 processors..."
+runApplication decomposePar
+
+echo ""
+echo "=========================================="
+echo " Setup complete!"
+echo "=========================================="
+echo "To run the simulation:"
+echo "  mpirun -np 4 compInterFoam -parallel | tee log.lift"
+echo "=========================================="
+
+#------------------------------------------------------------------------------
