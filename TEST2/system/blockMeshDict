@@ -64,7 +64,7 @@ blocks
     // Result: ~1.5 nm cells at top (y3) → ~2.5 nm at bottom (y2)
     // Gives 6-7 cells in first penetration depth (9.71 nm) ✓
     hex ( 8 11 10  9  12 15 14 13)
-        ( 80 400  36)
+        ( 80 400  38)
         simpleGrading (1 1 0.67)
 );
 edges ();

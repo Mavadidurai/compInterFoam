@@ -20,7 +20,7 @@ application     compInterFoam;
 startFrom       latestTime;
 startTime       0;
 stopAt          endTime;
-endTime         1e-10;
+endTime         2e-10;
 
 deltaT          2e-15;         // Base time step (0.2 fs) - smaller steps for fast convergence
 maxDeltaT       2e-15;         // Cap adaptive growth (2 fs) - keep steps small during heating
