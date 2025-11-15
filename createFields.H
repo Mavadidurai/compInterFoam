@@ -331,10 +331,12 @@ const scalar alphaMax = gMax(alpha1);
 
 if (Foam::Pstream::master() && alphaMax < metalFractionTol)
 {
-    FatalErrorInFunction
-        << "The donor metal film is empty (max(alpha.metal) = " << alphaMax
-        << "). Please run setFields or provide a valid alpha.metal field "
-        << "before restarting." << Foam::exit(Foam::FatalError);
+    WarningInFunction
+        << "alpha.metal is effectively empty (max(alpha.metal) = "
+        << alphaMax
+        << "). If this is an intentional vacuum shot, continue; otherwise"
+        << " rerun setFields so the donor film matches the LIFT setup."
+        << endl;
 }
 
 // Ensure proper field registration by always creating an old-time storage

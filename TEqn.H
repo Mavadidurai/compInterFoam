@@ -1024,11 +1024,51 @@ if (verbose && Foam::Pstream::master() && timeIndex % 10 == 0)
         tmp<volScalarField> tDeltaTmag(mag(Tl - T));
         volScalarField& deltaTmag = tDeltaTmag.ref();
 
+        dimensionedScalar deltaTFloorInput
+        (
+            "temperatureDifferenceFloor",
+            dimTemperature,
+            10.0
+        );
+
+        if (twoTemperatureDict.found("temperatureDifferenceFloor"))
+        {
+            const dimensionedScalar rawFloor =
+                twoTemperatureDict.lookupOrDefault<dimensionedScalar>
+                (
+                    "temperatureDifferenceFloor",
+                    deltaTFloorInput
+                );
+
+            if (rawFloor.dimensions() == dimTemperature)
+            {
+                deltaTFloorInput = rawFloor;
+            }
+            else if (rawFloor.dimensions() == dimless)
+            {
+                deltaTFloorInput = dimensionedScalar
+                (
+                    rawFloor.name(),
+                    dimTemperature,
+                    rawFloor.value()
+                );
+            }
+            else
+            {
+                FatalIOErrorInFunction(twoTemperatureDict)
+                    << "Entry 'temperatureDifferenceFloor' has dimensions "
+                    << rawFloor.dimensions()
+                    << ", expected " << dimTemperature
+                    << " or " << dimless
+                    << exit(FatalIOError);
+            }
+        }
+
         const dimensionedScalar deltaTFloor
         (
             "deltaTFloor",
             dimTemperature,
-            SMALL
+            Foam::max(deltaTFloorInput.value(), scalar(SMALL))
         );
 
         deltaTmag = Foam::max(deltaTmag, deltaTFloor);
