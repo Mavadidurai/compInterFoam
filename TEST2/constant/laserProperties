@@ -34,7 +34,7 @@ FoamFile
 // Parameter checks enforce pulseWidth 10fs–10ps, wavelength 100nm–2µm
 // and peakIntensity ≤6e16 W/m^2.
 // Gaussian pulse focused in the 71.4 nm donor film (y=20.0000–20.0714 µm)
-// Domain: x∈[0,50e-6], y∈[0,32.0714e-6], z∈[0,10e-6]
+// Domain: x∈[0,50e-6], y∈[0,20.0714e-6], z∈[0,10e-6]
 // LASER TIMING - shorter pulse, longer observation
 laserStartTime      0;
 laserEndTime    2e-10;
