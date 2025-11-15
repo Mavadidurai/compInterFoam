@@ -1,0 +1,47 @@
+#!/bin/sh
+cd "${0%/*}" || exit                                # Run from this directory
+. ${WM_PROJECT_DIR:?}/bin/tools/RunFunctions        # Tutorial run functions
+#------------------------------------------------------------------------------
+
+# Extract startTime from controlDict
+startTime=$(grep -E "^\s*startTime\s+" system/controlDict | awk '{print $2}' | tr -d ';')
+if [ -z "$startTime" ]; then
+    startTime="0"
+fi
+echo "Using startTime: $startTime"
+
+# Restore the initial fields
+restore0Dir -processor
+
+# Generate the mesh
+runApplication blockMesh
+
+# Create cell zones (substrate zone needed for fvOptions)
+runApplication topoSet
+
+# Optionally refine mesh in focus region (if refineMeshDict is configured)
+if [ -f system/refineMeshDict ]; then
+    echo "Refining mesh in focus region..."
+    runApplication refineMesh -dict system/refineMeshDict -overwrite
+fi
+
+# Initialize fields (sets alpha.metal in donor film and substrate)
+if [ "$startTime" = "0" ]; then
+    runApplication setFields
+else
+    runApplication setFields -time "$startTime"
+    echo "Fields initialized at time $startTime"
+fi
+
+# Decompose for parallel run
+runApplication decomposePar -copyZero
+
+# Run the solver in parallel
+runParallel $(getApplication)
+
+# Reconstruct the results
+runApplication reconstructPar
+
+#------------------------------------------------------------------------------
+echo "Simulation complete. Results in time directories."
+echo "To visualize: paraFoam"
