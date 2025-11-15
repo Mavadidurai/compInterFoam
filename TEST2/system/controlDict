@@ -15,6 +15,13 @@ FoamFile
 }
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
+// Explicit library loading to prevent duplicate runtime table entries
+libs
+(
+    "libfluidThermophysicalModels.so"
+    "libcompressibleTransportModels.so"
+);
+
 application     compInterFoam;
 
 startFrom       latestTime;
