@@ -163,7 +163,7 @@ twoTemperatureModel::twoTemperatureModel
         if (dict_.isDict("Ce"))
         {
             const dictionary& CeDict = dict_.subDict("Ce");
-            CeFunction_.reset(Function1<scalar>::New("Ce", CeDict).ptr());
+            CeFunction_.reset(Function1<scalar>::New("Ce", dict_).ptr());
 
             const scalar minTe = dict_.lookupOrDefault<scalar>("minTe", 300.0);
             const scalar maxTe = dict_.lookupOrDefault<scalar>("maxTe", 4000.0);
@@ -226,8 +226,8 @@ twoTemperatureModel::twoTemperatureModel
     {
         if (dict_.isDict("G"))
         {
-            const dictionary& GDict = dict_.subDict("G");
-            GFunction_.reset(Function1<scalar>::New("G", GDict).ptr());
+            GFunction_.reset(Function1<scalar>::New("G", dict_).ptr());
+
             const scalar minTemp = dict_.lookupOrDefault<scalar>
             (
                 "minTl",
@@ -1714,12 +1714,11 @@ void twoTemperatureModel::solve
 
         Info<< "Temperatures:" << nl
             << "  max(Te): " << gMax(Te_) << " K" << nl
-            << "  avg(Te): " << avgTe.value() << " K" << nl
             << "  max(Tl): " << gMax(Tl_) << " K" << nl
+            << "  avg(Te): " << avgTe.value() << " K" << nl
             << "  avg(Tl): " << avgTl.value() << " K" << nl
             << "════════════════════════════" << nl
             << "══════ ENERGY BALANCE ══════" << nl
-            << "Metal volume: " << metalVolume.value()*1e18 << " µm³" << nl
             << "Power terms [W]:" << nl
             << "  Laser input:        " << laserPower.value() << nl
             << "  e→l coupling:       " << (eCoupling - lCoupling).value() << nl
@@ -1728,9 +1727,6 @@ void twoTemperatureModel::solve
             << "Net power [W]:" << nl
             << "  Into electrons:     " << (laserPower - eCoupling + lCoupling).value() << nl
             << "  Into lattice:       " << (eCoupling - lCoupling - gasLoss).value() << nl
-            << "Temperatures:" << nl
-            << "  max(Te): " << gMax(Te_) << " K" << nl
-            << "  max(Tl): " << gMax(Tl_) << " K" << nl
             << "════════════════════════════" << endl;
     }
 

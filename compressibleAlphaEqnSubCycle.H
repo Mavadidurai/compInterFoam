@@ -1,5 +1,4 @@
 extern Foam::Switch verbose;
-extern const bool master;
 
 alpha1 = max(min(alpha1, scalar(1)), scalar(0));
 alpha1.correctBoundaryConditions();
@@ -105,7 +104,7 @@ if (useAdvancedCapturing && pInterfaceCapturing.valid())
         rhoPhi = alphaPhi10*trho1() + (phi - alphaPhi10)*trho2();
     }
 
-if (verbose && master)
+if (verbose && Foam::Pstream::master())
     {
         Info<< "Phase-1 volume fraction (" << alpha1.name() << ") = "
             << alpha1.weightedAverage(mesh.V()).value()

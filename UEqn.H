@@ -59,6 +59,7 @@ const Foam::scalar minUEqnDiagVal =
     1e-9
 );
 
+const bool isMaster = Foam::Pstream::master();
 if (minUEqnDiagVal > 0)
 {
     const tmp<volScalarField> tUEqnDiagTmp = UEqn.A();
@@ -75,7 +76,7 @@ if (minUEqnDiagVal > 0)
     {
         UEqn += fvm::Sp(diagFloor, U);
 
-        if (verbose && master)
+        if (verbose && isMaster)
         {
             Info<< "UEqn: added stabilizing diagonal " << diagFloor.value()
                 << " to avoid singular momentum matrix" << endl;
@@ -138,7 +139,8 @@ if (recoilPressurePtr)
             ))
         );
         const volVectorField& interfaceNormal = tInterfaceNormal();
-        const bool logRecoil = verbose && master && runTime.timeIndex() % 10 == 0;
+        const bool logRecoil =
+            verbose && isMaster && runTime.timeIndex() % 10 == 0;
 
         // Validate recoil pressure before using
         const scalar maxRecoil = gMax(recoilP);
@@ -474,7 +476,7 @@ if (pimple.momentumPredictor())
     const scalar domainVolume = gSum(mesh.V());
     const scalar deltaT = runTime.deltaTValue();
     const bool logVelocityDiagnostics =
-        verbose && master && (runTime.timeIndex() % 10 == 0);
+        verbose && isMaster && (runTime.timeIndex() % 10 == 0);
 
     if (logVelocityDiagnostics && domainVolume > SMALL)
     {

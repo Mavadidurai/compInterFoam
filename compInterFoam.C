@@ -73,7 +73,7 @@ Description
 #include <string>
 #include <iomanip>
 #include <sstream>
-extern const bool master = Foam::Pstream::master();
+
 Foam::Switch verbose(false);
 namespace
 {
@@ -812,6 +812,7 @@ int main(int argc, char *argv[])
 
     while (runTime.run())
     {
+        const bool master = Foam::Pstream::master();
         #include "readTimeControls.H"
 
         if (LTS)
@@ -1229,7 +1230,7 @@ while (pimple.loop())
     // Clean up dynamically allocated interface capturing object
     if (useAdvancedCapturing && pInterfaceCapturing.valid())
     {
-            if (verbose && master)
+        if (verbose && Foam::Pstream::master())
         {
             Info<< "Interface capturing object will be automatically cleaned up" << endl;
         }

@@ -4,9 +4,8 @@
 \*---------------------------------------------------------------------------*/
 
 extern Foam::Switch verbose;
-extern const bool master;
 {
-    if (verbose && master)
+    if (verbose && Foam::Pstream::master())
     {
         Info<< "Solving temperature equation" << endl;
     }
@@ -39,7 +38,7 @@ extern const bool master;
         {
             maxPhysicalTemp = readScalar(twoTemperatureDict.lookup("maxTl"));
 
-            if (verbose && master)
+            if (verbose && Foam::Pstream::master())
             {
                 WarningInFunction
                     << "enableTClamp active without controlDict maxT;"
@@ -109,7 +108,13 @@ extern const bool master;
     const bool applyGasLaserHeating =
         userGasLaserHeating && laserSupportsGasHeating;
 
-    if (userGasLaserHeating && !laserSupportsGasHeating && verbose && master)
+    if
+    (
+        userGasLaserHeating
+     && !laserSupportsGasHeating
+     && verbose
+     && Foam::Pstream::master()
+    )
     {
         WarningInFunction
             << "applyGasLaserHeating requested but gasAbsorptionCoeff â‰ˆ 0;"
@@ -268,7 +273,7 @@ extern const bool master;
                 )
             );
     }
-if (verbose && master && timeIndex % 10 == 0)
+if (verbose && Foam::Pstream::master() && timeIndex % 10 == 0)
 {
     // Calculate cooling rate
     static scalar lastMaxTl = maxTl;
@@ -919,7 +924,12 @@ if (verbose && master && timeIndex % 10 == 0)
                 lastProjectionStage = stage;
             }
             
-            if ((correctedTotal > 0 || nNonFinite > 0) && verbose && master)
+            if
+            (
+                (correctedTotal > 0 || nNonFinite > 0)
+             && verbose
+             && Foam::Pstream::master()
+            )
             {
                 WarningInFunction
                     << "Energy-consistent gas-temperature projection activated during "
@@ -1196,7 +1206,13 @@ if (verbose && master && timeIndex % 10 == 0)
     const scalar dtVal = Foam::max(dt.value(), VSMALL);
     // Safety check: warn if timestep becomes dangerously small
     static bool timestepWarningIssued = false;
-    if (dt.value() < 1e-15 && !timestepWarningIssued && verbose && master)
+    if
+    (
+        dt.value() < 1e-15
+     && !timestepWarningIssued
+     && verbose
+     && Foam::Pstream::master()
+    )
     {
         WarningInFunction
             << "Time step (" << dt.value() << " s) is extremely small. "
@@ -1328,7 +1344,7 @@ if (verbose && master && timeIndex % 10 == 0)
 
     gasMetalHeatFlux.correctBoundaryConditions();
 
-    if (verbose && master)
+    if (verbose && Foam::Pstream::master())
     {
         Info<< "    min(T) = " << min(T).value()
             << "  max(T) = " << max(T).value()

@@ -4,7 +4,7 @@
 \\*---------------------------------------------------------------------------*/
 
 extern Foam::Switch verbose;
-extern const bool master;
+
 {
     const dictionary& alphaControls = mesh.solverDict(alpha1.name());
     
@@ -103,7 +103,7 @@ extern const bool master;
 
         phic = Foam::min(phic, *maxCompressionPtr);
 
-        if (verbose && master)
+        if (verbose && Foam::Pstream::master())
         {
             Info<< "alphaEqn: limiting interface compression with "
                 << "compressionLimiter=" << compressionLimiter << endl;
@@ -209,7 +209,7 @@ extern const bool master;
             alpha1 = alpha1.oldTime();
             alpha1.correctBoundaryConditions();
 
-            if (verbose && master)
+            if (verbose && Foam::Pstream::master())
             {
                 Info<< "alpha1 solve detected singular matrix; reverting to previous"
                     << " alpha field" << endl;
@@ -219,7 +219,7 @@ extern const bool master;
         alpha1 = Foam::max(Foam::min(alpha1, scalar(1)), scalar(0));
         alpha1.correctBoundaryConditions();
         
-        if (verbose && master)
+        if (verbose && Foam::Pstream::master())
         {
             Info<< "alpha1 solve: initial residual = "
                 << solverPerf.initialResidual()
@@ -358,7 +358,7 @@ extern const bool master;
 
     rho = alpha1*rho1 + alpha2*rho2;
 
-    if (verbose && master)
+    if (verbose && Foam::Pstream::master())
     {
         Info<< "Phase-1 volume fraction (" << alpha1.name() << ") = "
             << alpha1.weightedAverage(mesh.V()).value()
