@@ -14,29 +14,30 @@ FoamFile
 }
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
-// OPTIMIZED DECOMPOSITION FOR TEST2 CASE
-// =======================================
+// OPTIMIZED DECOMPOSITION FOR TEST2 CASE - LOCAL PC
+// ==================================================
 // Mesh: 80 (X) × 400 (Z) × 158 (Y) = 5,056,000 cells
-// Cores: 16 → ~316,000 cells/core
+// Target: 6-core/12-thread laptop (e.g., Intel i7-9750H)
+// Cores: 12 → ~421,000 cells/core (optimal for HyperThreading)
 //
-// Strategy: Hierarchical decomposition (4, 4, 1)
-//   - X: 80/4 = 20 cells per subdomain
+// Strategy: Hierarchical decomposition (3, 4, 1)
+//   - X: 80/3 ≈ 27 cells per subdomain
 //   - Z: 400/4 = 100 cells per subdomain
 //   - Y: 158/1 = 158 cells per subdomain (PRESERVE layer structure)
 //
 // Benefits:
 //   1. Preserves substrate/air/Ti interfaces (no splitting in Y)
-//   2. Balanced cubic subdomains → minimal inter-processor communication
-//   3. Predictable load balancing for structured mesh
-//   4. Order xyz: decompose X first, then Z, then Y
+//   2. Utilizes all 12 threads efficiently
+//   3. Balanced subdomains → minimal inter-processor communication
+//   4. Optimized for local PC performance (not server)
 
-numberOfSubdomains 16;
+numberOfSubdomains 12;
 
 method          hierarchical;
 
 hierarchicalCoeffs
 {
-    n           (4 4 1);    // X, Z, Y decomposition
+    n           (3 4 1);    // X, Z, Y decomposition
     delta       0.001;      // Cell skew tolerance
     order       xyz;        // Decomposition order
 }
@@ -50,25 +51,35 @@ roots           ();
 // ========================================================================
 
 /*
-// OPTION 2: For 8 cores (comment out above and uncomment below)
-// numberOfSubdomains 8;
+// OPTION 2: For 6 cores only (physical cores, no HT)
+// Better for older laptops or to reduce thermal load
+// numberOfSubdomains 6;
 // hierarchicalCoeffs
 // {
-//     n           (2 4 1);    // 2*4*1 = 8
+//     n           (2 3 1);    // 2*3*1 = 6 → ~843k cells/core
 //     delta       0.001;
 //     order       xyz;
 // }
 
-// OPTION 3: For 32 cores (comment out above and uncomment below)
-// numberOfSubdomains 32;
+// OPTION 3: For 4 cores (older laptops)
+// numberOfSubdomains 4;
 // hierarchicalCoeffs
 // {
-//     n           (4 8 1);    // 4*8*1 = 32
+//     n           (2 2 1);    // 2*2*1 = 4 → ~1.26M cells/core
 //     delta       0.001;
 //     order       xyz;
 // }
 
-// OPTION 4: Scotch (automatic, for irregular meshes)
+// OPTION 4: For 16 cores (workstation/server)
+// numberOfSubdomains 16;
+// hierarchicalCoeffs
+// {
+//     n           (4 4 1);    // 4*4*1 = 16 → ~316k cells/core
+//     delta       0.001;
+//     order       xyz;
+// }
+
+// OPTION 5: Scotch (automatic, for irregular meshes)
 // method          scotch;
 // scotchCoeffs
 // {
