@@ -13,36 +13,67 @@ FoamFile
     object      decomposeParDict;
 }
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
-// Decompose for 12 cores (Intel i7-9750H with 12 threads)
-numberOfSubdomains 6;
-// Decomposition method
-// scotch - automatic load balancing (recommended for complex geometries)
-// hierarchical - decompose along coordinate directions
-// simple - simple geometric decomposition
-method          scotch;
-// Optional: scotch coefficients for fine-tuning
-scotchCoeffs
+
+// OPTIMIZED DECOMPOSITION FOR TEST2 CASE
+// =======================================
+// Mesh: 80 (X) × 400 (Z) × 158 (Y) = 5,056,000 cells
+// Cores: 16 → ~316,000 cells/core
+//
+// Strategy: Hierarchical decomposition (4, 4, 1)
+//   - X: 80/4 = 20 cells per subdomain
+//   - Z: 400/4 = 100 cells per subdomain
+//   - Y: 158/1 = 158 cells per subdomain (PRESERVE layer structure)
+//
+// Benefits:
+//   1. Preserves substrate/air/Ti interfaces (no splitting in Y)
+//   2. Balanced cubic subdomains → minimal inter-processor communication
+//   3. Predictable load balancing for structured mesh
+//   4. Order xyz: decompose X first, then Z, then Y
+
+numberOfSubdomains 16;
+
+method          hierarchical;
+
+hierarchicalCoeffs
 {
-    processorWeights (1 1 1 1 1 1);
+    n           (4 4 1);    // X, Z, Y decomposition
+    delta       0.001;      // Cell skew tolerance
+    order       xyz;        // Decomposition order
 }
 
-/*
- Alternative: hierarchical method (uncomment if preferred)
- hierarchicalCoeffs
- {
-    n           (3 2 2);  // 3*2*2 = 12 subdomains
-     delta       0.001;
-     order       xyz;
-}
- Alternative: simple method (uncomment if preferred)
- simpleCoeffs
-{
-     n           (3 2 2);  // 3*2*2 = 12 subdomains
-     delta       0.001;
- }
- */
- 
 // Preserve patches and cyclic boundaries
 distributed     no;
 roots           ();
+
+// ========================================================================
+// ALTERNATIVE CONFIGURATIONS (uncomment if needed):
+// ========================================================================
+
+/*
+// OPTION 2: For 8 cores (comment out above and uncomment below)
+// numberOfSubdomains 8;
+// hierarchicalCoeffs
+// {
+//     n           (2 4 1);    // 2*4*1 = 8
+//     delta       0.001;
+//     order       xyz;
+// }
+
+// OPTION 3: For 32 cores (comment out above and uncomment below)
+// numberOfSubdomains 32;
+// hierarchicalCoeffs
+// {
+//     n           (4 8 1);    // 4*8*1 = 32
+//     delta       0.001;
+//     order       xyz;
+// }
+
+// OPTION 4: Scotch (automatic, for irregular meshes)
+// method          scotch;
+// scotchCoeffs
+// {
+//     // processorWeights (1 1 1 ... 1);  // equal weights
+// }
+*/
+
 // ************************************************************************* //
