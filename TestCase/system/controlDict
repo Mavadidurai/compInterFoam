@@ -107,6 +107,13 @@ advancedInterfaceCapturing
     recoilTempOffset      0;
     phaseChangeTempOffset 0;
     recoilRelax           0.5;
+
+    // PRESSURE RAMP/RELAXATION - prevents impulsive pressure surge
+    recoilRampSteps       200;         // Ramp over 200 timesteps
+    recoilMaxDelta        1e8;         // Max pressure change per step: 100 MPa
+    recoilSmoothCoeff     0.2;         // Spatial smoothing coefficient
+    recoilSmoothIters     3;           // Number of smoothing iterations
+
     alphaMin              0.001;
     massRateEps           1e-6;
     maxPhysicalTemperature 10000;
@@ -116,6 +123,41 @@ advancedInterfaceCapturing
     maxRecoilPressure   3.0e9;       // GPa-level recoil pressures
 }
 logRecoilSuppression true;
+
+// ENHANCED LIFT PHYSICS - Combined models (single file: enhancedLIFTPhysics.H/.C)
+enhancedLIFTPhysics
+{
+    // Phase explosion and spinodal decomposition
+    phaseExplosionCoeffs
+    {
+        enablePhaseExplosion   true;
+        T_critical             9500;       // Ti critical temperature [K]
+        T_spinodal             8550;       // 0.9 * T_critical [K]
+        p_critical             1.2e8;      // Ti critical pressure [Pa]
+        tau_explosion          1e-12;      // Explosion timescale [s]
+        explosionMultiplier    100.0;      // Mass flux enhancement factor
+    }
+
+    // Plasma formation and ionization
+    plasmaIonizationCoeffs
+    {
+        enablePlasmaModel      true;
+        ionizationEnergy       1.093e-18;  // Ti: 6.82 eV = 1.093e-18 J
+        T_ionization           30000;      // Ionization threshold [K]
+        atomicMass             7.95e-26;   // Ti: 47.867 amu [kg]
+        atomicNumberDensity    5.68e28;    // Ti: ~5.68e28 atoms/m^3
+    }
+
+    // Droplet/jet breakup (Weber number criterion)
+    dropletBreakupCoeffs
+    {
+        enableDropletBreakup   true;
+        We_critical            10.0;       // Critical Weber number
+        minJetDiameter         1e-7;       // 100 nm [m]
+        maxJetDiameter         10e-6;      // 10 μm [m]
+        breakupTimeCoeff       1.0;        // Timescale coefficient
+    }
+}
 
 // Temperature clamping - EXTENDED RANGE
 enableTClamp    false;

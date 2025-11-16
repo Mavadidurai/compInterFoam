@@ -1,0 +1,254 @@
+================================================================================
+                    compInterFoam ARCHITECTURE DIAGRAM
+================================================================================
+
+                         Main Solver Loop
+                      (compInterFoam.C, 1243 lines)
+                                 |
+        ___________________________v____________________________
+        |                                                     |
+        |  readControlDict() - Load simulation parameters   |
+        |  createFields() - Initialize all solution fields  |
+        |  createTwoTemperatureModel() - Electron-lattice   |
+        |  createFemtosecondLaserModel() - Laser source     |
+        |  createAdvancedInterfaceCapturing() - Recoil      |
+        |                                                     |
+        |________________TIME STEPPING LOOP___________________|
+        |
+        |  While (runTime.loop())
+        |      ↓
+        |  Adaptive Time Stepping (Courant number limits)
+        |      ├─ maxCo (flow), maxAlphaCo (interface), 
+        |      └─ maxThermalCourant (thermal)
+        |      ↓
+        |  PIMPLE Iterations (nOuterCorrectors times)
+        |      |
+        |      ├─ MOMENTUM EQUATION (UEqn.H)
+        |      |  ├─ ∂(ρU)/∂t term (ddt scheme: Euler)
+        |      |  ├─ ∇·(ρU⊗U) term (convection)
+        |      |  ├─ Reynolds stress ∇·(τ) from transport model
+        |      |  ├─ Recoil force: ∇·recoilPressure (from advancedInterfaceCapturing)
+        |      |  └─ Solver: smoothSolver + symGaussSeidel
+        |      |
+        |      ├─ PRESSURE-VELOCITY COUPLING (nCorrectors times)
+        |      |  |
+        |      |  ├─ pEqn.H (nNonOrthogonalCorrectors times)
+        |      |  |  ├─ Pressure-Poisson from implicit U coupling
+        |      |  |  ├─ RHS: density flux, recoil effects
+        |      |  |  ├─ Solver: GAMG + DIC smoother
+        |      |  |  ├─ Reference: cell 0, p_rgh = 101325 Pa
+        |      |  |  └─ Correct velocity: U -= rAU*∇p_rgh
+        |      |  |
+        |      |  └─ Relaxation factors: p_rgh 0.3
+        |      |
+        |      ├─ PHASE-FRACTION TRANSPORT (with sub-cycling)
+        |      |  |
+        |      |  ├─ alphaEqn.H (nAlphaSubCycles times)
+        |      |  |  ├─ VOF equation: ∂α/∂t + ∇·(αU) = -∇·(αU_interface)
+        |      |  |  ├─ Numerical: MULES discretization
+        |      |  |  ├─ Interface compression: phir with interfaceCompression scheme
+        |      |  |  ├─ Source terms: Sp, Su from phase-change (twoPhaseMixtureThermo)
+        |      |  |  ├─ Solver: PBiCGStab + DILU, tol 1e-12, relTol 0
+        |      |  |  └─ Post-solve: α clamped to [0, 1]
+        |      |  |
+        |      |  ├─ Update phase densities: rho = α₁ρ₁ + α₂ρ₂
+        |      |  └─ Relaxation factors: alpha.* 0.5
+        |      |
+        |      ├─ THERMODYNAMIC PROPERTIES UPDATE
+        |      |  |
+        |      |  └─ mixture.correct() [twoPhaseMixtureThermo]
+        |      |     ├─ Read phase-change parameters from controlDict
+        |      |     ├─ Calculate evaporation source: phaseChangeSource_
+        |      |     ├─ Calculate relaxation coeff: phaseChangeRelaxCoeff_
+        |      |     ├─ Handle activation windows & alphaMin/alphaMax bounds
+        |      |     └─ Cache lattice heat capacity Cl for two-temp model
+        |      |
+        |      └─ ENERGY EQUATIONS
+        |         |
+        |         ├─ TEqn.H (Gas temperature, if present)
+        |         |  ├─ ∂T/∂t term (ddt: Euler)
+        |         |  ├─ ∇·(ρU*h) convection
+        |         |  ├─ ∇·(k∇T) diffusion, orthogonal Laplacian for stability
+        |         |  ├─ Source: Q_laser (from femtosecondLaserModel)
+        |         |  ├─ Coupling: gasMetalHeatFlux (from twoTemperatureModel)
+        |         |  ├─ Phase-change energy: -Γ_evap·hf
+        |         |  ├─ Solver: smoothSolver, tol 1e-8, relTol 0.01
+        |         |  └─ Optional clamping: minT ≤ T ≤ maxT
+        |         |
+        |         └─ twoTemperatureModel.correct() [Electron-Lattice]
+        |            |
+        |            ├─ Sub-cycle: electronSubCycles per main time-step
+        |            |  ├─ Electron equation: Ce·∂Te/∂t + ∇·(ke∇Te)
+        |            |  |                      = G(Tl-Te) + Q_laser + h_gm(Tgas-Te)
+        |            |  |
+        |            |  └─ Lattice equation:  Cl·∂Tl/∂t + ∇·(kl∇Tl)
+        |            |                       = G(Te-Tl) - Γ_evap·hf + h_gm(Tgas-Tl)
+        |            |
+        |            ├─ Parameters (from controlDict → twoTemperatureProperties):
+        |            |  ├─ Ce (electron heat capacity, J/m³/K)
+        |            |  ├─ Cl (lattice heat capacity, ~2.3e6 J/m³/K for Ti)
+        |            |  ├─ G (electron-phonon coupling, ~5e17 W/m³/K)
+        |            |  ├─ De (electron thermal diffusivity, ~1e-4 m²/s)
+        |            |  ├─ gasMetalExchangeCoeff (h_gm, ~5e17 W/m³/K)
+        |            |  └─ Temperature bounds: [minTe, maxTe], [minTl, maxTl]
+        |            |
+        |            └─ Solvers: smoothSolver, tol 1e-8, relTol 0 (strict)
+        |
+        |  ↓ (End PIMPLE loop)
+        |
+        |  LASER MODEL UPDATE (femtosecondLaserModel)
+        |      |
+        |      ├─ laser.correct() - Update Q_laser field
+        |      ├─ Spatial: Gaussian profile, absorption exp(-z/δ)
+        |      ├─ Temporal: Gaussian envelope, pulseWidth FWHM
+        |      ├─ Parameters from constant/laserProperties:
+        |      |  ├─ peakIntensity, pulseWidth, wavelength
+        |      |  ├─ spotSize, absorptionCoeff, reflectivity
+        |      |  ├─ focus, direction, incidenceAngle
+        |      |  └─ Fresnel corrections automatically applied
+        |      |
+        |      └─ validatePulseEnergy() - Check energy conservation
+        |
+        |  RECOIL PRESSURE CALCULATION (advancedInterfaceCapturing)
+        |      |
+        |      ├─ advancedInterfaceCap.correct()
+        |      ├─ calculateRecoilPressure()
+        |      |  ├─ Kinetic theory: P_recoil ≈ √(2πnMkT)·Γ_evap
+        |      |  ├─ Temperature activation: ramp from Tmelt to Tvap
+        |      |  ├─ Alpha filtering: only within [alphaMin, alphaMax]
+        |      |  ├─ Clamping: recoilPressure min(P_calc, recoilMax)
+        |      |  └─ Temporal smoothing: previous recoil + relax·delta_P
+        |      |
+        |      └─ Feed back: recoilPressure field used in pEqn.H & UEqn.H
+        |
+        |  OUTPUT & DIAGNOSTICS (postProcess.H)
+        |      |
+        |      └─ If (writeTime)
+        |         ├─ liftProcessTracker() - Print state snapshot
+        |         |  ├─ Temperatures: max(Te), max(Tl), min(Tl), avg(Tl)
+        |         |  ├─ Pressures: max(p), min(p), recoil pressure
+        |         |  ├─ Material loss: (initial - current) metal volume
+        |         |  └─ Velocities: max(U) in metal, average weighted by alpha
+        |         |
+        |         └─ Write fields to disk
+        |            ├─ Time directory: 1e-14, 2e-14, 3e-14, ...
+        |            ├─ All primary fields: p, U, T, Te, Tl, alpha.*
+        |            └─ Diagnostic fields: Q_laser, recoilPressure, etc.
+        |
+        |________________END TIME STEPPING LOOP__________________|
+        |
+
+================================================================================
+                         DATA FLOW DEPENDENCIES
+================================================================================
+
+  THERMOPHYSICAL PROPERTIES (twoPhaseMixtureThermo)
+      |
+      ├─ Inputs: alpha.*, T, p_rgh, controlDict (phaseChangeCoeffs)
+      ├─ Computation: Mixture properties blend, phase-change evaporation
+      └─ Outputs: rho, rho1, rho2, latentHeat, phaseChangeSource, phaseChangeRelaxCoeff
+                  ├─ Used by: alphaEqn.H (Sp, Su terms)
+                  ├─ Used by: twoTemperatureModel (evaporation energy sink)
+                  └─ Used by: advancedInterfaceCapturing (evaporation rate)
+
+  FEMTOSECOND LASER (femtosecondLaserModel)
+      |
+      ├─ Inputs: runTime.value(), constant/laserProperties, domain geometry
+      ├─ Computation: Spatial Gaussian + temporal envelope, absorption depth
+      └─ Outputs: Q_laser [W/m³] per cell
+                  ├─ Used by: twoTemperatureModel.correct() (electron heating)
+                  └─ Used by: diagnostics (peak power, total energy)
+
+  TWO-TEMPERATURE MODEL (twoTemperatureModel)
+      |
+      ├─ Inputs: Te, Tl, Q_laser, alpha.* (metalFraction), T (ambient fallback)
+      ├─ Inputs: controlDict (twoTemperatureProperties: Ce, Cl, G, De, etc.)
+      ├─ Computation: Coupled electron-lattice heat equations with sub-cycling
+      └─ Outputs: Te, Tl (updated), gasMetalHeatFlux, gasMetalExchangeCoeffField
+                  ├─ Used by: TEqn.H (source/sink terms)
+                  ├─ Used by: diagnostics (max/min temps, energy balance)
+                  └─ Used by: twoPhaseMixtureThermo (lattice temp for evaporation)
+
+  ADVANCED INTERFACE CAPTURING (advancedInterfaceCapturing)
+      |
+      ├─ Inputs: alpha.*, Tl (or fallback T), evaporation rate from mixture
+      ├─ Inputs: controlDict (advancedInterfaceCapturing: recoilMax, alphaMin, etc.)
+      ├─ Computation: Kinetic-theory recoil with temperature ramp & clamping
+      └─ Outputs: recoilPressure [Pa] field
+                  ├─ Used by: pEqn.H (RHS source in Poisson equation)
+                  ├─ Used by: UEqn.H (gradient term ∇·recoilPressure)
+                  └─ Used by: diagnostics (max/min recoil pressure)
+
+  COURANT-BASED ADAPTIVE TIME-STEPPING
+      |
+      ├─ Inputs: U, alpha.*, T, controlDict (maxCo, maxAlphaCo, maxThermalCourant)
+      ├─ Computation: Courant = |U|·dt/dx, Cr_alpha = |U_compress|·dt/dx
+      └─ Outputs: Adjusted dt
+                  └─ New dt = dt * factor constrained by Co/Cr/Cr_thermal
+
+================================================================================
+                         CONFIGURATION HIERARCHY
+================================================================================
+
+  SIMULATION CONTROL (system/controlDict)
+      │
+      ├─ Timing & Output
+      │   ├─ deltaT, maxDeltaT, minDeltaT (seconds)
+      │   ├─ endTime (2e-9 s typical for LIFT)
+      │   ├─ adjustTimeStep yes/no
+      │   └─ writeInterval, purgeWrite
+      │
+      ├─ Courant Number Limits
+      │   ├─ maxCo (flow Courant, ~0.15)
+      │   ├─ maxAlphaCo (interface, ~0.25)
+      │   └─ maxThermalCourant (~0.25)
+      │
+      └─ Model Coefficient Blocks
+          ├─ phaseChangeCoeffs
+          │   └─ hf, gasConstant, Tsol, Tvap, evaporationCoeff, alphaMin, alphaMax
+          ├─ twoTemperatureProperties
+          │   └─ Ce, Cl, G, De, gasMetalExchangeCoeff, minTe, maxTe, minTl, maxTl
+          └─ advancedInterfaceCapturing
+              └─ recoilMax, clampRecoil, alphaMin, alphaMax, recoilRelax
+
+  LINEAR SOLVER SETTINGS (system/fvSolution)
+      │
+      ├─ solvers: p_rgh (GAMG), U.* (smoothSolver), alpha.* (PBiCGStab), T/Te/Tl
+      ├─ PIMPLE: nOuterCorrectors, nCorrectors, nNonOrthogonalCorrectors
+      └─ relaxationFactors: p_rgh, U, T, Te, Tl, alpha.*
+
+  DISCRETIZATION SCHEMES (system/fvSchemes)
+      │
+      ├─ ddtSchemes: Euler (first-order time derivative)
+      ├─ divSchemes: vanLeer (alpha), upwind (momentum, energy), interfaceCompression
+      ├─ laplacianSchemes: corrected (default), orthogonal (thermal diffusion)
+      └─ fluxRequired: p_rgh, alpha.metal, alpha.air
+
+  MATERIAL PROPERTIES (constant/thermophysicalProperties.*)
+      │
+      ├─ thermophysicalProperties (global mixture)
+      ├─ thermophysicalProperties.metal (Ti or other metal)
+      │   ├─ Thermo: Cp, Hf, Tref, Href
+      │   ├─ Transport: mu (viscosity), Pr (Prandtl)
+      │   └─ EoS: Boussinesq with beta (thermal expansion), rho0, T0
+      │
+      └─ thermophysicalProperties.air (gas phase)
+          ├─ Thermo: Cp, Hf
+          ├─ Transport: mu, Pr
+          └─ EoS: perfectGas with R
+
+  LASER PROPERTIES (constant/laserProperties)
+      │
+      ├─ Pulse energy, width, frequency, duty cycle
+      ├─ Wavelength, absorption coefficient, reflectivity
+      ├─ Spot size, focus location, propagation direction
+      └─ Temporal/spatial shapes (gaussian, flat-top)
+
+  INITIAL CONDITIONS (0.orig/)
+      │
+      ├─ p (pressure), p_rgh (hydrostatic ref)
+      ├─ U (velocity)
+      ├─ T (gas temperature), Te (electron), Tl (lattice)
+      └─ alpha.metal, alpha.air (phase fractions)
+
+================================================================================
