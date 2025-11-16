@@ -65,10 +65,12 @@ if (recoilForceReady)
 
 phiHbyA += phig;
 
+// Get solver coefficients dictionary for all stability controls
+const Foam::dictionary& solverCoeffs = compInterFoamCoeffsDict(mesh);
+
 // Limit mass flux to prevent pressure divergence from extreme recoil/phase change
-const Foam::dictionary& stabCoeffs = compInterFoamCoeffsDict(mesh);
 const Foam::scalar maxMassFlux =
-    stabCoeffs.lookupOrDefault<Foam::scalar>("maxMassFlux", Foam::GREAT);
+    solverCoeffs.lookupOrDefault<Foam::scalar>("maxMassFlux", Foam::GREAT);
 
 if (maxMassFlux < Foam::GREAT)
 {
@@ -114,11 +116,9 @@ while (pimple.correctNonOrthogonal())
 
     if (pimple.finalNonOrthogonalIter())
     {
-        const Foam::dictionary& clampCoeffs = compInterFoamCoeffsDict(mesh);
-
         // Limit pressure gradients before reconstruction to prevent velocity spikes
         const Foam::scalar maxPressureGradient =
-            clampCoeffs.lookupOrDefault<Foam::scalar>("maxPressureGradient", Foam::GREAT);
+            solverCoeffs.lookupOrDefault<Foam::scalar>("maxPressureGradient", Foam::GREAT);
 
         if (maxPressureGradient < Foam::GREAT)
         {
@@ -153,7 +153,7 @@ while (pimple.correctNonOrthogonal())
 
         const Foam::Switch pressureClamp
         (
-            clampCoeffs.lookupOrDefault<Foam::Switch>("pressureClamp", false)
+            solverCoeffs.lookupOrDefault<Foam::Switch>("pressureClamp", false)
         );
 
         if (pressureClamp)
@@ -162,7 +162,7 @@ while (pimple.correctNonOrthogonal())
             (
                 "minPressure",
                 Foam::dimPressure,
-                clampCoeffs.lookupOrDefault<Foam::scalar>
+                solverCoeffs.lookupOrDefault<Foam::scalar>
                 (
                     "minPressure",
                     -Foam::GREAT
@@ -170,7 +170,7 @@ while (pimple.correctNonOrthogonal())
             );
 
             const Foam::scalar configuredClampMax =
-                clampCoeffs.lookupOrDefault<Foam::scalar>
+                solverCoeffs.lookupOrDefault<Foam::scalar>
                 (
                     "maxPressure",
                     Foam::GREAT
