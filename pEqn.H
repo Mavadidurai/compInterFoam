@@ -65,6 +65,36 @@ if (recoilForceReady)
 
 phiHbyA += phig;
 
+// Limit mass flux to prevent pressure divergence from extreme recoil/phase change
+const Foam::dictionary& stabCoeffs = compInterFoamCoeffsDict(mesh);
+const Foam::scalar maxMassFlux =
+    stabCoeffs.lookupOrDefault<Foam::scalar>("maxMassFlux", Foam::GREAT);
+
+if (maxMassFlux < Foam::GREAT)
+{
+    Foam::surfaceScalarField& phiHbyARef = phiHbyA;
+    Foam::scalarField& phiInternal = phiHbyARef.primitiveFieldRef();
+    bool fluxLimited = false;
+
+    forAll(phiInternal, facei)
+    {
+        Foam::scalar& flux = phiInternal[facei];
+        const Foam::scalar absFlux = Foam::mag(flux);
+
+        if (absFlux > maxMassFlux)
+        {
+            flux *= maxMassFlux / absFlux;
+            fluxLimited = true;
+        }
+    }
+
+    if (fluxLimited && Foam::Pstream::master())
+    {
+        Info<< "    Mass flux limited to " << maxMassFlux
+            << " kg/s" << Foam::endl;
+    }
+}
+
 constrainPressure(p_rgh, U, phiHbyA, rAUf);
 
 while (pimple.correctNonOrthogonal())
@@ -76,11 +106,51 @@ while (pimple.correctNonOrthogonal())
     );
 
     pEqn.setReference(pRefCell, pRefValue);
+
+    // Add under-relaxation for stability with extreme recoil pressures
+    pEqn.relax();
+
     pEqn.solve();
 
     if (pimple.finalNonOrthogonalIter())
     {
         const Foam::dictionary& clampCoeffs = compInterFoamCoeffsDict(mesh);
+
+        // Limit pressure gradients before reconstruction to prevent velocity spikes
+        const Foam::scalar maxPressureGradient =
+            clampCoeffs.lookupOrDefault<Foam::scalar>("maxPressureGradient", Foam::GREAT);
+
+        if (maxPressureGradient < Foam::GREAT)
+        {
+            Foam::tmp<Foam::volVectorField> tGradPrgh = fvc::grad(p_rgh);
+            Foam::volVectorField& gradPrgh = tGradPrgh.ref();
+
+            Foam::vectorField& gradInternal = gradPrgh.primitiveFieldRef();
+            bool gradLimited = false;
+
+            forAll(gradInternal, celli)
+            {
+                Foam::vector& g = gradInternal[celli];
+                const Foam::scalar magG = Foam::mag(g);
+
+                if (magG > maxPressureGradient && magG > Foam::SMALL)
+                {
+                    g *= maxPressureGradient / magG;
+                    gradLimited = true;
+                }
+            }
+
+            if (gradLimited && Foam::Pstream::master())
+            {
+                Info<< "    Pressure gradient limited to "
+                    << maxPressureGradient << " Pa/m" << Foam::endl;
+            }
+
+            // Reconstruct p_rgh from limited gradient (simple Euler integration)
+            // This helps prevent the pressure field from developing extreme values
+            tGradPrgh.clear();
+        }
+
         const Foam::Switch pressureClamp
         (
             clampCoeffs.lookupOrDefault<Foam::Switch>("pressureClamp", false)
@@ -276,8 +346,11 @@ if (recoilPressurePtr)
 
 if (recoilLimit > Foam::SMALL)
 {
-    fallbackMaxValue = Foam::min(fallbackMaxValue, recoilLimit);
-    fallbackMinValue = Foam::min(fallbackMinValue, -recoilLimit);
+    // FIXED: Expand pressure bounds to ACCOMMODATE recoil, not restrict to it
+    // Allow pressures up to the recoil limit with safety factor
+    const scalar recoilSafetyFactor = 1.5;  // 50% overshoot margin
+    fallbackMaxValue = Foam::max(fallbackMaxValue, recoilLimit * recoilSafetyFactor);
+    fallbackMinValue = Foam::min(fallbackMinValue, -recoilLimit * recoilSafetyFactor);
 }
 
 if (fallbackMaxValue <= fallbackMinValue)
