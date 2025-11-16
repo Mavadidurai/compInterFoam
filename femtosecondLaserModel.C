@@ -1590,10 +1590,26 @@ femtosecondLaserModel::applySpatialWeighting
             * spatialTerm
             * transmissionFactor;
 
+        // ========== PLASMA SHIELDING ==========
+        // Check for plasma shielding (reduces laser absorption)
+        scalar shieldingFactor = 1.0;
+        if (mesh_.foundObject<volScalarField>("plasmaShielding"))
+        {
+            const volScalarField& plasmaShield =
+                mesh_.lookupObject<volScalarField>("plasmaShielding");
+
+            // shieldingFactor ranges from 0 (full shielding) to 1 (no shielding)
+            shieldingFactor = Foam::max(1.0 - plasmaShield[cellI], scalar(0.0));
+        }
+
+        // Apply plasma shielding to laser intensity
+        const scalar effectiveIntensity = baseIntensity * shieldingFactor;
+        // ========== END PLASMA SHIELDING ==========
+
         const scalar deltaS = Foam::max(sOut - sIn, VSMALL);
 
-        scalar Ein = baseIntensity;
-        scalar Eout = baseIntensity;
+        scalar Ein = effectiveIntensity;
+        scalar Eout = effectiveIntensity;
 
         scalar sInForExponent = sIn;
         scalar sOutForExponent = sOut;
