@@ -14,20 +14,19 @@ FoamFile
 }
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
-// Decompose for 12 cores (Intel i7-9750H with 12 threads)
+// Decompose for 4 cores
 numberOfSubdomains 4;
 
 // Decomposition method
-
 // hierarchical - decompose along coordinate directions
-// simple - simple geometric decomposition
+// CRITICAL: Split in Y-direction only to avoid splitting laser beam!
+// Laser focus at x=25μm (domain center) - don't split in X!
 method          hierarchical;
-// Optional: scotch coefficients for fine-tuning
 
 hierarchicalCoeffs
  {
-     n           (2 2 1);    // 2*2*1 = 4 → ~1.26M cells/core
-     delta       0.001;
+     n           (1 4 1);    // 1*4*1 = 4 → split only in Y direction
+     delta       0.001;      // Avoids processor boundaries at laser focus
      order       xyz;
  }
 /*

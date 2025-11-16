@@ -16,9 +16,12 @@
 **Problem**: fvOptions referenced a "substrate" cellZone that doesn't exist.
 **Solution**: Commented out unused constraints in `constant/fvOptions`.
 
-### 4. Laser Positioning
-**Status**: Configuration is correct
-- Focus position: (25e-6, 20.0357e-6, 5e-6) - centered in Ti film
+### 4. Laser Beam Not Found (Decomposition Issue)
+**Problem**: "No cells found in laser beam path" - laser focus at x=25μm was on processor boundary.
+**Solution**: Changed decomposition from (2 2 1) to (1 4 1):
+- **Old**: Split in X at 25μm → laser on boundary!
+- **New**: Split only in Y-direction → laser fully contained in one X-slice
+- Focus position: (25e-6, 20.0357e-6, 5e-6) - centered in Ti film ✓
 - Film bounds: y ∈ [20.0000e-6, 20.0714e-6] m (71.4 nm thick)
 - Laser penetration depth: ~9.7 nm (absorption coefficient: 1.03e8 m⁻¹)
 
@@ -135,10 +138,23 @@ Results are saved in:
 → Run `setFields` to initialize phase fractions
 
 ### "No cells found in laser beam path"
-→ Check that mesh exists and laser focus is within domain bounds
+**Most common cause**: Laser on processor boundary
+→ Re-decompose with corrected decomposeParDict:
+```bash
+rm -rf processor*
+decomposePar -force
+```
+The new decomposition (1 4 1) avoids splitting at the laser focus
 
 ### Parallel run fails immediately
 → Run `decomposePar` before parallel execution
+
+### Already ran with old decomposition?
+If you already decomposed and ran with the old (2 2 1) settings:
+```bash
+./Allclean          # Clean everything
+./Allrun            # Re-setup with correct decomposition
+```
 
 ### Very slow convergence
 → Check `log.lift` for PIMPLE iteration counts and residuals

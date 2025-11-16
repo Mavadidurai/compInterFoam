@@ -29,7 +29,8 @@ runApplication setFields
 
 # Decompose for parallel run
 echo "Decomposing mesh for 4 processors..."
-runApplication decomposePar
+echo "  Using (1 4 1) decomposition to avoid splitting laser beam in X-direction"
+runApplication decomposePar -force
 
 echo ""
 echo "=========================================="
