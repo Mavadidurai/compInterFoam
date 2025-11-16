@@ -712,7 +712,8 @@ autoPtr<volScalarField> legacyRecoilPressure;
 const volScalarField* recoilPressurePtr = nullptr;
 if (useAdvancedCapturing)
 {
-if (verbose && Foam::Pstream::master())
+    if (verbose && Foam::Pstream::master())
+
     {
         Info<< "Creating advanced interface capturing\n" << endl;
     }
@@ -728,30 +729,11 @@ if (verbose && Foam::Pstream::master())
             &ttm.Tl()
         )
     );
-    recoilPressurePtr = &pInterfaceCapturing->recoilPressure();    
-}
-autoPtr<enhancedLIFTPhysics> liftPhysics;
-
-if (runTime.controlDict().found("enhancedLIFTPhysics"))
-{
-    if (verbose && Foam::Pstream::master())
-    {
-        Info<< "Creating enhanced LIFT physics models\n" << endl;
-    }
-
-    liftPhysics.reset
-    (
-        new enhancedLIFTPhysics
-        (
-            mesh,
-            mixture,
-            runTime.controlDict()
-        )
-    );
+    recoilPressurePtr = &pInterfaceCapturing->recoilPressure();
 }
 else
 {
-if (verbose && Foam::Pstream::master())
+    if (verbose && Foam::Pstream::master())
     {
         Info<< "Advanced interface capturing disabled; using basic recoil model\n"
             << endl;
@@ -776,6 +758,25 @@ if (verbose && Foam::Pstream::master())
 
     legacyRecoilPressure->correctBoundaryConditions();
     recoilPressurePtr = legacyRecoilPressure.ptr();
+}
+autoPtr<enhancedLIFTPhysics> liftPhysics;
+
+if (runTime.controlDict().found("enhancedLIFTPhysics"))
+{
+    if (verbose && Foam::Pstream::master())
+    {
+        Info<< "Creating enhanced LIFT physics models\n" << endl;
+    }
+
+    liftPhysics.reset
+    (
+        new enhancedLIFTPhysics
+        (
+            mesh,
+            mixture,
+            runTime.controlDict()
+        )
+    );
 }
 (void)recoilPressurePtr;
 

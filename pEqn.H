@@ -64,11 +64,14 @@ if (recoilForceReady)
 }
 
 phiHbyA += phig;
+
+// Get solver coefficients dictionary for all stability controls
+const Foam::dictionary& solverCoeffs = compInterFoamCoeffsDict(mesh);
+
 // Limit mass flux to prevent pressure divergence from extreme recoil/phase change
-const Foam::dictionary& stabCoeffs = compInterFoamCoeffsDict(mesh);
 const Foam::scalar maxMassFlux =
-    stabCoeffs.lookupOrDefault<Foam::scalar>("maxMassFlux", Foam::GREAT);
-    
+    solverCoeffs.lookupOrDefault<Foam::scalar>("maxMassFlux", Foam::GREAT);
+
 if (maxMassFlux < Foam::GREAT)
 {
     Foam::surfaceScalarField& phiHbyARef = phiHbyA;
@@ -86,14 +89,12 @@ if (maxMassFlux < Foam::GREAT)
             fluxLimited = true;
         }
     }
-
     if (fluxLimited && Foam::Pstream::master())
     {
         Info<< "    Mass flux limited to " << maxMassFlux
             << " kg/s" << Foam::endl;
     }
 }
-
 constrainPressure(p_rgh, U, phiHbyA, rAUf);
 
 while (pimple.correctNonOrthogonal())
@@ -103,20 +104,17 @@ while (pimple.correctNonOrthogonal())
         fvm::laplacian(rAUf, p_rgh)
      == fvc::div(phiHbyA)
     );
-
     pEqn.setReference(pRefCell, pRefValue);
+
     // Add under-relaxation for stability with extreme recoil pressures
     pEqn.relax();
+ 
     pEqn.solve();
-
     if (pimple.finalNonOrthogonalIter())
     {
-        const Foam::dictionary& clampCoeffs = compInterFoamCoeffsDict(mesh);
-        const Foam::Switch pressureClamp
-        
         // Limit pressure gradients before reconstruction to prevent velocity spikes
         const Foam::scalar maxPressureGradient =
-            clampCoeffs.lookupOrDefault<Foam::scalar>("maxPressureGradient", Foam::GREAT);
+            solverCoeffs.lookupOrDefault<Foam::scalar>("maxPressureGradient", Foam::GREAT);
 
         if (maxPressureGradient < Foam::GREAT)
         {
@@ -143,13 +141,15 @@ while (pimple.correctNonOrthogonal())
                 Info<< "    Pressure gradient limited to "
                     << maxPressureGradient << " Pa/m" << Foam::endl;
             }
+
             // Reconstruct p_rgh from limited gradient (simple Euler integration)
             // This helps prevent the pressure field from developing extreme values
             tGradPrgh.clear();
         }
-        
+
+        const Foam::Switch pressureClamp
         (
-            clampCoeffs.lookupOrDefault<Foam::Switch>("pressureClamp", false)
+            solverCoeffs.lookupOrDefault<Foam::Switch>("pressureClamp", false)
         );
 
         if (pressureClamp)
@@ -158,15 +158,15 @@ while (pimple.correctNonOrthogonal())
             (
                 "minPressure",
                 Foam::dimPressure,
-                clampCoeffs.lookupOrDefault<Foam::scalar>
+                solverCoeffs.lookupOrDefault<Foam::scalar>
                 (
                     "minPressure",
                     -Foam::GREAT
                 )
             );
-
+            
             const Foam::scalar configuredClampMax =
-                clampCoeffs.lookupOrDefault<Foam::scalar>
+                solverCoeffs.lookupOrDefault<Foam::scalar>
                 (
                     "maxPressure",
                     Foam::GREAT
@@ -278,7 +278,6 @@ if (tRecoilForce.valid())
     tRecoilForce.clear();
 }
 
-const Foam::dictionary& solverCoeffs = compInterFoamCoeffsDict(mesh);
 const Foam::Switch pressureClamp =
     solverCoeffs.lookupOrDefault<Foam::Switch>("pressureClamp", false);
 
