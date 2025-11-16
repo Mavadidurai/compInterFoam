@@ -118,20 +118,23 @@ solvers
 PIMPLE
 {
     momentumPredictor           true;
-    nOuterCorrectors            10;           // REDUCE: was 2 (emergency mode)
-    nCorrectors                 3;
-    nNonOrthogonalCorrectors    2;
+    nOuterCorrectors            20;           // INCREASED for better pressure-velocity coupling
+    nCorrectors                 5;            // INCREASED from 3 for tighter p-U coupling
+    nNonOrthogonalCorrectors    3;            // INCREASED from 2 for better pressure convergence
+
+    // Sub-iteration for momentum predictor (helps with extreme recoil)
+    momentumPredictorIterations 2;
 
     residualControl
     {
-        "alpha.*" { tolerance 1e-9;  relTol 0.0; }
-        p_rgh     { tolerance 1e-4;  relTol 0.05; }
-        U         { tolerance 1e-5;  relTol 0.01; }
+        "alpha.*" { tolerance 1e-10; relTol 0.0; }    // Tighter for accurate interface
+        p_rgh     { tolerance 1e-5;  relTol 0.01; }   // Tighter for fast jets
+        U         { tolerance 1e-6;  relTol 0.005; }  // Tighter for accurate velocities
         Te        { tolerance 5e-9;  relTol 0.0;  }   // thermal is stiff; be stricter
         Tl        { tolerance 5e-9;  relTol 0.0;  }
-        T         { tolerance 1e-8;  relTol 0.01;  }   // if gas T exists
+        T         { tolerance 1e-9;  relTol 0.005;  } // Tighter for temperature accuracy
     }
-    
+
     p_rghRefCell                0;
     p_rghRefValue               101325;
 }

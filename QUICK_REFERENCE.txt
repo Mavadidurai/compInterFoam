@@ -1,0 +1,230 @@
+================================================================================
+compInterFoam QUICK REFERENCE - File Paths & Functions
+================================================================================
+
+1. MAIN SOLVER ENTRY POINT
+================================================================================
+  /home/user/compInterFoam/compInterFoam.C (1,243 lines)
+  └─ Main time loop, PIMPLE coupling orchestration, diagnostics output
+
+2. COUPLED EQUATION FILES (Solved Every PIMPLE Iteration)
+================================================================================
+  /home/user/compInterFoam/UEqn.H (654 lines)
+  └─ Momentum equation: ∂(ρU)/∂t + ∇·(ρU⊗U) + recoil pressure source
+
+  /home/user/compInterFoam/pEqn.H (517 lines)
+  └─ Pressure-velocity coupling: nOuterCorrectors × nCorrectors iterations
+
+  /home/user/compInterFoam/alphaEqn.H (374 lines)
+  └─ Phase-fraction transport (VOF): VOF interface tracking + MULES + phase-change
+
+  /home/user/compInterFoam/TEqn.H (1,431 lines)
+  └─ Temperature equation: thermal diffusion + laser heating + two-temp coupling
+
+3. CORE PHYSICS MODELS (Large Implementation Files)
+================================================================================
+  twoPhaseMixtureThermo.H/C (451+2,037 lines)
+  ├─ Location: /home/user/compInterFoam/twoPhaseMixtureThermo.*
+  ├─ Purpose: Two-phase mixture properties, evaporation, phase-change source
+  ├─ Config: system/controlDict → phaseChangeCoeffs
+  └─ Key Classes: Hertz-Knudsen evaporation model, phase-change latent heat
+
+  twoTemperatureModel.H/C (289+2,206 lines)
+  ├─ Location: /home/user/compInterFoam/twoTemperatureModel.*
+  ├─ Purpose: Electron (Te) and lattice (Tl) temperature coupling
+  ├─ Config: system/controlDict → twoTemperatureProperties
+  └─ Physics: Ce·∂Te/∂t + ... = G(Tl-Te) + laser, Cl·∂Tl/∂t + ... = G(Te-Tl) + ...
+
+  femtosecondLaserModel.H/C (236+2,341 lines)
+  ├─ Location: /home/user/compInterFoam/femtosecondLaserModel.*
+  ├─ Purpose: Spatiotemporal laser energy deposition, absorption depth
+  ├─ Config: constant/laserProperties
+  └─ Parameters: peakIntensity, pulseWidth, wavelength, spotSize, absorptionCoeff
+
+  advancedInterfaceCapturing.H/C (115+1,075 lines)
+  ├─ Location: /home/user/compInterFoam/advancedInterfaceCapturing.*
+  ├─ Purpose: Recoil pressure calculation, interface stabilization, safeguards
+  ├─ Config: system/controlDict → advancedInterfaceCapturing
+  └─ Physics: Kinetic-theory recoil P_recoil ≈ √(2πnMkT)·Γ_evap, clamping
+
+4. SUPPORTING FILES
+================================================================================
+  compressibleInterPhaseTransportModel.H/C (106+224 lines)
+  └─ Turbulence & transport closures (divDevRhoReff)
+
+  createFields.H (794 lines)
+  └─ Field initialization: p, U, T, Te, Tl, alpha.*, rho, Q_laser, etc.
+
+  postProcess.H (165 lines)
+  └─ Output & diagnostics (LIFT process tracking)
+
+  Supporting headers:
+  ├─ alphaScheme.H - Interface compression scheme selection
+  ├─ alphaSuSp.H - Phase-change source term assembly (Sp, Su)
+  ├─ rhofs.H - Face density field
+  └─ compressibleAlphaEqnSubCycle.H - Alpha sub-cycling
+
+5. BUILD SYSTEM
+================================================================================
+  Make/files
+  └─ Source file listing (twoPhaseMixtureThermo.C, femtosecondLaserModel.C, ...)
+
+  Make/options
+  ├─ Compiler include paths (transportModels, thermophysicalModels, etc.)
+  └─ Link libraries (-lfluidThermophysicalModels, -ltwoPhaseProperties, ...)
+
+6. CASE CONFIGURATION STRUCTURE (Example: TestCase)
+================================================================================
+  TestCase/system/controlDict
+  ├─ Timing: deltaT, maxDeltaT, endTime, adjustTimeStep
+  ├─ Courant: maxCo, maxAlphaCo, maxThermalCourant
+  ├─ Output: writeInterval, purgeWrite, writeFormat
+  └─ Model blocks:
+      ├─ phaseChangeCoeffs (hf, gasConstant, Tsol, Tvap, evaporationCoeff, ...)
+      ├─ twoTemperatureProperties (Ce, Cl, G, De, gasMetalExchangeCoeff, ...)
+      └─ advancedInterfaceCapturing (recoilMax, clampRecoil, alphaMin, alphaMax, ...)
+
+  TestCase/system/fvSolution
+  ├─ solvers: alpha.* (PBiCGStab), p_rgh (GAMG), U.* (smoothSolver), T/Te/Tl
+  ├─ PIMPLE: nOuterCorrectors 10, nCorrectors 3, nNonOrthogonalCorrectors 2
+  └─ relaxationFactors: p_rgh 0.3, alpha.* 0.5, equations 0.5
+
+  TestCase/system/fvSchemes
+  ├─ ddtSchemes: Euler (time derivative)
+  ├─ divSchemes: vanLeer (alpha), upwind (momentum, energy), interfaceCompression
+  ├─ laplacianSchemes: linear corrected / orthogonal (for thermal stability)
+  └─ fluxRequired: p_rgh, alpha.metal, alpha.air
+
+  TestCase/constant/thermophysicalProperties.metal
+  ├─ Material: titanium (MW 47.867 kg/kmol, Cp 650 J/(kg·K), ρ0 4515 kg/m³)
+  ├─ Temperatures: Tsol 1941 K, Tvap 3560 K
+  ├─ Thermo: Boussinesq equation of state with thermal expansion
+  └─ Properties: Latent heat hf 9.1e6 J/kg, conductivity kappa 17.2 W/(m·K)
+
+  TestCase/constant/laserProperties
+  ├─ Pulse: pulseEnergy 2.0e-8 J, pulseWidth 200e-15 s (200 fs)
+  ├─ Wavelength: 343e-9 m (UV, Ti absorption peak)
+  ├─ Spot: spotSize 3.2e-6 m (3.2 µm), focus (25e-6, 28.0357e-6, 5e-6)
+  ├─ Propagation: direction (0, -1, 0) (downward), reflectivity 0.35
+  ├─ Absorption: absorptionCoeff 1.03e8 1/m (~10 nm penetration depth)
+  └─ Control: gaussianProfile true, continuousLaser false, pulseFrequency 0
+
+  TestCase/0.orig/ (Initial Conditions Template)
+  ├─ Pressure: p (101325 Pa), p_rgh (0 Pa)
+  ├─ Velocity: U (0 m/s)
+  ├─ Temperatures: T (300 K), Te (300 K), Tl (300 K)
+  └─ Phases: alpha.metal (1 in film, 0 in air), alpha.air (0 in film, 1 in air)
+
+7. KEY ALGORITHMS & FORMULATIONS
+================================================================================
+  PIMPLE Pressure-Velocity Coupling (pEqn.H):
+  ├─ Assembly: GAMG solver on p_rgh
+  ├─ Boundary pressure: p_rgh reference cell 0, value 101325 Pa
+  └─ Iterations: nOuterCorrectors (10) × nCorrectors (3)
+
+  VOF Interface Tracking (alphaEqn.H):
+  ├─ Method: MULES + Crank-Nicolson or Euler ddt scheme
+  ├─ Compression: interfaceCompression scheme on phir
+  ├─ Sub-cycling: nAlphaSubCycles (5) for stability on tiny time-steps
+  └─ Source: Phase-change mass transfer Sp, Su from twoPhaseMixtureThermo
+
+  Phase-Change Evaporation (twoPhaseMixtureThermo.C):
+  ├─ Model: Hertz-Knudsen (Clausius-Clapeyron or kinetic theory)
+  ├─ Condition: Activated when alphaMin < alpha < alphaMax and T > Tvap
+  ├─ Formula: Γ_evap ~ √(p_sat/(2πMkT)) × accommodation_coeff
+  └─ Limit: maxPhaseChangeSource [W/m³] cap, relaxationTime temporal smoothing
+
+  Two-Temperature Electron-Lattice Coupling (twoTemperatureModel.C):
+  ├─ Electrons: Ce·∂Te/∂t + ∇·(ke∇Te) = G(Tl-Te) + Q_laser + h_gm(T_gas-Te)
+  ├─ Lattice:  Cl·∂Tl/∂t + ∇·(kl∇Tl) = G(Te-Tl) - Γ_evap·hf + h_gm(T_gas-Tl)
+  ├─ Sub-cycle: electronSubCycles per main time-step for stiff coupling
+  └─ Bounds: minTe, maxTe, minTl, maxTl applied with temperature blending
+
+  Recoil Pressure (advancedInterfaceCapturing.C):
+  ├─ Source: Kinetic theory from evaporation rate + momentum accommodation
+  ├─ Activation: Gradual ramp from Tmelt to Tvap with temperature offset
+  ├─ Clamping: recoilMax pressure ceiling (typically 50–100 MPa)
+  └─ Coupling: Added as RHS source in pEqn.H, gradient in UEqn.H
+
+  Femtosecond Laser Deposition (femtosecondLaserModel.C):
+  ├─ Spatial: Gaussian profile within spotSize, absorption exp(-z/δ)
+  ├─ Temporal: Gaussian pulse envelope with pulseWidth FWHM
+  ├─ Energy: Conserved within tolerances (pulseEnergyToleranceRel, Abs)
+  └─ Fresnel: Reflectivity → transmission at interfaces automatically
+
+8. TIME-STEPPING HIERARCHY
+================================================================================
+  Main Outer Loop: compInterFoam.C
+    ↓ Time advance: t → t + dt (adaptive via Courant limits)
+    │
+    PIMPLE Iterations (nOuterCorrectors times):
+      ├─ Momentum Prediction: UEqn.H (solve U implicitly)
+      │
+      ├─ Pressure-Velocity Correction (nCorrectors times):
+      │   ├─ Non-orthogonal correction (nNonOrthogonalCorrectors times):
+      │   │   └─ pEqn.H (solve p_rgh, correct U)
+      │
+      ├─ Interface Transport (with sub-cycling):
+      │   └─ alphaEqn.H (solve alpha.metal, alpha.air, nAlphaSubCycles times)
+      │
+      ├─ Update Thermodynamic Properties:
+      │   └─ mixture.correct() → density, etc.
+      │
+      └─ Energy Equations:
+          ├─ TEqn.H (solve gas temperature T if exists)
+          └─ twoTemperatureModel.correct() → solve Te & Tl (with e-subCycles)
+
+    Post-Processing (if writeTime):
+      └─ postProcess.H → LIFT diagnostics, recoil pressure field output
+
+9. CRITICAL FILE PATHS FOR CONFIGURATION
+================================================================================
+  Simulation Control:
+    /home/user/compInterFoam/TestCase/system/controlDict
+    ├─ Time-stepping parameters
+    └─ Model-specific coefficient blocks
+
+  Discretization:
+    /home/user/compInterFoam/TestCase/system/fvSchemes
+    └─ ddt, grad, div, laplacian schemes
+
+  Linear Solvers & Iteration:
+    /home/user/compInterFoam/TestCase/system/fvSolution
+    └─ PIMPLE, solver tolerances, relaxation factors
+
+  Material Properties:
+    /home/user/compInterFoam/TestCase/constant/thermophysicalProperties.metal
+    /home/user/compInterFoam/TestCase/constant/thermophysicalProperties.air
+    └─ Per-phase thermodynamic packages
+
+  Laser Configuration:
+    /home/user/compInterFoam/TestCase/constant/laserProperties
+    └─ All femtosecond pulse parameters
+
+  Mesh Generation:
+    /home/user/compInterFoam/TestCase/system/blockMeshDict
+    └─ Domain geometry, refinement
+
+  Initial Conditions:
+    /home/user/compInterFoam/TestCase/0.orig/
+    └─ p, p_rgh, U, T, Te, Tl, alpha.metal, alpha.air
+
+10. CODE STATISTICS
+================================================================================
+  Total Lines of Code: ~14,594
+  Largest Files:
+    - femtosecondLaserModel.C: 2,341 lines
+    - twoTemperatureModel.C: 2,206 lines
+    - twoPhaseMixtureThermo.C: 2,037 lines
+    - TEqn.H: 1,431 lines
+    - compInterFoam.C: 1,243 lines
+    - advancedInterfaceCapturing.C: 1,075 lines
+
+  Documentation:
+    - Models/ directory: 6 comprehensive technical reports (markdown)
+    - README.md: Configuration guide & parameter tables
+    - CODEBASE_MAP.md: This file (792 lines, comprehensive reference)
+
+================================================================================
+GENERATED: 2025-11-16 | For questions, consult Models/*.md reports
+================================================================================
