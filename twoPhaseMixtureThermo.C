@@ -1186,7 +1186,26 @@ void Foam::twoPhaseMixtureThermo::computePhaseChange()
         const scalar j_cond = evaporationCoeff_*p_metalVapor/(sqrt_2piR*sqrt_T);
 
         scalar j_net = j_evap - j_cond;
+        
+        // Apply phase explosion enhancement if active
+        if (mesh.foundObject<volScalarField>("explosionIndicator"))
+        {
+            const volScalarField& explosionInd =
+                mesh.lookupObject<volScalarField>("explosionIndicator");
 
+            if (explosionInd[cellI] > 0.01)
+            {
+                // Enhanced mass flux: 1 to 100x based on superheat indicator
+                const scalar multiplier = 1.0 + 99.0 * explosionInd[cellI];
+                j_net *= multiplier;
+
+                if (Foam::Pstream::master() && cellI == 0 && mesh.time().timeIndex() % 100 == 0)
+                {
+                    Info<< "  Phase explosion enhancement at cell 0: "
+                        << multiplier << "x (indicator=" << explosionInd[cellI] << ")" << nl;
+                }
+            }
+        }
         if
         (
             Pstream::master()

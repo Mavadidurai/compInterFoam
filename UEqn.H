@@ -10,6 +10,19 @@ fvVectorMatrix UEqn
 UEqn.relax();
 fvOptions.constrain(UEqn);
 
+volScalarField totalPressure(p_rgh);
+totalPressure += pInterfaceCapturing->recoilPressure();
+
+// Add enhanced physics pressures
+if (liftPhysics.valid())
+{
+    if (liftPhysics->phaseExplosionEnabled())
+        totalPressure += liftPhysics->explosivePressure();
+    
+    if (liftPhysics->plasmaEnabled())
+        totalPressure += liftPhysics->plasmaPressure();
+}
+
 const Foam::dictionary& solverCoeffs = compInterFoamCoeffsDict(mesh);
 // Read recoil pressure configuration consistently (same logic as pEqn.H)
 // Priority: advancedInterfaceCapturing > compInterFoamCoeffs
@@ -349,6 +362,69 @@ if (recoilPressurePtr)
 
     }
 
+// Add phase explosion and plasma pressure forces
+tmp<volVectorField> tExplosiveForce;
+tmp<volVectorField> tPlasmaForce;
+bool explosiveForceReady = false;
+bool plasmaForceReady = false;
+
+if (recoilPressurePtr)  // Only if interface capturing is active
+{
+    const tmp<volVectorField> tInterfaceGrad = fvc::grad(alpha1);
+    const volVectorField& interfaceGrad = tInterfaceGrad();
+    const tmp<volScalarField> tInterfaceStrength = mag(interfaceGrad);
+    const volScalarField& interfaceStrength = tInterfaceStrength();
+    const tmp<volVectorField> tInterfaceNormal
+    (
+        -(interfaceGrad/
+        (
+            interfaceStrength
+          + dimensionedScalar("small", dimless/dimLength, SMALL)
+        ))
+    );
+    const volVectorField& interfaceNormal = tInterfaceNormal();
+
+    // Add phase explosion pressure
+    if (mesh.foundObject<volScalarField>("explosivePressure"))
+    {
+        const volScalarField& explosiveP =
+            mesh.lookupObject<volScalarField>("explosivePressure");
+
+        tExplosiveForce = tmp<volVectorField>
+        (
+            explosiveP*interfaceStrength*interfaceNormal
+        );
+        explosiveForceReady = true;
+
+        if (verbose && isMaster && runTime.timeIndex() % 10 == 0)
+        {
+            const scalar maxExplosiveP = gMax(explosiveP);
+            Info<< "    Max explosive pressure: " << maxExplosiveP/1e6
+                << " MPa" << endl;
+        }
+    }
+
+    // Add plasma pressure
+    if (mesh.foundObject<volScalarField>("plasmaPressure"))
+    {
+        const volScalarField& plasmaP =
+            mesh.lookupObject<volScalarField>("plasmaPressure");
+
+        tPlasmaForce = tmp<volVectorField>
+        (
+            plasmaP*interfaceStrength*interfaceNormal
+        );
+        plasmaForceReady = true;
+
+        if (verbose && isMaster && runTime.timeIndex() % 10 == 0)
+        {
+            const scalar maxPlasmaP = gMax(plasmaP);
+            Info<< "    Max plasma pressure: " << maxPlasmaP/1e6
+                << " MPa" << endl;
+        }
+    }
+}
+
 if (pimple.momentumPredictor())
 {
     // The capillary force already appears in phig within pEqn.H via
@@ -514,7 +590,15 @@ if (pimple.momentumPredictor())
         {
             totalAccel += (*recoilForceFieldPtr)/rho;
         }
+        if (explosiveForceReady)
+        {
+            totalAccel += tExplosiveForce()/rho;
+        }
 
+        if (plasmaForceReady)
+        {
+            totalAccel += tPlasmaForce()/rho;
+        }
         tmp<volScalarField> tTotalAccelMag = mag(totalAccel);
         const volScalarField& totalAccelMag = tTotalAccelMag();
 
@@ -556,9 +640,23 @@ if (pimple.momentumPredictor())
     );
     tPressureForce.clear();
     tMomentumSource.clear();
+
+    // ========== ADD ENHANCED PHYSICS FORCES ==========
+    // Add phase explosion force
+    if (explosiveForceReady)
+    {
+        momentumSource += tExplosiveForce();
+    }
+
+    // Add plasma force
+    if (plasmaForceReady)
+    {
+        momentumSource += tPlasmaForce();
+    }
+    // ========== END ENHANCED PHYSICS ==========
+
     // Solve with complete momentum source
     solve(UEqn == momentumSource);
-
     fvOptions.correct(U);
     U.correctBoundaryConditions();
 
