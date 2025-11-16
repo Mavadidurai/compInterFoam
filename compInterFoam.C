@@ -68,6 +68,7 @@ Description
 #include "femtosecondLaserModel.H"
 #include "twoTemperatureModel.H"
 #include "advancedInterfaceCapturing.H"
+#include "enhancedLIFTPhysics.H"
 #include "OFstream.H"
 #include <cmath>
 #include <string>
@@ -1026,10 +1027,25 @@ while (pimple.loop())
         mixture.setClTTM(ttm.Cl());
     }
 
-    // ✅ UPDATE PHASE CHANGE WITH LATEST TEMPERATURES
+    // Update enhanced LIFT physics (all three models updated in one call)
+    if (liftPhysics.valid())
+    {
+        liftPhysics->updateAll(ttm.Tl(), alpha1, rho, U);
+
+        if (verbose && master && runTime.timeIndex() % 100 == 0)
+        {
+            Info<< "Enhanced physics updated:" << nl;
+            if (liftPhysics->phaseExplosionEnabled())
+                Info<< "    Phase explosion active" << nl;
+            if (liftPhysics->plasmaEnabled())
+                Info<< "    Plasma ionization active" << nl;
+            if (liftPhysics->breakupEnabled())
+                Info<< "    Droplet breakup active" << nl;
+        }
+    }
+    
     mixture.correct();
 
-    // ✅ CALCULATE RECOIL PRESSURE *BEFORE* MOMENTUM EQUATION
     if (useAdvancedCapturing && pInterfaceCapturing.valid())
     {
         pInterfaceCapturing->calculateRecoilPressure();
@@ -1064,7 +1080,11 @@ while (pimple.loop())
         transportModel.correct();
     }
 }
-
+// Apply droplet breakup to alpha field (interface remapping)
+if (liftPhysics.valid() && liftPhysics->breakupEnabled())
+{
+    liftPhysics->applyBreakup(alpha1, U);
+}
         dimensionedScalar Ek = fvc::domainIntegrate(0.5*rho*magSqr(U));
         tmp<volScalarField> tCe = ttm.electronHeatCapacity();
         const volScalarField& CeField = tCe();

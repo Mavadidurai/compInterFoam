@@ -365,7 +365,15 @@ void femtosecondLaserModel::update()
     }
     sourceValid_ = false;
 }
+scalar shieldingFactor = 1.0;
+if (mesh.foundObject<volScalarField>("plasmaShielding"))
+{
+    const volScalarField& plasmaShield = 
+        mesh.lookupObject<volScalarField>("plasmaShielding");
+    shieldingFactor = max(1.0 - plasmaShield[cellI], 0.0);
+}
 
+scalar I_absorbed = I_laser * absorptionCoeff * shieldingFactor;
 //------------------------------------------------------------------------------
 // validate parameters
 //------------------------------------------------------------------------------

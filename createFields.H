@@ -730,6 +730,25 @@ if (verbose && Foam::Pstream::master())
     );
     recoilPressurePtr = &pInterfaceCapturing->recoilPressure();    
 }
+autoPtr<enhancedLIFTPhysics> liftPhysics;
+
+if (runTime.controlDict().found("enhancedLIFTPhysics"))
+{
+    if (verbose && Foam::Pstream::master())
+    {
+        Info<< "Creating enhanced LIFT physics models\n" << endl;
+    }
+
+    liftPhysics.reset
+    (
+        new enhancedLIFTPhysics
+        (
+            mesh,
+            mixture,
+            runTime.controlDict()
+        )
+    );
+}
 else
 {
 if (verbose && Foam::Pstream::master())
