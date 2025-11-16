@@ -1317,6 +1317,24 @@ femtosecondLaserModel::applySpatialWeighting
 
     const treeBoundBox searchBox(focus_ - halfWidths, focus_ + halfWidths);
 
+    if (verbose && Pstream::master())
+    {
+
+        Info<< "==== LASER BEAM DIAGNOSTIC ====" << nl
+            << "Focus position: " << focus_ << nl
+            << "Beam direction: " << direction_ << nl
+            << "Spot size (diameter): " << spotSize_.value() << " m" << nl
+            << "Beam radius: " << beamRadius << " m" << nl
+            << "Radial half-width (3σ): " << radialHalfWidth << " m" << nl
+            << "Axial half-length: " << axialHalfLength << " m" << nl
+            << "Search box min: " << searchBox.min() << nl
+            << "Search box max: " << searchBox.max() << nl
+            << "Mesh bounds min: " << mesh_.bounds().min() << nl
+            << "Mesh bounds max: " << mesh_.bounds().max() << nl
+            << "Total mesh cells: " << mesh_.nCells() << nl
+            << "==============================" << endl;
+    }
+
     const pointField& cellCentres = mesh_.C();
     const scalarField& cellVolumes = mesh_.V();
     const pointField& meshPoints = mesh_.points();
@@ -1431,6 +1449,9 @@ femtosecondLaserModel::applySpatialWeighting
             filmEntryOffset = Foam::max(filmEntryOffset, scalar(0));
         }
     }
+    label cellsChecked = 0;
+    label cellsInSearchBox = 0;
+    
     forAll(cellCentres, cellI)
     {
         const point& c = cellCentres[cellI];
@@ -1440,6 +1461,9 @@ femtosecondLaserModel::applySpatialWeighting
             continue;
         }
 
+        ++cellsInSearchBox;
+        ++cellsChecked;
+        
         bool inFilm = (c.y() >= filmYMin_ && c.y() <= filmYMax_);
 
         if (metalFractions)
@@ -1625,12 +1649,14 @@ femtosecondLaserModel::applySpatialWeighting
     if (verbose && Pstream::master())
     {
         Info<< "BEAM PROFILE VALIDATION:" << nl
+            << "  Total mesh cells: " << cellCentres.size() << nl
+            << "  Cells in search box: " << cellsInSearchBox << nl
+            << "  Cells in beam: " << metrics.cellsInBeam << nl
             << "  Peak source: " << metrics.maxSourceValue << " W/m³" << nl
             << "  Integrated power: " << metrics.totalSourceIntegral << " W" << nl
-            << "  Cells in beam: " << metrics.cellsInBeam << nl
-            << "  Average source: " << metrics.totalSourceIntegral/metrics.totalBeamVolume 
+            << "  Average source: " << metrics.totalSourceIntegral/metrics.totalBeamVolume
             << " W/m³" << nl
-            << "  Peak/Average ratio: " << metrics.maxSourceValue * metrics.totalBeamVolume 
+            << "  Peak/Average ratio: " << metrics.maxSourceValue * metrics.totalBeamVolume
                / metrics.totalSourceIntegral << nl;
     }
     reduce(metrics.cellsInBeam, sumOp<label>());
@@ -2191,7 +2217,15 @@ void femtosecondLaserModel::calculateSource() const
     {
         WarningInFunction
             << "No cells found in laser beam path at time " << t*1e12 << " ps!" << nl
-            << "Check focus position, spot size, and mesh resolution." << endl;
+            << "Check focus position, spot size, and mesh resolution." << nl
+            << "DIAGNOSTIC INFO:" << nl
+            << "  Focus position: " << focus_ << nl
+            << "  Beam direction: " << direction_ << nl
+            << "  Spot size: " << spotSize_.value() << " m" << nl
+            << "  Film Y bounds: [" << filmYMin_ << ", " << filmYMax_ << "]" << nl
+            << "  Mesh bounds: [" << mesh_.bounds().min() << ", " << mesh_.bounds().max() << "]" << nl
+            << "  Total mesh cells: " << mesh_.nCells() << nl
+            << endl;
     }
     else if (metrics.cellsInFilm == 0 && metrics.cellsInBeam > 0)
     {
