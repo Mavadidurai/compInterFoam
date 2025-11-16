@@ -16,7 +16,10 @@ License
 #include "fvc.H"
 #include "Pstream.H"
 #include "mathematicalConstants.H"
+#include "fundamentalConstants.H"
+#include "electromagneticConstants.H"
 #include "physicoChemicalConstants.H"
+#include "atomicConstants.H"
 #include <cmath>
 
 using namespace Foam::constant;
@@ -145,13 +148,13 @@ Foam::enhancedLIFTPhysics::PlasmaData::PlasmaData
     (
         "k_B",
         dimensionSet(1, 2, -2, -1, 0),
-        physicoChemical::k.value()
+        1.38064852e-23  // Boltzmann constant [J/K]
     ),
     m_e_
     (
         "m_e",
         dimensionSet(1, 0, 0, 0, 0),
-        electromagnetic::me.value()
+        9.10938356e-31  // Electron mass [kg]
     ),
     m_atom_
     (
@@ -697,7 +700,10 @@ void Foam::enhancedLIFTPhysics::updateBreakup
     const scalarField& WeField = breakup_->WeberNumber_.primitiveField();
     const scalarField& alpha1Field = alpha1.primitiveField();
     const scalarField& LField = L_char.primitiveField();
-    const scalarField& UmagField = mag(U.primitiveField())();
+
+    // Store tmp to avoid dangling reference
+    tmp<scalarField> tUmagField = mag(U.primitiveField());
+    const scalarField& UmagField = tUmagField();
 
     scalarField& indicatorField = breakup_->breakupIndicator_.primitiveFieldRef();
     scalarField& diameterField = breakup_->dropletDiameter_.primitiveFieldRef();
