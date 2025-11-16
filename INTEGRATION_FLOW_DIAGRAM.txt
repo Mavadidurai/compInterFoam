@@ -1,0 +1,280 @@
+═══════════════════════════════════════════════════════════════════════════════
+  ENHANCED LIFT PHYSICS INTEGRATION FLOW
+═══════════════════════════════════════════════════════════════════════════════
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ INITIALIZATION PHASE (createFields.H)                                       │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+    Line ~634:  femtosecondLaserModel laser(...)
+                      ↓
+    Line ~657:  twoTemperatureModel ttm(...)
+                      ↓
+    Line ~722:  advancedInterfaceCapturing(...)
+                      ↓
+  ╔═════════════════════════════════════════════════════════════════════╗
+  ║ Line ~733:  enhancedLIFTPhysics liftPhysics(...)   ← ADD THIS      ║
+  ╚═════════════════════════════════════════════════════════════════════╝
+                      ↓
+                  Continue...
+
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ TIME LOOP (compInterFoam.C - main function)                                 │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+    while (runTime.run())
+    {
+        ┌─────────────────────────────────────────────────────────────────┐
+        │ 1. UPDATE LASER                                                 │
+        └─────────────────────────────────────────────────────────────────┘
+
+        Line ~988:   laser.update()
+                     laser.correct()
+  ╔═════════════════════════════════════════════════════════════════════╗
+  ║                 ↓ (Add plasma shielding here)                      ║
+  ║     Modified absorption: I = I_laser × α × (1 - plasmaShield)     ║
+  ╚═════════════════════════════════════════════════════════════════════╝
+                     mixture.setQLaser(laser.source())
+
+
+        ┌─────────────────────────────────────────────────────────────────┐
+        │ 2. PIMPLE LOOP BEGINS                                           │
+        └─────────────────────────────────────────────────────────────────┘
+
+        while (pimple.loop())
+        {
+            ┌─────────────────────────────────────────────────────────────┐
+            │ 2a. SOLVE ALPHA (phase fraction)                            │
+            └─────────────────────────────────────────────────────────────┘
+
+            Line ~1006:  #include "compressibleAlphaEqnSubCycle.H"
+                         mixture.correct()
+
+
+            ┌─────────────────────────────────────────────────────────────┐
+            │ 2b. SOLVE TEMPERATURE EQUATIONS                             │
+            └─────────────────────────────────────────────────────────────┘
+
+            Line ~1016:  #include "TEqn.H"
+
+            Line ~1018:  ttm.solve(QLaser, phaseChangeSource, ...)
+                         mixture.setClTTM(ttm.Cl())
+                              ↓
+  ╔═════════════════════════════════════════════════════════════════════╗
+  ║ Line ~1028:  liftPhysics->updateAll(Tl, alpha1, rho, U) ← ADD    ║
+  ║              {                                                     ║
+  ║                  updatePhaseExplosion(Tl, alpha1, rho)            ║
+  ║                  updatePlasma(Tl, rho, alpha1)                    ║
+  ║                  updateBreakup(alpha1, U, rho)                    ║
+  ║              }                                                     ║
+  ╚═════════════════════════════════════════════════════════════════════╝
+                              ↓
+  ╔═════════════════════════════════════════════════════════════════════╗
+  ║              (In twoPhaseMixtureThermo.C)                          ║
+  ║     j_net *= (1 + 99 × explosionIndicator)  ← ADD                 ║
+  ║              (Enhances evaporation)                                ║
+  ╚═════════════════════════════════════════════════════════════════════╝
+                              ↓
+            Line ~1030:  mixture.correct()
+
+
+            ┌─────────────────────────────────────────────────────────────┐
+            │ 2c. CALCULATE RECOIL PRESSURE                               │
+            └─────────────────────────────────────────────────────────────┘
+
+            Line ~1035:  pInterfaceCapturing->calculateRecoilPressure()
+
+
+            ┌─────────────────────────────────────────────────────────────┐
+            │ 2d. SOLVE MOMENTUM EQUATION                                 │
+            └─────────────────────────────────────────────────────────────┘
+  ╔═════════════════════════════════════════════════════════════════════╗
+  ║         (In UEqn.H)                                                ║
+  ║                                                                     ║
+  ║     totalPressure = p_rgh                                          ║
+  ║                   + recoilPressure                                 ║
+  ║                   + explosivePressure      ← ADD                   ║
+  ║                   + plasmaPressure         ← ADD                   ║
+  ║                                                                     ║
+  ║     UEqn: fvm::ddt(rho, U) + ... = -fvc::grad(totalPressure)      ║
+  ╚═════════════════════════════════════════════════════════════════════╝
+
+
+            ┌─────────────────────────────────────────────────────────────┐
+            │ 2e. PRESSURE CORRECTION LOOP                                │
+            └─────────────────────────────────────────────────────────────┘
+
+            Line ~1053:  while (pimple.correct())
+                         {
+                             #include "pEqn.H"
+                         }
+        }
+        // PIMPLE loop ends
+
+
+        ┌─────────────────────────────────────────────────────────────────┐
+        │ 3. POST-PIMPLE CORRECTIONS                                      │
+        └─────────────────────────────────────────────────────────────────┘
+
+        Line ~1066:  transportModel.correct()
+  ╔═════════════════════════════════════════════════════════════════════╗
+  ║                      ↓                                             ║
+  ║     liftPhysics->applyBreakup(alpha1, U)       ← ADD              ║
+  ║     (Fragments high-We jets into droplets)                         ║
+  ╚═════════════════════════════════════════════════════════════════════╝
+
+
+        ┌─────────────────────────────────────────────────────────────────┐
+        │ 4. DIAGNOSTICS & OUTPUT                                         │
+        └─────────────────────────────────────────────────────────────────┘
+
+        Line ~1100:  liftProcessTracker(...)
+                     runTime.write()
+    }
+    // Time loop ends
+
+
+═══════════════════════════════════════════════════════════════════════════════
+  DATA FLOW DIAGRAM
+═══════════════════════════════════════════════════════════════════════════════
+
+                         ┌──────────────────┐
+                         │  Laser Energy    │
+                         │  Q_laser         │
+                         └────────┬─────────┘
+                                  │
+                  ┌───────────────┼───────────────┐
+                  ↓               ↓               ↓
+          ┌──────────────┐ ┌──────────────┐ ┌─────────────┐
+          │ Plasma Model │ │   Two-Temp   │ │   Phase     │
+          │  (shields    │ │   Model      │ │  Explosion  │
+          │   laser)     │ │  (Te, Tl)    │ │  Model      │
+          └──────┬───────┘ └──────┬───────┘ └──────┬──────┘
+                 │                │                 │
+                 │                └────────┬────────┘
+                 │                         │
+                 │                    ┌────▼──────┐
+                 │                    │   Tl      │
+                 │                    │ (lattice  │
+                 │                    │   temp)   │
+                 │                    └────┬──────┘
+                 │                         │
+                 │    ┌────────────────────┼────────────────┐
+                 │    │                    │                │
+                 ↓    ↓                    ↓                ↓
+          ┌────────────────┐      ┌──────────────┐  ┌──────────────┐
+          │ Evaporation    │      │  Recoil      │  │  Explosive   │
+          │ (enhanced by   │      │  Pressure    │  │  Pressure    │
+          │ phase expl.)   │      │              │  │              │
+          └───────┬────────┘      └──────┬───────┘  └──────┬───────┘
+                  │                      │                 │
+                  │                      └────────┬────────┘
+                  │                               │
+                  ↓                               ↓
+          ┌───────────────┐            ┌─────────────────┐
+          │   dgdt        │            │ Total Pressure  │
+          │ (mass source) │            │  (to momentum)  │
+          └───────┬───────┘            └────────┬────────┘
+                  │                             │
+                  ↓                             ↓
+          ┌───────────────┐            ┌─────────────────┐
+          │  Alpha Eqn    │            │  Momentum Eqn   │
+          │  (VOF)        │            │     (UEqn)      │
+          └───────┬───────┘            └────────┬────────┘
+                  │                             │
+                  └─────────────┬───────────────┘
+                                │
+                                ↓
+                    ┌──────────────────────┐
+                    │   Velocity Field U   │
+                    └───────────┬──────────┘
+                                │
+                                ↓
+                    ┌──────────────────────┐
+                    │  Breakup Model       │
+                    │  (Weber number)      │
+                    │  WeberNumber = ...   │
+                    └───────────┬──────────┘
+                                │
+                    if We > 10: │
+                                ↓
+                    ┌──────────────────────┐
+                    │  Apply Breakup       │
+                    │  (fragment jets)     │
+                    └──────────────────────┘
+
+
+═══════════════════════════════════════════════════════════════════════════════
+  FIELD OUTPUT FLOW
+═══════════════════════════════════════════════════════════════════════════════
+
+    enhancedLIFTPhysics generates these fields automatically:
+
+    Phase Explosion Model:
+        ├─ explosiveMassSource     [kg/m³/s]  (enhanced ablation rate)
+        ├─ explosivePressure       [Pa]        (GPa-scale pressure)
+        └─ explosionIndicator      [0-1]       (superheat indicator)
+
+    Plasma Ionization Model:
+        ├─ ionizationDegree        [0-1]       (fraction ionized)
+        ├─ n_electron              [m⁻³]       (electron density)
+        ├─ plasmaPressure          [Pa]        (plasma contribution)
+        └─ plasmaShielding         [0-1]       (laser absorption reduction)
+
+    Droplet Breakup Model:
+        ├─ WeberNumber             [-]         (instability parameter)
+        ├─ breakupIndicator        [0-1]       (breakup intensity)
+        ├─ dropletDiameter         [m]         (predicted droplet size)
+        └─ breakupRate             [s⁻¹]       (fragmentation frequency)
+
+
+═══════════════════════════════════════════════════════════════════════════════
+  COMPILATION & EXECUTION FLOW
+═══════════════════════════════════════════════════════════════════════════════
+
+    1. Update Make/files
+       ├─ Add: enhancedLIFTPhysics.C
+
+    2. Compile
+       ├─ cd /home/user/compInterFoam
+       └─ wmake
+
+    3. Run
+       ├─ cd TestCase
+       └─ ./Allrun
+
+    4. Monitor output
+       ├─ "Enhanced LIFT physics initialized"
+       ├─ "Phase explosion model enabled"
+       ├─ "Plasma ionization model enabled"
+       └─ "Droplet breakup model enabled"
+
+    5. Check results
+       ├─ ls TestCase/0.5e-09/
+       ├─ Look for new fields: explosivePressure, plasmaPressure, WeberNumber
+       └─ paraFoam -case TestCase
+
+
+═══════════════════════════════════════════════════════════════════════════════
+  PHYSICS INTERACTION SUMMARY
+═══════════════════════════════════════════════════════════════════════════════
+
+    Laser → Plasma → Shielding (reduces laser absorption)
+              ↓
+    Laser → Te, Tl → Phase Explosion (T > 8550 K)
+                        ↓
+                   Enhanced Evaporation (100× mass flux)
+                        ↓
+                   Recoil + Explosive Pressure (GPa-scale)
+                        ↓
+                   High Velocity Jets (>30 m/s)
+                        ↓
+                   Weber Number > 10
+                        ↓
+                   Droplet Breakup (fragmentation)
+
+    All three models work together to achieve realistic LIFT physics!
+
+
+═══════════════════════════════════════════════════════════════════════════════
