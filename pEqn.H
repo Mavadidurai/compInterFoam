@@ -282,7 +282,7 @@ if (tRecoilForce.valid())
     tRecoilForce.clear();
 }
 
-const Foam::dictionary& solverCoeffs = compInterFoamCoeffsDict(mesh);
+// Use solverCoeffs dictionary already declared at top of file (line 69)
 const Foam::Switch pressureClamp =
     solverCoeffs.lookupOrDefault<Foam::Switch>("pressureClamp", false);
 
