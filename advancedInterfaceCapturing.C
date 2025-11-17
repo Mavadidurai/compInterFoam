@@ -346,21 +346,10 @@ advancedInterfaceCapturing::advancedInterfaceCapturing
             << "recoilMax must be positive when clampRecoil is enabled"
             << exit(FatalIOError);
     }    
-    if (aicDict.found("recoilRelax"))
-    {
-        recoilRelax_ = aicDict.lookupOrDefault<scalar>("recoilRelax", recoilRelax_);
-    }
-    else if (aicDict.found("relaxFactor"))
-    {
-        recoilRelax_ = aicDict.lookupOrDefault<scalar>("relaxFactor", recoilRelax_);
-        if (master)
-        {
-            WarningInFunction
-                << "Entry 'relaxFactor' in advancedInterfaceCapturing is deprecated. "
-                << "Please use 'recoilRelax' instead." << endl;
-        }
-    }
-    recoilRelax_ = Foam::min(Foam::max(recoilRelax_, scalar(0)), scalar(1));    
+    // LIFT-optimized: Disable temporal relaxation of recoil pressure.
+    // Fs-LIFT requires immediate response - blending old/new values spreads
+    // the 0.1 ps impulse over multiple timesteps, cutting peak pressure.
+    recoilRelax_ = 1.0;  // Force full update every timestep (no relaxation)    
     alphaMin_ = aicDict.lookupOrDefault<scalar>("alphaMin", alphaMin_);
     alphaMax_ = aicDict.lookupOrDefault<scalar>("alphaMax", alphaMax_);
     massRateEps_ = Foam::max
@@ -387,29 +376,19 @@ advancedInterfaceCapturing::advancedInterfaceCapturing
         "metalAlphaCutoff",
         metalAlphaCutoff_
     );
-    const label rampSteps = Foam::max
-    (
-        aicDict.lookupOrDefault<label>("recoilRampSteps", 1),
-        label(1)
-    );
-    rampIncrement_ = 1.0/static_cast<scalar>(rampSteps);
-    rampProgress_ = 0.0;
-    recoilMaxDelta_ = Foam::max
-    (
-        aicDict.lookupOrDefault<scalar>("recoilMaxDelta", recoilMaxDelta_),
-        scalar(0)
-    );
-    recoilSmoothCoeff_ = aicDict.lookupOrDefault<scalar>
-    (
-        "recoilSmoothCoeff",
-        recoilSmoothCoeff_
-    );
-    recoilSmoothCoeff_ = Foam::min(Foam::max(recoilSmoothCoeff_, scalar(0)), scalar(1));
-    recoilSmoothIters_ = Foam::max
-    (
-        aicDict.lookupOrDefault<label>("recoilSmoothIters", recoilSmoothIters_),
-        label(0)
-    );
+    // LIFT-optimized: Disable recoil ramping - fs-LIFT needs instant full recoil.
+    // Ramping spreads the 0.1 ps impulse over many steps, cutting peak pressure.
+    const label rampSteps = 1;  // Force single step = instant activation
+    rampIncrement_ = 1.0;
+    rampProgress_ = 1.0;  // Start at full strength
+    // LIFT-optimized: Disable recoil rate limiting.
+    // Fs-LIFT recoil can jump from 0 to 100 MPa in 0.1 ps. Rate limiting kills this.
+    recoilMaxDelta_ = 0.0;  // Disabled
+    // LIFT-optimized: Disable recoil spatial smoothing.
+    // Fs-LIFT creates highly localized pressure spikes. Smoothing spreads the
+    // impulse spatially, reducing peak acceleration and killing jet formation.
+    recoilSmoothCoeff_ = 0.0;  // Disabled
+    recoilSmoothIters_ = 0;    // Disabled
     const dimensionedScalar defaultBoltzmann(boltzmannConstant_);
     const dimensionedScalar rawBoltzmann =
         aicDict.lookupOrDefault<dimensionedScalar>
@@ -544,18 +523,10 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
         havePreviousRecoil_ = false;
     }
 
-    if (rampProgress_ < scalar(1))
-    {
-        // Progressively enable recoil according to the configured ramp steps.
-        rampProgress_ = Foam::min(rampProgress_ + rampIncrement_, scalar(1));
-    }
-    else
-    {
-        rampProgress_ = scalar(1);
-    }
-
-    const scalar rampFactor = rampProgress_;
-    const bool applyRamp = rampFactor < (scalar(1) - Foam::SMALL);
+    // LIFT-optimized: Ramp disabled in constructor, but ensure it's always 1.0
+    rampProgress_ = scalar(1);
+    const scalar rampFactor = scalar(1);
+    const bool applyRamp = false;  // Never apply ramping
 
     recoilPressure_ = dimensionedScalar("zero", dimPressure, 0.0);
     scalarField& recoilField = recoilPressure_.primitiveFieldRef();
@@ -758,7 +729,8 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
         warn << ". Values were clamped." << endl;
     }
 
-    if (recoilSmoothCoeff_ > SMALL && recoilSmoothIters_ > 0)
+    // LIFT-optimized: Smoothing disabled in constructor
+    if (false)  // Skip smoothing entirely
     {
         const labelListList& cellCells = mesh_.cellCells();
         const scalar coeff = Foam::min(Foam::max(recoilSmoothCoeff_, scalar(0)), scalar(1));
@@ -798,20 +770,11 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
 
       recoilField = workingField;
     }
-    scalar maxDeltaPerStep = 0.0;
-    bool limitRecoilChange = false;
-    if (recoilMaxDelta_ > SMALL)
-    {
-        const scalar deltaT = mesh_.time().deltaTValue();
-        if (deltaT > SMALL)
-        {
-            // Convert the user-supplied change rate [Pa/s] into a per-step limit.
-            maxDeltaPerStep = recoilMaxDelta_*deltaT;
-            limitRecoilChange = maxDeltaPerStep > SMALL;
-        }
-    }
+    // LIFT-optimized: Rate limiting disabled in constructor
+    const scalar maxDeltaPerStep = 0.0;
+    const bool limitRecoilChange = false;
 
-    if (limitRecoilChange)
+    if (false)  // Skip rate limiting entirely
     {
         forAll(recoilField, cellI)
         {
@@ -827,9 +790,10 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
             }
         }
     }
-    const scalar recoilRelax = recoilRelax_;
-    const bool applyRelaxation = recoilRelax < (1.0 - Foam::SMALL);
-    if (applyRelaxation)
+    // LIFT-optimized: Temporal relaxation disabled in constructor
+    const scalar recoilRelax = 1.0;
+    const bool applyRelaxation = false;
+    if (false)  // Skip relaxation entirely
     {
         if (!havePreviousRecoil_)
         {

@@ -71,10 +71,10 @@ extern Foam::Switch verbose;
         maxPhysicalTemp
     );
     
-    const scalar thermalFluxRelax =
-        ctrl.lookupOrDefault<scalar>("thermalFluxRelax", 1.0);
-    const scalar fluxRelax =
-        Foam::max(scalar(0), Foam::min(scalar(1), thermalFluxRelax));
+    // LIFT-optimized: Force full thermal flux coupling (no relaxation).
+    // Fs-LIFT requires immediate Tl → T_gas response to capture the recoil spike.
+    const scalar thermalFluxRelax = 1.0;
+    const scalar fluxRelax = 1.0;
     const volScalarField& Tl = ttm.Tl();
     scalar totalCellsProjected = 0.0;
     scalar totalLowProjected = 0.0;
@@ -942,18 +942,12 @@ if (verbose && Foam::Pstream::master() && timeIndex % 10 == 0)
     projectTemperature("pre-solve");
 
 
-    const scalar maxThermalCourant =
-        Foam::max
-        (
-            scalar(0),
-            Foam::min
-            (
-                ctrl.lookupOrDefault<scalar>("maxThermalCourant", 1.0),
-                scalar(1)
-            )
-        );
+    // LIFT-optimized: Disable thermal Courant limiting.
+    // Fs-LIFT requires full-strength gas-metal coupling to allow rapid Tl rise
+    // and evaporation acceleration. The traditional limiter kills recoil buildup.
+    const scalar maxThermalCourant = 1.0;
 
-    if (maxThermalCourant > SMALL && maxThermalCourant < 1.0 - SMALL)
+    if (false)  // Force skip thermal Courant limiter
     {
         const scalar limiterAlphaMin =
             Foam::max
@@ -1209,28 +1203,31 @@ if (verbose && Foam::Pstream::master() && timeIndex % 10 == 0)
 
     projectTemperature("post-solve");
     
-    // Preserve the gas temperature prior to enforcing the metal projection so
-    // that interfacial fluxes use the true post-solve gas state.
+    // LIFT-optimized: Disable T → Tl projection in metal cells.
+    // This projection forces the gas temperature to equal the lattice temperature,
+    // preventing independent gas heating and killing the recoil pressure spike.
+    // During fs-LIFT, the gas phase MUST be allowed to superheat above Tl to
+    // drive explosive evaporation.
     tmp<volScalarField> tInterfaceTemperature(T.clone());
     const volScalarField& interfaceTemperature = tInterfaceTemperature();
 
-    // Enforce lattice temperature only in cells that are overwhelmingly metal.
-    const scalar strictMetalThreshold = 0.9;
-    const dimensionedScalar strictMetalDim
-    (
-        "strictMetalThreshold",
-        dimless,
-        strictMetalThreshold
-    );
-
-    tmp<volScalarField> tPureMetal
-    (
-        Foam::pos(metalFraction - strictMetalDim)
-    );
-    const volScalarField& pureMetal = tPureMetal();
-
-    T = (scalar(1) - pureMetal)*T + pureMetal*Tl;
-    projectTemperature("post-metal");
+    // Skip metal-dominated T = Tl enforcement
+    // const scalar strictMetalThreshold = 0.9;
+    // const dimensionedScalar strictMetalDim
+    // (
+    //     "strictMetalThreshold",
+    //     dimless,
+    //     strictMetalThreshold
+    // );
+    //
+    // tmp<volScalarField> tPureMetal
+    // (
+    //     Foam::pos(metalFraction - strictMetalDim)
+    // );
+    // const volScalarField& pureMetal = tPureMetal();
+    //
+    // T = (scalar(1) - pureMetal)*T + pureMetal*Tl;
+    // projectTemperature("post-metal");
 
     tmp<volScalarField> tRawFlux
     (
@@ -1316,14 +1313,12 @@ if (verbose && Foam::Pstream::master() && timeIndex % 10 == 0)
         }
     }
 
-    const scalar maxGasHeatingRate =
-        twoTemperatureDict.lookupOrDefault<scalar>
-        (
-            "maxGasHeatingRate",
-            -1.0
-        );
+    // LIFT-optimized: Disable maxGasHeatingRate limiter.
+    // Fs-LIFT recoil requires explosive heating of the gas phase during the
+    // laser pulse. Limiting heating rates kills the pressure spike.
+    const scalar maxGasHeatingRate = -1.0;  // Disabled
 
-    if (maxGasHeatingRate > SMALL)
+    if (false)  // Force skip maxGasHeatingRate limiter
     {
         // dtVal is already protected (max(dt.value(), VSMALL)), so direct division is safe
         const scalar invDtVal = 1.0/dtVal;

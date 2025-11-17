@@ -8,9 +8,12 @@ extern Foam::Switch verbose;
 {
     const dictionary& alphaControls = mesh.solverDict(alpha1.name());
     
+    // LIFT-optimized: Allow full interface compression during fs-timescale recoil
+    // to permit rapid deformation and jet formation. Traditional limiters freeze
+    // the interface during the critical 0-200 fs window.
     scalar compressionLimiter
     (
-        alphaControls.lookupOrDefault<scalar>("compressionLimiter", 1.0)
+        alphaControls.lookupOrDefault<scalar>("compressionLimiter", Foam::GREAT)
     );
 
     const scalar minLimiter = Foam::SMALL;
@@ -110,46 +113,53 @@ extern Foam::Switch verbose;
         }
     }
     
-    if (icAlpha > 0)
-    {
-        phic *= (1.0 - icAlpha);
-        phic += (mixture.cAlpha()*icAlpha)*fvc::interpolate(mag(U));
-    }
+    // LIFT-optimized: Disable velocity-based interface compression during fs-LIFT.
+    // These terms artificially stiffen the interface and prevent the rapid
+    // deformation driven by recoil pressure spikes.
+    //
+    // if (icAlpha > 0)
+    // {
+    //     phic *= (1.0 - icAlpha);
+    //     phic += (mixture.cAlpha()*icAlpha)*fvc::interpolate(mag(U));
+    // }
 
-    if (scAlpha > 0)
-    {
-        phic += scAlpha*mag(mesh.delta() & fvc::interpolate(symm(fvc::grad(U))));
-    }
+    // if (scAlpha > 0)
+    // {
+    //     phic += scAlpha*mag(mesh.delta() & fvc::interpolate(symm(fvc::grad(U))));
+    // }
 
+    // LIFT-optimized: Disable thin-film limiters that prevent interface deformation.
+    // These limiters are designed for slow quasi-steady flows, not fs-timescale
+    // explosive recoil phenomena.
     const word sharpeningScheme
     (
         alphaControls.lookupOrDefault<word>("sharpeningScheme", "standard")
     );
 
-    const scalar thinFilmCoeff
-    (
-        alphaControls.lookupOrDefault<scalar>("thinFilmCoeff", 0.0)
-    );
+    // Force thinFilmCoeff to zero to disable artificial interface stiffening
+    const scalar thinFilmCoeff = 0.0;
 
-    if (sharpeningScheme == "enhancedLimiter")
-    {
-        surfaceScalarField limiter
-        (
-            IOobject
-            (
-                "thinFilmLimiter",
-                runTime.timeName(),
-                mesh,
-                IOobject::NO_READ,
-                IOobject::NO_WRITE
-            ),
-            1.0 - thinFilmCoeff*fvc::interpolate(min(alpha1, alpha2))
-        );
-
-        limiter = Foam::max(Foam::min(limiter, scalar(1)), scalar(0));
-        phic *= limiter;
-    }
-    else if (sharpeningScheme != "standard")
+    // Skip enhancedLimiter entirely - it kills jet formation
+    // if (sharpeningScheme == "enhancedLimiter")
+    // {
+    //     surfaceScalarField limiter
+    //     (
+    //         IOobject
+    //         (
+    //             "thinFilmLimiter",
+    //             runTime.timeName(),
+    //             mesh,
+    //             IOobject::NO_READ,
+    //             IOobject::NO_WRITE
+    //         ),
+    //         1.0 - thinFilmCoeff*fvc::interpolate(min(alpha1, alpha2))
+    //     );
+    //
+    //     limiter = Foam::max(Foam::min(limiter, scalar(1)), scalar(0));
+    //     phic *= limiter;
+    // }
+    // else
+    if (sharpeningScheme != "standard")
     {
         WarningInFunction
             << "Unknown sharpeningScheme '" << sharpeningScheme
