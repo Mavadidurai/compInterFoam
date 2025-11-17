@@ -30,7 +30,7 @@ scotchCoeffs
  Alternative: hierarchical method (uncomment if preferred)
  hierarchicalCoeffs
  {
-    n           (3 2 2);  // 3*2*2 = 12 subdomains
+      n           (3 2 2);  // 3*2*2 = 12 subdomains
      delta       0.001;
      order       xyz;
 }

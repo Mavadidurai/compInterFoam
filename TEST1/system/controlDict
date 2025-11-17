@@ -23,7 +23,7 @@ stopAt          endTime;
 endTime         1e-10;
 
 deltaT          2e-16;         // Base time step (1 fs)
-maxDeltaT       1e-14;         // Cap adaptive growth (10 fs)
+maxDeltaT       2e-15;         // Cap adaptive growth (2 fs)
 minDeltaT       1e-16;         // Minimum 0.01 fs for precision
 writeInterval   1e-14;         // Start with 1 ps intervals
 
@@ -66,7 +66,7 @@ phaseChangeCoeffs
                                                    // Will reach ~2200K at t ≈ 0.2ps (end of pulse)
     
     // Kinetic theory parameters
-    evaporationCoeff       0.3;     // Ti evaporation coefficient
+    evaporationCoeff       0.03;     // Ti evaporation coefficient
     alphaMin              0.001;    
     dtFloor             1e-15;         // Reduced for precision
     relaxationTime      1e-11;        // Faster response for femtosecond dynamics
@@ -105,7 +105,7 @@ advancedInterfaceCapturing
                                         // Recoil starts at Tvap = 1941K (melting point) // Ultrafast regime: evaporation begins with melting
     phaseChangeTempOffset 0;
     // Mass flux threshold - RELAXED for fs-LIFT
-    massRateEps           1e-6;         // FIXED: was 1e-12 (too restrictive!)
+    massRateEps           1e-8;         // FIXED: was 1e-12 (too restrictive!)
                                         // At 2000K: j ~ 10^3-10^4 kg/m²/s expected
                                         // This allows detection of realistic evaporation
     // Knight (Phys. Rev. B 20, 1979) predicts recoil pressures exceeding
@@ -147,20 +147,20 @@ twoTemperatureProperties
     }
     
     // Temperature-dependent coupling
-G
-{
-    type table;
-    values
-    (
-        (300      1.0e18)   // ✓ CORRECT
-        (1000     2.0e18)   // ✓ CORRECT
-        (2000     1.5e18)   // ✓ CORRECT
-        (3000     4.0e18)   // ✓ CORRECT
-        (5000     1.5e19)   // ✓ CORRECT
-        (10000    8.0e19)   // ✓ CORRECT
-        (20000    2.5e20)   // ✓ CORRECT
-    );
-}
+    G
+    {
+        type table;
+        values
+        (
+            (300      1.0e18)   // ✓ CORRECT — Wellershoff (2000)
+            (1000     3.0e18)   // ✓ CORRECT
+            (2000     6.0e18)   // ✓ CORRECT
+            (3000     1.0e19)   // ✓ CORRECT
+            (5000     2.0e19)   // ✓ CORRECT
+            (10000    5.0e19)   // ✓ CORRECT
+            (20000    1.0e20)   // ✓ CORRECT
+        );
+    }
     
     Cl  [1 -1 -2 -1 0 0 0] 2.5e6;
     De  [0  2 -1  0 0 0 0] 1e-4;
@@ -202,12 +202,45 @@ G
     CvolGasFloor            1e6;     // J/m³/K minimum for gas
     
     energyTolerance         0.02;    // Relaxed for long runs
-    energyDiagnostics       true;
-    temperatureDiagnostics  true;   // Reduce output volume
-    energyAudit             true;
+    energyDiagnostics       false;
+    temperatureDiagnostics  false;   // Reduce output volume
+    energyAudit             false;
 }
 
+enhancedLIFTPhysics
+{
 
+    // Phase explosion and spinodal decomposition
+    phaseExplosionCoeffs
+
+    {
+        enablePhaseExplosion   true;
+        T_critical             9500;       // Ti critical temperature [K]
+        T_spinodal             8550;       // 0.9 * T_critical [K]
+        p_critical             1.2e8;      // Ti critical pressure [Pa]
+        tau_explosion          1e-12;      // Explosion timescale [s]
+        explosionMultiplier    100.0;      // Mass flux enhancement factor
+    }
+    // Plasma formation and ionization
+    plasmaIonizationCoeffs
+    {
+        enablePlasmaModel      true;
+        ionizationEnergy       1.093e-18;  // Ti: 6.82 eV = 1.093e-18 J
+        T_ionization           30000;      // Ionization threshold [K]
+        atomicMass             7.95e-26;   // Ti: 47.867 amu [kg]
+        atomicNumberDensity    5.68e28;    // Ti: ~5.68e28 atoms/m^3
+    }
+
+    // Droplet/jet breakup (Weber number criterion)
+    dropletBreakupCoeffs
+    {
+        enableDropletBreakup   true;
+        We_critical            10.0;       // Critical Weber number
+        minJetDiameter         1e-7;       // 100 nm [m]
+        maxJetDiameter         10e-6;      // 10 μm [m]
+        breakupTimeCoeff       1.0;        // Timescale coefficient
+    }
+    }
 // Clean monitoring functions
 functions
 {
