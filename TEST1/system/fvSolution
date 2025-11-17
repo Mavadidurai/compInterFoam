@@ -179,7 +179,7 @@ compInterFoamCoeffs
     // Feinaeugle et al. observe Ti recoil plateaus close to 80 MPa, so keep the ceiling
     // above that to avoid throttling the kinetic-theory recoil driver.
     pressureClamp      true;
-    maxPressure        3.3e9;
+    maxPressure        3.0e9;
     minPressure       -5e6;
 
     // Density clamp settings
