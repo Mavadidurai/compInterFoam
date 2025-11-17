@@ -127,6 +127,14 @@ advancedInterfaceCapturing::advancedInterfaceCapturing
     recoilMaxDelta_(0.0),
     recoilSmoothCoeff_(0.0),
     recoilSmoothIters_(0),
+    femtosecondCase_
+    (
+        mesh.time().controlDict().lookupOrDefault<Switch>
+        (
+            "femtosecondCase",
+            mesh.time().deltaTValue() <= 5e-12
+        )
+    ),
     boltzmannConstant_
     (
         dimensionedScalar
@@ -335,6 +343,11 @@ advancedInterfaceCapturing::advancedInterfaceCapturing
         "clampRecoil",
         clampRecoil_
     );
+    if (femtosecondCase_)
+    {
+        // Allow multi-GPa recoil spikes without artificial clipping in fs runs.
+        clampRecoil_ = false;
+    }
     scaleRecoilMax_ = aicDict.lookupOrDefault<Switch>
     (
         "scaleRecoilMax",
@@ -381,7 +394,24 @@ advancedInterfaceCapturing::advancedInterfaceCapturing
 
         alphaMin_ = mixtureAlphaMin;
     }
-    
+    if (femtosecondCase_)
+    {
+        // Keep the interface window wide open for femtosecond vaporization.
+        alphaMin_ = 0.0;
+        alphaMax_ = 1.0;
+        phaseChangeTempOffset_ = dimensionedScalar
+        (
+            "phaseChangeTempOffset",
+            dimTemperature,
+            0.0
+        );
+        recoilTempOffset_ = dimensionedScalar
+        (
+            "recoilTempOffset",
+            dimTemperature,
+            0.0
+        );
+    }
     metalAlphaCutoff_ = aicDict.lookupOrDefault<scalar>
     (
         "metalAlphaCutoff",
@@ -410,6 +440,16 @@ advancedInterfaceCapturing::advancedInterfaceCapturing
         aicDict.lookupOrDefault<label>("recoilSmoothIters", recoilSmoothIters_),
         label(0)
     );
+    if (femtosecondCase_)
+    {
+        // Avoid damping impulses that occur within a few femtoseconds of pulse start.
+        rampProgress_ = 1.0;
+        rampIncrement_ = 1.0;
+        recoilMaxDelta_ = 0.0;
+        recoilSmoothCoeff_ = 0.0;
+        recoilSmoothIters_ = 0;
+        recoilMax_ = (recoilMax_ > SMALL) ? recoilMax_ : scalar(GREAT);
+    }
     const dimensionedScalar defaultBoltzmann(boltzmannConstant_);
     const dimensionedScalar rawBoltzmann =
         aicDict.lookupOrDefault<dimensionedScalar>
@@ -544,10 +584,17 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
         havePreviousRecoil_ = false;
     }
 
-    if (rampProgress_ < scalar(1))
+    if (!femtosecondCase_)
     {
-        // Progressively enable recoil according to the configured ramp steps.
-        rampProgress_ = Foam::min(rampProgress_ + rampIncrement_, scalar(1));
+        if (rampProgress_ < scalar(1))
+        {
+            // Progressively enable recoil according to the configured ramp steps.
+            rampProgress_ = Foam::min(rampProgress_ + rampIncrement_, scalar(1));
+        }
+        else
+        {
+            rampProgress_ = scalar(1);
+        }
     }
     else
     {
@@ -555,7 +602,8 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
     }
 
     const scalar rampFactor = rampProgress_;
-    const bool applyRamp = rampFactor < (scalar(1) - Foam::SMALL);
+    const bool applyRamp = (!femtosecondCase_)
+        && rampFactor < (scalar(1) - Foam::SMALL);
 
     recoilPressure_ = dimensionedScalar("zero", dimPressure, 0.0);
     scalarField& recoilField = recoilPressure_.primitiveFieldRef();

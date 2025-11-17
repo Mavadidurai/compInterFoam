@@ -11,7 +11,13 @@ extern Foam::Switch verbose;
     }
 
     const dictionary& ctrl = runTime.controlDict();
-    const Switch enableTClamp = ctrl.lookupOrDefault<Switch>("enableTClamp", false);
+    const Switch femtosecondShot =
+        ctrl.lookupOrDefault<Switch>("femtosecondShot", false);
+
+    const Switch enableTClampUser =
+        ctrl.lookupOrDefault<Switch>("enableTClamp", false);
+
+    const bool enableTClamp = !femtosecondShot && enableTClampUser;
     const scalar minPhysicalTemp = Foam::max
     (
         ctrl.lookupOrDefault<scalar>("minT", 0.0),
@@ -151,10 +157,13 @@ extern Foam::Switch verbose;
             maxCoeffDefault
         );
 
+    const bool limitInterfaceExchange =
+        maxCoeff.value() > SMALL && maxCoeff.value() < Foam::GREAT;
+
     if
     (
         !gasMetalExchangeLimiterReported
-     && maxCoeff.value() < Foam::GREAT
+     && limitInterfaceExchange
     )
     {
         const dimensionedScalar unboundedMax = gMax(interfaceExchange);
@@ -170,12 +179,19 @@ extern Foam::Switch verbose;
             gasMetalExchangeLimiterReported = true;
         }
     }
-    cappedInterfaceExchange =
-        Foam::min
-        (
-            Foam::max(cappedInterfaceExchange, minCoeff),
-            maxCoeff
-        );
+    if (limitInterfaceExchange)
+    {
+        cappedInterfaceExchange =
+            Foam::min
+            (
+                Foam::max(cappedInterfaceExchange, minCoeff),
+                maxCoeff
+            );
+    }
+    else
+    {
+        cappedInterfaceExchange = Foam::max(cappedInterfaceExchange, minCoeff);
+    }
     cappedInterfaceExchange.correctBoundaryConditions();
     
     const scalar qCap =
@@ -191,7 +207,7 @@ extern Foam::Switch verbose;
         dimPower/dimArea,
         qCap
     );
-    const bool applyHeatFluxCap = qCap > 0;
+    const bool applyHeatFluxCap = qCap > 0 && !femtosecondShot;
     
     const label timeIndex = runTime.timeIndex();
     const dimensionedScalar maxTlDim = gMax(Tl);
@@ -202,13 +218,13 @@ extern Foam::Switch verbose;
         twoTemperatureDict.lookupOrDefault<scalar>
         (
             "metalFractionFloor",
-            1e-6
+            1e-8
         );
     const scalar blendWidth =
         twoTemperatureDict.lookupOrDefault<scalar>
         (
             "metalAmbientBlendWidth",
-            1e-3
+            5e-3
         );
 
     const scalar activeCutoff = Foam::max(metalFractionFloor, VSMALL);
@@ -453,7 +469,7 @@ if (verbose && Foam::Pstream::master() && timeIndex % 10 == 0)
     tmp<volScalarField> tRho2 = mixture.thermo2().rho();
 
     const scalar cvFloorValue =
-        twoTemperatureDict.lookupOrDefault<scalar>("CvGasFloor", 100.0);
+        twoTemperatureDict.lookupOrDefault<scalar>("CvGasFloor", 1.0);
 
     const dimensionedScalar cvFloor
     (
@@ -463,7 +479,7 @@ if (verbose && Foam::Pstream::master() && timeIndex % 10 == 0)
     );
     const scalar rhoFloorValue = Foam::max
     (
-        twoTemperatureDict.lookupOrDefault<scalar>("rhoGasFloor", 1.0),
+        twoTemperatureDict.lookupOrDefault<scalar>("rhoGasFloor", 1e-6),
         SMALL
     );
 
@@ -527,6 +543,11 @@ if (verbose && Foam::Pstream::master() && timeIndex % 10 == 0)
     auto projectTemperature =
         [&](const word& stage)
         {
+            if (femtosecondShot)
+            {
+                T.correctBoundaryConditions();
+                return;
+            }
             if (!enableTClamp)
             {
                 T = Foam::max(T, minTDim);

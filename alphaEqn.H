@@ -15,7 +15,7 @@ extern Foam::Switch verbose;
 
     const scalar minLimiter = Foam::SMALL;
     compressionLimiter = Foam::max(compressionLimiter, minLimiter);
-    const bool limitCompression = compressionLimiter < 1.0 - Foam::SMALL;
+    bool limitCompression = compressionLimiter < 1.0 - Foam::SMALL;
     
     #include "alphaScheme.H"
 
@@ -28,6 +28,7 @@ extern Foam::Switch verbose;
         )
     );
     const fv::ddtScheme<scalar>& ddtAlpha = tDdtAlpha();
+    const bool femtosecondDeltaT = runTime.deltaT().value() <= 1e-12;
 
     scalar ocCoeff = 0;
 
@@ -109,7 +110,20 @@ extern Foam::Switch verbose;
                 << "compressionLimiter=" << compressionLimiter << endl;
         }
     }
-    
+    if (femtosecondDeltaT)
+    {
+        compressionLimiter = 1.0;
+        icAlpha = 0.0;
+        scAlpha = 0.0;
+        limitCompression = false;
+
+        if (verbose && Foam::Pstream::master())
+        {
+            Info<< "alphaEqn: femtosecond timestep detected (dt = "
+                << runTime.deltaT().value()
+                << "); disabling secondary compression terms" << endl;
+        }
+    }
     if (icAlpha > 0)
     {
         phic *= (1.0 - icAlpha);
@@ -131,7 +145,11 @@ extern Foam::Switch verbose;
         alphaControls.lookupOrDefault<scalar>("thinFilmCoeff", 0.0)
     );
 
-    if (sharpeningScheme == "enhancedLimiter")
+
+    const bool useEnhancedLimiter =
+        sharpeningScheme == "enhancedLimiter" && !femtosecondDeltaT;
+
+    if (useEnhancedLimiter)
     {
         surfaceScalarField limiter
         (
@@ -148,6 +166,14 @@ extern Foam::Switch verbose;
 
         limiter = Foam::max(Foam::min(limiter, scalar(1)), scalar(0));
         phic *= limiter;
+    }
+    else if (sharpeningScheme == "enhancedLimiter")
+    {
+        if (verbose && Foam::Pstream::master())
+        {
+            Info<< "alphaEqn: enhanced thin-film limiter disabled for femtosecond"
+                " timestep to avoid over-sharpening" << endl;
+        }
     }
     else if (sharpeningScheme != "standard")
     {
@@ -236,7 +262,22 @@ extern Foam::Switch verbose;
         mixture.correct();
     }
 
-    for (label aCorr = 0; aCorr < nAlphaCorr; ++aCorr)
+    label effectiveAlphaCorr = nAlphaCorr;
+    if (femtosecondDeltaT)
+    {
+        effectiveAlphaCorr = Foam::min(nAlphaCorr, label(1));
+        if (MULESCorr)
+        {
+            if (verbose && Foam::Pstream::master())
+            {
+                Info<< "alphaEqn: disabling MULES correction for femtosecond"
+                    " timestep to reduce artificial compression" << endl;
+            }
+            MULESCorr = false;
+        }
+    }
+
+    for (label aCorr = 0; aCorr < effectiveAlphaCorr; ++aCorr)
     {
         tmp<surfaceScalarField> talphaPhi1Un
         (

@@ -83,7 +83,12 @@ Foam::enhancedLIFTPhysics::PhaseExplosionData::PhaseExplosionData
             IOobject::AUTO_WRITE
         ),
         mesh,
-        dimensionedScalar("zero", dimensionSet(1, -3, -1, 0, 0), 0.0)
+        dimensionedScalar
+        (
+            "zero",
+            dimensionSet(1, -3, -1, 0, 0, 0, 0),
+            0.0
+        )
     ),
     explosivePressure_
     (
@@ -135,7 +140,7 @@ Foam::enhancedLIFTPhysics::PlasmaData::PlasmaData
     ionizationEnergy_
     (
         "ionizationEnergy",
-        dimensionSet(1, 2, -2, 0, 0),
+        dimensionSet(1, 2, -2, 0, 0, 0, 0),
         dict.lookupOrDefault<scalar>("ionizationEnergy", 6.82 * 1.602e-19)
     ),
     T_ionization_
@@ -147,25 +152,25 @@ Foam::enhancedLIFTPhysics::PlasmaData::PlasmaData
     k_B_
     (
         "k_B",
-        dimensionSet(1, 2, -2, -1, 0),
+        dimensionSet(1, 2, -2, -1, 0, 0, 0),
         1.38064852e-23  // Boltzmann constant [J/K]
     ),
     m_e_
     (
         "m_e",
-        dimensionSet(1, 0, 0, 0, 0),
+        dimensionSet(1, 0, 0, 0, 0, 0, 0),
         9.10938356e-31  // Electron mass [kg]
     ),
     m_atom_
     (
         "m_atom",
-        dimensionSet(1, 0, 0, 0, 0),
+        dimensionSet(1, 0, 0, 0, 0, 0, 0),
         dict.lookupOrDefault<scalar>("atomicMass", 7.95e-26)
     ),
     n_atom_
     (
         "n_atom",
-        dimensionSet(0, -3, 0, 0, 0),
+        dimensionSet(0, -3, 0, 0, 0, 0, 0),
         dict.lookupOrDefault<scalar>("atomicNumberDensity", 5.68e28)
     ),
     enabled_
@@ -196,7 +201,12 @@ Foam::enhancedLIFTPhysics::PlasmaData::PlasmaData
             IOobject::AUTO_WRITE
         ),
         mesh,
-        dimensionedScalar("zero", dimensionSet(0, -3, 0, 0, 0), 0.0)
+        dimensionedScalar
+        (
+            "zero",
+            dimensionSet(0, -3, 0, 0, 0, 0, 0),
+            0.0
+        )
     ),
     plasmaPressure_
     (

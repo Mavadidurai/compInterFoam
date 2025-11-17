@@ -75,6 +75,7 @@ private:
     scalar recoilMaxDelta_;          // Maximum recoil change rate [Pa/s]
     scalar recoilSmoothCoeff_;       // Weight for optional smoothing
     label  recoilSmoothIters_;       // Number of smoothing iterations
+    bool femtosecondCase_;           // Flag to relax damping for femtosecond runs
     dimensionedScalar boltzmannConstant_;      // Boltzmann constant
     dimensionedScalar vaporParticleMass_;      // Mass of vapor particle
     scalar momentumAccommodationCoeff_;        // Momentum accommodation coefficient
