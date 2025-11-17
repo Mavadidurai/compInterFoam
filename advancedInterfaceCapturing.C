@@ -330,22 +330,19 @@ advancedInterfaceCapturing::advancedInterfaceCapturing
         recoilTempOffset_ = phaseChangeTempOffset_;
     }
 
-    clampRecoil_ = aicDict.lookupOrDefault<Switch>
-    (
-        "clampRecoil",
-        clampRecoil_
-    );
-    scaleRecoilMax_ = aicDict.lookupOrDefault<Switch>
-    (
-        "scaleRecoilMax",
-        scaleRecoilMax_
-    );
-    if (clampRecoil_ && recoilMax_ <= SMALL)
-    {
-        FatalIOErrorInFunction(aicDict)
-            << "recoilMax must be positive when clampRecoil is enabled"
-            << exit(FatalIOError);
-    }    
+    // LIFT-optimized: Force disable recoil clamping.
+    // Fs-LIFT peak pressures can exceed 100 MPa transiently (Feinaeugle 2017).
+    // Clamping at 70-80 MPa kills the jet formation.
+    clampRecoil_ = false;  // Force disabled
+    scaleRecoilMax_ = false;  // Force disabled
+
+    // Skip the clampRecoil validation - it's always disabled for fs-LIFT
+    // if (clampRecoil_ && recoilMax_ <= SMALL)
+    // {
+    //     FatalIOErrorInFunction(aicDict)
+    //         << "recoilMax must be positive when clampRecoil is enabled"
+    //         << exit(FatalIOError);
+    // }    
     // LIFT-optimized: Disable temporal relaxation of recoil pressure.
     // Fs-LIFT requires immediate response - blending old/new values spreads
     // the 0.1 ps impulse over multiple timesteps, cutting peak pressure.
