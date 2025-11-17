@@ -25,8 +25,8 @@ dynamicRefineFvMeshCoeffs
     upperRefineLevel 0.99;
     unrefineLevel    0.005;
     nBufferLayers    2;
-    maxRefinement    2;
-    maxCells         30000000;
+    maxRefinement    1;         // Reduced from 2 to 1 for quick validation
+    maxCells         5000000;   // Reduced from 30M to 5M for quick validation
     correctFluxes    (phi alphaPhi10 rhoPhi);
 }
 
