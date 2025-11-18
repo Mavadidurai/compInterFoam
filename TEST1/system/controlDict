@@ -17,14 +17,14 @@ FoamFile
 
 application     compInterFoam;
 
-startFrom       latestTime;
+startFrom       startTime;    // Avoid failing when only 0.orig exists
 startTime       0;
 stopAt          endTime;
 endTime         1e-10;
 
 deltaT          2e-16;         // Base time step (1 fs)
-maxDeltaT       2e-15;         // Cap adaptive growth (2 fs)
-minDeltaT       1e-16;         // Minimum 0.01 fs for precision
+maxDeltaT       2e-15;         // Maximum: 2 fs (adaptive growth allowed)
+minDeltaT       5e-17;         // Minimum: 0.05 fs (ultimate precision)
 writeInterval   1e-14;         // Start with 1 ps intervals
 
 // LASER TIMING - shorter pulse, longer observation
@@ -33,8 +33,8 @@ laserEndTime    2e-10;
 
 maxThermalCourant 0.2;         // Increased from 0.02 - allow dt growth! // Reduced from 0.5 for thermal stability
 thermalFluxRelax 0.1;          // Stronger damping of interface heat flux
-maxCo           0.2;          // Increased from 0.02 - allow dt growth!  // Reduced from 0.5 for stability during thermal transitions
-maxAlphaCo      0.3;         // Aggressive interface limit // Reduced from 0.5 interface limit for better interface tracking
+maxCo           0.05;          // Increased from 0.02 - allow dt growth!  // Reduced from 0.5 for stability during thermal transitions
+maxAlphaCo      0.05;         // Aggressive interface limit // Reduced from 0.5 interface limit for better interface tracking
 maxDi           10;  // Limit interface dilation Courant number
 
 verbose         true;
@@ -70,13 +70,12 @@ phaseChangeCoeffs
     alphaMin              0.001;    
     dtFloor             1e-15;         // Reduced for precision
     relaxationTime      1e-11;        // Faster response for femtosecond dynamics
-    maxSource           [1 -1 -3 0 0 0 0] 1e22;         // Permit HK flux to sustain the ~80 MPa recoil plateau at 6.6 kK (Feinaeugle et al., Appl. Surf. Sci. 418, 2017)
+    maxSource           [1 -1 -3 0 0 0 0] 1e7;         // Hertz-Knudsen-consistent mass flux to avoid unphysical recoil (Feinaeugle et al., Appl. Surf. Sci. 418, 2017)
     minCoefficient      1e6;          // Reduced for gradual cooling
-    onlyAboveVapor      false;        // CRITICAL FIX: allow recoil in superheated regime
-                                      // Brown et al.: jet formation at 0.5-1ps requires
-                                      // recoil starting at Tl < 3560K
+    onlyAboveVapor      false;
+    metalFractionCutoff 1e-6;
     // EXTENDED ACTIVATION - through transfer and cooling
-    activationTime      ((0 2e-10));  // Active through 400 ps
+    activationTime      ((0 5e-11));  // Active through 50 ps femtosecond pulse window
 }
 
 // EXTENDED MASS TRANSFER - through solidification
@@ -112,17 +111,17 @@ advancedInterfaceCapturing
     // 0.3 GPa near 6000 K.  The fs deposition pushes Tl well beyond that, so
     // allow the kinetic-theory recoil driver to reach the multi-GPa recoil
     // levels observed in ultrafast LIFT experiments before clamping.
-    recoilMax             3.0e9;
+    recoilMax             5.0e8;
     clampRecoil           false;
     scaleRecoilMax        false;
-    recoilRelax           0.5;
+    recoilRelax           0.7;
     alphaMin              0.001;
     //alphaMax              0.999;
     maxPhysicalTemperature 10000;
     // Physical limits
     // Keep the absolute bound consistent with the multi-GPa recoil required to
     // sustain fs-LIFT expulsion without premature pressure clamping.
-    maxRecoilPressure   3.0e9;
+    maxRecoilPressure   5.0e8;
 }
 logRecoilSuppression true;
 
@@ -176,9 +175,9 @@ twoTemperatureProperties
     }
     gasMetalCutoffTemperature 2200;
     minMetalFractionForExchange 0.5;
-    minGasMetalExchangeCoeff [1 -1 -3 -1 0 0 0] 1e8;
-    maxGasMetalExchangeCoeff [1 -1 -3 -1 0 0 0] 5e9;
-    maxGasMetalHeatFlux    5e9;
+    minGasMetalExchangeCoeff [1 -1 -3 -1 0 0 0] 1e6;
+    maxGasMetalExchangeCoeff [1 -1 -3 -1 0 0 0] 5e8;
+    maxGasMetalHeatFlux    5e8;
     minTe           200;
     maxTe           20000;      // Allow hot electrons
     maxTl           10000;       // Allow Ti lattice to exceed the ≈6.6 kK needed for 80 MPa recoil (Feinaeugle et al., Appl. Surf. Sci. 418, 2017)
