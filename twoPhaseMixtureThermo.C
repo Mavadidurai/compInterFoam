@@ -389,13 +389,14 @@ Foam::twoPhaseMixtureThermo::twoPhaseMixtureThermo
                 << exit(FatalIOError);
         }
 
-        if (tempLimit <= T_melt_)
+        if (tempLimit < T_vapor_)
         {
-            FatalIOErrorInFunction(aicDict)
+            WarningInFunction
                 << "maxPhysicalTemperature (" << tempLimit
-                << " K) must exceed T_melt (" << T_melt_ << " K)"
-                << " in controlDict.advancedInterfaceCapturing"
-                << exit(FatalIOError);
+                << " K) below vapor temperature (" << T_vapor_ << " K);"
+                << " clamping to T_vapor" << endl;
+
+            tempLimit = T_vapor_;
         }
 
         maxPhaseChangeTemperature_ = tempLimit;
@@ -1121,7 +1122,7 @@ void Foam::twoPhaseMixtureThermo::computePhaseChange()
     const bool restrictToVapor = onlyAboveVapor_;
 
     const scalar Tmax = maxPhaseChangeTemperature_;
-    const scalar saturationTmin = Foam::max(T_melt_, SMALL);
+    const scalar saturationTmin = Foam::max(T_vapor_, SMALL);
 
     static bool warnedSatRange = false;
     static bool warnedPvapClamp = false;
