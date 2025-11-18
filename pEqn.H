@@ -60,9 +60,19 @@ surfaceScalarField phig
 
 if (recoilForceReady)
 {
-    phig += (recoilTractionf & mesh.Sf())*rAUf;
+    // Smoothing prevents GAMG divergence. Reference: Brackbill et al. (1992)
+    const scalar recoilSmoothingFactor = 
+        solverCoeffs.lookupOrDefault<scalar>("recoilSmoothingFactor", 0.5);
+    
+    if (recoilSmoothingFactor > SMALL && recoilSmoothingFactor < 1.0)
+    {
+        phig += recoilSmoothingFactor*(recoilTractionf & mesh.Sf())*rAUf;
+    }
+    else
+    {
+        phig += (recoilTractionf & mesh.Sf())*rAUf;
+    }
 }
-
 phiHbyA += phig;
 
 // Get solver coefficients dictionary for all stability controls
@@ -107,8 +117,9 @@ while (pimple.correctNonOrthogonal())
     pEqn.setReference(pRefCell, pRefValue);
 
     // Add under-relaxation for stability with extreme recoil pressures
-    pEqn.relax();
- 
+   // pEqn.relax();
+ const scalar pRelaxFactor = solverCoeffs.lookupOrDefault<scalar>("pRelaxationFactor", 0.2);
+ pEqn.relax(pRelaxFactor);
     pEqn.solve();
     if (pimple.finalNonOrthogonalIter())
     {
@@ -354,7 +365,23 @@ if (fallbackMaxValue <= fallbackMinValue)
     fallbackMaxValue = symmetricLimit;
     fallbackMinValue = -symmetricLimit;
 }
+// Ensure the clamp used for enforcement respects the recoil-aware bounds.
+// Previously maxPressure reverted to the configured limit (e.g., 5e8 Pa),
+// so the clamp message reported the expanded bound while the actual clamp
+// still used the smaller one.
+minPressure = Foam::dimensionedScalar
+(
+    "minPressure",
+    Foam::dimPressure,
+    fallbackMinValue
+);
 
+maxPressure = Foam::dimensionedScalar
+(
+    "maxPressure",
+    Foam::dimPressure,
+    fallbackMaxValue
+);
 const Foam::dimensionedScalar fallbackMinPressure
 (
     "fallbackMinPressure",

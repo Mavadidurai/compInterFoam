@@ -7,11 +7,13 @@ fvVectorMatrix UEqn
     fvOptions(rho, U)
 );
 
-UEqn.relax();
+//UEqn.relax();
+const scalar URelaxFactor = solverCoeffs.lookupOrDefault<scalar>("URelaxationFactor", 0.3);
+UEqn.relax(URelaxFactor);
 fvOptions.constrain(UEqn);
 
 volScalarField totalPressure(p_rgh);
-totalPressure += pInterfaceCapturing->recoilPressure();
+//totalPressure += pInterfaceCapturing->recoilPressure();
 
 // Add enhanced physics pressures
 if (liftPhysics.valid())
@@ -32,7 +34,7 @@ const Foam::dictionary& aicDict =
     controlDict.subOrEmptyDict("advancedInterfaceCapturing"); 
 
 bool recoilClampActive = true;
-scalar recoilClampMax = 1e8;  // Default: 100 MPa
+scalar recoilClampMax = 5e10;  // Default: 50 GPa (realistic for fs-LIFT)
 
 if (!aicDict.empty())
 {
@@ -55,9 +57,12 @@ if (recoilClampMax <= SMALL || recoilClampMax >= 0.99*Foam::GREAT)
     recoilClampMax = solverCoeffs.lookupOrDefault<scalar>("maxRecoilPressure", 1e8);
 }
 
-if (!recoilClampActive)
+// CRITICAL: Aggressive under-relaxation for extreme pressure gradients
+// Must be AFTER solverCoeffs declaration. Reference: Tryggvason et al. (2011)
+const scalar URelaxFactor = solverCoeffs.lookupOrDefault<scalar>("URelaxationFactor", 0.3);
+if (URelaxFactor > 0 && URelaxFactor < 1.0)
 {
-    recoilClampMax = Foam::GREAT;
+    UEqn.relax(URelaxFactor);
 }
 
 const Foam::scalar kineticEnergyCeiling =
