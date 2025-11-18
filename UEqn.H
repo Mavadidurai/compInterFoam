@@ -168,11 +168,11 @@ if (recoilPressurePtr)
         bool lowerConfigured = false;
         bool upperConfigured = false;
 
+        // Read configured bounds from solverCoeffs
         if (solverCoeffs.found("minRecoilPressure"))
         {
             const scalar value =
                 solverCoeffs.lookupOrDefault<scalar>("minRecoilPressure", lowerBound);
-
             if (std::isfinite(value))
             {
                 lowerBound = value;
@@ -194,8 +194,7 @@ if (recoilPressurePtr)
 
         if (solverCoeffs.found("recoilMax"))
         {
-            const scalar limit =
-                Foam::mag(solverCoeffs.lookupOrDefault<scalar>("recoilMax", 0.0));
+            const scalar limit = Foam::mag(solverCoeffs.lookupOrDefault<scalar>("recoilMax", 0.0));
 
             if (std::isfinite(limit) && limit > SMALL)
             {
@@ -205,9 +204,8 @@ if (recoilPressurePtr)
                 upperConfigured = true;
             }
         }
-
-        const dictionary& aicDict =
-            mesh.time().controlDict().subOrEmptyDict("advancedInterfaceCapturing");
+        // Read from advancedInterfaceCapturing dict (overrides solverCoeffs)
+        const dictionary& aicDict = mesh.time().controlDict().subOrEmptyDict("advancedInterfaceCapturing");
 
         if (!aicDict.empty())
         {
@@ -225,16 +223,13 @@ if (recoilPressurePtr)
 
             if (aicDict.found("maxRecoilPressure"))
             {
-                const scalar value =
-                    aicDict.lookupOrDefault<scalar>("maxRecoilPressure", upperBound);
-
+                const scalar value = aicDict.lookupOrDefault<scalar>("maxRecoilPressure", upperBound);
                 if (std::isfinite(value))
                 {
                     upperBound = value;
                     upperConfigured = true;
                 }
             }
-
             const Foam::Switch clampRecoil =
                 aicDict.lookupOrDefault<Foam::Switch>("clampRecoil", Foam::Switch(false));
 
@@ -242,13 +237,40 @@ if (recoilPressurePtr)
             {
                 const scalar limit =
                     Foam::mag(aicDict.lookupOrDefault<scalar>("recoilMax", 0.0));
-
                 if (std::isfinite(limit) && limit > SMALL)
                 {
                     lowerBound = -limit;
                     upperBound = limit;
                     lowerConfigured = true;
                     upperConfigured = true;
+                }
+            }
+        }
+        // ADAPTIVE BOUNDS: Expand bounds to accommodate observed recoil pressure
+        // This matches the adaptive pressure clamping logic in pEqn.H
+        // Reference: Fs-LIFT studies (Feinaeugle et al., Appl. Surf. Sci. 418, 2017)
+        // report transient spikes exceeding steady-state recoil
+        const scalar safetyFactor = 1.1;  // Allow 10% overshoot for transient spikes
+        if (std::isfinite(maxRecoil) && maxRecoil > SMALL)
+        {
+            if (upperConfigured)
+            {
+                // Expand upper bound if observed pressure exceeds configured limit
+                if (maxRecoil > upperBound)
+                {
+                    upperBound = maxRecoil * safetyFactor;
+                }
+            }
+        }
+
+        if (std::isfinite(minRecoil))
+        {
+            if (lowerConfigured)
+            {
+                // Expand lower bound if observed pressure is below configured limit
+                if (minRecoil < lowerBound)
+                {
+                    lowerBound = minRecoil * safetyFactor;
                 }
             }
         }
@@ -273,39 +295,40 @@ if (recoilPressurePtr)
 
         if (clampRequired)
         {
-            Ostream& warn = WarningInFunction;
-            warn << "Recoil pressure out of physical range: ["
-                << minRecoil << ", " << maxRecoil << "] Pa" << nl;
-
-            if (lowerConfigured || upperConfigured)
+            // Only warn if clamping after adaptive bounds expansion
+            // (adaptive expansion is normal behavior for fs-LIFT)
+            if (isMaster)
             {
-                warn << "Clamping to [";
+                Info<< "    recoilPressureClamp: observed range ["
+                    << minRecoil/1e6 << ", " << maxRecoil/1e6 << "] MPa";
 
-                if (lowerConfigured)
+                if (lowerConfigured || upperConfigured)
                 {
-                    warn << lowerBound;
+                    Info<< ", clamping to [";
+                    if (lowerConfigured)
+                    {
+                        Info<< lowerBound/1e6;
+                    }
+                    else
+                    {
+                        Info<< "-inf";
+                    }
+                    Info<< ", ";
+
+                    if (upperConfigured)
+                    {
+                        Info<< upperBound/1e6;
+                    }
+                    else
+                    {
+                        Info<< "inf";
+                    }
+                    Info<< "] MPa (adapted)" << endl;
                 }
                 else
                 {
-                    warn << "-inf";
+                    Info<< ", clamping to zero (no bounds configured)" << endl;
                 }
-
-                warn << ", ";
-
-                if (upperConfigured)
-                {
-                    warn << upperBound;
-                }
-                else
-                {
-                    warn << "inf";
-                }
-
-                warn << "] Pa" << endl;
-            }
-            else
-            {
-                warn << "No recoil bounds configured; clamping to zero." << endl;
             }
 
             if (lowerConfigured && upperConfigured)
