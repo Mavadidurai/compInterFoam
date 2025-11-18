@@ -53,17 +53,16 @@ mixture
     
     equationOfState
     {
-        rho0            4515;           // kg/m3 at reference temperature
-        beta            7.6e-5;         // 1/K thermal expansion coefficient
-        T0              300;            // Reference temperature [K]
+        rho0 4515;
+        beta 7.6e-5;
+        T0   300;
     }
 }
 
 // LIFT-specific properties
 Tsol                1941.0;             // K - Solidus temperature
 Tliq                1941.0;             // K - Liquidus temperature
-Tvap                3560.0;             // K - Vaporisation temperature
+Tvap                2200.0;             // K - Vaporisation temperature (aligned with controlDict)
 hf                  9.1e6;             // Latent heat of vaporisation for Ti (J/kg)
-kappa               17.2;               // W/m·K - Thermal conductivity
-
+kappa               0;                  // W/m·K - Leave conduction to TTM (ke/kl)
 // ************************************************************************* //
