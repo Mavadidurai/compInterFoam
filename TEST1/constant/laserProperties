@@ -46,11 +46,12 @@ filmCenterY              20.0357e-6;    // center at focus.y
 gasAbsorptionCoeff 0;     // [1/m] gas absorption (0 disables direct gas heating)
 
 // --- Energy & timing ---
-// CRITICAL: Keep pulse energy compatible with interface heat-flux limit
-// 60 nJ corresponds to the ~0.2 J/cm^2 fs-LIFT threshold reported by Piqué et al., Appl. Phys. A 79 (2004).
+// CRITICAL: Reduced from 60 nJ (2.12 J/cm²) to prevent laser overheating
+// Current: 12 nJ gives 0.42 J/cm² fluence - within typical fs-LIFT threshold range
+// (Piqué et al., Appl. Phys. A 79, 2004 reports 0.1-0.5 J/cm² for Ti films)
 // NOTE: Omit pulseCenterTime to fire the single pulse immediately after
 //       laserStartTime.  Supplying a later center delays deposition.
-pulseEnergy              6e-8;      // 60 nJ (measured threshold fluence for Ti donor films)
+pulseEnergy              1.2e-8;    // 12 nJ (0.42 J/cm² fluence - prevents extreme heating)
 pulseWidth               200e-15;   // 200 fs FWHM
 wavelength               343e-9;    // 343 nm (Ti absorption peak)
 
@@ -74,7 +75,7 @@ gaussianProfile     true;
 
 // Optional intensity entry (consistent with pulseEnergy & pulseWidth)
 continuousLaser     false;
-maxVolumetricSource 7e24;  // [W/m³] keep above the 0.2 J/cm^2, 200 fs Ti peak (~9e23 W/m³; Piqué et al., Appl. Phys. A 79, 2004)
+maxVolumetricSource 1e24;  // [W/m³] reduced from 7e24 to match lower laser energy (12 nJ → peak ~3.5e23 W/m³)
 
 // Repeating pulse train aligned with controlDict laser window
 pulseFrequency      0;  // [1/s] 10 ps spacing so multiple pulses fire in 0–200 ps window
