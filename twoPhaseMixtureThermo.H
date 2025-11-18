@@ -41,7 +41,10 @@ class twoPhaseMixtureThermo
 
         //- Vaporisation temperature (K)
         scalar T_vapor_;
-
+        
+        //- Reference saturation pressure at T_vapor (Pa)
+        scalar p_ref_;
+        
         //- Optional physical temperature ceiling for phase-change physics (K)
         scalar maxPhaseChangeTemperature_;
         

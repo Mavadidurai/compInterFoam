@@ -52,6 +52,7 @@ Foam::twoPhaseMixtureThermo::twoPhaseMixtureThermo
     latentHeat_(0.0),
     T_melt_(0.0),
     T_vapor_(0.0),
+    p_ref_(101325.0),
     maxPhaseChangeTemperature_(GREAT),
     dtFloor_(1e-12),
     gasConstant_(0.0),  // Populated from controlDict.phaseChangeCoeffs (required)
@@ -429,6 +430,32 @@ Foam::twoPhaseMixtureThermo::twoPhaseMixtureThermo
                     << exit(FatalIOError);
             }
         };
+        
+    if (phaseChangeDict.found("p_ref"))
+    {
+        const dimensionedScalar value("p_ref", phaseChangeDict);
+        checkDimensions("p_ref", value, dimPressure);
+        const scalar val = value.value();
+        ensureFinite("p_ref", val);
+
+        if (val <= SMALL)
+        {
+            FatalIOErrorInFunction(phaseChangeDict)
+                << "Entry 'p_ref' in " << phaseChangeDictDisplay
+                << " must be positive"
+                << exit(FatalIOError);
+        }
+
+        p_ref_ = val;
+    }
+    else if (Pstream::master())
+    {
+        WarningInFunction
+            << "No reference saturation pressure 'p_ref' found in "
+            << phaseChangeDictDisplay
+            << "; defaulting to atmospheric pressure (" << p_ref_
+            << " Pa)." << endl;
+    }
     dimensionedScalar defaultMaxSource
     (
         "phaseChangeMaxSourceDefault",
@@ -1078,7 +1105,7 @@ void Foam::twoPhaseMixtureThermo::computePhaseChange()
     const scalar L = latentHeat_;
     const scalar R = gasConstant_;
     const scalar T_vap = T_vapor_;
-    const scalar p_ref = 101325;
+    const scalar p_ref = p_ref_;
     const scalar inv_Tvap = 1.0/T_vap;
 
     const scalarField& alpha1Field = alpha1().primitiveField();
