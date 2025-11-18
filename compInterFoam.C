@@ -810,22 +810,16 @@ int main(int argc, char *argv[])
     while (runTime.run())
     {
         const bool master = Foam::Pstream::master();
-        const bool dictionariesUpdated = runTime.read();
-        const IOobject::readUpdateState meshState = mesh.readUpdate();
+        const polyMesh::readUpdateState meshState = mesh.readUpdate();
 
-        if (dictionariesUpdated || meshState != IOobject::UNCHANGED)
-        {
-            pimple.read();
-        }
-
-        if (meshState != IOobject::UNCHANGED)
+        if (meshState != polyMesh::UNCHANGED)
         {
             gh = (g & mesh.C()) - ghRef;
             ghf = (g & mesh.Cf()) - ghRef;
             p_rgh = p - rho*gh;
             p_rgh.correctBoundaryConditions();
 
-            if (meshState == IOobject::TOPO_CHANGE)
+            if (meshState == polyMesh::TOPO_CHANGE)
             {
                 phi = fvc::flux(U);
                 rhoPhi = fvc::interpolate(rho)*phi;
