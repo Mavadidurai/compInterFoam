@@ -18,6 +18,10 @@ FoamFile
 // Decompose for 4 cores
 numberOfSubdomains 4;
 
+// Mesh size: 20×209×(10+20+9) = 78,000 cells total
+// Domain: 50×20.0714×10 μm (X×Y×Z)
+// Layers: Substrate (20×100×10) + Air gap (20×100×20) + Ti film (20×100×9)
+
 // Decomposition method
 // hierarchical - decompose along coordinate directions
 // CRITICAL: Split in Y-direction only to avoid splitting laser beam!
@@ -27,45 +31,10 @@ method          hierarchical;
 hierarchicalCoeffs
  {
      n           (1 4 1);    // 1*4*1 = 4 → split only in Y direction
+                           // ~19,500 cells/subdomain (~52 cells each in Y)
      delta       0.001;      // Avoids processor boundaries at laser focus
      order       xyz;
  }
-/*
- OPTION 2: Alternative 6-core config (more Z-direction slices)
- numberOfSubdomains 6;
- hierarchicalCoeffs
- {
-     n           (1 6 1);    // 1*6*1 = 6 → 80×67×158 cells/subdomain
-     delta       0.001;      // More balanced cell aspect ratio
-     order       xyz;        // but creates thin Z slices (1.67 μm)
- }
-
- OPTION 3: For 12 cores (all threads with HyperThreading)
- numberOfSubdomains 12;
- hierarchicalCoeffs
- {
-     n           (3 4 1);    // 3*4*1 = 12 → ~421k cells/core
-     delta       0.001;
-     order       xyz;
- }
-
- OPTION 4: For 4 cores (older/lower-power laptops)
- numberOfSubdomains 4;
-hierarchicalCoeffs
- {
-     n           (2 2 1);    // 2*2*1 = 4 → ~1.26M cells/core
-     delta       0.001;
-     order       xyz;
- }
-
- OPTION 5: For 16 cores (workstation/server)
- numberOfSubdomains 16;
- hierarchicalCoeffs
- {
-     n           (4 4 1);    // 4*4*1 = 16 → ~316k cells/core
-     delta       0.001;
-     order       xyz;
- */
  
 // Preserve patches and cyclic boundaries
 distributed     no;
