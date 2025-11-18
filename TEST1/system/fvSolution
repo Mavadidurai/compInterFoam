@@ -118,12 +118,12 @@ solvers
 PIMPLE
 {
     momentumPredictor           true;
-    nOuterCorrectors            50;  // Increased for extreme pressure gradients
-    nCorrectors                 4;   // More pressure correctors
+    nOuterCorrectors            15;  // Increased for extreme pressure gradients
+    nCorrectors                 6;   // More pressure correctors
     nNonOrthogonalCorrectors    3;   // More non-orthogonal corrections
-outerCorrectorResidualControl
+    outerCorrectorResidualControl
     {
-        "(U|p_rgh)"  { tolerance 1e-3;  relTol 0.1; }
+        "(U|p_rgh)"  { tolerance 1e-4;  relTol 0.1; }
     }
     residualControl
     {
