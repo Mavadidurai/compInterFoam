@@ -3,13 +3,13 @@ fvVectorMatrix UEqn
     fvm::ddt(rho, U) + fvm::div(rhoPhi, U)
   + MRF.DDt(rho, U)
   + transportModel.divDevRhoReff(U)
- ==
+==
     fvOptions(rho, U)
 );
 
+const Foam::dictionary solverCoeffs = compInterFoamCoeffsDict(mesh);
+
 //UEqn.relax();
-const scalar URelaxFactor = solverCoeffs.lookupOrDefault<scalar>("URelaxationFactor", 0.3);
-UEqn.relax(URelaxFactor);
 fvOptions.constrain(UEqn);
 
 volScalarField totalPressure(p_rgh);
@@ -24,8 +24,6 @@ if (liftPhysics.valid())
     if (liftPhysics->plasmaEnabled())
         totalPressure += liftPhysics->plasmaPressure();
 }
-
-const Foam::dictionary solverCoeffs = compInterFoamCoeffsDict(mesh);
 
 // Read recoil pressure configuration consistently (same logic as pEqn.H)
 // Priority: advancedInterfaceCapturing > compInterFoamCoeffs

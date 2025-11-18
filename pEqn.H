@@ -58,10 +58,13 @@ surfaceScalarField phig
     )*rAUf*mesh.magSf()
 );
 
+// Get solver coefficients dictionary for all stability controls
+const Foam::dictionary solverCoeffs = compInterFoamCoeffsDict(mesh);
+
 if (recoilForceReady)
 {
     // Smoothing prevents GAMG divergence. Reference: Brackbill et al. (1992)
-    const scalar recoilSmoothingFactor = 
+    const scalar recoilSmoothingFactor =
         solverCoeffs.lookupOrDefault<scalar>("recoilSmoothingFactor", 0.5);
     
     if (recoilSmoothingFactor > SMALL && recoilSmoothingFactor < 1.0)
@@ -74,9 +77,6 @@ if (recoilForceReady)
     }
 }
 phiHbyA += phig;
-
-// Get solver coefficients dictionary for all stability controls
-const Foam::dictionary solverCoeffs = compInterFoamCoeffsDict(mesh);
 
 // Limit mass flux to prevent pressure divergence from extreme recoil/phase change
 const Foam::scalar maxMassFlux =
