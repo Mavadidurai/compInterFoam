@@ -14,8 +14,11 @@ FoamFile
 }
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
-// Decompose (Intel i7-9750H with 12 threads)
-// Decompose for 4 cores
+// Mesh size: 20×209×(10+20+9) = 78,000 cells total
+// Domain: 50×20.0714×10 μm (X×Y×Z)
+// Layers: Substrate (20×100×10) + Air gap (20×100×20) + Ti film (20×100×9)
+
+// Decomposition for 4 cores (recommended for this mesh size)
 numberOfSubdomains 4;
 
 // Decomposition method
@@ -27,44 +30,49 @@ method          hierarchical;
 hierarchicalCoeffs
  {
      n           (1 4 1);    // 1*4*1 = 4 → split only in Y direction
+                             // ~19,500 cells/subdomain (~52 cells each in Y)
      delta       0.001;      // Avoids processor boundaries at laser focus
      order       xyz;
  }
+
 /*
- OPTION 2: Alternative 6-core config (more Z-direction slices)
- numberOfSubdomains 6;
- hierarchicalCoeffs
- {
-     n           (1 6 1);    // 1*6*1 = 6 → 80×67×158 cells/subdomain
-     delta       0.001;      // More balanced cell aspect ratio
-     order       xyz;        // but creates thin Z slices (1.67 μm)
- }
+ ALTERNATIVE CONFIGURATIONS FOR THIS MESH (78k cells):
 
- OPTION 3: For 12 cores (all threads with HyperThreading)
- numberOfSubdomains 12;
+ OPTION 2: For 2 cores (serial-like performance)
+ numberOfSubdomains 2;
  hierarchicalCoeffs
  {
-     n           (3 4 1);    // 3*4*1 = 12 → ~421k cells/core
+     n           (1 2 1);    // 1*2*1 = 2 → ~39,000 cells/core
      delta       0.001;
      order       xyz;
  }
 
- OPTION 4: For 4 cores (older/lower-power laptops)
+ OPTION 3: For 4 cores with X-Y split (balanced aspect ratio)
  numberOfSubdomains 4;
-hierarchicalCoeffs
- {
-     n           (2 2 1);    // 2*2*1 = 4 → ~1.26M cells/core
-     delta       0.001;
-     order       xyz;
- }
-
- OPTION 5: For 16 cores (workstation/server)
- numberOfSubdomains 16;
  hierarchicalCoeffs
  {
-     n           (4 4 1);    // 4*4*1 = 16 → ~316k cells/core
-     delta       0.001;
-     order       xyz;
+     n           (2 2 1);    // 2*2*1 = 4 → ~19,500 cells/core
+     delta       0.001;      // WARNING: Splits laser beam in X direction!
+     order       xyz;        // Only use if laser splitting is acceptable
+ }
+
+ OPTION 4: For 8 cores (workstation)
+ numberOfSubdomains 8;
+ hierarchicalCoeffs
+ {
+     n           (2 4 1);    // 2*4*1 = 8 → ~9,750 cells/core
+     delta       0.001;      // WARNING: Splits laser beam in X direction!
+     order       xyz;        // Only use if laser splitting is acceptable
+ }
+
+ OPTION 5: For 8 cores (Y-direction only, avoid laser split)
+ numberOfSubdomains 8;
+ hierarchicalCoeffs
+ {
+     n           (1 8 1);    // 1*8*1 = 8 → ~9,750 cells/core
+     delta       0.001;      // Safer: no X splitting, maintains laser beam integrity
+     order       xyz;        // ~26 cells each in Y direction
+ }
  */
  
 // Preserve patches and cyclic boundaries
