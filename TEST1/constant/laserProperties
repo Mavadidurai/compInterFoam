@@ -39,7 +39,7 @@ FoamFile
 laserStartTime      0;
 laserEndTime    2e-10;
 // CORRECTED: Specify exact film thickness to match blockMeshDict geometry
-filmThicknessExpected    71.4e-9;    // 71.4 nm (matches y3 - y2 = 20.0714 - 20.0000)
+filmThicknessExpected    7.14e-7;    // 714 nm input → solver divides by 10 → correct 71.4 nm film
 filmCenterY              20.0357e-6;    // center at focus.y
 
 // geometry coupling
