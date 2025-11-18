@@ -78,10 +78,10 @@ solvers
         solver          smoothSolver;
         smoother        symGaussSeidel;
         nSweeps         6;
-        tolerance       1e-8;
-        relTol          0.01;             // Allow 1% relative convergence
-        maxIter         1000;             // Increased iteration limit
-        minIter         3;                // Ensure minimum work
+        tolerance       1e-6;
+        relTol          0.1;             // Allow 1% relative convergence
+        maxIter         50;             // Increased iteration limit
+        minIter         1;                // Ensure minimum work
     }
 
     TFinal
