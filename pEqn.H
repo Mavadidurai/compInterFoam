@@ -66,7 +66,7 @@ if (recoilForceReady)
 phiHbyA += phig;
 
 // Get solver coefficients dictionary for all stability controls
-const Foam::dictionary& solverCoeffs = compInterFoamCoeffsDict(mesh);
+const Foam::dictionary solverCoeffs = compInterFoamCoeffsDict(mesh);
 
 // Limit mass flux to prevent pressure divergence from extreme recoil/phase change
 const Foam::scalar maxMassFlux =

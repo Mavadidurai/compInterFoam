@@ -23,7 +23,8 @@ if (liftPhysics.valid())
         totalPressure += liftPhysics->plasmaPressure();
 }
 
-const Foam::dictionary& solverCoeffs = compInterFoamCoeffsDict(mesh);
+const Foam::dictionary solverCoeffs = compInterFoamCoeffsDict(mesh);
+
 // Read recoil pressure configuration consistently (same logic as pEqn.H)
 // Priority: advancedInterfaceCapturing > compInterFoamCoeffs
 const Foam::dictionary& controlDict = mesh.time().controlDict();

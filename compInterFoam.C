@@ -89,20 +89,16 @@ namespace
         recoilField.primitiveFieldRef() = 0.0;
         recoilField.correctBoundaryConditions();
     }
-    inline const Foam::dictionary& compInterFoamCoeffsDict(const Foam::fvMesh& mesh)
+    inline Foam::dictionary compInterFoamCoeffsDict(const Foam::fvMesh& mesh)
     {
-        static Foam::dictionary cachedCoeffs;
-        static const Foam::dictionary emptyDict;
         const Foam::dictionary& solutionDict = mesh.solutionDict();
 
         if (solutionDict.found("compInterFoamCoeffs"))
         {
-            cachedCoeffs = solutionDict.subDict("compInterFoamCoeffs");
-            return cachedCoeffs;
+            return solutionDict.subDict("compInterFoamCoeffs");
         }
 
-        cachedCoeffs.clear();
-        return emptyDict;
+        return Foam::dictionary();
     }
     static void liftProcessTracker
     (
@@ -597,7 +593,7 @@ namespace
             {
                 Info<< "⚠  WARNING: Temperature exceeds physical limits!" << Foam::endl;
             }
-            const Foam::dictionary& solverCoeffs = compInterFoamCoeffsDict(mesh);
+            const Foam::dictionary solverCoeffs = compInterFoamCoeffsDict(mesh);
             Foam::scalar realismLimit = solverCoeffs.lookupOrDefault<Foam::scalar>
             (
                 "maxReasonableVelocity",
@@ -814,6 +810,28 @@ int main(int argc, char *argv[])
     while (runTime.run())
     {
         const bool master = Foam::Pstream::master();
+        const bool dictionariesUpdated = runTime.read();
+        const IOobject::readUpdateState meshState = mesh.readUpdate();
+
+        if (dictionariesUpdated || meshState != IOobject::UNCHANGED)
+        {
+            pimple.read();
+        }
+
+        if (meshState != IOobject::UNCHANGED)
+        {
+            gh = (g & mesh.C()) - ghRef;
+            ghf = (g & mesh.Cf()) - ghRef;
+            p_rgh = p - rho*gh;
+            p_rgh.correctBoundaryConditions();
+
+            if (meshState == IOobject::TOPO_CHANGE)
+            {
+                phi = fvc::flux(U);
+                rhoPhi = fvc::interpolate(rho)*phi;
+                alphaPhi10 = phi*fvc::interpolate(alpha1);
+            }
+        }
         #include "readTimeControls.H"
 
         if (LTS)
