@@ -17,25 +17,25 @@ FoamFile
 
 application     compInterFoam;
 
-startFrom       startTime;    // Avoid failing when only 0.orig exists
+startFrom       latestTime;    // Avoid failing when only 0.orig exists
 startTime       0;
 stopAt          endTime;
 endTime         2e-10;
 
-deltaT          2e-16;         // Base time step (1 fs)
-maxDeltaT       2e-15;         // Maximum: 2 fs (adaptive growth allowed)
-minDeltaT       1e-15;         // Minimum: 0.05 fs (ultimate precision)
+deltaT          1e-15;         // Base time step (1 fs)
+maxDeltaT       1e-14;         // Maximum: 2 fs (adaptive growth allowed)
+minDeltaT       5e-16;         // Minimum: 0.05 fs (ultimate precision)
 writeInterval   5e-14;         // Start with 1 ps intervals
 
 // LASER TIMING - shorter pulse, longer observation
 laserStartTime      0;
 laserEndTime    2e-10;
 
-maxThermalCourant 0.2;         // Increased from 0.02 - allow dt growth! // Reduced from 0.5 for thermal stability
-thermalFluxRelax 0.1;          // Stronger damping of interface heat flux
-maxCo           0.05;          // Increased from 0.02 - allow dt growth!  // Reduced from 0.5 for stability during thermal transitions
-maxAlphaCo      0.05;         // Aggressive interface limit // Reduced from 0.5 interface limit for better interface tracking
-maxDi           10;  // Limit interface dilation Courant number
+maxThermalCourant 0.5;         // Increased from 0.02 - allow dt growth! // Reduced from 0.5 for thermal stability
+thermalFluxRelax 0.15;          // Stronger damping of interface heat flux
+maxCo           0.2;          // Increased from 0.02 - allow dt growth!  // Reduced from 0.5 for stability during thermal transitions
+maxAlphaCo      0.2;         // Aggressive interface limit // Reduced from 0.5 interface limit for better interface tracking
+maxDi           20;  // Limit interface dilation Courant number
 
 verbose         true;
 enableLiftProcessTracker true;
@@ -103,10 +103,11 @@ advancedInterfaceCapturing
     recoilTempOffset      0;            // Code requires non-negative value
                                         // Recoil starts at Tvap = 1941K (melting point) // Ultrafast regime: evaporation begins with melting
     phaseChangeTempOffset 0;
-    // Mass flux threshold - RELAXED for fs-LIFT
-    massRateEps           1e-8;         // FIXED: was 1e-12 (too restrictive!)
-                                        // At 2000K: j ~ 10^3-10^4 kg/m²/s expected
-                                        // This allows detection of realistic evaporation
+    // Mass flux threshold - CRITICAL FIX for mass transfer
+
+    massRateEps           1e-12;        // Reduced from 1e-8 to detect actual evaporation
+                                        // Despite high T (9000K), measured flux may be lower
+                                        // than kinetic theory predicts due to interface resolution
     // Knight (Phys. Rev. B 20, 1979) predicts recoil pressures exceeding
     // 0.3 GPa near 6000 K.  The fs deposition pushes Tl well beyond that, so
     // allow the kinetic-theory recoil driver to reach the multi-GPa recoil
@@ -269,3 +270,4 @@ functions
         );
     }
 }
+// ************************************************************************* //
