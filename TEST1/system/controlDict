@@ -22,20 +22,20 @@ startTime       0;
 stopAt          endTime;
 endTime         2e-10;
 
-deltaT          2e-16;         // Base time step (1 fs)
-maxDeltaT       2e-15;         // Maximum: 2 fs (adaptive growth allowed)
-minDeltaT       1e-15;         // Minimum: 0.05 fs (ultimate precision)
+deltaT          1e-15;         // Base time step: 1 fs (increased from 0.2 fs)
+maxDeltaT       1e-14;         // Maximum: 10 fs (allow faster progress)
+minDeltaT       5e-16;         // Minimum: 0.5 fs
 writeInterval   5e-14;         // Start with 1 ps intervals
 
 // LASER TIMING - shorter pulse, longer observation
 laserStartTime      0;
 laserEndTime    2e-10;
 
-maxThermalCourant 0.2;         // Increased from 0.02 - allow dt growth! // Reduced from 0.5 for thermal stability
-thermalFluxRelax 0.1;          // Stronger damping of interface heat flux
-maxCo           0.05;          // Increased from 0.02 - allow dt growth!  // Reduced from 0.5 for stability during thermal transitions
-maxAlphaCo      0.05;         // Aggressive interface limit // Reduced from 0.5 interface limit for better interface tracking
-maxDi           10;  // Limit interface dilation Courant number
+maxThermalCourant 0.5;         // Increased to allow larger timesteps
+thermalFluxRelax 0.15;         // Moderate damping of interface heat flux
+maxCo           0.2;           // Increased to allow larger timesteps
+maxAlphaCo      0.2;           // Increased to allow larger timesteps
+maxDi           20;            // Increased interface dilation limit
 
 verbose         true;
 enableLiftProcessTracker true;
