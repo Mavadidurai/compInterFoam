@@ -1137,8 +1137,30 @@ void Foam::twoPhaseMixtureThermo::computePhaseChange()
                 warnedSatRange = true;
             }
 
+            // CRITICAL FIX: Clausius-Clapeyron exponent sign correction
+            // Correct formula: p_sat = p_ref * exp((L/R) * (1/Tvap - 1/T))
+            // When T > Tvap, exponent must be POSITIVE (pressure increases with temperature)
             const scalar exponent = (L/R)*(inv_Tvap - 1.0/Teval);
             const scalar psat = p_ref*Foam::exp(exponent);
+
+            // Debug output for first active cell
+            static bool debugPrinted = false;
+            if (!debugPrinted && Pstream::master() && Teval > 2500)
+            {
+                Info<< "DEBUG p_sat calculation at T=" << Teval << " K:" << nl
+                    << "  L = " << L << " J/kg" << nl
+                    << "  R = " << R << " J/kg/K" << nl
+                    << "  T_vap = " << T_vap << " K" << nl
+                    << "  inv_Tvap = " << inv_Tvap << nl
+                    << "  1/Teval = " << (1.0/Teval) << nl
+                    << "  (inv_Tvap - 1/Teval) = " << (inv_Tvap - 1.0/Teval) << nl
+                    << "  L/R = " << (L/R) << nl
+                    << "  exponent = " << exponent << nl
+                    << "  exp(exponent) = " << Foam::exp(exponent) << nl
+                    << "  p_ref = " << p_ref << " Pa" << nl
+                    << "  p_sat = " << psat << " Pa" << endl;
+                debugPrinted = true;
+            }
 
             return Foam::max(psat, scalar(0));
         };
