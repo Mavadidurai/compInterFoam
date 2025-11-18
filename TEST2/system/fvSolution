@@ -26,20 +26,18 @@ solvers
         maxIter         100;
         minIter         2;
         
-    // CRITICAL FOR EJECTION:
-    nAlphaCorr      5;           // ✓ Good
-    nAlphaSubCycles 5;           // ✓ Good - resolves fast interface motion
-    
-    // ADD THIS for better jet tracking:
-    cAlpha          0.8;         // Reduce from 1.0 → sharper interface
-    MULESCorr       true;        // ✓ Good
-    nLimiterIter    5;           // ✓ Good
-    
-    // NEW: Improved interface compression for jet
-    icAlpha         1;           // Enable implicit compression
-    scAlpha         1;           // Enable semi-implicit compression
-    
-        compressionLimiter  1.0;
+    // CORRECTED: Sharpened for better jet tracking
+    nAlphaCorr      3;              // CORRECTED: Reduced from 5 for sharper interface
+    nAlphaSubCycles 3;              // CORRECTED: Reduced from 5
+    cAlpha          2.0;            // CORRECTED: Increased from 0.8 to sharpen interface
+    MULESCorr       true;
+    nLimiterIter    3;              // CORRECTED: Reduced from 5
+
+    // Interface compression parameters
+    icAlpha         0;              // Standard compression
+    scAlpha         0;
+
+        compressionLimiter  0.5;    // CORRECTED: Reduced from 1.0 for less dissipation
         alphaApplyPrevCorr true;
         sharpeningScheme standard;
         thinFilmCoeff   0.0;

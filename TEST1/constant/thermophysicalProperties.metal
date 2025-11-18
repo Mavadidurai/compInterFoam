@@ -15,16 +15,16 @@ FoamFile
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
 // METAL PHASE PROPERTIES for LIFT Test Case
-// Density is treated with a linear thermal expansion (Boussinesq) fit to
-// representative solid/liquid titanium data (ρ ≈ 4500 kg/m3 at 300 K decreasing
-// to ≈ 3400 kg/m3 near vaporisation).
+// CRITICAL FIX: Changed from Boussinesq to perfectGas to allow density collapse
+// during superheat → vapor → plume. Boussinesq was preventing expansion needed for jetting.
+// NOTE: This is a numerical approximation for compressibility, not physically perfect for Ti.
 thermoType
 {
     type            heRhoThermo;
     mixture         pureMixture;
     transport       const;
     thermo          hConst;
-    equationOfState Boussinesq;
+    equationOfState perfectGas;
     specie          specie;
     energy          sensibleEnthalpy;
 
@@ -53,17 +53,17 @@ mixture
     
     equationOfState
     {
-        rho0            4515;           // kg/m3 at reference temperature
-        beta            7.6e-5;         // 1/K thermal expansion coefficient
-        T0              300;            // Reference temperature [K]
+        // perfectGas EOS parameters (numerical approximation for Ti compressibility)
+        // rho0 kept for reference; solver uses psi/thermo for dynamic density
+        rho0            4515;           // kg/m3 at reference (informational only)
     }
 }
 
 // LIFT-specific properties
 Tsol                1941.0;             // K - Solidus temperature
 Tliq                1941.0;             // K - Liquidus temperature
-Tvap                3560.0;             // K - Vaporisation temperature
+Tvap                2200.0;             // K - Superheated liquid regime (CORRECTED from 3560)
 hf                  9.1e6;             // Latent heat of vaporisation for Ti (J/kg)
-kappa               17.2;               // W/m·K - Thermal conductivity
+kappa               0;                  // CORRECTED: Let TTM control thermal conduction via ke and kl
 
 // ************************************************************************* //

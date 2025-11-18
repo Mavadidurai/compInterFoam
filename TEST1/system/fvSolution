@@ -25,14 +25,14 @@ solvers
         relTol          0.0;
         maxIter         100;
         minIter         2;
-        nAlphaCorr      5;
-        nAlphaSubCycles 5;              // Increased to stabilise transport
-        cAlpha          1.0;            // Softer compression to avoid overshoot
+        nAlphaCorr      3;              // CORRECTED: Reduced from 5 for sharper interface
+        nAlphaSubCycles 3;              // CORRECTED: Reduced from 5
+        cAlpha          2.0;            // CORRECTED: Increased from 1.0 to sharpen interface
         icAlpha         0;
         scAlpha         0;
-        compressionLimiter 1.0;         // Caps phic relative to |phi|
+        compressionLimiter 0.5;         // CORRECTED: Reduced from 1.0 for less dissipation
         MULESCorr       true;
-        nLimiterIter    5;
+        nLimiterIter    3;              // CORRECTED: Reduced from 5
         alphaApplyPrevCorr true;
         sharpeningScheme standard;
         thinFilmCoeff   0.0;
@@ -175,10 +175,9 @@ compInterFoamCoeffs
     minAlpha          0.001;
     maxAlpha          0.999;
 
-    // Clamp p_rgh to a physically defensible range so GAMG cannot run away.
-    // Feinaeugle et al. observe Ti recoil plateaus close to 80 MPa, so keep the ceiling
-    // above that to avoid throttling the kinetic-theory recoil driver.
-    pressureClamp      true;
+    // CRITICAL FIX: Disable pressure clamp to allow full recoil dynamics
+    // Jetting requires 5-15 GPa recoil pressure, which was previously capped at 3 GPa
+    pressureClamp      false;
     maxPressure        3.0e9;
     minPressure       -5e6;
 

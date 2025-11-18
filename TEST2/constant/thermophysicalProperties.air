@@ -15,15 +15,15 @@ FoamFile
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
 // Thermophysical model for compressible air treated as a perfect gas
-// ✅ CORRECTED: Thermophysical model for compressible air treated as a perfect gas
-// Changed from rhoConst to perfectGas to match main thermophysicalProperties
+// CRITICAL FIX: Changed to hePsiThermo for proper compressible gas handling
+// This aligns pressure-density-enthalpy relations during plume expansion
 thermoType
 {
-    type            heRhoThermo;     // ✅ CORRECTED: Use hePsiThermo for compressible gas
+    type            hePsiThermo;     // CORRECTED: Use hePsiThermo for compressible gas
     mixture         pureMixture;
     transport       const;
     thermo          hConst;
-    equationOfState perfectGas;      // ✅ CORRECTED: Use perfectGas (was rhoConst)
+    equationOfState perfectGas;      // Use perfectGas EOS
     specie          specie;
     energy          sensibleEnthalpy;
 }

@@ -22,9 +22,9 @@ startTime       0;
 stopAt          endTime;
 endTime         2e-10;
 
-deltaT          2e-15;         // Base time step (0.2 fs) - smaller steps for fast convergence
-maxDeltaT       2e-15;         // Cap adaptive growth (2 fs) - keep steps small during heating
-minDeltaT       1e-16;         // Minimum 0.01 fs for precision
+deltaT          1e-16;         // CORRECTED: Reduced from 2e-15 for tighter resolution
+maxDeltaT       2e-15;         // Cap adaptive growth (2 fs)
+minDeltaT       5e-17;         // CORRECTED: Reduced from 1e-16 for sub-100 fs recoil spikes
 writeInterval   1e-14;         // Start with 1 ps intervals
 
 // LASER TIMING - shorter pulse, longer observation
@@ -175,9 +175,9 @@ G
     }
     gasMetalCutoffTemperature 2200;
     minMetalFractionForExchange 0.5;
-    minGasMetalExchangeCoeff [1 -1 -3 -1 0 0 0] 1e8;
-    maxGasMetalExchangeCoeff [1 -1 -3 -1 0 0 0] 5e9;
-    maxGasMetalHeatFlux    5e9;
+    minGasMetalExchangeCoeff [1 -1 -3 -1 0 0 0] 1e6;   // CORRECTED: Reduced from 1e8
+    maxGasMetalExchangeCoeff [1 -1 -3 -1 0 0 0] 5e8;   // CORRECTED: Reduced from 5e9
+    maxGasMetalHeatFlux    5e8;                         // CORRECTED: Reduced from 5e9
     minTe           200;
     maxTe           20000;      // Allow hot electrons
     maxTl           10000;       // Allow Ti lattice to exceed the ≈6.6 kK needed for 80 MPa recoil (Feinaeugle et al., Appl. Surf. Sci. 418, 2017)
