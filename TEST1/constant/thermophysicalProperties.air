@@ -17,7 +17,9 @@ FoamFile
 // Thermophysical model for compressible air treated as a perfect gas
 // ✅ CORRECTED: Thermophysical model for compressible air treated as a perfect gas
 // Changed from rhoConst to perfectGas to match main thermophysicalProperties
-    type            hePsiThermo;
+thermoType
+{
+    type            heRhoThermo;
     mixture         pureMixture;
     transport       const;
     thermo          hConst;
