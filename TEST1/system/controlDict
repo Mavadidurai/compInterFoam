@@ -209,10 +209,8 @@ twoTemperatureProperties
 
 enhancedLIFTPhysics
 {
-
     // Phase explosion and spinodal decomposition
     phaseExplosionCoeffs
-
     {
         enablePhaseExplosion   true;
         T_critical             9500;       // Ti critical temperature [K]
