@@ -774,7 +774,7 @@ if (runTime.controlDict().found("enhancedLIFTPhysics"))
         (
             mesh,
             mixture,
-            runTime.controlDict()
+            runTime.controlDict().subDict("enhancedLIFTPhysics")
         )
     );
 }
