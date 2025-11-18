@@ -66,11 +66,11 @@ phaseChangeCoeffs
                                                    // Will reach ~2200K at t ≈ 0.2ps (end of pulse)
     
     // Kinetic theory parameters
-    evaporationCoeff       0.03;     // Ti evaporation coefficient
-    alphaMin              0.001;    
+    evaporationCoeff       0.18;     // Ti evaporation coefficient (literature standard)
+    alphaMin              0.001;
     dtFloor             1e-15;         // Reduced for precision
     relaxationTime      1e-11;        // Faster response for femtosecond dynamics
-    maxSource           [1 -1 -3 0 0 0 0] 1e7;         // Hertz-Knudsen-consistent mass flux to avoid unphysical recoil (Feinaeugle et al., Appl. Surf. Sci. 418, 2017)
+    maxSource           [1 -1 -3 0 0 0 0] 5e21;         // Controlled mass flux limit (between 1e7 and 4e23)
     minCoefficient      1e6;          // Reduced for gradual cooling
     onlyAboveVapor      false;
     metalFractionCutoff 1e-6;
@@ -98,6 +98,14 @@ advancedInterfaceCapturing
     model               kinetic_theory;  // Not arbitrary scaling!
     stickingCoeff       0.18;
     momentumAccommodationCoeff       0.18;
+
+    // CRITICAL: Correct Knight formula over-amplification
+    // Knight (1979) gives p_recoil = 0.54 * p_sat
+    // Code uses: p_recoil = pressureScale * ((2-β_m)/(2*α_e)) * j * sqrt(2πRT)
+    // With α_e=0.18, β_m=0.18: factor = 5.055, needs correction to 3.0
+    // pressureScale = 0.54 / ((2-β_m)/(2*α_e)) = 1.08/(2-β_m) = 0.593
+    pressureScale         [1 -1 -2 0 0 0 0] 0.6;  // Corrects Knight formula
+
     // CRITICAL FIX: Enable recoil in superheated liquid regime
     // Tvap = 2200K, start recoil at Tl > 1900K (just below melting)
     recoilTempOffset      0;            // Code requires non-negative value
@@ -108,12 +116,10 @@ advancedInterfaceCapturing
     massRateEps           1e-12;        // Reduced from 1e-8 to detect actual evaporation
                                         // Despite high T (9000K), measured flux may be lower
                                         // than kinetic theory predicts due to interface resolution
-    // Knight (Phys. Rev. B 20, 1979) predicts recoil pressures exceeding
-    // 0.3 GPa near 6000 K.  The fs deposition pushes Tl well beyond that, so
-    // allow the kinetic-theory recoil driver to reach the multi-GPa recoil
-    // levels observed in ultrafast LIFT experiments before clamping.
-    recoilMax             5.0e8;
-    clampRecoil           false;
+
+    // Recoil pressure limits - Feinaeugle et al. observe ~80 MPa peaks
+    recoilMax             2.0e8;        // 200 MPa (2.5× Feinaeugle experimental peak)
+    clampRecoil           true;         // ENABLE to prevent TPa pressures
     scaleRecoilMax        false;
     recoilRelax           0.7;
     alphaMin              0.001;
