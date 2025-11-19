@@ -160,7 +160,7 @@ while (pimple.correctNonOrthogonal())
 
         const Foam::Switch pressureClamp
         (
-            solverCoeffs.lookupOrDefault<Foam::Switch>("pressureClamp", false)
+            solverCoeffs.lookupOrDefault<Foam::Switch>("pressureClamp", true)
         );
 
         if (pressureClamp)
@@ -290,7 +290,7 @@ if (tRecoilForce.valid())
 }
 
 const Foam::Switch pressureClamp =
-    solverCoeffs.lookupOrDefault<Foam::Switch>("pressureClamp", false);
+    solverCoeffs.lookupOrDefault<Foam::Switch>("pressureClamp", true);
 
 Foam::dimensionedScalar minPressure
 (
