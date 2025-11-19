@@ -250,7 +250,162 @@ enhancedLIFTPhysics
 // Clean monitoring functions
 functions
 {
-    // Mid-plane visualization (optional)
+    // ========== CSV LOGGING FUNCTIONS ==========
+
+    // 1. Volume-averaged quantities in metal film
+    volAvg_metal
+    {
+        type            volFieldValue;
+        libs            ("libfieldFunctionObjects.so");
+        writeControl    timeStep;
+        writeInterval   1;
+        log             true;
+        writeFields     false;
+        regionType      all;
+        operation       volAverage;
+        weightField     alpha.metal;
+        fields          (Te Tl T p_rgh alpha.metal);
+    }
+
+    // 2. Volume-averaged quantities in air region
+    volAvg_air
+    {
+        type            volFieldValue;
+        libs            ("libfieldFunctionObjects.so");
+        writeControl    timeStep;
+        writeInterval   1;
+        log             true;
+        writeFields     false;
+        regionType      all;
+        operation       volAverage;
+        weightField     alpha.air;
+        fields          (T p_rgh alpha.air);
+    }
+
+    // 3. Min/Max values for all key fields
+    minMax
+    {
+        type            fieldMinMax;
+        libs            ("libfieldFunctionObjects.so");
+        writeControl    timeStep;
+        writeInterval   1;
+        log             true;
+        mode            magnitude;
+        fields          (Te Tl T p_rgh U alpha.metal);
+    }
+
+    // 4. Probe at film center (laser focus)
+    probe_filmCenter
+    {
+        type            probes;
+        libs            ("libsampling.so");
+        writeControl    timeStep;
+        writeInterval   1;
+        fields          (Te Tl T p_rgh U alpha.metal);
+        probeLocations
+        (
+            (25e-6 20.0357e-6 5e-6)  // Center of Ti film at laser focus
+        );
+    }
+
+    // 5. Probes along vertical line through film
+    probe_vertical
+    {
+        type            probes;
+        libs            ("libsampling.so");
+        writeControl    timeStep;
+        writeInterval   1;
+        fields          (Te Tl T p_rgh U alpha.metal);
+        probeLocations
+        (
+            (25e-6 20.0000e-6 5e-6)  // Bottom of Ti film
+            (25e-6 20.0357e-6 5e-6)  // Center of Ti film
+            (25e-6 20.0714e-6 5e-6)  // Top of Ti film (donor interface)
+        );
+    }
+
+    // 6. Forces on boundaries (recoil tracking)
+    forces
+    {
+        type            forces;
+        libs            ("libforces.so");
+        writeControl    timeStep;
+        writeInterval   1;
+        log             true;
+        patches         (donor substrate);
+        rho             rhoInf;
+        rhoInf          4500;  // Reference density (metal)
+        CofR            (25e-6 20.0357e-6 5e-6);
+    }
+
+    // 7. Mass flow monitoring
+    massFlow_donor
+    {
+        type            surfaceFieldValue;
+        libs            ("libfieldFunctionObjects.so");
+        writeControl    timeStep;
+        writeInterval   1;
+        log             true;
+        writeFields     false;
+        regionType      patch;
+        name            donor;
+        operation       sum;
+        weightField     phi;
+        fields          (alpha.metal);
+    }
+
+    // 8. Interface position tracking (alpha = 0.5 isosurface)
+    interface_tracking
+    {
+        type            surfaces;
+        libs            ("libsampling.so");
+        writeControl    timeStep;
+        writeInterval   10;
+        surfaceFormat   vtk;
+        fields          (Te Tl T p_rgh U);
+        interpolationScheme cellPoint;
+        surfaces
+        (
+            interface
+            {
+                type            isoSurface;
+                isoField        alpha.metal;
+                isoValue        0.5;
+                interpolate     true;
+            }
+        );
+    }
+
+    // 9. Volume integrals for energy conservation
+    energyIntegrals
+    {
+        type            volFieldValue;
+        libs            ("libfieldFunctionObjects.so");
+        writeControl    timeStep;
+        writeInterval   1;
+        log             true;
+        writeFields     false;
+        regionType      all;
+        operation       volIntegrate;
+        fields          (Te Tl T);
+    }
+
+    // 10. Pressure monitoring on substrate
+    pressure_substrate
+    {
+        type            surfaceFieldValue;
+        libs            ("libfieldFunctionObjects.so");
+        writeControl    timeStep;
+        writeInterval   1;
+        log             true;
+        writeFields     false;
+        regionType      patch;
+        name            substrate;
+        operation       areaAverage;
+        fields          (p_rgh);
+    }
+
+    // 11. Mid-plane visualization (VTK for ParaView)
     midPlaneVTK
     {
         type            surfaces;
@@ -259,7 +414,6 @@ functions
         writeInterval   1;
         surfaceFormat   vtk;
         fields          (alpha.metal Tl Te T p_rgh U);
-
         surfaces
         (
             midPlane
@@ -272,6 +426,29 @@ functions
                     normal  (0 1 0);
                 }
                 interpolate         true;
+            }
+        );
+    }
+
+    // 12. Line sampling through laser path
+    lineSample_laser
+    {
+        type            sets;
+        libs            ("libsampling.so");
+        writeControl    writeTime;
+        writeInterval   1;
+        setFormat       csv;
+        interpolationScheme cellPoint;
+        fields          (Te Tl T p_rgh U alpha.metal);
+        sets
+        (
+            centerline
+            {
+                type    uniform;
+                axis    y;
+                start   (25e-6 0 5e-6);
+                end     (25e-6 20.0714e-6 5e-6);
+                nPoints 200;
             }
         );
     }
