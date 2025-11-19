@@ -113,10 +113,10 @@ advancedInterfaceCapturing
     // 0.3 GPa near 6000 K.  The fs deposition pushes Tl well beyond that, so
     // allow the kinetic-theory recoil driver to reach the multi-GPa recoil
     // levels observed in ultrafast LIFT experiments before clamping.
-	
+
     clampRecoil           false;
-   // recoilMax             2.0e8;  
-    maxRecoilPressure   5.0e10;	// 200 MPa (2.5× Feinaeugle observed peak of ~80 MPa)
+    recoilMax             1.0e10;  // 10 GPa - physically reasonable for fs-LIFT (Knight 1979)
+    maxRecoilPressure     1.0e10;  // 10 GPa - must match recoilMax for consistency
          
     scaleRecoilMax        false;
     recoilRelax           0.7;
