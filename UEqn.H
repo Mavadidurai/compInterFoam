@@ -8,21 +8,25 @@ fvVectorMatrix UEqn
 );
 
 const Foam::dictionary solverCoeffs = compInterFoamCoeffsDict(mesh);
+const bool isMaster = Foam::Pstream::master();
 
 //UEqn.relax();
 fvOptions.constrain(UEqn);
 
 volScalarField totalPressure(p_rgh);
-//totalPressure += pInterfaceCapturing->recoilPressure();
 
 // Add enhanced physics pressures
 if (liftPhysics.valid())
 {
     if (liftPhysics->phaseExplosionEnabled())
+    {
         totalPressure += liftPhysics->explosivePressure();
-    
+    }
+
     if (liftPhysics->plasmaEnabled())
+    {
         totalPressure += liftPhysics->plasmaPressure();
+    }
 }
 
 // Read recoil pressure configuration consistently (same logic as pEqn.H)
@@ -55,6 +59,58 @@ if (recoilClampMax <= SMALL || recoilClampMax >= 0.99*Foam::GREAT)
     recoilClampMax = solverCoeffs.lookupOrDefault<scalar>("maxRecoilPressure", 1e8);
 }
 
+const bool clampRecoilContribution =
+    recoilClampActive
+ && recoilClampMax > SMALL
+ && recoilClampMax < 0.99*Foam::GREAT;
+
+if (recoilPressurePtr)
+{
+    const volScalarField& recoilP = *recoilPressurePtr;
+    const volScalarField* recoilContribution = &recoilP;
+    tmp<volScalarField> tRecoilClamped;
+
+    if (clampRecoilContribution)
+    {
+        const dimensionedScalar maxRecoil
+        (
+            "maxRecoilPressure",
+            dimPressure,
+            recoilClampMax
+        );
+        const dimensionedScalar minRecoil
+        (
+            "minRecoilPressure",
+            dimPressure,
+            -recoilClampMax
+        );
+
+        const scalar observedMaxRecoil = gMax(recoilP);
+        const scalar observedMinRecoil = gMin(recoilP);
+
+        tRecoilClamped = Foam::min
+        (
+            Foam::max(recoilP, minRecoil),
+            maxRecoil
+        );
+        recoilContribution = &tRecoilClamped();
+
+        if
+        (
+            verbose
+         && isMaster
+         && (observedMaxRecoil > recoilClampMax
+          || observedMinRecoil < -recoilClampMax)
+        )
+        {
+            Info<< "    recoilPressureClamp: limiting recoil contribution to ±"
+                << recoilClampMax/1e6 << " MPa" << endl;
+        }
+    }
+
+    totalPressure += *recoilContribution;
+}
+
 // CRITICAL: Aggressive under-relaxation for extreme pressure gradients
 // Must be AFTER solverCoeffs declaration. Reference: Tryggvason et al. (2011)
 const scalar URelaxFactor = solverCoeffs.lookupOrDefault<scalar>("URelaxationFactor", 0.3);
@@ -76,7 +132,6 @@ const Foam::scalar minUEqnDiagVal =
     1e-9
 );
 
-const bool isMaster = Foam::Pstream::master();
 if (minUEqnDiagVal > 0)
 {
     const tmp<volScalarField> tUEqnDiagTmp = UEqn.A();
@@ -129,329 +184,6 @@ if (kineticEnergyCeiling > 0 && kineticEnergyCeiling < Foam::GREAT)
     }
 }
 
-tmp<volVectorField> tRecoilForce;
-bool recoilForceReady = false;
-
-recoilTractionf = dimensionedVector
-(
-    "zeroRecoilTraction",
-    dimForce/dimVolume,
-    vector::zero
-);
-
-if (recoilPressurePtr)
-{
-        const volScalarField& recoilP = *recoilPressurePtr;
-
-        const tmp<volVectorField> tInterfaceGrad = fvc::grad(alpha1);
-        const volVectorField& interfaceGrad = tInterfaceGrad();
-        const tmp<volScalarField> tInterfaceStrength = mag(interfaceGrad);
-        const volScalarField& interfaceStrength = tInterfaceStrength();
-        const tmp<volVectorField> tInterfaceNormal
-        (
-            -(interfaceGrad/
-            (
-                interfaceStrength
-              + dimensionedScalar("small", dimless/dimLength, SMALL)
-            ))
-        );
-        const volVectorField& interfaceNormal = tInterfaceNormal();
-        const bool logRecoil =
-            verbose && isMaster && runTime.timeIndex() % 10 == 0;
-
-        // Validate recoil pressure before using
-        const scalar maxRecoil = gMax(recoilP);
-        const scalar minRecoil = gMin(recoilP);
-
-        scalar lowerBound = -Foam::GREAT;
-        scalar upperBound = Foam::GREAT;
-        bool lowerConfigured = false;
-        bool upperConfigured = false;
-
-        // Read configured bounds from solverCoeffs
-        if (solverCoeffs.found("minRecoilPressure"))
-        {
-            const scalar value =
-                solverCoeffs.lookupOrDefault<scalar>("minRecoilPressure", lowerBound);
-            if (std::isfinite(value))
-            {
-                lowerBound = value;
-                lowerConfigured = true;
-            }
-        }
-
-        if (solverCoeffs.found("maxRecoilPressure"))
-        {
-            const scalar value =
-                solverCoeffs.lookupOrDefault<scalar>("maxRecoilPressure", upperBound);
-
-            if (std::isfinite(value))
-            {
-                upperBound = value;
-                upperConfigured = true;
-            }
-        }
-
-        if (solverCoeffs.found("recoilMax"))
-        {
-            const scalar limit = Foam::mag(solverCoeffs.lookupOrDefault<scalar>("recoilMax", 0.0));
-
-            if (std::isfinite(limit) && limit > SMALL)
-            {
-                lowerBound = -limit;
-                upperBound = limit;
-                lowerConfigured = true;
-                upperConfigured = true;
-            }
-        }
-        // Read from advancedInterfaceCapturing dict (overrides solverCoeffs)
-        const dictionary& aicDict = mesh.time().controlDict().subOrEmptyDict("advancedInterfaceCapturing");
-
-        if (!aicDict.empty())
-        {
-            if (aicDict.found("minRecoilPressure"))
-            {
-                const scalar value =
-                    aicDict.lookupOrDefault<scalar>("minRecoilPressure", lowerBound);
-
-                if (std::isfinite(value))
-                {
-                    lowerBound = value;
-                    lowerConfigured = true;
-                }
-            }
-
-            if (aicDict.found("maxRecoilPressure"))
-            {
-                const scalar value = aicDict.lookupOrDefault<scalar>("maxRecoilPressure", upperBound);
-                if (std::isfinite(value))
-                {
-                    upperBound = value;
-                    upperConfigured = true;
-                }
-            }
-            const Foam::Switch clampRecoil =
-                aicDict.lookupOrDefault<Foam::Switch>("clampRecoil", Foam::Switch(false));
-
-            if (clampRecoil)
-            {
-                const scalar limit =
-                    Foam::mag(aicDict.lookupOrDefault<scalar>("recoilMax", 0.0));
-                if (std::isfinite(limit) && limit > SMALL)
-                {
-                    lowerBound = -limit;
-                    upperBound = limit;
-                    lowerConfigured = true;
-                    upperConfigured = true;
-                }
-            }
-        }
-        // ADAPTIVE BOUNDS: Expand bounds to accommodate observed recoil pressure
-        // This matches the adaptive pressure clamping logic in pEqn.H
-        // Reference: Fs-LIFT studies (Feinaeugle et al., Appl. Surf. Sci. 418, 2017)
-        // report transient spikes exceeding steady-state recoil
-        const scalar safetyFactor = 1.1;  // Allow 10% overshoot for transient spikes
-        if (std::isfinite(maxRecoil) && maxRecoil > SMALL)
-        {
-            if (upperConfigured)
-            {
-                // Expand upper bound if observed pressure exceeds configured limit
-                if (maxRecoil > upperBound)
-                {
-                    upperBound = maxRecoil * safetyFactor;
-                }
-            }
-        }
-
-        if (std::isfinite(minRecoil))
-        {
-            if (lowerConfigured)
-            {
-                // Expand lower bound if observed pressure is below configured limit
-                if (minRecoil < lowerBound)
-                {
-                    lowerBound = minRecoil * safetyFactor;
-                }
-            }
-        }
-
-        const bool invalidRecoil =
-            (!std::isfinite(maxRecoil) || !std::isfinite(minRecoil));
-
-        if (invalidRecoil && !(lowerConfigured || upperConfigured))
-        {
-            lowerBound = 0.0;
-            upperBound = 0.0;
-            lowerConfigured = true;
-            upperConfigured = true;
-        }
-
-        const bool exceedsUpper = upperConfigured && maxRecoil > upperBound;
-        const bool exceedsLower = lowerConfigured && minRecoil < lowerBound;
-        const bool clampRequired = invalidRecoil || exceedsUpper || exceedsLower;
-
-        tmp<volScalarField> tRecoilClamped;
-        const volScalarField* recoilToUse = &recoilP;
-
-        if (clampRequired)
-        {
-            // Only warn if clamping after adaptive bounds expansion
-            // (adaptive expansion is normal behavior for fs-LIFT)
-            if (isMaster)
-            {
-                Info<< "    recoilPressureClamp: observed range ["
-                    << minRecoil/1e6 << ", " << maxRecoil/1e6 << "] MPa";
-
-                if (lowerConfigured || upperConfigured)
-                {
-                    Info<< ", clamping to [";
-                    if (lowerConfigured)
-                    {
-                        Info<< lowerBound/1e6;
-                    }
-                    else
-                    {
-                        Info<< "-inf";
-                    }
-                    Info<< ", ";
-
-                    if (upperConfigured)
-                    {
-                        Info<< upperBound/1e6;
-                    }
-                    else
-                    {
-                        Info<< "inf";
-                    }
-                    Info<< "] MPa (adapted)" << endl;
-                }
-                else
-                {
-                    Info<< ", clamping to zero (no bounds configured)" << endl;
-                }
-            }
-
-            if (lowerConfigured && upperConfigured)
-            {
-                tRecoilClamped = Foam::min
-                (
-                    Foam::max
-                    (
-                        recoilP,
-                        dimensionedScalar("minRecoilPressure", dimPressure, lowerBound)
-                    ),
-                    dimensionedScalar("maxRecoilPressure", dimPressure, upperBound)
-                );
-            }
-            else if (lowerConfigured)
-            {
-                tRecoilClamped = Foam::max
-                (
-                    recoilP,
-                    dimensionedScalar("minRecoilPressure", dimPressure, lowerBound)
-                );
-            }
-            else if (upperConfigured)
-            {
-                tRecoilClamped = Foam::min
-                (
-                    recoilP,
-                    dimensionedScalar("maxRecoilPressure", dimPressure, upperBound)
-                );
-            }
-            else
-            {
-                tRecoilClamped = recoilP;
-                tRecoilClamped.ref() = dimensionedScalar("zero", dimPressure, 0.0);
-            }
-
-            recoilToUse = &tRecoilClamped();
-        }
-
-        tRecoilForce = tmp<volVectorField>
-        (
-            (*recoilToUse)*interfaceStrength*interfaceNormal
-        );
-        volVectorField& recoilForce = tRecoilForce.ref();       
-        recoilTractionf = fvc::interpolate(recoilForce);
-        recoilForceReady = true;
-
-        if (logRecoil)
-        {
-            const dimensionedScalar recoilForceMag =
-                fvc::domainIntegrate(mag(recoilForce));
-
-            Info<< "    Recoil force magnitude: " << recoilForceMag.value()
-                << " N" << nl
-                << "    Max recoil pressure: " << maxRecoil/1e6
-                << " MPa" << endl;
-        }
-
-    }
-
-// Add phase explosion and plasma pressure forces
-tmp<volVectorField> tExplosiveForce;
-tmp<volVectorField> tPlasmaForce;
-bool explosiveForceReady = false;
-bool plasmaForceReady = false;
-
-if (recoilPressurePtr)  // Only if interface capturing is active
-{
-    const tmp<volVectorField> tInterfaceGrad = fvc::grad(alpha1);
-    const volVectorField& interfaceGrad = tInterfaceGrad();
-    const tmp<volScalarField> tInterfaceStrength = mag(interfaceGrad);
-    const volScalarField& interfaceStrength = tInterfaceStrength();
-    const tmp<volVectorField> tInterfaceNormal
-    (
-        -(interfaceGrad/
-        (
-            interfaceStrength
-          + dimensionedScalar("small", dimless/dimLength, SMALL)
-        ))
-    );
-    const volVectorField& interfaceNormal = tInterfaceNormal();
-
-    // Add phase explosion pressure
-    if (mesh.foundObject<volScalarField>("explosivePressure"))
-    {
-        const volScalarField& explosiveP =
-            mesh.lookupObject<volScalarField>("explosivePressure");
-
-        tExplosiveForce = tmp<volVectorField>
-        (
-            explosiveP*interfaceStrength*interfaceNormal
-        );
-        explosiveForceReady = true;
-
-        if (verbose && isMaster && runTime.timeIndex() % 10 == 0)
-        {
-            const scalar maxExplosiveP = gMax(explosiveP);
-            Info<< "    Max explosive pressure: " << maxExplosiveP/1e6
-                << " MPa" << endl;
-        }
-    }
-
-    // Add plasma pressure
-    if (mesh.foundObject<volScalarField>("plasmaPressure"))
-    {
-        const volScalarField& plasmaP =
-            mesh.lookupObject<volScalarField>("plasmaPressure");
-
-        tPlasmaForce = tmp<volVectorField>
-        (
-            plasmaP*interfaceStrength*interfaceNormal
-        );
-        plasmaForceReady = true;
-
-        if (verbose && isMaster && runTime.timeIndex() % 10 == 0)
-        {
-            const scalar maxPlasmaP = gMax(plasmaP);
-            Info<< "    Max plasma pressure: " << maxPlasmaP/1e6
-                << " MPa" << endl;
-        }
-    }
-}
-
 if (pimple.momentumPredictor())
 {
     // The capillary force already appears in phig within pEqn.H via
@@ -466,20 +198,20 @@ if (pimple.momentumPredictor())
     // already accounted for through the -ghf*fvc::snGrad(rho) contribution
     // inside phig in pEqn.H, so including rho*g here would double-count it
     // and steadily accelerate the flow even in the absence of recoil.
-    tmp<volVectorField> tGradPrgh = fvc::grad(p_rgh);
-    volVectorField gradPrgh
+    tmp<volVectorField> tGradTotalP = fvc::grad(totalPressure);
+    volVectorField gradTotalP
     (
         IOobject
         (
-            "grad(p_rgh)",
+            "grad(totalPressure)",
             runTime.timeName(),
             mesh,
             IOobject::NO_READ,
             IOobject::NO_WRITE
         ),
-        tGradPrgh()
+        tGradTotalP()
     );
-    tGradPrgh.clear();
+    tGradTotalP.clear();
 
     const Foam::scalar gradLimit = solverCoeffs.lookupOrDefault<Foam::scalar>
     (
@@ -490,7 +222,7 @@ if (pimple.momentumPredictor())
     bool nonFiniteGrad = false;
     bool gradClamped = false;
 
-    vectorField& gradInternal = gradPrgh.internalFieldRef();
+    vectorField& gradInternal = gradTotalP.internalFieldRef();
 
     forAll(gradInternal, celli)
     {
@@ -519,9 +251,9 @@ if (pimple.momentumPredictor())
         }
     }
 
-    forAll(gradPrgh.boundaryField(), patchi)
+    forAll(gradTotalP.boundaryField(), patchi)
     {
-        vectorField& gradPatch = gradPrgh.boundaryFieldRef()[patchi];
+        vectorField& gradPatch = gradTotalP.boundaryFieldRef()[patchi];
 
         forAll(gradPatch, facei)
         {
@@ -554,27 +286,20 @@ if (pimple.momentumPredictor())
     if (nonFiniteGrad)
     {
         WarningInFunction
-            << "Non-finite entries detected in grad(p_rgh); resetting to zero"
+            << "Non-finite entries detected in grad(totalPressure); resetting to zero"
             << nl;
     }
 
     if (gradClamped)
     {
-        Info<< "    grad(p_rgh) limited to max magnitude "
+        Info<< "    grad(totalPressure) limited to max magnitude "
             << gradLimit << " Pa/m" << endl;
     }
-    
-    tmp<volVectorField> tPressureForce(-gradPrgh);
+
+    tmp<volVectorField> tPressureForce(-gradTotalP);
     volVectorField& pressureForce = tPressureForce.ref();
 
     tmp<volVectorField> tMomentumSource(tPressureForce);
-
-    const volVectorField* recoilForceFieldPtr = nullptr;
-
-    if (recoilForceReady)
-    {
-        recoilForceFieldPtr = &tRecoilForce();
-    }
 
     const scalar domainVolume = gSum(mesh.V());
     const scalar deltaT = runTime.deltaTValue();
@@ -594,63 +319,12 @@ if (pimple.momentumPredictor())
         const scalar meanPressureAccel =
             pressureAccelIntegral.value()/domainVolume;
 
-        scalar maxRecoilAccel = 0.0;
-        scalar meanRecoilAccel = 0.0;
-
-        if (recoilForceFieldPtr)
-        {
-            tmp<volVectorField> tRecoilAccel((*recoilForceFieldPtr)/rho);
-            const volVectorField& recoilAccel = tRecoilAccel();
-            tmp<volScalarField> tRecoilAccelMag = mag(recoilAccel);
-            const volScalarField& recoilAccelMag = tRecoilAccelMag();
-
-            const dimensionedScalar recoilAccelIntegral =
-                fvc::domainIntegrate(recoilAccelMag);
-            maxRecoilAccel = gMax(recoilAccelMag);
-            meanRecoilAccel = recoilAccelIntegral.value()/domainVolume;
-        }
-
-        tmp<volVectorField> tTotalAccel(tMomentumSource()/rho);
-        volVectorField& totalAccel = tTotalAccel.ref();
-
-        if (recoilForceFieldPtr)
-        {
-            totalAccel += (*recoilForceFieldPtr)/rho;
-        }
-        if (explosiveForceReady)
-        {
-            totalAccel += tExplosiveForce()/rho;
-        }
-
-        if (plasmaForceReady)
-        {
-            totalAccel += tPlasmaForce()/rho;
-        }
-        tmp<volScalarField> tTotalAccelMag = mag(totalAccel);
-        const volScalarField& totalAccelMag = tTotalAccelMag();
-
-        const dimensionedScalar totalAccelIntegral =
-            fvc::domainIntegrate(totalAccelMag);
-        const scalar maxTotalAccel = gMax(totalAccelMag);
-        const scalar meanTotalAccel =
-            totalAccelIntegral.value()/domainVolume;
-
         Info<< "    Velocity diagnostics:" << nl
-            << "      Max pressure acceleration: "
+            << "      Max total-pressure acceleration: "
             << maxPressureAccel << " m/s^2 (dU ~ "
             << maxPressureAccel*deltaT << " m/s per step)" << nl
-            << "      Max recoil acceleration:   "
-            << maxRecoilAccel << " m/s^2 (dU ~ "
-            << maxRecoilAccel*deltaT << " m/s per step)" << nl
-            << "      Max total acceleration:    "
-            << maxTotalAccel << " m/s^2 (dU ~ "
-            << maxTotalAccel*deltaT << " m/s per step)" << nl
-            << "      Mean total acceleration:   "
-            << meanTotalAccel << " m/s^2" << nl
-            << "      Mean pressure acceleration: "
-            << meanPressureAccel << " m/s^2" << nl
-            << "      Mean recoil acceleration:  "
-            << meanRecoilAccel << " m/s^2" << endl;
+            << "      Mean total-pressure acceleration: "
+            << meanPressureAccel << " m/s^2" << endl;
     }
 
     volVectorField momentumSource
@@ -668,21 +342,7 @@ if (pimple.momentumPredictor())
     tPressureForce.clear();
     tMomentumSource.clear();
 
-    // ========== ADD ENHANCED PHYSICS FORCES ==========
-    // Add phase explosion force
-    if (explosiveForceReady)
-    {
-        momentumSource += tExplosiveForce();
-    }
-
-    // Add plasma force
-    if (plasmaForceReady)
-    {
-        momentumSource += tPlasmaForce();
-    }
-    // ========== END ENHANCED PHYSICS ==========
-
-    // Solve with complete momentum source
+    // Solve with implicit total-pressure forcing
     solve(UEqn == momentumSource);
     fvOptions.correct(U);
     U.correctBoundaryConditions();

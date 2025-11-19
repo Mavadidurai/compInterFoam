@@ -23,12 +23,14 @@ volVectorField HbyA
     ),
     constrainHbyA(rAU*UEqn.H(), U, p_rgh)
 );
-
+// Recoil force removed - recoil pressure now handled implicitly through p_rgh field
+// This prevents triple-counting and restores proper PIMPLE pressure-velocity coupling
+/*
 if (recoilForceReady && tRecoilForce.valid())
 {
     HbyA += rAU*tRecoilForce();
 }
-
+*/
 surfaceScalarField phiHbyA
 (
     IOobject
@@ -60,7 +62,7 @@ surfaceScalarField phig
 
 // Get solver coefficients dictionary for all stability controls
 const Foam::dictionary solverCoeffs = compInterFoamCoeffsDict(mesh);
-
+/*
 if (recoilForceReady)
 {
     // Smoothing prevents GAMG divergence. Reference: Brackbill et al. (1992)
@@ -76,6 +78,12 @@ if (recoilForceReady)
         phig += (recoilTractionf & mesh.Sf())*rAUf;
     }
 }
+*/
+
+// Recoil traction removed from phig - recoil pressure handled via p_rgh only
+// Explicit force addition breaks pressure-velocity coupling in PIMPLE algorithm
+
+ 
 phiHbyA += phig;
 
 // Limit mass flux to prevent pressure divergence from extreme recoil/phase change
@@ -283,12 +291,12 @@ fvc::makeRelative(rhoPhi, U);
 p = p_rgh + rho*gh;
 p_rgh.correctBoundaryConditions();
 p.correctBoundaryConditions();
-
+/*
 if (tRecoilForce.valid())
 {
     tRecoilForce.clear();
 }
-
+*/
 const Foam::Switch pressureClamp =
     solverCoeffs.lookupOrDefault<Foam::Switch>("pressureClamp", true);
 

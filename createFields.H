@@ -96,7 +96,7 @@ surfaceScalarField phi
     ),
     fvc::flux(U)
 );
-
+/*
 surfaceVectorField recoilTractionf
 (
     IOobject
@@ -116,6 +116,7 @@ surfaceVectorField recoilTractionf
         Foam::vector::zero
     )
 );
+*/
 if (verbose && Foam::Pstream::master())
 {
     Info<< "Reading field T\n" << endl;
