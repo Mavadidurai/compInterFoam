@@ -1,0 +1,50 @@
+# Quick Fix for Ejection Blocking Issue
+# Apply this patch to enable material ejection
+
+## File 1: TEST1/system/fvSolution
+## Change maxPressure from 50 GPa to 150 GPa
+
+--- TEST1/system/fvSolution.orig
++++ TEST1/system/fvSolution
+@@ -185,7 +185,7 @@
+     // above that to avoid throttling the kinetic-theory recoil driver.
+     pressureClamp      true;
+-    maxPressure        5.0e10
++    maxPressure        1.5e11   // 150 GPa - increased for shock wave headroom
+     ;
+-    minPressure       -5.e10;
++    minPressure       -1.5e11;
+
+## OPTIONAL: If above doesn't work, also fix the logic bug
+
+## File 2: pEqn.H (OPTIONAL - only if increasing maxPressure isn't enough)
+## Fix the fallback logic to respect configured values
+
+--- pEqn.H.orig
++++ pEqn.H
+@@ -320,7 +320,10 @@
+ Foam::scalar fallbackMinValue = -1e7;
+ Foam::scalar fallbackMaxValue = 1e9;
+
+-if (configuredMaxPressure > Foam::SMALL && configuredMaxPressure < fallbackMaxValue)
++// FIXED: Use configured value if it's LARGER than fallback (was: if smaller)
++// This ensures user's high maxPressure settings are respected for fs-LIFT
++if (configuredMaxPressure > Foam::SMALL &&
++    configuredMaxPressure > fallbackMaxValue)
+ {
+     fallbackMaxValue = configuredMaxPressure;
+     fallbackMinValue = Foam::min(fallbackMinValue, -configuredMaxPressure);
+
+
+## ALTERNATIVE: Disable clamping entirely (if above fails)
+
+--- TEST1/system/fvSolution.orig
++++ TEST1/system/fvSolution
+@@ -185,8 +185,8 @@
+     // above that to avoid throttling the kinetic-theory recoil driver.
+-    pressureClamp      true;
+-    maxPressure        5.0e10
++    pressureClamp      false;  // DISABLED - let pressure develop freely
++    maxPressure        5.0e10  // (ignored when clamp disabled)
+     ;
+     minPressure       -5.e10;
