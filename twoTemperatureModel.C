@@ -764,8 +764,10 @@ void twoTemperatureModel::solveLatticeEquation
      tmp<volScalarField> tInactiveMask = one - activeMask;
      const volScalarField& inactiveMask = tInactiveMask();
 
-     tmp<volScalarField> tMetalEffActive = metalEff*activeMask;
-     const volScalarField& metalEffActive = tMetalEffActive();
+    const volScalarField& metalEffDiffusion = metalEff;
+
+    tmp<volScalarField> tMetalEffActive = metalEff*activeMask;
+    const volScalarField& metalEffActive = tMetalEffActive();
 
      tmp<volScalarField> tMetalPhysicalActive = metalPhysical*activeMask;
      const volScalarField& metalPhysicalActive = tMetalPhysicalActive();
@@ -775,8 +777,8 @@ void twoTemperatureModel::solveLatticeEquation
 
      fvScalarMatrix TlEqn
      (
-         fvm::Sp(capacity/dtSub, Tl_)
-       - fvm::laplacian(metalEffActive*klField, Tl_)
+        fvm::Sp(capacity/dtSub, Tl_)
+      - fvm::laplacian(metalEffDiffusion*klField, Tl_)
        + fvm::Sp(metalEffActive*G, Tl_)
        + fvm::Sp(metalEffActive*Cl_*phaseChangeRelaxCoeff, Tl_)
      ==
@@ -820,8 +822,11 @@ void twoTemperatureModel::solveElectronEquation
      tmp<volScalarField> tInactiveMask = one - activeMask;
      const volScalarField& inactiveMask = tInactiveMask();
 
-     tmp<volScalarField> tMetalEffActive = metalEff*activeMask;
-     const volScalarField& metalEffActive = tMetalEffActive();
+
+    const volScalarField& metalEffDiffusion = metalEff;
+
+    tmp<volScalarField> tMetalEffActive = metalEff*activeMask;
+    const volScalarField& metalEffActive = tMetalEffActive();
 
      tmp<volScalarField> tMetalPhysicalActive = metalPhysical*activeMask;
      const volScalarField& metalPhysicalActive = tMetalPhysicalActive();
@@ -831,8 +836,8 @@ void twoTemperatureModel::solveElectronEquation
 
      fvScalarMatrix TeEqn
      (
-         fvm::Sp(capacity/dtSub, Te_)
-       - fvm::laplacian(metalEffActive*ke, Te_)
+        fvm::Sp(capacity/dtSub, Te_)
+      - fvm::laplacian(metalEffDiffusion*ke, Te_)
        + fvm::Sp(metalEffActive*G, Te_)
      ==
          (capacity/dtSub)*TePrev
