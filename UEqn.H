@@ -31,13 +31,10 @@ const Foam::dictionary& controlDict = mesh.time().controlDict();
 const Foam::dictionary& aicDict =
     controlDict.subOrEmptyDict("advancedInterfaceCapturing"); 
 
-bool recoilClampActive = true;
 scalar recoilClampMax = 5e10;  // Default: 50 GPa (realistic for fs-LIFT)
 
 if (!aicDict.empty())
 {
-
-    recoilClampActive = aicDict.lookupOrDefault<Foam::Switch>("clampRecoil", true);
     // Try maxRecoilPressure first, then recoilMax (legacy)
     scalar maxRecoil = aicDict.lookupOrDefault<scalar>("maxRecoilPressure", 0.0);
     if (maxRecoil <= SMALL)

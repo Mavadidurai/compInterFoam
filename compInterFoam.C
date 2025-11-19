@@ -357,7 +357,6 @@ namespace
         // 3. Film separation detection
         static Foam::scalar prevMetalVol = metalVol;
         static Foam::scalar prevAvgVel = avgVel;
-        static Foam::scalar prevRecoil = maxRecoil;
         static Foam::scalar maxVelSeen = 0.0;
         static Foam::scalar maxRecoilSeen = 0.0;
         static bool separationDetected = false;
