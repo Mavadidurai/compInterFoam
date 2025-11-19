@@ -116,7 +116,7 @@ advancedInterfaceCapturing
 	
     clampRecoil           false;
    // recoilMax             2.0e8;  
-    maxRecoilPressure   1.0e10;	// 200 MPa (2.5× Feinaeugle observed peak of ~80 MPa)
+    maxRecoilPressure   2.0e8;   // Clamp consistent with Feinaeugle et al. (Appl. Surf. Sci. 418, 2017)
          
     scaleRecoilMax        false;
     recoilRelax           0.7;
