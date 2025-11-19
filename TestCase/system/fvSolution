@@ -143,7 +143,7 @@ relaxationFactors
 {
     fields
     {
-        p_rgh           0.3;
+        p_rgh           0.15;  // CRITICAL: Reduced from 0.3 for multi-GPa recoil stability
         "alpha.*"       0.5;
     }
     equations
@@ -183,9 +183,12 @@ compInterFoamCoeffs
     // Clamp p_rgh to a physically defensible range so GAMG cannot run away.
     // Feinaeugle et al. observe Ti recoil plateaus close to 80 MPa, so keep the ceiling
     // above that to avoid throttling the kinetic-theory recoil driver.
-    pressureClamp      true;
-    maxPressure        2.0e8;
-    minPressure       0;
+    // Clamp p_rgh to prevent PIMPLE instability with multi-GPa recoil forcing
+    // CRITICAL: With 28.5 GPa recoil, pressure solver overshoots to ±550 GPa without this
+    // Set ceiling at 50 GPa to allow headroom above calculated recoil while preventing divergence
+    pressureClamp      true;          // ENABLED to prevent ±550 GPa overshoot
+    maxPressure        5.0e10;        // 50 GPa - allows 2× headroom above 28.5 GPa recoil
+    minPressure       -5.0e10;        // Symmetric limit for negative pressures
 
     // Density clamp settings
     densityClamp       false;

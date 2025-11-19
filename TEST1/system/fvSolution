@@ -118,8 +118,8 @@ solvers
 PIMPLE
 {
     momentumPredictor           true;
-    nOuterCorrectors            15;  // Increased for extreme pressure gradients
-    nCorrectors                 6;   // More pressure correctors
+    nOuterCorrectors            20;  // Increased from 15 for multi-GPa recoil convergence
+    nCorrectors                 8;   // Increased from 6 for extreme pressure gradients
     nNonOrthogonalCorrectors    3;   // More non-orthogonal corrections
     outerCorrectorResidualControl
     {
@@ -144,14 +144,13 @@ relaxationFactors
 {
     fields
     {
-        p_rgh           0.2;   // Increased from 0.3 for faster convergence
+        p_rgh           0.15;  // CRITICAL: Reduced from 0.2 for multi-GPa recoil stability
         "alpha.*"       0.7;   // Increased from 0.5
     }
 
     equations
-
     {
-        U               0.3;   // Increased from 0.5
+        U               0.2;   // Reduced from 0.3 for extreme forcing stability
         T               0.7;   // Increased from 0.5
         Te              0.6;   // Increased from 0.5 (more conservative for electrons)
         Tl              0.7;   // Increased from 0.5
@@ -181,13 +180,12 @@ compInterFoamCoeffs
     minAlpha          0.001;
     maxAlpha          0.999;
 
-    // Clamp p_rgh to a physically defensible range so GAMG cannot run away.
-    // Feinaeugle et al. observe Ti recoil plateaus close to 80 MPa, so keep the ceiling
-    // above that to avoid throttling the kinetic-theory recoil driver.
-    pressureClamp      false;
-    maxPressure        5.0e10
-    ;
-    minPressure       -1e7;
+    // Clamp p_rgh to prevent PIMPLE instability with multi-GPa recoil forcing
+    // CRITICAL: With 28.5 GPa recoil, pressure solver overshoots to ±550 GPa without this
+    // Set ceiling at 50 GPa to allow headroom above calculated recoil while preventing divergence
+    pressureClamp      true;          // ENABLED to prevent ±550 GPa overshoot
+    maxPressure        5.0e10;        // 50 GPa - allows 2× headroom above 28.5 GPa recoil
+    minPressure       -5.0e10;        // Symmetric limit for negative pressures
 
     // Density clamp settings
     densityClamp       false;   // Enable to prevent extreme density ratios

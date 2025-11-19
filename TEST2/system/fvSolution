@@ -124,7 +124,7 @@ solvers
 PIMPLE
 {
     momentumPredictor           true;
-    nOuterCorrectors            10;          // Increased from 10 t0 30 to 50 for stiff thermal gradients
+    nOuterCorrectors            20;          // Increased from 10 for multi-GPa recoil convergence
     nCorrectors                 3;
     nNonOrthogonalCorrectors    2;
 
@@ -146,7 +146,7 @@ relaxationFactors
 {
     fields
     {
-        p_rgh           0.5; // Reduce from 0.3 (more conservative)
+        p_rgh           0.15; // CRITICAL: Reduced from 0.5 for multi-GPa recoil stability
         "alpha.*"       0.7;
     }
     equations
@@ -185,9 +185,12 @@ compInterFoamCoeffs
     // Clamp p_rgh to a physically defensible range so GAMG cannot run away.
     // Feinaeugle et al. observe Ti recoil plateaus close to 80 MPa, so keep the ceiling
     // above that to avoid throttling the kinetic-theory recoil driver.
-    pressureClamp      false;
-    maxPressure        3.3e9;
-    minPressure       -5e6;
+    // Clamp p_rgh to prevent PIMPLE instability with multi-GPa recoil forcing
+    // CRITICAL: With 28.5 GPa recoil, pressure solver overshoots to ±550 GPa without this
+    // Set ceiling at 50 GPa to allow headroom above calculated recoil while preventing divergence
+    pressureClamp      true;          // ENABLED to prevent ±550 GPa overshoot
+    maxPressure        5.0e10;        // 50 GPa - allows 2× headroom above 28.5 GPa recoil
+    minPressure       -5.0e10;        // Symmetric limit for negative pressures
 
     // Density clamp settings
     densityClamp       false;
