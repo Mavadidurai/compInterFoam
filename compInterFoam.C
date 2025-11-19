@@ -367,12 +367,28 @@ namespace
 
         const Foam::scalar velAccel = dt > Foam::SMALL ?
             (avgVel - prevAvgVel) / dt : 0.0;
-
+            
+        const Foam::scalar recoilDropRate = dt > Foam::SMALL ?
+            (prevRecoil - maxRecoil) / dt : 0.0;
+            
         maxVelSeen = Foam::max(maxVelSeen, avgVel);
         maxRecoilSeen = Foam::max(maxRecoilSeen, maxRecoil);
 
         // Detect separation: recoil dropping + velocity still high + material loss increasing
-        if (!separationDetected && maxRecoilSeen > 1e7 && maxRecoil < 0.5 * maxRecoilSeen && avgVel > 50.0)
+        const Foam::scalar recoilDropThreshold = 5e11; // Pa/s, femtosecond LIFT-scale collapse
+        const Foam::scalar recoilDropFactor = 0.75;
+        const bool recoilCollapsed =
+            recoilDropRate > recoilDropThreshold ||
+            (maxRecoil < recoilDropFactor * prevRecoil);
+
+        if
+        (
+            !separationDetected
+         && maxRecoilSeen > 1e7
+         && maxRecoil < 0.5 * maxRecoilSeen
+         && avgVel > 50.0
+         && recoilCollapsed
+        )
         {
             separationDetected = true;
             if (Foam::Pstream::master())
