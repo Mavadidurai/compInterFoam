@@ -115,6 +115,7 @@ advancedInterfaceCapturing
     // levels observed in ultrafast LIFT experiments before clamping.
 	
     clampRecoil           true;    // CRITICAL FIX: Enable recoil pressure clamping to prevent unphysical TPa pressures
+    recoilMax             2.0e8;   // Must match maxRecoilPressure (solver uses minimum of both)
     maxRecoilPressure   2.0e8;   // Clamp at 200 MPa consistent with Feinaeugle et al. (Appl. Surf. Sci. 418, 2017)
          
     scaleRecoilMax        false;
