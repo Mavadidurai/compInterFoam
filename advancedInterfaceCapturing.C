@@ -86,7 +86,7 @@ advancedInterfaceCapturing::advancedInterfaceCapturing
             1.0
         )
     ),
-    recoilMax_(0.0),
+    recoilMax_(1e8), // 100 MPa default cap, consistent with fs-LIFT measurements
     recoilTempOffset_
     (
         dimensionedScalar("recoilTempOffset", dimTemperature, 0.0)
@@ -295,7 +295,7 @@ advancedInterfaceCapturing::advancedInterfaceCapturing
     // tightest cap from either entry to prevent the solver from driving the
     // pressure clamp into the hard ceiling reported in the run log.
     const scalar recoilMaxPressure =
-        aicDict.lookupOrDefault<scalar>("maxRecoilPressure", -1.0);
+        aicDict.lookupOrDefault<scalar>("maxRecoilPressure", recoilMax_);
 
     if (recoilMaxPressure > SMALL)
     {
@@ -343,11 +343,6 @@ advancedInterfaceCapturing::advancedInterfaceCapturing
         "clampRecoil",
         clampRecoil_
     );
-    if (femtosecondCase_)
-    {
-        // Allow multi-GPa recoil spikes without artificial clipping in fs runs.
-        clampRecoil_ = false;
-    }
     scaleRecoilMax_ = aicDict.lookupOrDefault<Switch>
     (
         "scaleRecoilMax",
