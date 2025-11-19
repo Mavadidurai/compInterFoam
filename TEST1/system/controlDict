@@ -114,7 +114,7 @@ advancedInterfaceCapturing
     // allow the kinetic-theory recoil driver to reach the multi-GPa recoil
     // levels observed in ultrafast LIFT experiments before clamping.
     recoilMax             5.0e10;	// 50 GPa (allow fs-LIFT multi-GPa pressures)
-    clampRecoil           false;	// DISABLED: Let physics compute natural pressures
+    clampRecoil           true;	// ON as safety valve (allows 32.9 GPa, catches runaway >50 GPa)
     scaleRecoilMax        false;
     recoilRelax           0.7;
     alphaMin              0.001;

@@ -182,9 +182,9 @@ compInterFoamCoeffs
     maxAlpha          0.999;
 
     // Clamp p_rgh to a physically defensible range so GAMG cannot run away.
-    // For fs-LIFT: Let physics compute natural multi-GPa pressures
-    pressureClamp      false;		// DISABLED: Allow natural pressure development
-    maxPressure        1.0e11;		// 100 GPa (ignored when pressureClamp=false)
+    // For fs-LIFT: Allow natural multi-GPa pressures with safety valve
+    pressureClamp      true;		// ON as safety valve
+    maxPressure        1.0e11;		// 100 GPa (allows physics, catches runaway)
     minPressure       -1e7;
 
     // Density clamp settings
