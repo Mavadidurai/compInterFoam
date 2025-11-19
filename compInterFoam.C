@@ -130,8 +130,10 @@ namespace
 
         if (!statusPrinted && Foam::Pstream::master())
         {
-            Info<< "Lift process tracker enabled"
-                << " (enableLiftProcessTracker = true)" << Foam::endl;
+            Info<< "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" << Foam::nl
+                << "   ADVANCED LIFT PROCESS TRACKER v2.0" << Foam::nl
+                << "   Physics-based diagnostics with real-time prediction" << Foam::nl
+                << "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" << Foam::endl;
             statusPrinted = true;
         }
 
@@ -284,6 +286,217 @@ namespace
         {
             avgVel = weightedVelSum/metalVolumeWeight;
         }
+
+        // ========== ADVANCED DIAGNOSTICS ==========
+
+        // 1. Vapor plume tracking
+        Foam::scalar vaporVolume = 0.0;
+        Foam::scalar vaporMaxVel = 0.0;
+        Foam::scalar vaporAvgVel = 0.0;
+        Foam::scalar vaporWeightSum = 0.0;
+        Foam::label vaporCells = 0;
+
+        const Foam::scalar alpha2Threshold = 0.99; // Almost pure gas
+        const Foam::scalar rhoGasThreshold = 10.0; // High-density gas (plume)
+
+        forAll(alphaInternal, cellI)
+        {
+            if (alphaInternal[cellI] < (1.0 - alpha2Threshold)) // Gas phase
+            {
+                const Foam::scalar rhoCell = rho.primitiveField()[cellI];
+                const Foam::scalar TCell = TlField.primitiveField()[cellI];
+
+                // Detect high-density/high-temp gas (vapor plume, not ambient)
+                if (rhoCell > rhoGasThreshold || TCell > 500.0)
+                {
+                    vaporCells++;
+                    const Foam::scalar cellVol = cellVolumes[cellI];
+                    vaporVolume += cellVol;
+
+                    const Foam::scalar velMag = Foam::mag(UInternal[cellI]);
+                    vaporMaxVel = Foam::max(vaporMaxVel, velMag);
+
+                    const Foam::scalar weight = rhoCell * cellVol;
+                    vaporWeightSum += velMag * weight;
+                    vaporAvgVel += weight;
+                }
+            }
+        }
+
+        Foam::reduce(vaporVolume, Foam::sumOp<Foam::scalar>());
+        Foam::reduce(vaporMaxVel, Foam::maxOp<Foam::scalar>());
+        Foam::reduce(vaporWeightSum, Foam::sumOp<Foam::scalar>());
+        Foam::reduce(vaporAvgVel, Foam::sumOp<Foam::scalar>());
+        Foam::reduce(vaporCells, Foam::sumOp<Foam::label>());
+
+        if (vaporAvgVel > Foam::VSMALL)
+        {
+            vaporAvgVel = vaporWeightSum / vaporAvgVel;
+        }
+
+        // 2. Interface topology analysis
+        Foam::label interfaceCells = 0;
+        Foam::scalar interfaceArea = 0.0;
+        const Foam::scalar alphaInterfaceMin = 0.01;
+        const Foam::scalar alphaInterfaceMax = 0.99;
+
+        forAll(alphaInternal, cellI)
+        {
+            const Foam::scalar alpha = alphaInternal[cellI];
+            if (alpha > alphaInterfaceMin && alpha < alphaInterfaceMax)
+            {
+                interfaceCells++;
+                // Approximate interface area contribution
+                interfaceArea += Foam::pow(cellVolumes[cellI], 2.0/3.0);
+            }
+        }
+
+        Foam::reduce(interfaceCells, Foam::sumOp<Foam::label>());
+        Foam::reduce(interfaceArea, Foam::sumOp<Foam::scalar>());
+
+        // 3. Film separation detection
+        static Foam::scalar prevMetalVol = metalVol;
+        static Foam::scalar prevAvgVel = avgVel;
+        static Foam::scalar prevRecoil = maxRecoil;
+        static Foam::scalar maxVelSeen = 0.0;
+        static Foam::scalar maxRecoilSeen = 0.0;
+        static bool separationDetected = false;
+
+        const Foam::scalar dt = runTime.deltaTValue();
+        const Foam::scalar metalLossRate = dt > Foam::SMALL ?
+            (prevMetalVol - metalVol) / dt : 0.0;
+        const Foam::scalar velAccel = dt > Foam::SMALL ?
+            (avgVel - prevAvgVel) / dt : 0.0;
+        const Foam::scalar recoilChangeRate = dt > Foam::SMALL ?
+            (maxRecoil - prevRecoil) / dt : 0.0;
+
+        maxVelSeen = Foam::max(maxVelSeen, avgVel);
+        maxRecoilSeen = Foam::max(maxRecoilSeen, maxRecoil);
+
+        // Detect separation: recoil dropping + velocity still high + material loss increasing
+        if (!separationDetected && maxRecoilSeen > 1e7 && maxRecoil < 0.5 * maxRecoilSeen && avgVel > 50.0)
+        {
+            separationDetected = true;
+
+            if (Foam::Pstream::master())
+            {
+                Info<< "\n"
+                    << "╔═══════════════════════════════════════════════════════════════════╗\n"
+                    << "║                                                                   ║\n"
+                    << "║  🚀🚀🚀  FILM SEPARATION EVENT DETECTED!  🚀🚀🚀                  ║\n"
+                    << "║                                                                   ║\n"
+                    << "║  Time: " << std::setw(10) << std::fixed << std::setprecision(3)
+                    << t*1e12 << " ps                                             ║\n"
+                    << "║  Film velocity: " << std::setw(10) << std::fixed << std::setprecision(2)
+                    << avgVel << " m/s                                     ║\n"
+                    << "║  Recoil pressure drop: " << std::setw(6) << std::fixed << std::setprecision(1)
+                    << (1.0 - maxRecoil/maxRecoilSeen)*100.0 << " %                              ║\n"
+                    << "║                                                                   ║\n"
+                    << "║  Film has detached from donor substrate!                         ║\n"
+                    << "║  Now tracking ballistic transfer phase...                        ║\n"
+                    << "║                                                                   ║\n"
+                    << "╚═══════════════════════════════════════════════════════════════════╝\n"
+                    << Foam::endl;
+            }
+        }
+
+        // 4. Velocity field decomposition
+        Foam::scalar velocityStdDev = 0.0;
+        Foam::scalar turbulentKE = 0.0;
+
+        if (metalVolumeWeight > Foam::VSMALL)
+        {
+            forAll(alphaInternal, cellI)
+            {
+                if (alphaInternal[cellI] > 0.01)
+                {
+                    const Foam::scalar velMag = Foam::mag(UInternal[cellI]);
+                    const Foam::scalar weight = alphaInternal[cellI] * cellVolumes[cellI];
+                    const Foam::scalar deviation = velMag - avgVel;
+                    velocityStdDev += weight * deviation * deviation;
+
+                    // Turbulent KE ≈ 0.5 * rho * (U - U_mean)^2
+                    const Foam::vector velFluctuation = UInternal[cellI] -
+                        (UInternal[cellI] / Foam::mag(UInternal[cellI] + Foam::vector::one*Foam::SMALL)) * avgVel;
+                    turbulentKE += 0.5 * rho.primitiveField()[cellI] *
+                        alphaInternal[cellI] * cellVolumes[cellI] *
+                        Foam::magSqr(velFluctuation);
+                }
+            }
+
+            Foam::reduce(velocityStdDev, Foam::sumOp<Foam::scalar>());
+            Foam::reduce(turbulentKE, Foam::sumOp<Foam::scalar>());
+            velocityStdDev = Foam::sqrt(velocityStdDev / metalVolumeWeight);
+        }
+
+        // 5. Time-to-ejection estimation
+        Foam::scalar timeToEjection = -1.0;
+        Foam::scalar predictedEjectionVel = -1.0;
+
+        const Foam::scalar ejectionVelThreshold = 100.0; // m/s bulk velocity
+        const Foam::scalar criticalRecoil = 1e7; // 10 MPa minimum for ejection
+
+        if (!separationDetected && maxRecoil > criticalRecoil && velAccel > 1e10)
+        {
+            // Simple linear extrapolation
+            const Foam::scalar velToGo = ejectionVelThreshold - avgVel;
+            if (velToGo > 0 && velAccel > 0)
+            {
+                timeToEjection = velToGo / velAccel;
+                predictedEjectionVel = avgVel + velAccel * timeToEjection;
+            }
+        }
+
+        // 6. Energy partitioning
+        const Foam::scalar kineticEnergyMetal = 0.5 * metalVolumeWeight * avgVel * avgVel;
+        const Foam::scalar totalLaserEnergy = fvc::domainIntegrate(alpha1 * QLaser).value() * t;
+        const Foam::scalar kineticEfficiency = totalLaserEnergy > Foam::SMALL ?
+            (kineticEnergyMetal / totalLaserEnergy) * 100.0 : 0.0;
+
+        // 7. Shock wave detection
+        Foam::scalar maxPressureGradient = 0.0;
+        const Foam::vectorField gradP = fvc::grad(p_rgh + rho*gh)().primitiveField();
+
+        forAll(gradP, cellI)
+        {
+            maxPressureGradient = Foam::max(maxPressureGradient, Foam::mag(gradP[cellI]));
+        }
+        Foam::reduce(maxPressureGradient, Foam::maxOp<Foam::scalar>());
+
+        const bool shockWavePresent = maxPressureGradient > 1e15; // Pa/m
+
+        // 8. Event notifications
+        static bool ejectionPhaseReported = false;
+        static bool highVelocityReported = false;
+        static bool shockReported = false;
+
+        if (!ejectionPhaseReported && avgVel > ejectionVelThreshold && Foam::Pstream::master())
+        {
+            ejectionPhaseReported = true;
+            Info<< "\n⚡ MILESTONE: Film velocity exceeds ejection threshold ("
+                << ejectionVelThreshold << " m/s) at t=" << t*1e12 << " ps\n" << Foam::endl;
+        }
+
+        if (!highVelocityReported && avgVel > 500.0 && Foam::Pstream::master())
+        {
+            highVelocityReported = true;
+            Info<< "\n⚡ MILESTONE: High-velocity regime reached (>500 m/s) at t="
+                << t*1e12 << " ps\n" << Foam::endl;
+        }
+
+        if (!shockReported && shockWavePresent && Foam::Pstream::master())
+        {
+            shockReported = true;
+            Info<< "\n⚡ ALERT: Shock wave detected (∇p = "
+                << maxPressureGradient/1e9 << " GPa/m) at t=" << t*1e12 << " ps\n" << Foam::endl;
+        }
+
+        prevMetalVol = metalVol;
+        prevAvgVel = avgVel;
+        prevRecoil = maxRecoil;
+
+        // ========== END ADVANCED DIAGNOSTICS ==========
+
         if (Foam::Pstream::master())
         {
             Info<< "══════ LIFT STATE SNAPSHOT ══════" << Foam::nl
@@ -559,34 +772,94 @@ namespace
                 Info<< rowStream.str() << Foam::nl;
             };
 
+            // Enhanced progress bar
+            auto progressBar = [&](Foam::scalar pct)
+            {
+                const int barWidth = 50;
+                const int filled = static_cast<int>(pct / 100.0 * barWidth);
+                std::string bar = "[";
+                for (int i = 0; i < barWidth; ++i)
+                {
+                    if (i < filled) bar += "█";
+                    else if (i == filled) bar += "▌";
+                    else bar += "░";
+                }
+                bar += "]";
+                return bar;
+            };
+
             Info<< "\n╔════════════════════════════════════════════════════════════════════════════════╗" << Foam::nl;
-            centeredLine("LIFT PROCESS STATUS");
+            centeredLine("⚡ ADVANCED LIFT PROCESS STATUS ⚡");
             Info<< "╠════════════════════════════════════════════════════════════════════════════════╣" << Foam::nl;
             formattedRow("Phase:", std::string(phaseName));
-            formattedRow("Progress:", scalarValue(progress, "%"));
             formattedRow("Time:", scalarValue(t*1e12, "ps"));
+            Info<< "║ Progress: " << progressBar(progress) << " "
+                << std::setw(5) << std::fixed << std::setprecision(1) << progress << "% ║" << Foam::nl;
+
+            // Separation status indicator
+            if (separationDetected)
+            {
+                Info<< "║ " << std::string(76, ' ') << " ║" << Foam::nl;
+                centeredLine("🚀 *** FILM SEPARATION DETECTED *** 🚀");
+            }
+
             Info<< "╠════════════════════════════════════════════════════════════════════════════════╣" << Foam::nl;
-            centeredLine("THERMAL STATE");
-            formattedRow("Te max:", scalarValue(maxTe, "K"));
-            formattedRow("Tl max:", scalarValue(maxTl, "K"));
-            formattedRow("Tl avg:", scalarValue(avgTl, "K"));
-            formattedRow("Tl spread:", scalarValue(tempSpread, "K"));
+            centeredLine("🌡️  THERMAL DIAGNOSTICS");
+            formattedRow("Electron temp (max):", scalarValue(maxTe, "K"));
+            formattedRow("Lattice temp (max):", scalarValue(maxTl, "K"));
+            formattedRow("Lattice temp (avg):", scalarValue(avgTl, "K"));
+            formattedRow("Temperature spread:", scalarValue(tempSpread, "K"));
+
             Info<< "╠════════════════════════════════════════════════════════════════════════════════╣" << Foam::nl;
-            centeredLine("PRESSURE STATE");
+            centeredLine("💨 PRESSURE & DYNAMICS");
             formattedRow("Max pressure:", scalarValue(maxPressure/1e6, "MPa"));
-            formattedRow("Recoil:", scalarValue(maxRecoil/1e6, "MPa"));
+            formattedRow("Recoil pressure:", scalarValue(maxRecoil/1e6, "MPa"));
+            formattedRow("Peak recoil seen:", scalarValue(maxRecoilSeen/1e6, "MPa"));
+            formattedRow("Pressure gradient:", scalarValue(maxPressureGradient/1e9, "GPa/m"));
+            if (shockWavePresent)
+            {
+                formattedRow("Shock wave:", "DETECTED");
+            }
+
             Info<< "╠════════════════════════════════════════════════════════════════════════════════╣" << Foam::nl;
-            centeredLine("MATERIAL STATE");
-            formattedRow("Metal volume:", scalarValue(metalVol, "µm³"));
-            formattedRow("Metal loss:", scalarValue(metalLoss, "%"));
+            centeredLine("🎯 METAL FILM STATUS");
+            formattedRow("Volume:", scalarValue(metalVol, "µm³"));
+            formattedRow("Volume loss:", scalarValue(metalLoss, "%"));
+            formattedRow("Loss rate:", scalarValue(metalLossRate*1e18, "µm³/s"));
+            formattedRow("Interface cells:", std::to_string(interfaceCells));
+            formattedRow("Interface area:", scalarValue(interfaceArea*1e12, "µm²"));
+
             Info<< "╠════════════════════════════════════════════════════════════════════════════════╣" << Foam::nl;
-            centeredLine("DYNAMICS");
-            formattedRow("Max velocity:", scalarValue(maxVel, "m/s"));
-            formattedRow("Avg velocity:", scalarValue(avgVel, "m/s"));
+            centeredLine("⚡ VELOCITY ANALYSIS");
+            formattedRow("Film velocity (avg):", scalarValue(avgVel, "m/s"));
+            formattedRow("Film velocity (max):", scalarValue(maxVel, "m/s"));
+            formattedRow("Velocity std dev:", scalarValue(velocityStdDev, "m/s"));
+            formattedRow("Acceleration:", scalarValue(velAccel/1e12, "km/s²"));
+            formattedRow("Turbulent KE:", scalarValue(turbulentKE*1e9, "nJ"));
+
             Info<< "╠════════════════════════════════════════════════════════════════════════════════╣" << Foam::nl;
-            centeredLine("ENERGY");
-            formattedRow("Laser power:", scalarValue(laserPowerMetal, "W"));
-            formattedRow("Peak volumetric source:", scalarValue(peakQLaser, "W/m³"));
+            centeredLine("☁️  VAPOR PLUME TRACKING");
+            formattedRow("Plume volume:", scalarValue(vaporVolume*1e18, "µm³"));
+            formattedRow("Plume cells:", std::to_string(vaporCells));
+            formattedRow("Plume velocity (avg):", scalarValue(vaporAvgVel, "m/s"));
+            formattedRow("Plume velocity (max):", scalarValue(vaporMaxVel, "m/s"));
+
+            Info<< "╠════════════════════════════════════════════════════════════════════════════════╣" << Foam::nl;
+            centeredLine("⚡ ENERGY PARTITIONING");
+            formattedRow("Laser power (current):", scalarValue(laserPowerMetal, "W"));
+            formattedRow("Peak source:", scalarValue(peakQLaser/1e12, "TW/m³"));
+            formattedRow("Metal kinetic energy:", scalarValue(kineticEnergyMetal*1e9, "nJ"));
+            formattedRow("Laser→kinetic eff:", scalarValue(kineticEfficiency, "%"));
+
+            if (timeToEjection > 0 && !separationDetected)
+            {
+                Info<< "╠════════════════════════════════════════════════════════════════════════════════╣" << Foam::nl;
+                centeredLine("🔮 EJECTION PREDICTION");
+                formattedRow("Est. time to ejection:", scalarValue(timeToEjection*1e12, "ps"));
+                formattedRow("Predicted ejection vel:", scalarValue(predictedEjectionVel, "m/s"));
+                formattedRow("Time at ejection:", scalarValue((t + timeToEjection)*1e12, "ps"));
+            }
+
             Info<< "╚════════════════════════════════════════════════════════════════════════════════╝" << Foam::nl;
 
             if (maxTl > 15000)
@@ -661,9 +934,14 @@ namespace
             {
                 csvFile << "time_ps,phase,phase_num,progress_pct,"
                         << "Te_max_K,Tl_max_K,Tl_avg_K,Tl_spread_K,"
-                        << "P_max_MPa,recoil_MPa,"
-                        << "metal_vol_um3,metal_loss_pct,"
-                        << "vel_max_ms,vel_avg_ms,"
+                        << "P_max_MPa,recoil_MPa,recoil_max_seen_MPa,"
+                        << "metal_vol_um3,metal_loss_pct,metal_loss_rate_um3s,"
+                        << "vel_max_ms,vel_avg_ms,vel_stddev_ms,accel_kms2,"
+                        << "interface_cells,interface_area_um2,"
+                        << "vapor_vol_um3,vapor_cells,vapor_vel_avg_ms,vapor_vel_max_ms,"
+                        << "turbulent_KE_nJ,kinetic_eff_pct,"
+                        << "pressure_grad_GPam,shock_present,"
+                        << "separation_detected,time_to_ejection_ps,"
                         << "laserPower_W,peakQLaser_TWm3" << Foam::endl;
                 headerWritten = true;
             }
@@ -717,10 +995,26 @@ namespace
                     << tempSpread << ","
                     << maxPressure/1e6 << ","
                     << maxRecoil/1e6 << ","
+                    << maxRecoilSeen/1e6 << ","
                     << metalVol << ","
                     << metalLoss << ","
+                    << metalLossRate*1e18 << ","
                     << maxVel << ","
                     << avgVel << ","
+                    << velocityStdDev << ","
+                    << velAccel/1e12 << ","
+                    << interfaceCells << ","
+                    << interfaceArea*1e12 << ","
+                    << vaporVolume*1e18 << ","
+                    << vaporCells << ","
+                    << vaporAvgVel << ","
+                    << vaporMaxVel << ","
+                    << turbulentKE*1e9 << ","
+                    << kineticEfficiency << ","
+                    << maxPressureGradient/1e9 << ","
+                    << (shockWavePresent ? 1 : 0) << ","
+                    << (separationDetected ? 1 : 0) << ","
+                    << (timeToEjection > 0 ? timeToEjection*1e12 : -1) << ","
                     << laserPowerMetal << ","
                     << peakQLaser/1e12 << Foam::endl;
         }
