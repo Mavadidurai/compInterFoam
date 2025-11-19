@@ -116,7 +116,7 @@ advancedInterfaceCapturing
 	
     clampRecoil           false;
    // recoilMax             2.0e8;  
-    maxRecoilPressure   5.0e10;	// 200 MPa (2.5× Feinaeugle observed peak of ~80 MPa)
+    maxRecoilPressure   1.0e10;	// 200 MPa (2.5× Feinaeugle observed peak of ~80 MPa)
          
     scaleRecoilMax        false;
     recoilRelax           0.7;
@@ -126,7 +126,11 @@ advancedInterfaceCapturing
     // Physical limits
     // Keep the absolute bound consistent with the multi-GPa recoil required to
     // sustain fs-LIFT expulsion without premature pressure clamping.
-
+        // PRESSURE RAMP/RELAXATION - prevents impulsive pressure surge
+   // recoilRampSteps       200;         // Ramp over 200 timesteps
+  //  recoilMaxDelta        1e8;         // Max pressure change per step: 100 MPa
+   // recoilSmoothCoeff     0.2;         // Spatial smoothing coefficient
+    //recoilSmoothIters     3;           // Number of smoothing iterations
 }
 logRecoilSuppression true;
 
