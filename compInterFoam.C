@@ -930,7 +930,8 @@ namespace
         static Foam::label csvCounter = 0;
         ++csvCounter;
 
-        if (csvCounter % 25 == 0 && Foam::Pstream::master())
+        // Log every timestep for complete simulation data
+        if (Foam::Pstream::master())
         {
             static bool headerWritten = false;
 
