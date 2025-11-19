@@ -304,7 +304,7 @@ namespace
             if (alphaInternal[cellI] < (1.0 - alpha2Threshold)) // Gas phase
             {
                 const Foam::scalar rhoCell = rho.primitiveField()[cellI];
-                const Foam::scalar TCell = TlField.primitiveField()[cellI];
+                const Foam::scalar TCell = Tl.primitiveField()[cellI];
 
                 // Detect high-density/high-temp gas (vapor plume, not ambient)
                 if (rhoCell > rhoGasThreshold || TCell > 500.0)
@@ -368,9 +368,6 @@ namespace
         const Foam::scalar velAccel = dt > Foam::SMALL ?
             (avgVel - prevAvgVel) / dt : 0.0;
 
-        const Foam::scalar recoilChangeRate = dt > Foam::SMALL ?
-            (maxRecoil - prevRecoil) / dt : 0.0;
-
         maxVelSeen = Foam::max(maxVelSeen, avgVel);
         maxRecoilSeen = Foam::max(maxRecoilSeen, maxRecoil);
 
@@ -385,12 +382,9 @@ namespace
                     << "║                                                                   ║\n"
                     << "║  🚀🚀🚀  FILM SEPARATION EVENT DETECTED!  🚀🚀🚀                  ║\n"
                     << "║                                                                   ║\n"
-                    << "║  Time: " << std::setw(10) << std::fixed << std::setprecision(3)
-                    << t*1e12 << " ps                                             ║\n"
-                    << "║  Film velocity: " << std::setw(10) << std::fixed << std::setprecision(2)
-                    << avgVel << " m/s                                     ║\n"
-                    << "║  Recoil pressure drop: " << std::setw(6) << std::fixed << std::setprecision(1)
-                    << (1.0 - maxRecoil/maxRecoilSeen)*100.0 << " %                              ║\n"
+                    << "║  Time: " << t*1e12 << " ps                                             ║\n"
+                    << "║  Film velocity: " << avgVel << " m/s                                     ║\n"
+                    << "║  Recoil pressure drop: " << (1.0 - maxRecoil/maxRecoilSeen)*100.0 << " %                              ║\n"
                     << "║                                                                   ║\n"
                     << "║  Film has detached from donor substrate!                         ║\n"
                     << "║  Now tracking ballistic transfer phase...                        ║\n"
@@ -768,33 +762,29 @@ namespace
             };
 
             // Enhanced progress bar
-
             auto progressBar = [&](Foam::scalar pct)
-
             {
-
                 const int barWidth = 50;
-
                 const int filled = static_cast<int>(pct / 100.0 * barWidth);
-
                 std::string bar = "[";
-
                 for (int i = 0; i < barWidth; ++i)
-
                 {
-
                     if (i < filled) bar += "█";
-
                     else if (i == filled) bar += "▌";
-
                     else bar += "░";
-
                 }
-
                 bar += "]";
+                // Format progress percentage
+                std::ostringstream pctStr;
+                pctStr << std::fixed << std::setprecision(1) << pct << "%";
 
+                // Pad to ensure alignment
+                while (bar.length() + pctStr.str().length() < 56)
+                {
+                    bar += " ";
+                }
+                bar += pctStr.str();
                 return bar;
-
             };
 
             Info<< "\n╔════════════════════════════════════════════════════════════════════════════════╗" << Foam::nl;
@@ -802,8 +792,7 @@ namespace
             Info<< "╠════════════════════════════════════════════════════════════════════════════════╣" << Foam::nl;
             formattedRow("Phase:", std::string(phaseName));
             formattedRow("Time:", scalarValue(t*1e12, "ps"));
-            Info<< "║ Progress: " << progressBar(progress) << " "
-                << std::setw(5) << std::fixed << std::setprecision(1) << progress << "% ║" << Foam::nl;
+            Info<< "║ Progress: " << progressBar(progress) << " ║" << Foam::nl;
             // Separation status indicator
             if (separationDetected)
             {
