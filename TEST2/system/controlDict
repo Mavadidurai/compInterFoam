@@ -108,10 +108,10 @@ advancedInterfaceCapturing
                                         // At 2000K: j ~ 10^3-10^4 kg/m²/s expected
                                         // This allows detection of realistic evaporation
     // Knight (Phys. Rev. B 20, 1979) predicts recoil pressures exceeding
-    // 0.3 GPa near 6000 K.  The fs deposition pushes Tl well beyond that, so
-    // allow the kinetic-theory recoil driver to reach the multi-GPa recoil
-    // levels observed in ultrafast LIFT experiments before clamping.
-    recoilMax             3.0e9;
+    // 0.3 GPa near 6000 K. Based on Feinaeugle et al. (Appl. Surf. Sci. 2017)
+    // experimental validation, realistic fs-LIFT recoil pressures are 100-500 MPa.
+    // Set limit to 500 MPa to prevent unphysical pressure oscillations.
+    recoilMax             5.0e8;
     clampRecoil           false;
     scaleRecoilMax        false;
     recoilRelax           0.5;
@@ -119,9 +119,9 @@ advancedInterfaceCapturing
     //alphaMax              0.999;
     maxPhysicalTemperature 10000;
     // Physical limits
-    // Keep the absolute bound consistent with the multi-GPa recoil required to
-    // sustain fs-LIFT expulsion without premature pressure clamping.
-    maxRecoilPressure   3.0e9;
+    // Realistic recoil pressure limit based on experimental validation
+    // (Feinaeugle et al. 2017) showing 100-500 MPa for fs-LIFT.
+    maxRecoilPressure   5.0e8;
 }
 logRecoilSuppression true;
 

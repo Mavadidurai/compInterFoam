@@ -24,10 +24,8 @@ volVectorField HbyA
     constrainHbyA(rAU*UEqn.H(), U, p_rgh)
 );
 
-if (recoilForceReady && tRecoilForce.valid())
-{
-    HbyA += rAU*tRecoilForce();
-}
+// Recoil force removed - recoil pressure now handled implicitly through p_rgh field
+// This prevents triple-counting and restores proper PIMPLE pressure-velocity coupling
 
 surfaceScalarField phiHbyA
 (
@@ -61,21 +59,9 @@ surfaceScalarField phig
 // Get solver coefficients dictionary for all stability controls
 const Foam::dictionary solverCoeffs = compInterFoamCoeffsDict(mesh);
 
-if (recoilForceReady)
-{
-    // Smoothing prevents GAMG divergence. Reference: Brackbill et al. (1992)
-    const scalar recoilSmoothingFactor =
-        solverCoeffs.lookupOrDefault<scalar>("recoilSmoothingFactor", 0.5);
-    
-    if (recoilSmoothingFactor > SMALL && recoilSmoothingFactor < 1.0)
-    {
-        phig += recoilSmoothingFactor*(recoilTractionf & mesh.Sf())*rAUf;
-    }
-    else
-    {
-        phig += (recoilTractionf & mesh.Sf())*rAUf;
-    }
-}
+// Recoil traction removed from phig - recoil pressure handled via p_rgh only
+// Explicit force addition breaks pressure-velocity coupling in PIMPLE algorithm
+
 phiHbyA += phig;
 
 // Limit mass flux to prevent pressure divergence from extreme recoil/phase change
