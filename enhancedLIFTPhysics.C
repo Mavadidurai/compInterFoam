@@ -501,13 +501,30 @@ void Foam::enhancedLIFTPhysics::calculateWeberNumber
     const volVectorField& U,
     const volScalarField& rho,
     const volScalarField& sigma,
-    const volScalarField& L_char
+    const volScalarField& L_char,
+    const volScalarField& alpha1
 )
 {
     const volScalarField magU(mag(U) + dimensionedScalar("smallU", dimVelocity, SMALL));
     const volScalarField sigmaSafe(sigma + dimensionedScalar("smallSigma", dimForce/dimLength, SMALL));
 
+    // Calculate Weber number everywhere first
     breakup_->WeberNumber_ = rho * sqr(magU) * L_char / sigmaSafe;
+
+    // Mask to zero outside interface region (0.01 < alpha < 0.99)
+    // This ensures maximum Weber number is at the interface, not at boundaries
+    scalarField& WeField = breakup_->WeberNumber_.primitiveFieldRef();
+    const scalarField& alpha1Field = alpha1.primitiveField();
+
+    forAll(WeField, cellI)
+    {
+        const scalar alpha = alpha1Field[cellI];
+        if (alpha <= 0.01 || alpha >= 0.99)
+        {
+            WeField[cellI] = 0.0;
+        }
+    }
+
     breakup_->WeberNumber_.correctBoundaryConditions();
 }
 
@@ -701,7 +718,7 @@ void Foam::enhancedLIFTPhysics::updateBreakup
     tmp<volScalarField> tL_char = calculateCharacteristicLength(alpha1);
     const volScalarField& L_char = tL_char();
 
-    calculateWeberNumber(U, rho, sigma, L_char);
+    calculateWeberNumber(U, rho, sigma, L_char, alpha1);
 
     breakup_->breakupIndicator_.primitiveFieldRef() = 0.0;
     breakup_->dropletDiameter_.primitiveFieldRef() = 0.0;

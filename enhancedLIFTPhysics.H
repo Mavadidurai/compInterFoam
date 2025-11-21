@@ -185,7 +185,8 @@ private:
             const volVectorField& U,
             const volScalarField& rho,
             const volScalarField& sigma,
-            const volScalarField& L_char
+            const volScalarField& L_char,
+            const volScalarField& alpha1
         );
 
 
