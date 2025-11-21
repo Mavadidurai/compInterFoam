@@ -62,7 +62,7 @@ mixture
 // LIFT-specific properties
 Tsol                1941.0;             // K - Solidus temperature
 Tliq                1941.0;             // K - Liquidus temperature
-Tvap                2200.0;             // K - Vaporisation temperature (aligned with controlDict)
+Tvap                3560.0;             // K - Vaporisation temperature (aligned with controlDict)
 hf                  9.1e6;             // Latent heat of vaporisation for Ti (J/kg)
 kappa               0;                  // W/m·K - Leave conduction to TTM (ke/kl)
 // ************************************************************************* //

@@ -14,7 +14,7 @@ FoamFile
     object      fvOptions;
 }
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
-
+/*
 substrateFixedVelocity
 {
     type            vectorFixedValueConstraint;
@@ -39,4 +39,5 @@ substrateFixedTemperature
         //T   500;
     }
 }
+*/
 // ************************************************************************* //
