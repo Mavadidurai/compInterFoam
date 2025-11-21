@@ -1345,6 +1345,15 @@ while (pimple.loop())
         
         mixture.setClTTM(ttm.Cl());
     }
+// ✅ CRITICAL FIX: Synchronize gas temperature with lattice after TTM solve
+{
+    const volScalarField& Tl = ttm.Tl();
+    const scalar strictMetalThreshold = 0.9;
+    
+    // In pure metal cells, enforce T = Tl
+    T = (scalar(1) - pureMetal)*T + pureMetal*Tl;
+    T.correctBoundaryConditions();
+}
 
     // Update enhanced LIFT physics (all three models updated in one call)
     if (liftPhysics.valid())
