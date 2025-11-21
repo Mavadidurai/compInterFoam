@@ -30,7 +30,9 @@ boundaryField
   substrate     { type fixedFluxPressure; value uniform 0; }
   donor
   {
-      type            zeroGradient;
+      type            totalPressure;  // Atmospheric pressure at top
+      p0              uniform 0;      // Relative to p_rgh reference
+      value           uniform 0;
   }
 }
 

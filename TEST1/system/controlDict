@@ -115,8 +115,8 @@ advancedInterfaceCapturing
     // levels observed in ultrafast LIFT experiments before clamping.
 	
     clampRecoil           true;
-    recoilMax             5.0e9;  
-    maxRecoilPressure   5.0e9;   // Clamp consistent with Feinaeugle et al. (Appl. Surf. Sci. 418, 2017)
+    recoilMax             2.0e8;  // 200 MPa - realistic for fs-LIFT (was 5 GPa, too high)
+    maxRecoilPressure   1.0e8;   // 100 MPa - consistent with Feinaeugle et al. (Appl. Surf. Sci. 418, 2017)
          
     scaleRecoilMax        false;
     recoilRelax           0.7;

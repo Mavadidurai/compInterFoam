@@ -96,8 +96,8 @@ advancedInterfaceCapturing
     model               kinetic_theory;  // Not arbitrary scaling!
     stickingCoeff       0.18;
     momentumAccommodationCoeff       0.18;
-    recoilMax             5.0e9;      // Limit recoil drive to 5 MPa (Anisimov 1974)
-    clampRecoil           false;
+    recoilMax             2.0e8;      // 200 MPa - realistic for fs-LIFT (was 5 GPa, too high)
+    clampRecoil           true;      // Enable clamping for realistic pressures
     scaleRecoilMax        false;    // Keep cap constant rather than scaling by alpha
     recoilTempOffset      0;        // Trigger recoil once Tl reaches Tvap
     phaseChangeTempOffset 0;      // Match evaporation window to Ti saturation curve
@@ -108,7 +108,7 @@ advancedInterfaceCapturing
    // pressureScale [1 -1 -2 0 0 0 0] 0.6;  // NEW: Corrects Knight formula
     massRateEps           1e-15;        // Reduced from 1e-8 to detect actual evaporation
         // Physical limits
-    maxRecoilPressure   5.0e9;    // 100 MPa absolute max
+    maxRecoilPressure   1.0e8;    // 100 MPa - consistent with Feinaeugle et al.
 }
 logRecoilSuppression true;
 

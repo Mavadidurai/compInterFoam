@@ -1342,8 +1342,30 @@ while (pimple.loop())
             phaseChangeRelaxCoeff,
             gasMetalHeatFlux
         );
-        
+
         mixture.setClTTM(ttm.Cl());
+
+        // ✅ CRITICAL FIX: Synchronize gas temperature with lattice after TTM solve
+        // This ensures T reflects the updated Tl in metal regions
+        {
+            const volScalarField& Tl = ttm.Tl();
+            const scalar strictMetalThreshold = 0.9;
+
+            // Create mask for pure metal cells
+            tmp<volScalarField> tPureMetal = pos(alpha1 - strictMetalThreshold);
+            const volScalarField& pureMetal = tPureMetal();
+
+            // In pure metal cells, enforce T = Tl
+            // In gas cells, keep solved T value
+            T = (scalar(1) - pureMetal)*T + pureMetal*Tl;
+            T.correctBoundaryConditions();
+
+            if (verbose && master && thermalIter == nThermalCouplingIter - 1)
+            {
+                Info<< "    T-Tl synchronization: max(T) = " << gMax(T)
+                    << ", max(Tl) = " << gMax(Tl) << endl;
+            }
+        }
     }
 
     // Update enhanced LIFT physics (all three models updated in one call)
