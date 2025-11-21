@@ -17,10 +17,10 @@ FoamFile
 
 ddtSchemes
 {
-    default          Euler;              // ✓ GOOD - First-order, stable
-    ddt(alpha)       Euler;              // ✓ GOOD - Consistent with alpha equation
-    ddt(rho,U)       Euler;              // ✓ GOOD - Momentum conservation
-    ddt(rho)         Euler;              // ✓ GOOD - Mass conservation
+    default          localEuler;              // ✓ GOOD - First-order, stable
+    ddt(alpha)       localEuler;              // ✓ GOOD - Consistent with alpha equation
+    ddt(rho,U)       localEuler;              // ✓ GOOD - Momentum conservation
+    ddt(rho)         localEuler;              // ✓ GOOD - Mass conservation
 }
 
 gradSchemes
@@ -45,12 +45,12 @@ divSchemes
     div(phir,alpha.metal)            Gauss interfaceCompression; // REQUIRED: specialised scheme for compression flux
     div(phi,alpha.air)               Gauss vanLeer;        // ✓ GOOD
 
-    // Momentum - IMPROVE for jet:
-    div(rhoPhi,U)               Gauss linearUpwindV grad(U);  // Better for jet    //                                    ↑ vector version, more stable
+    // Momentum - could be more conservative
+    div(rhoPhi,U)                    Gauss linearUpwind grad(U); // IMPROVE: Add gradient limiting
     
-    div(phi,T)       Gauss upwind;           // Changed from limitedLinear
-    div(phi,Te)      Gauss upwind;           // Changed from limitedLinear
-    div(phi,Tl)      Gauss upwind;           // Changed from limitedLinear
+    div(phi,T)       Gauss limitedLinear 1;           // Reduce numerical diffusion
+    div(phi,Te)      Gauss limitedLinear 1;
+    div(phi,Tl)      Gauss limitedLinear 1;
     
     // Pressure gradient - good change
     div(phi,p_rgh)                   Gauss upwind;           // ✓ GOOD change from linear
@@ -58,22 +58,25 @@ divSchemes
 }
 laplacianSchemes
 {
-   default                          Gauss linear corrected;
+    default                          Gauss linear corrected;  // ✓ GOOD
 
+    // Pressure Laplacians - all good
     laplacian((1|A(U)),p_rgh)        Gauss linear corrected;
     laplacian(rAU,p_rgh)             Gauss linear corrected;
     laplacian((1|A(U)),p)            Gauss linear corrected;
 
+    // Momentum diffusion - good
     laplacian(nuEff,U)               Gauss linear corrected;
     laplacian((rho*nuEff),U)         Gauss linear corrected;
 
-    // ✅ CRITICAL: Orthogonal correction for diffusion stability
-    laplacian(alphaEff,T)            Gauss linear orthogonal;
-    laplacian(kappaEff,T)            Gauss linear orthogonal;
-    laplacian(kappa,T)               Gauss linear orthogonal;
+    // Temperature diffusion - could add orthogonal correction limiting
+    laplacian(alphaEff,T)            Gauss linear limited 0.1;  // Tighter limiter for non-orth
+    laplacian(kappaEff,T)            Gauss linear limited 0.1;  // Tighter limiter for non-orth
+    laplacian(kappa,T)               Gauss linear limited 0.1;  // Tighter limiter for non-orth
 
-    laplacian(ke,Te)                 Gauss linear orthogonal;
-    laplacian(kl,Tl)                 Gauss linear orthogonal;
+    // Two-temperature model diffusion - CRITICAL for stability
+    laplacian(ke,Te)                 Gauss linear limited 0.1;  // Tighter limiter for non-orth
+    laplacian(kl,Tl)                 Gauss linear limited 0.1;  // Tighter limiter for non-orth
 }
 
 interpolationSchemes

@@ -20,7 +20,7 @@ FoamFile
 defaultFieldValues
 (
   volScalarFieldValue alpha.metal 0
-  volScalarFieldValue alpha.air   1
+  volScalarFieldValue alpha.air   0
   volScalarFieldValue Tl          300
   volScalarFieldValue Te          300
   volScalarFieldValue T           300
@@ -64,6 +64,18 @@ regions
         (
             volScalarFieldValue alpha.metal 1 // pure donor metal film
             volScalarFieldValue alpha.air   0 // exclude air within the film
+        );
+    }
+    // Donor glass above the thin film
+    boxToCell
+    {
+        box (0        20.0714e-06 0)
+            (50.0e-06 32.0714e-06 10.0e-06);
+
+        fieldValues
+        (
+            volScalarFieldValue alpha.metal 0 // donor glass contains no metal
+            volScalarFieldValue alpha.air   1 // fill with air (transparent donor medium)
         );
     }
 );

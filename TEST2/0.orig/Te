@@ -30,15 +30,23 @@ boundaryField
     // BOTTOM - substrate (receiver) - strong heat sink
     substrate
     {
-        type            fixedValue;
-        value           uniform 300;  // Heat sink effect
+        type            mixed;
+        refValue        uniform 300;       // Sink temperature
+        refGradient     uniform 0;
+        valueFraction   uniform 0.9;       // 90% fixed, 10% gradient
+        value           uniform 300;
     }
     
-    // TOP - donor (transparent glass) - now treated as open boundary
+    // TOP - donor (transparent glass) - weak coupling
     donor
     {
-        type            zeroGradient;
+        type            mixed;
+        refValue        uniform 300;
+        refGradient     uniform 0;
+        valueFraction   uniform 0.1;       // 10% fixed, 90% gradient
+        value           uniform 300;
     }
+
 }
 
 // REASONING:

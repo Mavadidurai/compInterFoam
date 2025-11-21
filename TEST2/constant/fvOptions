@@ -15,7 +15,28 @@ FoamFile
 }
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
-// No finite volume options specified for this case
+substrateFixedVelocity
+{
+    type            vectorFixedValueConstraint;
+    active          no;
+    selectionMode   cellZone;
+    cellZone        substrate;
 
- 
+    fieldValues
+    {
+        U   (0 0 0);
+    }
+}
+substrateFixedTemperature
+{
+    type            scalarFixedValueConstraint;
+    active          no;
+    selectionMode   cellZone;
+    cellZone        substrate;
+
+    fieldValues
+    {
+        //T   500;
+    }
+}
 // ************************************************************************* //
