@@ -86,36 +86,41 @@ By reducing to **1e-15 kg/m²/s**, we allow detection of all non-zero evaporativ
 
 ---
 
-### **FIX #3: Enable pressureScale (Knight Correction Factor)**
+### **FIX #3: Keep pressureScale at Default (1.0)**
 
-**File:** `TEST1/system/controlDict` line 107-108
+**File:** `TEST1/system/controlDict` line 107-109
 
 **BEFORE:**
 ```cpp
-//pressureScale [1 -1 -2 0 0 0 0] 0.6;  // Commented out
+//pressureScale [1 -1 -2 0 0 0 0] 0.6;  // Commented out with value 0.6
 ```
 
 **AFTER:**
 ```cpp
-pressureScale [1 -1 -2 0 0 0 0] 0.6;  // ENABLED
+// pressureScale [1 -1 -2 0 0 0 0] 1.0;  // Kept commented out (uses default = 1.0)
 ```
 
 **RATIONALE:**
-The Knight recoil pressure formula in `advancedInterfaceCapturing.C` line 722:
+The Knight recoil pressure formula ALREADY includes momentum accommodation via `beta_m`:
 
 ```cpp
-const scalar pRecoil = scaledKnightCoeff * jNet * sqrtTerm;
+knightCoeff = (2 - beta_m) / (2 * alpha_e)  // Line 624-627
+const scalar pRecoil = scaledKnightCoeff * jNet * sqrtTerm;  // Line 722
 ```
 
-Where `scaledKnightCoeff` is calculated at line 628:
+The complete Knight (1979) formula is:
 
-```cpp
-const scalar scaledKnightCoeff = pressureScale_.value() * knightCoeff;
-```
+$$p_{recoil} = \frac{(2 - \beta_m)}{2\alpha_e} \cdot j_{net} \cdot \sqrt{2\pi RT}$$
 
-The `pressureScale` factor corrects for momentum accommodation effects in the kinetic theory model. Knight (Phys. Rev. B 20, 1979) reports momentum accommodation coefficients of **0.4-0.8** for metal vapors.
+**All physics is already included:**
+- Evaporation coefficient (α_e = 0.18)
+- Momentum accommodation (β_m = 0.18)
+- Mass flux (j_net)
+- Temperature (T)
 
-Without this scaling, the recoil pressure was using a default value of 1.0, which does not account for incomplete momentum transfer at the vapor-liquid interface.
+Setting `pressureScale = 0.6` would artificially reduce recoil pressure by **40%** without physical justification. The default value in `advancedInterfaceCapturing.C:86` is **1.0**, which is correct.
+
+**CORRECTION NOTE:** The previous diagnosis correctly identified that `pressureScale = 0.6` was artificially limiting recoil pressure when mass flux was reasonable (442 kg/m²/s) but recoil was only 20 MPa instead of 50-150 MPa. Removing this artificial reduction was the correct recommendation.
 
 **REFERENCE:** Knight, Phys. Rev. B 20, 3378 (1979) - "Theoretical Modeling of Rapid Surface Vaporization with Back Pressure"
 
