@@ -61,7 +61,7 @@ phaseChangeCoeffs
     hf                  [0 2 -2 0 0 0 0] 9.1e6;   // J/kg (Ti vaporisation)
     gasConstant         [0 2 -2 -1 0 0 0] 174;    // J/kg/K (Ti vapor)
     Tsol                [0 0 0 1 0 0 0] 1941;     // K (melting point)
-    Tvap                [0 0 0 1 0 0 0] 2200;     // K - FIXED: superheated liquid regime     // Not equilibrium boiling (3560K)!
+    Tvap                [0 0 0 1 0 0 0] 3560;     // K - FIXED: superheated liquid regime     // Not equilibrium boiling (3560K)!
     p_ref               [1 -1 -2 0 0 0 0] 101325; // Pa at Tvap
  // Zhigilei: surface evaporation > 2000K // Will reach ~2200K at t ≈ 0.2ps (end of pulse)              
  
@@ -104,7 +104,7 @@ advancedInterfaceCapturing
                                         // Recoil starts at Tvap = 1941K (melting point) // Ultrafast regime: evaporation begins with melting
     phaseChangeTempOffset 0;
     // Mass flux threshold - CRITICAL FIX for mass transfer
-   pressureScale [1 -1 -2 0 0 0 0] 0.6;  // NEW: Corrects Knight formula
+   //pressureScale [1 -1 -2 0 0 0 0] 0.6;  // NEW: Corrects Knight formula
 
     massRateEps           1e-12;        // Reduced from 1e-8 to detect actual evaporation
                                         // Despite high T (9000K), measured flux may be lower
@@ -115,8 +115,8 @@ advancedInterfaceCapturing
     // levels observed in ultrafast LIFT experiments before clamping.
 	
     clampRecoil           true;
-    recoilMax             2.0e8;  
-    maxRecoilPressure   2.0e8;   // Clamp consistent with Feinaeugle et al. (Appl. Surf. Sci. 418, 2017)
+    recoilMax             5.0e9;  
+    maxRecoilPressure   5.0e9;   // Clamp consistent with Feinaeugle et al. (Appl. Surf. Sci. 418, 2017)
          
     scaleRecoilMax        false;
     recoilRelax           0.7;

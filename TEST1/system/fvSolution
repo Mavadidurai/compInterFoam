@@ -144,14 +144,14 @@ relaxationFactors
 {
     fields
     {
-        p_rgh           0.15;   // Increased from 0.3 for faster convergence
+        p_rgh           0.3;   // Increased from 0.3 for faster convergence
         "alpha.*"       0.7;   // Increased from 0.5
     }
 
     equations
 
     {
-        U               0.2;   // Increased from 0.5
+        U               0.7;   // Increased from 0.5
         T               0.7;   // Increased from 0.5
         Te              0.6;   // Increased from 0.5 (more conservative for electrons)
         Tl              0.7;   // Increased from 0.5
