@@ -66,7 +66,7 @@ phaseChangeCoeffs
  // Zhigilei: surface evaporation > 2000K // Will reach ~2200K at t ≈ 0.2ps (end of pulse)
 
     // Kinetic theory parameters
-evaporationCoeff       0.05;     // Change from 0.18 back to 0.03-0.06 range
+evaporationCoeff       0.18;     // Ti experimental value (Feinaeugle et al.)
     alphaMin              0.001;
     dtFloor             1e-15;         // Reduced for precision
     relaxationTime      1e-11;        // Faster response for femtosecond dynamics
@@ -96,7 +96,7 @@ useAdvancedInterfaceCapturing  true;
 advancedInterfaceCapturing
 {
     model               kinetic_theory;  // Not arbitrary scaling!
-    stickingCoeff       0.18;
+    stickingCoeff       1.0;     // Metal evaporation at high T (distinct from momentum accommodation)
     momentumAccommodationCoeff       0.18;
     // CRITICAL FIX: Enable recoil in superheated liquid regime
     // Tvap = 2200K, start recoil at Tl > 1900K (just below melting)
@@ -113,8 +113,8 @@ advancedInterfaceCapturing
     // levels observed in ultrafast LIFT experiments before clamping.
 
     clampRecoil           true;
-    recoilMax             5.0e9;
-    maxRecoilPressure   5.0e9;   // Clamp consistent with Feinaeugle et al. (Appl. Surf. Sci. 418, 2017)
+    recoilMax             2.0e8;    // 200 MPa (2.5× experimental max of 80 MPa)
+    maxRecoilPressure     2.0e8;    // Allow physical recoil dynamics per Feinaeugle et al.
 
     scaleRecoilMax        false;
     recoilRelax           0.7;

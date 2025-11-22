@@ -62,7 +62,7 @@ phaseChangeCoeffs
     Tvap                [0 0 0 1 0 0 0] 3560;     // K
     p_ref               [1 -1 -2 0 0 0 0] 101325; // Pa at Tvap    
     // Kinetic theory parameters
-evaporationCoeff       0.05;     // Change from 0.18 back to 0.03-0.06 range
+evaporationCoeff       0.18;     // Ti experimental value (Feinaeugle et al.)
     //momentumAccom       0.18;     // Momentum accommodation
     
     //windowWidth         100;
@@ -94,21 +94,21 @@ useAdvancedInterfaceCapturing  true;
 advancedInterfaceCapturing
 {
     model               kinetic_theory;  // Not arbitrary scaling!
-    stickingCoeff       0.18;
+    stickingCoeff       1.0;     // Metal evaporation at high T (distinct from momentum accommodation)
     momentumAccommodationCoeff       0.18;
-    recoilMax             5.0e9;      // Limit recoil drive to 5 MPa (Anisimov 1974)
-    clampRecoil           false;
-    scaleRecoilMax        false;    // Keep cap constant rather than scaling by alpha
-    recoilTempOffset      0;        // Trigger recoil once Tl reaches Tvap
-    phaseChangeTempOffset 0;      // Match evaporation window to Ti saturation curve
-    recoilRelax           0.7;      // Additional damping for stability
+    recoilMax             2.0e8;      // 200 MPa (2.5× experimental max of 80 MPa)
+    clampRecoil           true;       // Enable clamping at physical limit
+    scaleRecoilMax        false;      // Keep cap constant rather than scaling by alpha
+    recoilTempOffset      0;          // Trigger recoil once Tl reaches Tvap
+    phaseChangeTempOffset 0;          // Match evaporation window to Ti saturation curve
+    recoilRelax           0.7;        // Additional damping for stability
     alphaMin              0.01;
     alphaMax              1;
-    maxPhysicalTemperature  10000;  // Stay within tabulated Ti properties (~10 kK)
+    maxPhysicalTemperature  10000;    // Stay within tabulated Ti properties (~10 kK)
    // pressureScale [1 -1 -2 0 0 0 0] 0.6;  // NEW: Corrects Knight formula
-    massRateEps           1e-15;        // Reduced from 1e-8 to detect actual evaporation
+    massRateEps           1e-15;      // Reduced from 1e-8 to detect actual evaporation
         // Physical limits
-    maxRecoilPressure   5.0e9;    // 100 MPa absolute max
+    maxRecoilPressure   2.0e8;        // 200 MPa - allow physical recoil dynamics per Feinaeugle et al.
 }
 logRecoilSuppression true;
 

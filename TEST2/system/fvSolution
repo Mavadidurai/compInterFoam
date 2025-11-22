@@ -159,9 +159,9 @@ compInterFoamCoeffs
     minAlpha          0.001;
     maxAlpha          0.999;
 
-    // Pressure clamp settings
+    // Pressure clamp settings - Feinaeugle et al. (80 MPa experimental max)
     pressureClamp      true;
-    maxPressure        5.0e9;
+    maxPressure        2.0e8;     // 200 MPa - physical recoil limit
     minPressure       -1.0e7;
 
     // Density clamp settings
