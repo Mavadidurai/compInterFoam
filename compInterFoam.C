@@ -112,7 +112,8 @@ namespace
         const Foam::twoPhaseMixtureThermo& mixture,
         const Foam::volVectorField& U,
         const Foam::volScalarField* recoilPressurePtr,
-        const Foam::Switch trackerEnabled
+        const Foam::Switch trackerEnabled,
+        const Foam::femtosecondLaserModel& laser
     )
     {
         static bool statusPrinted = false;
@@ -139,7 +140,203 @@ namespace
                 << "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" << Foam::endl;
             statusPrinted = true;
         }
+        // Extract input parameters once and store as static variables for CSV logging
+        static bool inputParamsExtracted = false;
+        static Foam::scalar input_pulseEnergy = 0.0;
+        static Foam::scalar input_pulseWidth = 0.0;
+        static Foam::scalar input_wavelength = 0.0;
+        static Foam::scalar input_spotSize = 0.0;
+        static Foam::scalar input_absorptionCoeff = 0.0;
+        static Foam::scalar input_reflectivity = 0.0;
+        static Foam::scalar input_focus_x = 0.0;
+        static Foam::scalar input_focus_y = 0.0;
+        static Foam::scalar input_focus_z = 0.0;
+        static Foam::scalar input_maxCo = 0.0;
+        static Foam::scalar input_maxAlphaCo = 0.0;
+        static Foam::scalar input_maxThermalCourant = 0.0;
+        static Foam::scalar input_Tvap = 0.0;
+        static Foam::scalar input_Tsol = 0.0;
+        static Foam::scalar input_evaporationCoeff = 0.0;
+        static Foam::scalar input_momentumAccommodationCoeff = 0.0;
 
+        if (!inputParamsExtracted)
+        {
+            // ===== Extract laser properties =====
+            input_pulseEnergy = laser.pulseEnergy().value();
+            input_pulseWidth = laser.pulseWidth().value();
+            input_wavelength = laser.wavelength().value();
+            input_spotSize = laser.spotSize().value();
+            const Foam::point focusPoint = laser.focus();
+            input_focus_x = focusPoint.x();
+            input_focus_y = focusPoint.y();
+            input_focus_z = focusPoint.z();
+
+            // ===== Extract from controlDict =====
+            const Foam::dictionary& controlDict = runTime.controlDict();
+            // Solver settings
+            input_maxCo = controlDict.lookupOrDefault<Foam::scalar>("maxCo", 0.5);
+            input_maxAlphaCo = controlDict.lookupOrDefault<Foam::scalar>("maxAlphaCo", 0.5);
+            input_maxThermalCourant = controlDict.lookupOrDefault<Foam::scalar>("maxThermalCourant", 0.5);
+            input_maxDi = controlDict.lookupOrDefault<Foam::scalar>("maxDi", 20.0);
+            input_thermalFluxRelax = controlDict.lookupOrDefault<Foam::scalar>("thermalFluxRelax", 0.15);
+            input_adjustTimeStep = controlDict.lookupOrDefault<Foam::Switch>("adjustTimeStep", true) ? 1.0 : 0.0;
+            // Time stepping
+            input_deltaT = controlDict.lookupOrDefault<Foam::scalar>("deltaT", 1e-15);
+            input_maxDeltaT = controlDict.lookupOrDefault<Foam::scalar>("maxDeltaT", 1e-14);
+            input_minDeltaT = controlDict.lookupOrDefault<Foam::scalar>("minDeltaT", 5e-16);
+            input_endTime = controlDict.lookupOrDefault<Foam::scalar>("endTime", 2e-10);
+            // Laser timing
+            input_laserStartTime = controlDict.lookupOrDefault<Foam::scalar>("laserStartTime", 0.0);
+            input_laserEndTime = controlDict.lookupOrDefault<Foam::scalar>("laserEndTime", 2e-10);
+            // ===== Extract phase change parameters =====
+            if (controlDict.found("phaseChangeCoeffs"))
+            {
+                const Foam::dictionary& phaseChangeDict = controlDict.subDict("phaseChangeCoeffs");
+                input_Tvap = phaseChangeDict.lookupOrDefault<Foam::scalar>("Tvap", 0.0);
+                input_Tsol = phaseChangeDict.lookupOrDefault<Foam::scalar>("Tsol", 0.0);
+                input_evaporationCoeff = phaseChangeDict.lookupOrDefault<Foam::scalar>("evaporationCoeff", 0.0);
+                input_hf = phaseChangeDict.lookupOrDefault<Foam::scalar>("hf", 0.0);
+                input_gasConstant = phaseChangeDict.lookupOrDefault<Foam::scalar>("gasConstant", 0.0);
+                input_p_ref = phaseChangeDict.lookupOrDefault<Foam::scalar>("p_ref", 101325.0);
+                input_relaxationTime = phaseChangeDict.lookupOrDefault<Foam::scalar>("relaxationTime", 1e-11);
+                input_maxSource = phaseChangeDict.lookupOrDefault<Foam::scalar>("maxSource", 0.0);
+                input_alphaMin = phaseChangeDict.lookupOrDefault<Foam::scalar>("alphaMin", 0.001);
+                input_metalFractionCutoff = phaseChangeDict.lookupOrDefault<Foam::scalar>("metalFractionCutoff", 1e-6);
+            }
+
+            // ===== Extract two-temperature model parameters =====
+            if (controlDict.found("twoTemperatureProperties"))
+            {
+                const Foam::dictionary& twoTempDict = controlDict.subDict("twoTemperatureProperties");
+                input_Cl = twoTempDict.lookupOrDefault<Foam::scalar>("Cl", 0.0);
+                input_De = twoTempDict.lookupOrDefault<Foam::scalar>("De", 0.0);
+
+               // Extract Ce coefficient from polynomial if present
+                if (twoTempDict.found("Ce"))
+                {
+                    const Foam::dictionary& CeDict = twoTempDict.subDict("Ce");
+                    if (CeDict.found("coeffs"))
+                    {
+                        Foam::List<Foam::Tuple2<Foam::scalar, Foam::scalar>> coeffs =
+                            CeDict.lookup("coeffs");
+                        // Look for linear coefficient (second entry)
+                        if (coeffs.size() > 1)
+                        {
+                            input_Ce_coeff = coeffs[1].first();
+                        }
+                    }
+                }
+                input_maxTe = twoTempDict.lookupOrDefault<Foam::scalar>("maxTe", 20000.0);
+                input_maxTl = twoTempDict.lookupOrDefault<Foam::scalar>("maxTl", 10000.0);
+                input_minTe = twoTempDict.lookupOrDefault<Foam::scalar>("minTe", 200.0);
+            }
+
+            // ===== Extract advanced interface capturing parameters =====
+            if (controlDict.found("advancedInterfaceCapturing"))
+            {
+                const Foam::dictionary& advancedDict = controlDict.subDict("advancedInterfaceCapturing");
+                input_momentumAccommodationCoeff = advancedDict.lookupOrDefault<Foam::scalar>("momentumAccommodationCoeff", 0.0);
+                input_stickingCoeff = advancedDict.lookupOrDefault<Foam::scalar>("stickingCoeff", 0.0);
+                input_recoilMax = advancedDict.lookupOrDefault<Foam::scalar>("recoilMax", 0.0);
+                if (input_recoilMax == 0.0)
+                {
+                    input_recoilMax = advancedDict.lookupOrDefault<Foam::scalar>("maxRecoilPressure", 0.0);
+                }
+            }
+
+            // ===== Extract from laser properties dict =====
+            const Foam::IOdictionary laserPropsDict
+            (
+                Foam::IOobject
+                (
+                    "laserProperties",
+                    runTime.constant(),
+                    mesh,
+                    Foam::IOobject::READ_IF_PRESENT,
+                    Foam::IOobject::NO_WRITE,
+                    false
+                )
+            );
+            if (laserPropsDict.headerOk())
+            {
+                input_absorptionCoeff = laserPropsDict.lookupOrDefault<Foam::scalar>("absorptionCoeff", 0.0);
+                input_reflectivity = laserPropsDict.lookupOrDefault<Foam::scalar>("reflectivity", 0.0);
+            }
+
+            // ===== Extract material properties from thermophysicalProperties.metal =====
+            const Foam::IOdictionary metalPropsDict
+            (
+                Foam::IOobject
+                (
+                    "thermophysicalProperties.metal",
+                    runTime.constant(),
+                    mesh,
+                    Foam::IOobject::READ_IF_PRESENT,
+                    Foam::IOobject::NO_WRITE,
+                    false
+                )
+            );
+            if (metalPropsDict.headerOk() && metalPropsDict.found("mixture"))
+            {
+                const Foam::dictionary& mixtureDict = metalPropsDict.subDict("mixture");
+
+                if (mixtureDict.found("thermodynamics"))
+                {
+                    const Foam::dictionary& thermoDict = mixtureDict.subDict("thermodynamics");
+                    input_metal_Cp = thermoDict.lookupOrDefault<Foam::scalar>("Cp", 0.0);
+                }
+                if (mixtureDict.found("transport"))
+                {
+                    const Foam::dictionary& transportDict = mixtureDict.subDict("transport");
+                    input_metal_mu = transportDict.lookupOrDefault<Foam::scalar>("mu", 0.0);
+                }
+
+                if (mixtureDict.found("specie"))
+                {
+                    const Foam::dictionary& specieDict = mixtureDict.subDict("specie");
+                    input_metal_molWeight = specieDict.lookupOrDefault<Foam::scalar>("molWeight", 0.0);
+                }
+                if (mixtureDict.found("equationOfState"))
+                {
+                    const Foam::dictionary& eosDict = mixtureDict.subDict("equationOfState");
+                    input_metal_rho0 = eosDict.lookupOrDefault<Foam::scalar>("rho0", 0.0);
+                }
+            }
+
+            // ===== Extract mesh/domain information =====
+            input_totalCells = mesh.nCells();
+            input_domainVolume = Foam::gSum(mesh.V().field());
+
+            const Foam::scalarField& cellVols = mesh.V().field();
+            if (cellVols.size() > 0)
+            {
+                input_minCellVolume = Foam::gMin(cellVols);
+                input_maxCellVolume = Foam::gMax(cellVols);
+            }
+
+            inputParamsExtracted = true;
+
+            if (Foam::Pstream::master())
+            {
+                Info<< "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" << Foam::nl
+
+                    << "  COMPREHENSIVE INPUT PARAMETERS EXTRACTED FOR CSV LOGGING" << Foam::nl
+                    << "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" << Foam::nl
+                    << "  Laser: pulseEnergy=" << input_pulseEnergy << " J, "
+                    << "pulseWidth=" << input_pulseWidth*1e15 << " fs" << Foam::nl
+                    << "  Time: deltaT=" << input_deltaT*1e15 << " fs, "
+                    << "endTime=" << input_endTime*1e12 << " ps" << Foam::nl
+                    << "  Phase Change: Tvap=" << input_Tvap << " K, "
+                    << "hf=" << input_hf << " J/kg" << Foam::nl
+                    << "  Two-Temp: Cl=" << input_Cl << " J/m³/K, "
+                    << "maxTl=" << input_maxTl << " K" << Foam::nl
+                    << "  Mesh: totalCells=" << input_totalCells << ", "
+                    << "domainVolume=" << input_domainVolume*1e18 << " µm³" << Foam::nl
+                    << "  Total parameters logged: 48" << Foam::nl
+                    << "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" << Foam::endl;
+            }
+
+        }
         const Foam::scalar t = runTime.value();
         const Foam::volScalarField& Te = ttm.Te();
         const Foam::volScalarField& Tl = ttm.Tl();
@@ -945,6 +1142,8 @@ namespace
 
             if (!headerWritten)
             {
+               // Output data columns (32)
+
                 csvFile << "time_ps,phase,phase_num,progress_pct,"
                         << "Te_max_K,Tl_max_K,Tl_avg_K,Tl_spread_K,"
                         << "P_max_MPa,recoil_MPa,recoil_max_seen_MPa,"
@@ -955,7 +1154,35 @@ namespace
                         << "turbulent_KE_nJ,kinetic_eff_pct,"
                         << "pressure_grad_GPam,shock_present,"
                         << "separation_detected,time_to_ejection_ps,"
-                        << "laserPower_W,peakQLaser_TWm3" << Foam::endl;
+                        << "laserPower_W,peakQLaser_TWm3,"
+                        // Laser properties (9)
+                        << "input_pulseEnergy_J,input_pulseWidth_s,input_wavelength_m,"
+                        << "input_spotSize_m,input_absorptionCoeff_per_m,input_reflectivity,"
+                        << "input_focus_x_m,input_focus_y_m,input_focus_z_m,"
+                        // Solver settings (6)
+                        << "input_maxCo,input_maxAlphaCo,input_maxThermalCourant,"
+                        << "input_maxDi,input_thermalFluxRelax,input_adjustTimeStep,"
+                        // Time stepping (4)
+                        << "input_deltaT_s,input_maxDeltaT_s,input_minDeltaT_s,input_endTime_s,"
+                        // Laser timing (2)
+                        << "input_laserStartTime_s,input_laserEndTime_s,"
+                        // Phase change (10)
+                        << "input_Tvap_K,input_Tsol_K,input_evaporationCoeff,"
+                        << "input_hf_Jkg,input_gasConstant_JkgK,input_p_ref_Pa,"
+                        << "input_relaxationTime_s,input_maxSource_kgm3s,"
+                        << "input_alphaMin,input_metalFractionCutoff,"
+                        // Two-temperature (6)
+                        << "input_Cl_Jm3K,input_De_m2s,input_Ce_coeff_Jm3K2,"
+                        << "input_maxTe_K,input_maxTl_K,input_minTe_K,"
+                        // Advanced interface (3)
+                        << "input_momentumAccommodationCoeff,input_stickingCoeff,input_recoilMax_Pa,"
+                        // Material properties (4)
+                        << "input_metal_Cp_JkgK,input_metal_mu_Pas,"
+                        << "input_metal_molWeight_kgkmol,input_metal_rho0_kgm3,"
+                        // Mesh/Domain (4)
+                        << "input_totalCells,input_domainVolume_m3,"
+                        << "input_minCellVolume_m3,input_maxCellVolume_m3"
+                        << Foam::endl;
                 headerWritten = true;
             }
 
@@ -1029,9 +1256,65 @@ namespace
                     << (separationDetected ? 1 : 0) << ","
                     << (timeToEjection > 0 ? timeToEjection*1e12 : -1) << ","
                     << laserPowerMetal << ","
-                    << peakQLaser/1e12 << Foam::endl;
+                    << peakQLaser/1e12 << ","
+                    // Laser properties (9)
+                    << input_pulseEnergy << ","
+                    << input_pulseWidth << ","
+                    << input_wavelength << ","
+                    << input_spotSize << ","
+                    << input_absorptionCoeff << ","
+                    << input_reflectivity << ","
+                    << input_focus_x << ","
+                    << input_focus_y << ","
+                    << input_focus_z << ","
+                    // Solver settings (6)
+                    << input_maxCo << ","
+                    << input_maxAlphaCo << ","
+                    << input_maxThermalCourant << ","
+                    << input_maxDi << ","
+                    << input_thermalFluxRelax << ","
+                    << input_adjustTimeStep << ","
+                    // Time stepping (4)
+                    << input_deltaT << ","
+                    << input_maxDeltaT << ","
+                    << input_minDeltaT << ","
+                    << input_endTime << ","
+                    // Laser timing (2)
+                    << input_laserStartTime << ","
+                    << input_laserEndTime << ","
+                    // Phase change (10)
+                    << input_Tvap << ","
+                    << input_Tsol << ","
+                    << input_evaporationCoeff << ","
+                    << input_hf << ","
+                    << input_gasConstant << ","
+                    << input_p_ref << ","
+                    << input_relaxationTime << ","
+                    << input_maxSource << ","
+                    << input_alphaMin << ","
+                    << input_metalFractionCutoff << ","
+                    // Two-temperature (6)
+                    << input_Cl << ","
+                    << input_De << ","
+                    << input_Ce_coeff << ","
+                    << input_maxTe << ","
+                    << input_maxTl << ","
+                    << input_minTe << ","
+                    // Advanced interface (3)
+                    << input_momentumAccommodationCoeff << ","
+                    << input_stickingCoeff << ","
+                    << input_recoilMax << ","
+                    // Material properties (4)
+                    << input_metal_Cp << ","
+                    << input_metal_mu << ","
+                    << input_metal_molWeight << ","
+                    << input_metal_rho0 << ","
+                    // Mesh/Domain (4)
+                    << input_totalCells << ","
+                    << input_domainVolume << ","
+                    << input_minCellVolume << ","
+                    << input_maxCellVolume << Foam::endl;
         }
-
         pTmp.clear();
     }
 }
@@ -1345,16 +1628,9 @@ while (pimple.loop())
         
         mixture.setClTTM(ttm.Cl());
     }
-// ✅ CRITICAL FIX: Synchronize gas temperature with lattice after TTM solve
-{
-    const volScalarField& Tl = ttm.Tl();
-    const scalar strictMetalThreshold = 0.9;
-    
-    // In pure metal cells, enforce T = Tl
-    T = (scalar(1) - pureMetal)*T + pureMetal*Tl;
-    T.correctBoundaryConditions();
-}
-
+        // Keep gas temperature consistent with lattice temperature for momentum coupling
+        T = ttm.Tl();
+        T.correctBoundaryConditions();
     // Update enhanced LIFT physics (all three models updated in one call)
     if (liftPhysics.valid())
     {
