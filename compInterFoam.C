@@ -112,7 +112,8 @@ namespace
         const Foam::twoPhaseMixtureThermo& mixture,
         const Foam::volVectorField& U,
         const Foam::volScalarField* recoilPressurePtr,
-        const Foam::Switch trackerEnabled
+        const Foam::Switch trackerEnabled,
+        const Foam::femtosecondLaserModel& laser
     )
     {
         static bool statusPrinted = false;
@@ -138,6 +139,94 @@ namespace
 
                 << "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" << Foam::endl;
             statusPrinted = true;
+        }
+
+        // Extract input parameters once and store as static variables for CSV logging
+        static bool inputParamsExtracted = false;
+        static Foam::scalar input_pulseEnergy = 0.0;
+        static Foam::scalar input_pulseWidth = 0.0;
+        static Foam::scalar input_wavelength = 0.0;
+        static Foam::scalar input_spotSize = 0.0;
+        static Foam::scalar input_absorptionCoeff = 0.0;
+        static Foam::scalar input_reflectivity = 0.0;
+        static Foam::scalar input_focus_x = 0.0;
+        static Foam::scalar input_focus_y = 0.0;
+        static Foam::scalar input_focus_z = 0.0;
+        static Foam::scalar input_maxCo = 0.0;
+        static Foam::scalar input_maxAlphaCo = 0.0;
+        static Foam::scalar input_maxThermalCourant = 0.0;
+        static Foam::scalar input_Tvap = 0.0;
+        static Foam::scalar input_Tsol = 0.0;
+        static Foam::scalar input_evaporationCoeff = 0.0;
+        static Foam::scalar input_momentumAccommodationCoeff = 0.0;
+
+        if (!inputParamsExtracted)
+        {
+            // Extract laser properties
+            input_pulseEnergy = laser.pulseEnergy().value();
+            input_pulseWidth = laser.pulseWidth().value();
+            input_wavelength = laser.wavelength().value();
+            input_spotSize = laser.spotSize().value();
+            const Foam::point focusPoint = laser.focus();
+            input_focus_x = focusPoint.x();
+            input_focus_y = focusPoint.y();
+            input_focus_z = focusPoint.z();
+
+            // Extract from controlDict
+            const Foam::dictionary& controlDict = runTime.controlDict();
+            input_maxCo = controlDict.lookupOrDefault<Foam::scalar>("maxCo", 0.5);
+            input_maxAlphaCo = controlDict.lookupOrDefault<Foam::scalar>("maxAlphaCo", 0.5);
+            input_maxThermalCourant = controlDict.lookupOrDefault<Foam::scalar>("maxThermalCourant", 0.5);
+
+            // Extract phase change parameters
+            if (controlDict.found("phaseChangeCoeffs"))
+            {
+                const Foam::dictionary& phaseChangeDict = controlDict.subDict("phaseChangeCoeffs");
+                input_Tvap = phaseChangeDict.lookupOrDefault<Foam::scalar>("Tvap", 0.0);
+                input_Tsol = phaseChangeDict.lookupOrDefault<Foam::scalar>("Tsol", 0.0);
+                input_evaporationCoeff = phaseChangeDict.lookupOrDefault<Foam::scalar>("evaporationCoeff", 0.0);
+            }
+
+            // Extract advanced interface capturing parameters
+            if (controlDict.found("advancedInterfaceCapturing"))
+            {
+                const Foam::dictionary& advancedDict = controlDict.subDict("advancedInterfaceCapturing");
+                input_momentumAccommodationCoeff = advancedDict.lookupOrDefault<Foam::scalar>("momentumAccommodationCoeff", 0.0);
+            }
+
+            // Try to get absorptionCoeff and reflectivity from laser properties dict
+            const Foam::IOdictionary laserPropsDict
+            (
+                Foam::IOobject
+                (
+                    "laserProperties",
+                    runTime.constant(),
+                    mesh,
+                    Foam::IOobject::READ_IF_PRESENT,
+                    Foam::IOobject::NO_WRITE,
+                    false
+                )
+            );
+            if (laserPropsDict.headerOk())
+            {
+                input_absorptionCoeff = laserPropsDict.lookupOrDefault<Foam::scalar>("absorptionCoeff", 0.0);
+                input_reflectivity = laserPropsDict.lookupOrDefault<Foam::scalar>("reflectivity", 0.0);
+            }
+
+            inputParamsExtracted = true;
+
+            if (Foam::Pstream::master())
+            {
+                Info<< "Input parameters extracted for CSV logging:" << Foam::nl
+                    << "  pulseEnergy: " << input_pulseEnergy << " J" << Foam::nl
+                    << "  pulseWidth: " << input_pulseWidth << " s" << Foam::nl
+                    << "  wavelength: " << input_wavelength << " m" << Foam::nl
+                    << "  spotSize: " << input_spotSize << " m" << Foam::nl
+                    << "  absorptionCoeff: " << input_absorptionCoeff << " 1/m" << Foam::nl
+                    << "  reflectivity: " << input_reflectivity << Foam::nl
+                    << "  Tvap: " << input_Tvap << " K" << Foam::nl
+                    << "  evaporationCoeff: " << input_evaporationCoeff << Foam::endl;
+            }
         }
 
         const Foam::scalar t = runTime.value();
@@ -955,7 +1044,13 @@ namespace
                         << "turbulent_KE_nJ,kinetic_eff_pct,"
                         << "pressure_grad_GPam,shock_present,"
                         << "separation_detected,time_to_ejection_ps,"
-                        << "laserPower_W,peakQLaser_TWm3" << Foam::endl;
+                        << "laserPower_W,peakQLaser_TWm3,"
+                        << "input_pulseEnergy_J,input_pulseWidth_s,input_wavelength_m,"
+                        << "input_spotSize_m,input_absorptionCoeff_per_m,input_reflectivity,"
+                        << "input_focus_x_m,input_focus_y_m,input_focus_z_m,"
+                        << "input_maxCo,input_maxAlphaCo,input_maxThermalCourant,"
+                        << "input_Tvap_K,input_Tsol_K,input_evaporationCoeff,"
+                        << "input_momentumAccommodationCoeff" << Foam::endl;
                 headerWritten = true;
             }
 
@@ -1029,7 +1124,23 @@ namespace
                     << (separationDetected ? 1 : 0) << ","
                     << (timeToEjection > 0 ? timeToEjection*1e12 : -1) << ","
                     << laserPowerMetal << ","
-                    << peakQLaser/1e12 << Foam::endl;
+                    << peakQLaser/1e12 << ","
+                    << input_pulseEnergy << ","
+                    << input_pulseWidth << ","
+                    << input_wavelength << ","
+                    << input_spotSize << ","
+                    << input_absorptionCoeff << ","
+                    << input_reflectivity << ","
+                    << input_focus_x << ","
+                    << input_focus_y << ","
+                    << input_focus_z << ","
+                    << input_maxCo << ","
+                    << input_maxAlphaCo << ","
+                    << input_maxThermalCourant << ","
+                    << input_Tvap << ","
+                    << input_Tsol << ","
+                    << input_evaporationCoeff << ","
+                    << input_momentumAccommodationCoeff << Foam::endl;
         }
 
         pTmp.clear();
@@ -1552,7 +1663,8 @@ if (liftPhysics.valid() && liftPhysics->breakupEnabled())
             mixture,
             U,
             recoilPressurePtr,
-            enableLiftProcessTracker
+            enableLiftProcessTracker,
+            laser
         );
 
         runTime.functionObjects().execute();
