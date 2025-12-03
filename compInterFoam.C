@@ -158,6 +158,38 @@ namespace
         static Foam::scalar input_Tsol = 0.0;
         static Foam::scalar input_evaporationCoeff = 0.0;
         static Foam::scalar input_momentumAccommodationCoeff = 0.0;
+        static Foam::scalar input_maxDi = 0.0;
+        static Foam::scalar input_thermalFluxRelax = 0.0;
+        static Foam::scalar input_adjustTimeStep = 0.0;
+        static Foam::scalar input_deltaT = 0.0;
+        static Foam::scalar input_maxDeltaT = 0.0;
+        static Foam::scalar input_minDeltaT = 0.0;
+        static Foam::scalar input_endTime = 0.0;
+        static Foam::scalar input_laserStartTime = 0.0;
+        static Foam::scalar input_laserEndTime = 0.0;
+        static Foam::scalar input_hf = 0.0;
+        static Foam::scalar input_gasConstant = 0.0;
+        static Foam::scalar input_p_ref = 0.0;
+        static Foam::scalar input_relaxationTime = 0.0;
+        static Foam::scalar input_maxSource = 0.0;
+        static Foam::scalar input_alphaMin = 0.0;
+        static Foam::scalar input_metalFractionCutoff = 0.0;
+        static Foam::scalar input_Cl = 0.0;
+        static Foam::scalar input_De = 0.0;
+        static Foam::scalar input_Ce_coeff = 0.0;
+        static Foam::scalar input_maxTe = 0.0;
+        static Foam::scalar input_maxTl = 0.0;
+        static Foam::scalar input_minTe = 0.0;
+        static Foam::scalar input_stickingCoeff = 0.0;
+        static Foam::scalar input_recoilMax = 0.0;
+        static Foam::scalar input_metal_Cp = 0.0;
+        static Foam::scalar input_metal_mu = 0.0;
+        static Foam::scalar input_metal_molWeight = 0.0;
+        static Foam::scalar input_metal_rho0 = 0.0;
+        static Foam::label input_totalCells = 0;
+        static Foam::scalar input_domainVolume = 0.0;
+        static Foam::scalar input_minCellVolume = 0.0;
+        static Foam::scalar input_maxCellVolume = 0.0;
 
         if (!inputParamsExtracted)
         {
@@ -245,7 +277,7 @@ namespace
             }
 
             // ===== Extract from laser properties dict =====
-            const Foam::IOdictionary laserPropsDict
+            Foam::IOdictionary laserPropsDict
             (
                 Foam::IOobject
                 (
@@ -264,7 +296,7 @@ namespace
             }
 
             // ===== Extract material properties from thermophysicalProperties.metal =====
-            const Foam::IOdictionary metalPropsDict
+            Foam::IOdictionary metalPropsDict
             (
                 Foam::IOobject
                 (
@@ -1828,7 +1860,8 @@ if (liftPhysics.valid() && liftPhysics->breakupEnabled())
             mixture,
             U,
             recoilPressurePtr,
-            enableLiftProcessTracker
+            enableLiftProcessTracker,
+            laser
         );
 
         runTime.functionObjects().execute();
