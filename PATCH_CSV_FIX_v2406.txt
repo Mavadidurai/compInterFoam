@@ -1,0 +1,161 @@
+================================================================================
+UPDATED PATCH: Fix CSV Dimensioned Parameter Extraction (OpenFOAM v2406)
+File: compInterFoam.C
+Lines to replace: 223-264
+================================================================================
+
+This version uses the MODERN OpenFOAM API (no deprecation warnings)
+
+────────────────────────────────────────────────────────────────────────────────
+REPLACE LINES 223-237 WITH:
+────────────────────────────────────────────────────────────────────────────────
+
+            // ===== Extract phase change parameters =====
+            if (controlDict.found("phaseChangeCoeffs"))
+            {
+                const Foam::dictionary& phaseChangeDict = controlDict.subDict("phaseChangeCoeffs");
+
+                // Dimensioned parameters - use modern get<> API
+                if (phaseChangeDict.found("Tvap"))
+                {
+                    input_Tvap = phaseChangeDict.get<Foam::dimensionedScalar>("Tvap").value();
+                }
+                if (phaseChangeDict.found("Tsol"))
+                {
+                    input_Tsol = phaseChangeDict.get<Foam::dimensionedScalar>("Tsol").value();
+                }
+                if (phaseChangeDict.found("hf"))
+                {
+                    input_hf = phaseChangeDict.get<Foam::dimensionedScalar>("hf").value();
+                }
+                if (phaseChangeDict.found("gasConstant"))
+                {
+                    input_gasConstant = phaseChangeDict.get<Foam::dimensionedScalar>("gasConstant").value();
+                }
+                if (phaseChangeDict.found("p_ref"))
+                {
+                    input_p_ref = phaseChangeDict.get<Foam::dimensionedScalar>("p_ref").value();
+                }
+                if (phaseChangeDict.found("maxSource"))
+                {
+                    input_maxSource = phaseChangeDict.get<Foam::dimensionedScalar>("maxSource").value();
+                }
+
+                // Dimensionless parameters - read directly
+                input_evaporationCoeff = phaseChangeDict.lookupOrDefault<Foam::scalar>("evaporationCoeff", 0.0);
+                input_relaxationTime = phaseChangeDict.lookupOrDefault<Foam::scalar>("relaxationTime", 1e-11);
+                input_alphaMin = phaseChangeDict.lookupOrDefault<Foam::scalar>("alphaMin", 0.001);
+                input_metalFractionCutoff = phaseChangeDict.lookupOrDefault<Foam::scalar>("metalFractionCutoff", 1e-6);
+            }
+
+────────────────────────────────────────────────────────────────────────────────
+REPLACE LINES 239-264 WITH:
+────────────────────────────────────────────────────────────────────────────────
+
+            // ===== Extract two-temperature model parameters =====
+            if (controlDict.found("twoTemperatureProperties"))
+            {
+                const Foam::dictionary& twoTempDict = controlDict.subDict("twoTemperatureProperties");
+
+                // Dimensioned parameters - use modern get<> API
+                if (twoTempDict.found("Cl"))
+                {
+                    input_Cl = twoTempDict.get<Foam::dimensionedScalar>("Cl").value();
+                }
+                if (twoTempDict.found("De"))
+                {
+                    input_De = twoTempDict.get<Foam::dimensionedScalar>("De").value();
+                }
+
+                // Extract Ce coefficient from polynomial if present
+                if (twoTempDict.found("Ce"))
+                {
+                    const Foam::dictionary& CeDict = twoTempDict.subDict("Ce");
+                    if (CeDict.found("coeffs"))
+                    {
+                        Foam::List<Foam::Tuple2<Foam::scalar, Foam::scalar>> coeffs =
+                            CeDict.lookup("coeffs");
+                        // Look for linear coefficient (second entry)
+                        if (coeffs.size() > 1)
+                        {
+                            input_Ce_coeff = coeffs[1].first();
+                        }
+                    }
+                }
+
+                // Dimensionless parameters - read directly
+                input_maxTe = twoTempDict.lookupOrDefault<Foam::scalar>("maxTe", 20000.0);
+                input_maxTl = twoTempDict.lookupOrDefault<Foam::scalar>("maxTl", 10000.0);
+                input_minTe = twoTempDict.lookupOrDefault<Foam::scalar>("minTe", 200.0);
+            }
+
+================================================================================
+KEY CHANGES FOR OpenFOAM v2406:
+================================================================================
+
+OLD (deprecated since 2018):
+    dimensionedScalar Tvap_dim(phaseChangeDict.lookup("Tvap"));
+    input_Tvap = Tvap_dim.value();
+
+NEW (modern API - no warnings):
+    input_Tvap = phaseChangeDict.get<dimensionedScalar>("Tvap").value();
+
+This is a one-liner that:
+1. Uses get<> template method (modern OpenFOAM API)
+2. Returns the dimensionedScalar directly
+3. Calls .value() to extract the numeric value
+4. No deprecation warnings!
+
+================================================================================
+ALTERNATIVE APPROACH (if you prefer two lines):
+================================================================================
+
+You can also use:
+    auto Tvap_dim = phaseChangeDict.get<dimensionedScalar>("Tvap");
+    input_Tvap = Tvap_dim.value();
+
+Or with explicit type:
+    const dimensionedScalar Tvap_dim = phaseChangeDict.get<dimensionedScalar>("Tvap");
+    input_Tvap = Tvap_dim.value();
+
+All three approaches work and avoid deprecation warnings.
+
+================================================================================
+BENEFITS OF NEW API:
+================================================================================
+
+✓ No deprecation warnings
+✓ Cleaner, more concise code
+✓ Modern OpenFOAM best practices (v2406+)
+✓ Better type safety
+✓ Same functionality as before
+
+================================================================================
+QUICK APPLY:
+================================================================================
+
+1. Edit compInterFoam.C:
+   nano compInterFoam.C
+
+2. Replace lines 223-264 with the code above
+
+3. Recompile (should have NO warnings now):
+   wmake
+
+4. Verify compilation is clean:
+   echo $?  # Should be 0
+
+5. Test:
+   cd TEST1
+   compInterFoam
+
+6. Check CSV has real values:
+   tail -1 liftProcessTracking.csv | cut -d',' -f54-65
+
+Expected (non-zero values):
+   3560,1941,0.05,9100000,174,101325,1e-11,1e+25,0.001,1e-06,2500000,0.0001
+
+NOT (all zeros):
+   0,0,0.05,0,0,0,1e-11,0,0.001,1e-06,0,0
+
+================================================================================
