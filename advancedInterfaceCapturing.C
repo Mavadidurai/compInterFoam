@@ -544,7 +544,9 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
     const scalar currentTime = time.value();
     const scalar laserEnd =
         time.controlDict().lookupOrDefault<scalar>("laserEndTime", GREAT);
-    const scalar recoilGrace = 5e-12;
+    // Electron-phonon equilibration takes 10-50 ps
+    // Reference: Wellershoff et al., Phys. Rev. B 59, 1505 (1999)
+    const scalar recoilGrace = 50e-12;  // 50 picoseconds
 
     if (currentTime > laserEnd + recoilGrace)
     {
