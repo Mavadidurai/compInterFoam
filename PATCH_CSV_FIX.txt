@@ -1,0 +1,222 @@
+================================================================================
+PATCH: Fix CSV Dimensioned Parameter Extraction
+File: compInterFoam.C
+Lines to replace: 223-264
+================================================================================
+
+────────────────────────────────────────────────────────────────────────────────
+REMOVE THIS CODE (Lines 223-237):
+────────────────────────────────────────────────────────────────────────────────
+
+            // ===== Extract phase change parameters =====
+            if (controlDict.found("phaseChangeCoeffs"))
+            {
+                const Foam::dictionary& phaseChangeDict = controlDict.subDict("phaseChangeCoeffs");
+                input_Tvap = phaseChangeDict.lookupOrDefault<Foam::scalar>("Tvap", 0.0);
+                input_Tsol = phaseChangeDict.lookupOrDefault<Foam::scalar>("Tsol", 0.0);
+                input_evaporationCoeff = phaseChangeDict.lookupOrDefault<Foam::scalar>("evaporationCoeff", 0.0);
+                input_hf = phaseChangeDict.lookupOrDefault<Foam::scalar>("hf", 0.0);
+                input_gasConstant = phaseChangeDict.lookupOrDefault<Foam::scalar>("gasConstant", 0.0);
+                input_p_ref = phaseChangeDict.lookupOrDefault<Foam::scalar>("p_ref", 101325.0);
+                input_relaxationTime = phaseChangeDict.lookupOrDefault<Foam::scalar>("relaxationTime", 1e-11);
+                input_maxSource = phaseChangeDict.lookupOrDefault<Foam::scalar>("maxSource", 0.0);
+                input_alphaMin = phaseChangeDict.lookupOrDefault<Foam::scalar>("alphaMin", 0.001);
+                input_metalFractionCutoff = phaseChangeDict.lookupOrDefault<Foam::scalar>("metalFractionCutoff", 1e-6);
+            }
+
+────────────────────────────────────────────────────────────────────────────────
+REPLACE WITH THIS CODE:
+────────────────────────────────────────────────────────────────────────────────
+
+            // ===== Extract phase change parameters =====
+            if (controlDict.found("phaseChangeCoeffs"))
+            {
+                const Foam::dictionary& phaseChangeDict = controlDict.subDict("phaseChangeCoeffs");
+
+                // Dimensioned parameters - must extract from dimensionedScalar
+                if (phaseChangeDict.found("Tvap"))
+                {
+                    Foam::dimensionedScalar Tvap_dim(phaseChangeDict.lookup("Tvap"));
+                    input_Tvap = Tvap_dim.value();
+                }
+                if (phaseChangeDict.found("Tsol"))
+                {
+                    Foam::dimensionedScalar Tsol_dim(phaseChangeDict.lookup("Tsol"));
+                    input_Tsol = Tsol_dim.value();
+                }
+                if (phaseChangeDict.found("hf"))
+                {
+                    Foam::dimensionedScalar hf_dim(phaseChangeDict.lookup("hf"));
+                    input_hf = hf_dim.value();
+                }
+                if (phaseChangeDict.found("gasConstant"))
+                {
+                    Foam::dimensionedScalar gasConstant_dim(phaseChangeDict.lookup("gasConstant"));
+                    input_gasConstant = gasConstant_dim.value();
+                }
+                if (phaseChangeDict.found("p_ref"))
+                {
+                    Foam::dimensionedScalar p_ref_dim(phaseChangeDict.lookup("p_ref"));
+                    input_p_ref = p_ref_dim.value();
+                }
+                if (phaseChangeDict.found("maxSource"))
+                {
+                    Foam::dimensionedScalar maxSource_dim(phaseChangeDict.lookup("maxSource"));
+                    input_maxSource = maxSource_dim.value();
+                }
+
+                // Dimensionless parameters - read directly
+                input_evaporationCoeff = phaseChangeDict.lookupOrDefault<Foam::scalar>("evaporationCoeff", 0.0);
+                input_relaxationTime = phaseChangeDict.lookupOrDefault<Foam::scalar>("relaxationTime", 1e-11);
+                input_alphaMin = phaseChangeDict.lookupOrDefault<Foam::scalar>("alphaMin", 0.001);
+                input_metalFractionCutoff = phaseChangeDict.lookupOrDefault<Foam::scalar>("metalFractionCutoff", 1e-6);
+            }
+
+────────────────────────────────────────────────────────────────────────────────
+REMOVE THIS CODE (Lines 239-264):
+────────────────────────────────────────────────────────────────────────────────
+
+            // ===== Extract two-temperature model parameters =====
+            if (controlDict.found("twoTemperatureProperties"))
+            {
+                const Foam::dictionary& twoTempDict = controlDict.subDict("twoTemperatureProperties");
+                input_Cl = twoTempDict.lookupOrDefault<Foam::scalar>("Cl", 0.0);
+                input_De = twoTempDict.lookupOrDefault<Foam::scalar>("De", 0.0);
+
+               // Extract Ce coefficient from polynomial if present
+                if (twoTempDict.found("Ce"))
+                {
+                    const Foam::dictionary& CeDict = twoTempDict.subDict("Ce");
+                    if (CeDict.found("coeffs"))
+                    {
+                        Foam::List<Foam::Tuple2<Foam::scalar, Foam::scalar>> coeffs =
+                            CeDict.lookup("coeffs");
+                        // Look for linear coefficient (second entry)
+                        if (coeffs.size() > 1)
+                        {
+                            input_Ce_coeff = coeffs[1].first();
+                        }
+                    }
+                }
+                input_maxTe = twoTempDict.lookupOrDefault<Foam::scalar>("maxTe", 20000.0);
+                input_maxTl = twoTempDict.lookupOrDefault<Foam::scalar>("maxTl", 10000.0);
+                input_minTe = twoTempDict.lookupOrDefault<Foam::scalar>("minTe", 200.0);
+            }
+
+────────────────────────────────────────────────────────────────────────────────
+REPLACE WITH THIS CODE:
+────────────────────────────────────────────────────────────────────────────────
+
+            // ===== Extract two-temperature model parameters =====
+            if (controlDict.found("twoTemperatureProperties"))
+            {
+                const Foam::dictionary& twoTempDict = controlDict.subDict("twoTemperatureProperties");
+
+                // Dimensioned parameters - must extract from dimensionedScalar
+                if (twoTempDict.found("Cl"))
+                {
+                    Foam::dimensionedScalar Cl_dim(twoTempDict.lookup("Cl"));
+                    input_Cl = Cl_dim.value();
+                }
+                if (twoTempDict.found("De"))
+                {
+                    Foam::dimensionedScalar De_dim(twoTempDict.lookup("De"));
+                    input_De = De_dim.value();
+                }
+
+                // Extract Ce coefficient from polynomial if present
+                if (twoTempDict.found("Ce"))
+                {
+                    const Foam::dictionary& CeDict = twoTempDict.subDict("Ce");
+                    if (CeDict.found("coeffs"))
+                    {
+                        Foam::List<Foam::Tuple2<Foam::scalar, Foam::scalar>> coeffs =
+                            CeDict.lookup("coeffs");
+                        // Look for linear coefficient (second entry)
+                        if (coeffs.size() > 1)
+                        {
+                            input_Ce_coeff = coeffs[1].first();
+                        }
+                    }
+                }
+
+                // Dimensionless parameters - read directly
+                input_maxTe = twoTempDict.lookupOrDefault<Foam::scalar>("maxTe", 20000.0);
+                input_maxTl = twoTempDict.lookupOrDefault<Foam::scalar>("maxTl", 10000.0);
+                input_minTe = twoTempDict.lookupOrDefault<Foam::scalar>("minTe", 200.0);
+            }
+
+================================================================================
+KEY CHANGES SUMMARY:
+================================================================================
+
+1. Tvap, Tsol, hf, gasConstant, p_ref, maxSource:
+   OLD: lookupOrDefault<scalar>()
+   NEW: lookup() → dimensionedScalar → .value()
+
+2. Cl, De:
+   OLD: lookupOrDefault<scalar>()
+   NEW: lookup() → dimensionedScalar → .value()
+
+3. All dimensionless parameters (evaporationCoeff, relaxationTime, etc.):
+   UNCHANGED - these are correct as-is
+
+================================================================================
+WHY THIS FIX IS NEEDED:
+================================================================================
+
+In controlDict, these parameters are defined with dimensions:
+    Tvap    [0 0 0 1 0 0 0] 3560;     ← dimensionedScalar
+    hf      [0 2 -2 0 0 0 0] 9.1e6;   ← dimensionedScalar
+    Cl      [1 -1 -2 -1 0 0 0] 2.5e6; ← dimensionedScalar
+
+You MUST use:
+    1. lookup() to get the dimensionedScalar object
+    2. .value() to extract the numeric value
+
+Using lookupOrDefault<scalar>() will fail because it expects a plain number,
+not a dimensioned value, so it returns the default (0.0).
+
+Result: Your CSV will show 0.0 for all these parameters instead of actual values!
+
+================================================================================
+AFFECTED CSV COLUMNS (will be fixed):
+================================================================================
+
+Column 54: input_Tvap_K         (currently 0, should be ~3560)
+Column 55: input_Tsol_K         (currently 0, should be ~1941)
+Column 57: input_hf_Jkg         (currently 0, should be ~9.1e6)
+Column 58: input_gasConstant_JkgK (currently 0, should be ~174)
+Column 59: input_p_ref_Pa       (currently 0, should be ~101325)
+Column 61: input_maxSource_kgm3s (currently 0, should be ~1e25)
+Column 64: input_Cl_Jm3K        (currently 0, should be ~2.5e6)
+Column 65: input_De_m2s         (currently 0, should be ~0.0001)
+
+================================================================================
+HOW TO APPLY:
+================================================================================
+
+1. Open compInterFoam.C in editor:
+   nano compInterFoam.C
+   # or
+   gedit compInterFoam.C
+
+2. Go to line 223
+
+3. Delete lines 223-264
+
+4. Paste the corrected code from above
+
+5. Save and exit
+
+6. Recompile:
+   wmake
+
+7. Test:
+   cd TEST1
+   compInterFoam
+   head -2 liftProcessTracking.csv
+
+8. Verify columns 54-65 have real values, not zeros!
+
+================================================================================
