@@ -1,0 +1,43 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+| =========                 |                                                 |
+| \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox           |
+|  \\    /   O peration     | Version:  v2406                                 |
+|   \\  /    A nd           | Website:  www.openfoam.com                      |
+|    \\/     M anipulation  |                                                 
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    object      decomposeParDict;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+// Decompose (Intel i7-9750H with 12 threads)
+// Decompose for 4 cores
+numberOfSubdomains 4;
+
+// Mesh size: 20×209×(10+20+9) = 78,000 cells total
+// Domain: 50×20.0714×10 μm (X×Y×Z)
+// Layers: Substrate (20×100×10) + Air gap (20×100×20) + Ti film (20×100×9)
+
+// Decomposition method
+// hierarchical - decompose along coordinate directions
+// CRITICAL: Split in Y-direction only to avoid splitting laser beam!
+// Laser focus at x=25μm (domain center) - don't split in X!
+method          hierarchical;
+
+hierarchicalCoeffs
+ {
+     n           (1 4 1);    // 1*4*1 = 4 → split only in Y direction
+                           // ~19,500 cells/subdomain (~52 cells each in Y)
+     delta       0.001;      // Avoids processor boundaries at laser focus
+     order       xyz;
+ }
+ 
+// Preserve patches and cyclic boundaries
+distributed     no;
+roots           ();
+
+// ************************************************************************* //
