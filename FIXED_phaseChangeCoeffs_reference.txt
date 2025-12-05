@@ -1,0 +1,38 @@
+// CORRECTED phaseChangeCoeffs section for compInterFoam
+// Copy this into your LIFT2/system/controlDict file
+
+phaseChangeCoeffs
+{
+    model               clausius_clapeyron;
+
+    // CRITICAL: All dimensioned quantities MUST follow the format:
+    // parameterName [dim1 dim2 dim3 dim4 dim5 dim6 dim7] value;
+    // Where dimensions are: [kg m s K mol A cd]
+
+    hf                  [0 2 -2 0 0 0 0] 9.1e6;   // J/kg (Ti vaporisation enthalpy)
+    gasConstant         [0 2 -2 -1 0 0 0] 174;    // J/kg/K (Ti specific gas constant)
+    Tsol                [0 0 0 1 0 0 0] 1941;     // K (Ti melting point)
+    Tvap                [0 0 0 1 0 0 0] 3560;     // K (Ti vaporization temperature)
+    p_ref               [1 -1 -2 0 0 0 0] 101325; // Pa (reference pressure at Tvap)
+
+    // Kinetic theory parameters (dimensionless)
+    evaporationCoeff       0.05;
+    alphaMin              0.001;
+    dtFloor             1e-15;
+    relaxationTime      1e-11;
+
+    // Dimensioned parameters
+    maxSource           [1 -1 -3 0 0 0 0] 1e25;   // W/m³ (volumetric heat source limit)
+    minCoefficient      1e6;
+
+    onlyAboveVapor      false;
+    metalFractionCutoff 1e-6;
+    activationTime      ((0 2e-10));  // Active from 0 to 200 ps
+}
+
+// DIMENSION KEY:
+// [1 -1 -2 0 0 0 0] = Pa (pressure) = kg/(m·s²)
+// [0 2 -2 0 0 0 0] = J/kg (specific energy) = m²/s²
+// [0 2 -2 -1 0 0 0] = J/(kg·K) (specific gas constant) = m²/(s²·K)
+// [0 0 0 1 0 0 0] = K (temperature)
+// [1 -1 -3 0 0 0 0] = W/m³ (volumetric power density) = kg/(m·s³)
