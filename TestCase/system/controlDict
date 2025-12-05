@@ -224,7 +224,7 @@ G
     maxElectronDeltaT        [0 0 1 0 0 0 0] 5e-16;  // Guard rapid transients
 
     nInnerCouplingSweeps         3;  // More coupling iterations
-    innerCouplingResidualTol     1e-43 // Enable convergence check
+    innerCouplingResidualTol     1e-4;  // Enable convergence check
     
     klHighTThreshold 1000;
     klExponent       0.5;
