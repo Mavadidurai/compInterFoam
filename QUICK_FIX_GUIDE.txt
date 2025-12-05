@@ -1,0 +1,148 @@
+╔═══════════════════════════════════════════════════════════════════════════╗
+║                   CSV IMPLEMENTATION - QUICK FIX GUIDE                    ║
+╚═══════════════════════════════════════════════════════════════════════════╝
+
+┌───────────────────────────────────────────────────────────────────────────┐
+│ 🔴 PROBLEM: 8 Critical CSV Columns Show 0.0 Instead of Actual Values     │
+└───────────────────────────────────────────────────────────────────────────┘
+
+FILE: compInterFoam.C
+LINES: 223-264
+
+BROKEN CODE:
+├─ input_Tvap = phaseChangeDict.lookupOrDefault<scalar>("Tvap", 0.0);
+│  └─→ Returns 0.0 (should be ~3560 K)
+│
+├─ input_Tsol = phaseChangeDict.lookupOrDefault<scalar>("Tsol", 0.0);
+│  └─→ Returns 0.0 (should be ~1941 K)
+│
+├─ input_hf = phaseChangeDict.lookupOrDefault<scalar>("hf", 0.0);
+│  └─→ Returns 0.0 (should be ~9.1e6 J/kg)
+│
+├─ input_gasConstant = phaseChangeDict.lookupOrDefault<scalar>("gasConstant", 0.0);
+│  └─→ Returns 0.0 (should be ~174 J/kg/K)
+│
+├─ input_p_ref = phaseChangeDict.lookupOrDefault<scalar>("p_ref", 101325.0);
+│  └─→ Returns 0.0 (should be ~101325 Pa)
+│
+├─ input_maxSource = phaseChangeDict.lookupOrDefault<scalar>("maxSource", 0.0);
+│  └─→ Returns 0.0 (should be ~1e25 W/m³)
+│
+├─ input_Cl = twoTempDict.lookupOrDefault<scalar>("Cl", 0.0);
+│  └─→ Returns 0.0 (should be ~2.5e6 J/m³/K)
+│
+└─ input_De = twoTempDict.lookupOrDefault<scalar>("De", 0.0);
+   └─→ Returns 0.0 (should be ~1e-4 m²/s)
+
+┌───────────────────────────────────────────────────────────────────────────┐
+│ ❓ WHY IT FAILS                                                           │
+└───────────────────────────────────────────────────────────────────────────┘
+
+In controlDict, these are DIMENSIONED values:
+    Tvap    [0 0 0 1 0 0 0] 3560;      ← dimensionedScalar object
+            └──────────────┘
+            dimensions
+
+OpenFOAM stores them as "dimensionedScalar", not plain "scalar".
+lookupOrDefault<scalar>() can't find them → returns default (0.0)
+
+┌───────────────────────────────────────────────────────────────────────────┐
+│ ✅ THE FIX                                                                │
+└───────────────────────────────────────────────────────────────────────────┘
+
+CORRECTED CODE:
+
+if (phaseChangeDict.found("Tvap"))
+{
+    dimensionedScalar Tvap_dim(phaseChangeDict.lookup("Tvap"));
+    input_Tvap = Tvap_dim.value();  // Extract the numeric value
+}
+
+Apply this pattern to ALL dimensioned parameters:
+✓ Tvap, Tsol, hf, gasConstant, p_ref, maxSource (phaseChangeCoeffs)
+✓ Cl, De (twoTemperatureProperties)
+
+Keep lookupOrDefault<scalar>() for dimensionless parameters:
+✓ evaporationCoeff, relaxationTime, alphaMin, etc.
+
+┌───────────────────────────────────────────────────────────────────────────┐
+│ 📋 STEP-BY-STEP INSTRUCTIONS                                             │
+└───────────────────────────────────────────────────────────────────────────┘
+
+1. Edit the file:
+   nano compInterFoam.C
+   # OR
+   gedit compInterFoam.C
+
+2. Go to line 223
+
+3. Replace lines 223-264 with corrected code from:
+   PATCH_CSV_FIX.txt
+
+4. Save and exit
+
+5. Recompile:
+   wmake
+
+6. Test:
+   cd TEST1
+   compInterFoam
+
+7. Verify CSV output:
+   head -2 liftProcessTracking.csv
+   # Check that columns 54-65 have real values, not zeros!
+
+┌───────────────────────────────────────────────────────────────────────────┐
+│ 📊 AFFECTED CSV COLUMNS (Currently showing 0.0)                          │
+└───────────────────────────────────────────────────────────────────────────┘
+
+Column  Name                      Current   Should Be
+------  ------------------------  --------  -----------
+54      input_Tvap_K              0.0       ~3560
+55      input_Tsol_K              0.0       ~1941
+57      input_hf_Jkg              0.0       ~9.1e6
+58      input_gasConstant_JkgK    0.0       ~174
+59      input_p_ref_Pa            0.0       ~101325
+61      input_maxSource_kgm3s     0.0       ~1e25
+64      input_Cl_Jm3K             0.0       ~2.5e6
+65      input_De_m2s              0.0       ~0.0001
+
+┌───────────────────────────────────────────────────────────────────────────┐
+│ ✅ VERIFICATION AFTER FIX                                                │
+└───────────────────────────────────────────────────────────────────────────┘
+
+Python quick check:
+    import pandas as pd
+    df = pd.read_csv('liftProcessTracking.csv')
+    print(df[['input_Tvap_K', 'input_hf_Jkg', 'input_Cl_Jm3K']].iloc[0])
+
+Expected output:
+    input_Tvap_K      3560.0
+    input_hf_Jkg      9100000.0
+    input_Cl_Jm3K     2500000.0
+
+NOT:
+    input_Tvap_K      0.0      ← BAD!
+    input_hf_Jkg      0.0      ← BAD!
+    input_Cl_Jm3K     0.0      ← BAD!
+
+┌───────────────────────────────────────────────────────────────────────────┐
+│ 📖 DETAILED DOCUMENTATION                                                │
+└───────────────────────────────────────────────────────────────────────────┘
+
+Full analysis:       CSV_IMPLEMENTATION_ISSUES.md
+Complete summary:    CSV_IMPLEMENTATION_SUMMARY.md
+Corrected code:      FIXED_CSV_parameter_extraction.cpp
+Patch instructions:  PATCH_CSV_FIX.txt (you are here)
+
+┌───────────────────────────────────────────────────────────────────────────┐
+│ 💡 SUMMARY                                                                │
+└───────────────────────────────────────────────────────────────────────────┘
+
+ISSUE:    Wrong function used to read dimensioned parameters
+IMPACT:   8 critical CSV columns show 0.0 instead of actual values
+FIX:      Use dimensionedScalar + .value() instead of lookupOrDefault<scalar>
+EFFORT:   5 minutes + recompile
+PRIORITY: HIGH - affects all data quality and reproducibility
+
+════════════════════════════════════════════════════════════════════════════
