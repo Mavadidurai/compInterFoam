@@ -111,9 +111,9 @@ if (recoilPressurePtr)
     totalPressure += *recoilContribution;
 }
 
-// CRITICAL: Aggressive under-relaxation for extreme pressure gradients
-// Must be AFTER solverCoeffs declaration. Reference: Tryggvason et al. (2011)
-const scalar URelaxFactor = solverCoeffs.lookupOrDefault<scalar>("URelaxationFactor", 0.3);
+// Less aggressive relaxation to allow recoil-driven acceleration
+// For explicit coupling with high recoil pressures (38 GPa), 30% damping is too aggressive
+const scalar URelaxFactor = solverCoeffs.lookupOrDefault<scalar>("URelaxationFactor", 0.7);
 if (URelaxFactor > 0 && URelaxFactor < 1.0)
 {
     UEqn.relax(URelaxFactor);
@@ -428,6 +428,61 @@ if (maxUEqnVelocity < Foam::GREAT)
     {
         Info<< "    Velocity field limited to max magnitude "
             << maxUEqnVelocity << " m/s before computing flux" << endl;
+    }
+}
+
+// Limit vapor velocities to physical sound speed
+// Sound speed in hot metal vapor is ~1000-2000 m/s
+// Supersonic expansion without shock physics leads to numerical instability
+const scalar maxVaporVelocity = solverCoeffs.lookupOrDefault<scalar>("maxVaporVelocity", 2000.0);
+if (maxVaporVelocity < Foam::GREAT)
+{
+    bool vaporVelocityLimited = false;
+    const scalarField& alpha1Field = alpha1.primitiveField();
+    vectorField& UInternal = U.primitiveFieldRef();
+
+    forAll(UInternal, cellI)
+    {
+        // Only limit in vapor regions (low alpha.metal)
+        if (alpha1Field[cellI] < 0.1)  // Vapor/air phase
+        {
+            vector& Ui = UInternal[cellI];
+            scalar magUi = Foam::mag(Ui);
+
+            if (magUi > maxVaporVelocity && magUi > SMALL)
+            {
+                Ui *= maxVaporVelocity / magUi;  // Scale down to limit
+                vaporVelocityLimited = true;
+            }
+        }
+    }
+
+    // Also limit boundary fields
+    forAll(U.boundaryField(), patchi)
+    {
+        const scalarField& alpha1Patch = alpha1.boundaryField()[patchi];
+        vectorField& Up = U.boundaryFieldRef()[patchi];
+
+        forAll(Up, facei)
+        {
+            if (alpha1Patch[facei] < 0.1)  // Vapor/air phase
+            {
+                vector& Ui = Up[facei];
+                scalar magUi = Foam::mag(Ui);
+
+                if (magUi > maxVaporVelocity && magUi > SMALL)
+                {
+                    Ui *= maxVaporVelocity / magUi;
+                    vaporVelocityLimited = true;
+                }
+            }
+        }
+    }
+
+    if (vaporVelocityLimited && verbose && isMaster)
+    {
+        Info<< "    Vapor-phase velocity limited to " << maxVaporVelocity
+            << " m/s (sound speed in hot metal vapor)" << endl;
     }
 }
 

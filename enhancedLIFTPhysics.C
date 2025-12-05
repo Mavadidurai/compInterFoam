@@ -700,7 +700,8 @@ void Foam::enhancedLIFTPhysics::updateBreakup
 (
     const volScalarField& alpha1,
     const volVectorField& U,
-    const volScalarField& rho
+    const volScalarField& rho,
+    const volScalarField& T
 )
 {
     if (!breakup_.valid() || !breakup_->enabled_)
@@ -723,12 +724,16 @@ void Foam::enhancedLIFTPhysics::updateBreakup
     const scalarField& WeField = breakup_->WeberNumber_.primitiveField();
     const scalarField& alpha1Field = alpha1.primitiveField();
     const scalarField& LField = L_char.primitiveField();
+    const scalarField& TField = T.primitiveField();
     // Store tmp to avoid dangling reference
     tmp<scalarField> tUmagField = mag(U.primitiveField());
     const scalarField& UmagField = tUmagField();
     scalarField& indicatorField = breakup_->breakupIndicator_.primitiveFieldRef();
     scalarField& diameterField = breakup_->dropletDiameter_.primitiveFieldRef();
     scalarField& rateField = breakup_->breakupRate_.primitiveFieldRef();
+
+    // Only apply breakup if material is actually molten
+    const scalar T_melt = 1337.0;  // Gold melting point in K
 
     label nBreakupCells = 0;
 
@@ -738,6 +743,14 @@ void Foam::enhancedLIFTPhysics::updateBreakup
         const scalar alpha = alpha1Field[cellI];
         const scalar L = LField[cellI];
         const scalar Umag = UmagField[cellI];
+        const scalar T_local = TField[cellI];
+
+        // Skip breakup calculation for cold material (below melting point)
+        if (T_local < T_melt)
+        {
+            rateField[cellI] = 0.0;
+            continue;
+        }
 
         if (We > breakup_->We_critical_ && alpha > 0.01 && alpha < 0.99)
         {
@@ -816,7 +829,7 @@ void Foam::enhancedLIFTPhysics::updateAll
 {
     updatePhaseExplosion(T, alpha1, rho);
     updatePlasma(T, rho, alpha1);
-    updateBreakup(alpha1, U, rho);
+    updateBreakup(alpha1, U, rho, T);
 }
 
 

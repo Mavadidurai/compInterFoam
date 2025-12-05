@@ -335,7 +335,8 @@ public:
             (
                 const volScalarField& alpha1,
                 const volVectorField& U,
-                const volScalarField& rho
+                const volScalarField& rho,
+                const volScalarField& T
             );
 
             //- Apply droplet breakup to alpha field
