@@ -1,0 +1,20 @@
+--- a/UEqn.H
++++ b/UEqn.H
+@@ -108,7 +108,16 @@
+         }
+     }
+
+-    totalPressure += *recoilContribution;
++    // CRITICAL FIX: Alpha-weight recoil pressure to accelerate METAL, not vapor
++    // Without alpha-weighting, recoil gradient -∇P acts equally on all phases:
++    //   - Vapor (ρ~1 kg/m³):  acceleration = ∇P/1 = HUGE (wrong!)
++    //   - Metal (ρ~4500 kg/m³): acceleration = ∇P/4500 = tiny (wrong!)
++    // With alpha-weighting: Force = -∇(α·P) = -(α·∇P + P·∇α)
++    //   - Metal (α=1): Full recoil pressure gradient drives jet ✓
++    //   - Vapor (α=0): No recoil acceleration ✓
++    //   - Interface: P·∇α term = interface traction (physical!)
++    // Reference: Feinaeugle et al., Appl. Surf. Sci. 418, 2017
++    totalPressure += alpha1 * (*recoilContribution);
+ }
+
+ // CRITICAL: Aggressive under-relaxation for extreme pressure gradients
