@@ -108,7 +108,8 @@ if (recoilPressurePtr)
         }
     }
 
-    totalPressure += *recoilContribution;
+totalPressure += alpha1 * (*recoilContribution);
+
 }
 
 // CRITICAL: Aggressive under-relaxation for extreme pressure gradients

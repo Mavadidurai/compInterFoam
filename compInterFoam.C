@@ -220,30 +220,79 @@ namespace
             // Laser timing
             input_laserStartTime = controlDict.lookupOrDefault<Foam::scalar>("laserStartTime", 0.0);
             input_laserEndTime = controlDict.lookupOrDefault<Foam::scalar>("laserEndTime", 2e-10);
+
+  
+
             // ===== Extract phase change parameters =====
+
             if (controlDict.found("phaseChangeCoeffs"))
+
             {
+
                 const Foam::dictionary& phaseChangeDict = controlDict.subDict("phaseChangeCoeffs");
-                input_Tvap = phaseChangeDict.lookupOrDefault<Foam::scalar>("Tvap", 0.0);
-                input_Tsol = phaseChangeDict.lookupOrDefault<Foam::scalar>("Tsol", 0.0);
+
+ 
+
+                // Dimensioned parameters - use modern get<> API
+                if (phaseChangeDict.found("Tvap"))
+                {
+                    input_Tvap = phaseChangeDict.get<Foam::dimensionedScalar>("Tvap").value();
+                }
+
+                if (phaseChangeDict.found("Tsol"))
+                {
+                    input_Tsol = phaseChangeDict.get<Foam::dimensionedScalar>("Tsol").value();
+                }
+
+                if (phaseChangeDict.found("hf"))
+                {
+                    input_hf = phaseChangeDict.get<Foam::dimensionedScalar>("hf").value();
+                }
+
+                if (phaseChangeDict.found("gasConstant"))
+                {
+                    input_gasConstant = phaseChangeDict.get<Foam::dimensionedScalar>("gasConstant").value();
+                }
+
+                if (phaseChangeDict.found("p_ref"))
+                {
+                    input_p_ref = phaseChangeDict.get<Foam::dimensionedScalar>("p_ref").value();
+                }
+
+                if (phaseChangeDict.found("maxSource"))
+                {
+                    input_maxSource = phaseChangeDict.get<Foam::dimensionedScalar>("maxSource").value();
+                }
+ 
+
+                // Dimensionless parameters - read directly
                 input_evaporationCoeff = phaseChangeDict.lookupOrDefault<Foam::scalar>("evaporationCoeff", 0.0);
-                input_hf = phaseChangeDict.lookupOrDefault<Foam::scalar>("hf", 0.0);
-                input_gasConstant = phaseChangeDict.lookupOrDefault<Foam::scalar>("gasConstant", 0.0);
-                input_p_ref = phaseChangeDict.lookupOrDefault<Foam::scalar>("p_ref", 101325.0);
                 input_relaxationTime = phaseChangeDict.lookupOrDefault<Foam::scalar>("relaxationTime", 1e-11);
-                input_maxSource = phaseChangeDict.lookupOrDefault<Foam::scalar>("maxSource", 0.0);
                 input_alphaMin = phaseChangeDict.lookupOrDefault<Foam::scalar>("alphaMin", 0.001);
                 input_metalFractionCutoff = phaseChangeDict.lookupOrDefault<Foam::scalar>("metalFractionCutoff", 1e-6);
             }
 
-            // ===== Extract two-temperature model parameters =====
+          // ===== Extract two-temperature model parameters =====
             if (controlDict.found("twoTemperatureProperties"))
             {
                 const Foam::dictionary& twoTempDict = controlDict.subDict("twoTemperatureProperties");
-                input_Cl = twoTempDict.lookupOrDefault<Foam::scalar>("Cl", 0.0);
-                input_De = twoTempDict.lookupOrDefault<Foam::scalar>("De", 0.0);
 
-               // Extract Ce coefficient from polynomial if present
+ 
+
+                // Dimensioned parameters - use modern get<> API
+                if (twoTempDict.found("Cl"))
+                {
+                    input_Cl = twoTempDict.get<Foam::dimensionedScalar>("Cl").value();
+                }
+
+                if (twoTempDict.found("De"))
+                {
+                    input_De = twoTempDict.get<Foam::dimensionedScalar>("De").value();
+                }
+
+ 
+
+                // Extract Ce coefficient from polynomial if present
                 if (twoTempDict.found("Ce"))
                 {
                     const Foam::dictionary& CeDict = twoTempDict.subDict("Ce");
@@ -251,6 +300,7 @@ namespace
                     {
                         Foam::List<Foam::Tuple2<Foam::scalar, Foam::scalar>> coeffs =
                             CeDict.lookup("coeffs");
+
                         // Look for linear coefficient (second entry)
                         if (coeffs.size() > 1)
                         {
@@ -258,10 +308,13 @@ namespace
                         }
                     }
                 }
+
+                // Dimensionless parameters - read directly
                 input_maxTe = twoTempDict.lookupOrDefault<Foam::scalar>("maxTe", 20000.0);
                 input_maxTl = twoTempDict.lookupOrDefault<Foam::scalar>("maxTl", 10000.0);
                 input_minTe = twoTempDict.lookupOrDefault<Foam::scalar>("minTe", 200.0);
             }
+
 
             // ===== Extract advanced interface capturing parameters =====
             if (controlDict.found("advancedInterfaceCapturing"))

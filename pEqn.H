@@ -23,8 +23,9 @@ volVectorField HbyA
     ),
     constrainHbyA(rAU*UEqn.H(), U, p_rgh)
 );
-// Recoil force removed - recoil pressure now handled implicitly through p_rgh field
-// This prevents triple-counting and restores proper PIMPLE pressure-velocity coupling
+// HbyA recoil addition disabled - recoil is now included via phig (surface gradient)
+// The momentum predictor (UEqn.H) uses grad(p_rgh + recoilPressure), so pEqn must
+// include snGrad(recoilPressure) in phig for consistent PIMPLE coupling.
 /*
 if (recoilForceReady && tRecoilForce.valid())
 {
@@ -80,10 +81,16 @@ if (recoilForceReady)
 }
 */
 
-// Recoil traction removed from phig - recoil pressure handled via p_rgh only
-// Explicit force addition breaks pressure-velocity coupling in PIMPLE algorithm
+// CRITICAL: Include recoil pressure gradient for PIMPLE consistency
+// The momentum predictor (UEqn.H) uses totalPressure = p_rgh + recoilPressure.
+// For proper pressure-velocity coupling, pEqn must also account for recoil.
+// Reference: PIMPLE algorithm requires consistent pressure forces in both
+// momentum predictor and pressure corrector (Jasak, PhD thesis 1996).
+if (recoilPressurePtr)
+{
+    phig -= fvc::snGrad(*recoilPressurePtr)*rAUf*mesh.magSf();
+}
 
- 
 phiHbyA += phig;
 
 // Limit mass flux to prevent pressure divergence from extreme recoil/phase change
@@ -231,7 +238,7 @@ while (pimple.correctNonOrthogonal())
                 // Allow a modest overshoot above the nominal recoil plateau
                 // so the melt can accelerate realistically.  Fs-LIFT studies
                 // (e.g. Feinaeugle et al., Appl. Surf. Sci. 418, 2017) report
-                // transient spikes exceeding the 70–80 MPa steady recoil, so
+                // transient spikes exceeding the 70â€“80 MPa steady recoil, so
                 // expand the clamp by ~10% instead of pinning it exactly.
                 const scalar safetyFactor = 1.1;
                 safeClampTarget *= safetyFactor;
@@ -608,7 +615,7 @@ if (Foam::Pstream::master() && recoilVelocityScale > Foam::SMALL)
     const scalar velocityRatio = maxULiquid/recoilScaleSafe;
 
     Info<< "    Velocity diagnostic: |U|_metal_max = " << maxULiquid << " m/s ("
-        << velocityRatio << " × recoil-limited " << recoilScaleSafe << " m/s)"
+        << velocityRatio << " Ã— recoil-limited " << recoilScaleSafe << " m/s)"
         << Foam::nl;
 
     if (maxU > maxULiquid*(1.0 + 1e-6))
