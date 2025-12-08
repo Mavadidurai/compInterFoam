@@ -88,6 +88,8 @@ if (recoilForceReady)
 // momentum predictor and pressure corrector (Jasak, PhD thesis 1996).
 if (recoilPressurePtr)
 {
+    // Weight by metal fraction to focus force on metal
+    surfaceScalarField alphaf = fvc::interpolate(alpha1);
     phig -= fvc::snGrad(*recoilPressurePtr)*rAUf*mesh.magSf();
 }
 
@@ -124,11 +126,24 @@ constrainPressure(p_rgh, U, phiHbyA, rAUf);
 
 while (pimple.correctNonOrthogonal())
 {
-    fvScalarMatrix pEqn
-    (
-        fvm::laplacian(rAUf, p_rgh)
-     == fvc::div(phiHbyA)
-    );
+// Get phase change mass source [1/s]
+// dgdt represents volumetric mass transfer rate from compressibility
+// Reference: OpenFOAM compressibleInterFoam, Weng (2024)
+const volScalarField& dgdt = mixture.dgdt();
+
+// Volume source from phase change: evaporation creates volume
+// When mass transfers from liquid (rho1) to vapor (rho2), 
+// volume increases by: dV = dm * (1/rho2 - 1/rho1)
+const dimensionedScalar& rho1 = mixture.rho1();
+const dimensionedScalar& rho2 = mixture.rho2();
+
+fvScalarMatrix pEqn
+(
+    fvm::laplacian(rAUf, p_rgh)
+ == fvc::div(phiHbyA)
+  + (1.0/rho1 - 1.0/rho2)*dgdt  // Phase change volume source
+);
+
     pEqn.setReference(pRefCell, pRefValue);
 
     // Add under-relaxation for stability with extreme recoil pressures
