@@ -157,7 +157,7 @@ fvScalarMatrix pEqn
 
     // Add under-relaxation for stability with extreme recoil pressures
    // pEqn.relax();
- const scalar pRelaxFactor = solverCoeffs.lookupOrDefault<scalar>("pRelaxationFactor", 0.2);
+ const scalar pRelaxFactor = solverCoeffs.lookupOrDefault<scalar>("pRelaxationFactor", 0.7);
  pEqn.relax(pRelaxFactor);
     pEqn.solve();
     if (pimple.finalNonOrthogonalIter())
