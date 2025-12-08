@@ -132,16 +132,25 @@ while (pimple.correctNonOrthogonal())
 const volScalarField& dgdt = mixture.dgdt();
 
 // Volume source from phase change: evaporation creates volume
-// When mass transfers from liquid (rho1) to vapor (rho2), 
-// volume increases by: dV = dm * (1/rho2 - 1/rho1)
+// dgdt = -ṁ/ρ₁ where ṁ is mass transfer rate per unit volume [kg/(m³·s)]
+
+// Volumetric expansion rate: ∇·U = ṁ·(1/ρ₂ - 1/ρ₁) = dgdt·(1 - ρ₁/ρ₂)
+
 const dimensionedScalar& rho1 = mixture.rho1();
+
 const dimensionedScalar& rho2 = mixture.rho2();
 
+ 
+
 fvScalarMatrix pEqn
+
 (
+
     fvm::laplacian(rAUf, p_rgh)
+
  == fvc::div(phiHbyA)
-  + (1.0/rho1 - 1.0/rho2)*dgdt  // Phase change volume source
+
+  + (1.0 - rho1/rho2)*dgdt  // Phase change volume source [1/s]
 );
 
     pEqn.setReference(pRefCell, pRefValue);
