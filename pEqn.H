@@ -124,17 +124,10 @@ constrainPressure(p_rgh, U, phiHbyA, rAUf);
 
 while (pimple.correctNonOrthogonal())
 {
-    // Get phase change divergence source [1/s]
-    // dgdt represents the velocity divergence from phase change: ∇·U = dgdt
-    // This accounts for volume creation/destruction during evaporation/condensation
-    // Reference: OpenFOAM compressibleInterFoam, Weng (2024)
-    const volScalarField& dgdt = mixture.dgdt();
-
     fvScalarMatrix pEqn
     (
         fvm::laplacian(rAUf, p_rgh)
      == fvc::div(phiHbyA)
-      + dgdt  // Phase change volume source [1/s]
     );
     pEqn.setReference(pRefCell, pRefValue);
 
