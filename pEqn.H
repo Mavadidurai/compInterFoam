@@ -87,12 +87,17 @@ if (recoilForceReady)
 // Reference: PIMPLE algorithm requires consistent pressure forces in both
 // momentum predictor and pressure corrector (Jasak, PhD thesis 1996).
 //
-// Physics: grad(alpha1 * P_recoil) = alpha1*grad(P_recoil) + P_recoil*grad(alpha1)
-// The second term is critical at the interface where |grad(alpha1)| ~ 10^8 /m
+// IMPORTANT: Must interpolate alpha1 to faces BEFORE applying to gradient
+// snGrad operates on face values, so we need: alpha1(face) * grad(P_recoil)(face)
+// NOT: grad(alpha1 * P_recoil) - these differ due to discretization!
 if (recoilPressurePtr)
 {
-    // Apply alpha1 weighting for consistency with UEqn.H line 111
-    phig -= fvc::snGrad(alpha1 * (*recoilPressurePtr))*rAUf*mesh.magSf();
+    // Interpolate alpha1 to face values for proper discretization
+    surfaceScalarField alpha1f = fvc::interpolate(alpha1);
+
+    // Apply alpha1 weighting: alpha1(face) * snGrad(P_recoil)
+    // This gives the correct face-based force consistent with UEqn momentum predictor
+    phig -= alpha1f * fvc::snGrad(*recoilPressurePtr) * rAUf * mesh.magSf();
 }
 
 phiHbyA += phig;
