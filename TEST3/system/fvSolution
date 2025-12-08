@@ -201,7 +201,7 @@ compInterFoamCoeffs
     maxRAUf            1e5;    // Decreased from 1e6
 
     // Diagonal safety (keep this)
-    minUEqnDiag        1e-9;
+    minUEqnDiag        1e-6;
 
     // RELAX RESIDUAL TARGETS
     targetResU         0.1;
@@ -209,7 +209,7 @@ compInterFoamCoeffs
     // Recoil force smoothing to prevent GAMG divergence
     // Reference: Brackbill et al., JCP 100:335 (1992)
     URelaxationFactor      0.3;   // Aggressive U equation relaxation
-    pRelaxationFactor      0.2;   // Aggressive p equation relaxation  
+    pRelaxationFactor      0.7;   // Aggressive p equation relaxation  
     recoilSmoothingFactor  0.8;   // Smooth recoil application over timesteps
 }
 // ************************************************************************* //
