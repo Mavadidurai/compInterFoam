@@ -82,15 +82,17 @@ if (recoilForceReady)
 */
 
 // CRITICAL: Include recoil pressure gradient for PIMPLE consistency
-// The momentum predictor (UEqn.H) uses totalPressure = p_rgh + recoilPressure.
-// For proper pressure-velocity coupling, pEqn must also account for recoil.
+// The momentum predictor (UEqn.H) uses totalPressure = p_rgh + alpha1*recoilPressure.
+// For proper pressure-velocity coupling, pEqn must also use alpha1-weighted gradient.
 // Reference: PIMPLE algorithm requires consistent pressure forces in both
 // momentum predictor and pressure corrector (Jasak, PhD thesis 1996).
+//
+// Physics: grad(alpha1 * P_recoil) = alpha1*grad(P_recoil) + P_recoil*grad(alpha1)
+// The second term is critical at the interface where |grad(alpha1)| ~ 10^8 /m
 if (recoilPressurePtr)
 {
-    // Weight by metal fraction to focus force on metal
-    surfaceScalarField alphaf = fvc::interpolate(alpha1);
-    phig -= fvc::snGrad(*recoilPressurePtr)*rAUf*mesh.magSf();
+    // Apply alpha1 weighting for consistency with UEqn.H line 111
+    phig -= fvc::snGrad(alpha1 * (*recoilPressurePtr))*rAUf*mesh.magSf();
 }
 
 phiHbyA += phig;
