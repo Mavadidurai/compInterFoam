@@ -208,8 +208,8 @@ compInterFoamCoeffs
     targetResP         0.5;
     // Recoil force smoothing to prevent GAMG divergence
     // Reference: Brackbill et al., JCP 100:335 (1992)
-    URelaxationFactor      0.3;   // Aggressive U equation relaxation
-    pRelaxationFactor      0.2;   // Aggressive p equation relaxation  
+    URelaxationFactor      0.7;   // Increased from 0.3 - allow bulk metal acceleration
+    pRelaxationFactor      0.7;   // Increased from 0.2 - fix pressure-velocity decoupling
     recoilSmoothingFactor  0.8;   // Smooth recoil application over timesteps
 }
 // ************************************************************************* //
