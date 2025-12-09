@@ -109,7 +109,7 @@ if (recoilPressurePtr)
     }
 
 totalPressure += alpha1 * (*recoilContribution);
-
+recoilPressurePtr->relax(0.5);
 }
 
 // CRITICAL: Aggressive under-relaxation for extreme pressure gradients

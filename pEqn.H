@@ -63,34 +63,16 @@ surfaceScalarField phig
 
 // Get solver coefficients dictionary for all stability controls
 const Foam::dictionary solverCoeffs = compInterFoamCoeffsDict(mesh);
-/*
-if (recoilForceReady)
-{
-    // Smoothing prevents GAMG divergence. Reference: Brackbill et al. (1992)
-    const scalar recoilSmoothingFactor =
-        solverCoeffs.lookupOrDefault<scalar>("recoilSmoothingFactor", 0.5);
-    
-    if (recoilSmoothingFactor > SMALL && recoilSmoothingFactor < 1.0)
-    {
-        phig += recoilSmoothingFactor*(recoilTractionf & mesh.Sf())*rAUf;
-    }
-    else
-    {
-        phig += (recoilTractionf & mesh.Sf())*rAUf;
-    }
-}
-*/
-
-// CRITICAL: Include recoil pressure gradient for PIMPLE consistency
-// The momentum predictor (UEqn.H) uses totalPressure = p_rgh + recoilPressure.
-// For proper pressure-velocity coupling, pEqn must also account for recoil.
-// Reference: PIMPLE algorithm requires consistent pressure forces in both
-// momentum predictor and pressure corrector (Jasak, PhD thesis 1996).
+// IMPORTANT: Must interpolate alpha1 to faces BEFORE applying to gradient
+// snGrad operates on face values, so we need: alpha1(face) * grad(P_recoil)(face)
+// NOT: grad(alpha1 * P_recoil) - these differ due to discretization!
 if (recoilPressurePtr)
 {
-    // Weight by metal fraction to focus force on metal
-    surfaceScalarField alphaf = fvc::interpolate(alpha1);
-    phig -= fvc::snGrad(*recoilPressurePtr)*rAUf*mesh.magSf();
+    // Interpolate alpha1 to face values for proper discretization
+    surfaceScalarField alpha1f = fvc::interpolate(alpha1);
+    // Apply alpha1 weighting: alpha1(face) * snGrad(P_recoil)
+    // This gives the correct face-based force consistent with UEqn momentum predictor
+phig -= fvc::snGrad(alpha1 * (*recoilPressurePtr)) * rAUf * mesh.magSf();
 }
 
 phiHbyA += phig;
@@ -156,8 +138,7 @@ fvScalarMatrix pEqn
     pEqn.setReference(pRefCell, pRefValue);
 
     // Add under-relaxation for stability with extreme recoil pressures
-   // pEqn.relax();
- const scalar pRelaxFactor = solverCoeffs.lookupOrDefault<scalar>("pRelaxationFactor", 0.2);
+ const scalar pRelaxFactor = solverCoeffs.lookupOrDefault<scalar>("pRelaxationFactor", 0.7);
  pEqn.relax(pRelaxFactor);
     pEqn.solve();
     if (pimple.finalNonOrthogonalIter())
