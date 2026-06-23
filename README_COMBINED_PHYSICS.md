@@ -1,165 +1,326 @@
-# Enhanced LIFT Physics - Combined Single File
+# compInterFoam
 
-**Simplified Integration:** All three physics models are now in a single file!
+A custom OpenFOAM solver for femtosecond **Laser-Induced Forward Transfer (LIFT)** — a
+laser-driven thin-film deposition process in which an ultrashort laser pulse ablates a
+donor metal film and propels a molten jet or droplet across a gap onto a receiver
+substrate.
 
----
+The solver extends OpenFOAM's `compressibleInterFoam` (v2406, ESI/OpenCFD branch) by
+coupling four physics models in a single PIMPLE pressure–velocity loop:
 
-## Files
+| Model | Physics |
+|---|---|
+| **Two-Temperature Model (TTM)** | Electron–phonon energy transfer during and after the femtosecond pulse |
+| **Beer–Lambert laser deposition** | Gaussian spatial profile with exponential depth attenuation |
+| **Hertz–Knudsen evaporation** | Phase-change kinetics and recoil pressure at the liquid–vapour interface |
+| **Compressible VOF** | Interface tracking for two-phase flow at liquid-to-vapour density ratios exceeding 1000:1 |
 
-**Combined Implementation (Use These):**
-- ✅ `enhancedLIFTPhysics.H` - Single header with all 3 models
-- ✅ `enhancedLIFTPhysics.C` - Single implementation with all 3 models
+The electron energy equation is sub-cycled within each PIMPLE iteration to bridge the
+femtosecond–picosecond timescale gap between electron heating and lattice response.
 
-**Individual Files (Legacy - Can be deleted):**
-- ~~`phaseExplosionModel.H/C`~~ - Superseded by combined file
-- ~~`plasmaIonizationModel.H/C`~~ - Superseded by combined file
-- ~~`dropletBreakupModel.H/C`~~ - Superseded by combined file
+Validated against published experimental data for 71.4 nm titanium donor films:
+jet velocities 30–100 m/s, recoil pressures 70–85 MPa, energy conservation 92–97%
+across all cases. Mesh convergence verified using the GCI methodology (ASME V&V 20-2009).
 
----
-
-## Quick Start
-
-### 1. Add One Include
-
-```cpp
-#include "enhancedLIFTPhysics.H"
-```
-
-### 2. Initialize Once
-
-```cpp
-autoPtr<enhancedLIFTPhysics> liftPhysics
-(
-    new enhancedLIFTPhysics
-    (
-        mesh,
-        mixture,
-        runTime.controlDict()
-    )
-);
-```
-
-### 3. Update All Models (One Call)
-
-```cpp
-// Updates all three models in one call
-liftPhysics->updateAll(T, alpha1, rho, U);
-```
-
-### 4. Access Results
-
-```cpp
-// Phase explosion
-if (liftPhysics->phaseExplosionEnabled())
-{
-    const volScalarField& p_expl = liftPhysics->explosivePressure();
-    totalPressure += p_expl;
-}
-
-// Plasma ionization
-if (liftPhysics->plasmaEnabled())
-{
-    const volScalarField& p_plasma = liftPhysics->plasmaPressure();
-    totalPressure += p_plasma;
-}
-
-// Droplet breakup
-if (liftPhysics->breakupEnabled())
-{
-    liftPhysics->applyBreakup(alpha1, U);
-}
-```
+Developed as an MSc thesis project at Politecnico di Milano (2025).  
+Thesis: <https://hdl.handle.net/10589/247622>
 
 ---
 
-## Configuration
+## Requirements
 
-**Single dictionary wraps all three models:**
-
-```cpp
-enhancedLIFTPhysics
-{
-    phaseExplosionCoeffs { ... }
-    plasmaIonizationCoeffs { ... }
-    dropletBreakupCoeffs { ... }
-}
-```
-
-See `TestCase/system/controlDict` for complete example.
+- OpenFOAM **v2406** (ESI/OpenCFD branch — `openfoam.com`)  
+  *Note: this solver uses the ESI API and will not compile against the OpenFOAM Foundation branch.*
+- Standard OpenFOAM C++ build environment (`wmake`, MPI)
 
 ---
 
-## Compilation
+## Build
 
-**Make/files:**
-```makefile
-compInterFoam.C
-twoPhaseMixtureThermo.C
-twoTemperatureModel.C
-femtosecondLaserModel.C
-advancedInterfaceCapturing.C
-enhancedLIFTPhysics.C        # Add this line
+Source the OpenFOAM v2406 environment, then compile with `wmake`:
 
-EXE = $(FOAM_USER_APPBIN)/compInterFoam
+```bash
+source /opt/openfoam2406/etc/bashrc   # adjust path to your installation
+cd compInterFoam
+wmake
 ```
 
-Then:
+The compiled executable is placed in `$FOAM_USER_APPBIN/compInterFoam`.
+
+---
+
+## Run a test case
+
+Four test cases are provided (`TEST1`, `TEST2`, `TEST3`, `TestCase`).  
+`TestCase` includes an `Allrun` script for the complete mesh → initialise → solve workflow:
+
+```bash
+cd TestCase
+./Allrun
+```
+
+To run in parallel (example: 4 cores):
+
+```bash
+cd TestCase
+blockMesh
+topoSet
+setFields
+mpirun -np 4 compInterFoam -parallel
+```
+
+Monitor progress:
+
+```bash
+tail -f log.compInterFoam
+```
+
+---
+
+## Repository structure
+
+```
+compInterFoam/
+├── compInterFoam.C                   Main solver and time loop
+├── twoTemperatureModel.C/.H          Electron–phonon TTM
+├── femtosecondLaserModel.C/.H        Beer–Lambert laser energy deposition
+├── advancedInterfaceCapturing.C/.H   Hertz–Knudsen recoil pressure and VOF coupling
+├── twoPhaseMixtureThermo.C/.H        Compressible two-phase thermophysics
+├── compressibleInterPhaseTransportModel.C/.H
+├── enhancedLIFTPhysics.C/.H          Optional: phase-explosion, plasma, breakup models
+├── UEqn.H / pEqn.H / TEqn.H / alphaEqn.H   Equation includes
+├── createFields.H
+├── TEST1/ TEST2/ TEST3/ TestCase/    Validation and test cases
+├── meshConvergenceStudy/             GCI convergence study scripts (Python)
+├── Models/                           Detailed implementation reports per model
+└── Make/                             wmake build configuration
+```
+
+---
+
+## Validation summary
+
+| Quantity | Simulated | Experimental | Source |
+|---|---|---|---|
+| Jet velocity | 30–100 m/s | 30–100 m/s | Zenou et al. |
+| Recoil pressure | 70–85 MPa | 70–90 MPa | Unger et al. |
+| Energy conservation | 92–97 % | — | Domain integral audit |
+
+Mesh convergence: GCI < 3 % for peak temperature and velocity on the medium mesh
+(5.6 M cells, 16 cells across the 71.4 nm Ti film).
+
+---
+
+## Model and configuration documentation
+
+
+- **Femtosecond laser energy deposition** ([report](Models/FemtosecondLaserModel_Implementation_Report.md)) – Summarises the pulse envelope, absorption depth, and energy audits used to conserve deposited power; configure these knobs in `constant/laserProperties` and keep the coupled tolerances in `system/controlDict` (`phaseChangeCoeffs`, `recoilPressureCoeffs`) consistent with the report’s diagnostics.
+- **Two-temperature coupling** ([report](Models/TwoTemperatureModel_Detailed_Report.md)) – Reviews the electron–lattice energy paths and validation metrics; tune the critical `Ce`, `Cl`, `G`, and related bounds in `system/controlDict` → `twoTemperatureProperties` (or the optional `constant/twoTemperatureProperties`) exactly as tabulated.
+- **Advanced interface capturing** ([report](Models/AdvancedInterfaceCapturing_Thesis_Report.md)) – Explains how recoil pressure drives jet ejection and the safeguards that stabilise it; activate and adjust `alphaMin`, `alphaMax`, `recoilMax`, and diagnostic `verbose` switches inside the `advancedInterfaceCapturing` block of `system/controlDict` before running.
+- **Compressible inter-phase transport** ([report](Models/compressibleInterPhaseTransportModel_Thesis_Report.md)) – Details the mixture transport closures and required solver settings; ensure `constant/turbulenceProperties`, both phase `constant/thermophysicalProperties.*` files, and the `system/fvSolution` solvers match the recommended entries.
+- **Two-phase mixture thermodynamics** ([report](Models/twoPhaseMixtureThermo_Technical_Report.md)) – Covers the phase-change source, mixture property blending, and diagnostic fields; populate `constant/transportProperties` and the `system/controlDict` → `phaseChangeCoeffs` block with the parameter sets highlighted for titanium LIFT cases.
+## Building the solver
+## TEST1 restart policy
+The `TEST1/system/controlDict` case keeps `purgeWrite 100`, preserving the most
+recent checkpoints without letting the time directories grow without bound.
+This strikes a balance between restart coverage and disk usage. If you adjust
+`purgeWrite` for a different retention policy, keep `startFrom startTime` (as
+already configured in the case) so the solver consistently restarts from a
+well-defined state.
+The code relies on OpenFOAM's `wmake` build system. To avoid the
+`bash: command not found: wmake` error, first source the OpenFOAM
+environment (replace the path with the one that matches your installation):
+
+```bash
+source /opt/openfoam/etc/bashrc
+```
+
+After sourcing the environment you can compile the solver with the usual
+command:
+
 ```bash
 wmake
 ```
 
----
+If you are unsure whether the environment is set up correctly you can also run
+the helper script in the repository root:
 
-## Advantages
+```bash
+./wmake
+```
 
-✅ **Single file** - easier to manage
-✅ **Unified API** - `updateAll()` updates all models
-✅ **Cleaner includes** - only one header
-✅ **Better organization** - all physics in one place
-✅ **Same functionality** - all 3 models included
+It will delegate to the system `wmake` when available or print a clear
+instruction when the OpenFOAM environment is missing.
+## `system/controlDict`
+The reference case in [`TEST2/system/controlDict`](TEST2/system/controlDict)
+enables adaptive stepping with `adjustTimeStep yes`, so the Courant-number
+limits (`maxCo`, `maxAlphaCo`, `maxThermalCourant`) actively bound the solver
+time step. Output is controlled with `writeControl adjustableRunTime`, where
+`writeInterval` is specified in seconds of simulated time (`5e-13` corresponds
+to 0.5 ps in the default case).
 
----
+### `verbose`
+* **Type:** `Switch`
+* **Default:** `false`
+* **Effect:** Enables detailed diagnostics for laser, two-temperature, and
+  interface-capturing models. Messages are written by the master process only.
 
-## Output Fields
+### `twoTemperatureProperties`
+Controls the two-temperature model and related mixture properties. Frequently
+used entries include:
 
-When enabled, you'll get these fields automatically:
+| Entry | Default | Description |
+| --- | --- | --- |
+| `Ce` | `210 J/m^3/K` | Electron heat capacity (value or `Function1`). |
+| `Cl` | `2.3e6 J/m^3/K` | Lattice heat capacity. Also cached by `twoPhaseMixtureThermo` via `setClTTM`. |
+| `G` | `5e17 W/m^3/K` | Electron-phonon coupling. |
+| `De` | `1e-4 m^2/s` | Electron thermal diffusivity. |
+| `gasMetalExchangeCoeff` | `5e17 W/m^3/K` | Gas/metal interfacial coupling. |
+| `energyTolerance` (`energyTol`) | `0.1` | Relative energy-change tolerance checked after each time step. |
+| `minTe` / `maxTe` | `300 K` / `3500 K` | Bounds applied to `Te` and `Tl`. |
+| `metalFractionFloor` | `1e-6` | Minimum metal fraction considered for phase-change coupling and temperature bounds. |
+| `metalFractionCutoff` | `metalFractionFloor` | Cells with metal fraction below this value are excluded from phase-change coupling. |
+| `metalAmbientBlendWidth` | `1e-3` | Width of blending region for ambient fallback temperature. |
+| `electronSubCycles` | `1` | Planned electron sub-iterations per time step.
+| `maxElectronDeltaT` | `Δt` | Optional cap on electron sub-cycle time-step.
+| `minElectronSubCycles` / `maxElectronSubCycles` | `1` / unlimited | Bounds on
+sub-cycle count.
+| `temperatureDiagnostics` | `verbose` | Print temperature statistics when true.
+| `energyDiagnostics` | `false` | Enables extra energy reporting.
+| `energyAudit` | `verbose` | Enables detailed energy conservation log.
 
-**Phase Explosion:**
-- `explosivePressure`
-- `explosiveMassSource`
-- `explosionIndicator`
+### `advancedInterfaceCapturing`
+Defines parameters for the recoil-pressure helper used when
+`useAdvancedInterfaceCapturing` (default `true`) is enabled.
 
-**Plasma Ionization:**
-- `plasmaPressure`
-- `ionizationDegree`
-- `n_electron`
-- `plasmaShielding`
+| Entry | Default | Description |
+| --- | --- | --- |
+| `meltingTemperature` | mixture `T_melt` | Lower activation bound. |
+| `vaporTemperature` | mixture `T_vapor` | Upper activation bound. |
+| `phaseChangeTempOffset` | `0 K` | Shifts temperature threshold. |
+| `recoilTempOffset` | `0 K` | Extra offset applied before recoil activation. Must be non-negative and less than `vaporTemperature`. |
+| `pressureScale` | `1 Pa·s` (`[1 -1 -1 0 0 0 0]`) | Scaling factor for recoil response; supply as a Pa·s dimensioned scalar. |
+| `recoilMax` | `5e6 Pa` | Absolute recoil-pressure cap. |
+| `clampRecoil` | `true` | Enables capping of recoil pressure. |
+| `scaleRecoilMax` | `false` | Scales `recoilMax` with interface weighting. |
+| `recoilRelax` | `1.0` | Temporal relaxation factor (`relaxFactor` supported for backward compatibility). |
+| `boltzmannConstant` | `1.38e-23 J/K` (`[1 2 -2 -1 0 0 0]`) | Boltzmann constant used in recoil pressure; must be positive. |
+| `vaporParticleMass` | `7.95e-26 kg` (`[1 0 0 0 0 0 0]`) | Mass of the evaporated species for the recoil model; must be positive. |
+| `momentumAccommodationCoeff` | `0.18` | Momentum accommodation coefficient applied to the recoil pressure; constrained to `[0, 1]`. |
+| `alphaMin` / `alphaMax` | `0.001` / `0.999` | Valid phase-fraction window for recoil evaluation.
 
-**Droplet Breakup:**
-- `WeberNumber`
-- `breakupIndicator`
-- `dropletDiameter`
-- `breakupRate`
+## `system/controlDict`
 
----
+### `phaseChangeCoeffs`
+Governs metal evaporation/condensation coupling supplied to the two-temperature
+model. Moving this dictionary into `controlDict` keeps timing adjustments close
+to the main run controls.
 
-## Documentation
+| Entry | Default | Description |
+| --- | --- | --- |
+| `Tvapor` | mixture `T_vapor` | Vaporization temperature. |
+| `windowWidth` | `0 K` | Half-width of smooth transition window around `Tvapor`. |
+| `dtFloor` | `1e-12 s` | Minimum implicit time-step; clamps implicit relaxation to `1/dtFloor`. |
+| `relaxationRate` | – | Required source relaxation rate `[1/s]`. |
+| `relaxationTime` | – | Alternative to `relaxationRate`; converted internally. |
+| `maxSource` (`minCoefficient`) | See note | Maximum allowable source term. Uses `transportProperties.phaseChangeMaxSourceDefault` if unspecified (fallback `1e7`). |
+| `phaseChangeMetalCutoff` | `metalFractionCutoff` | Minimum metal fraction for source activation (falls back to `twoTemperatureProperties`). |
+| `onlyAboveVapor` | `false` | Disable phase-change source below `Tvapor`. |
+| `activationTime` | – | List of `(start stop)` time windows when the source is active. |
+| `gasConstant` | required | Hertz-Knudsen gas constant. Supply a material-appropriate dimensioned scalar with units `[0 2 -2 -1 0 0 0]`. |
+| `evaporationCoeff` | `0.18` | Evaporation/condensation accommodation coefficient (dimensionless, > 0). |
+| `evapRelaxationTime` | `1e-12 s` | Sets the implicit relaxation time applied to the net evaporation source (`> 0`). |
+| `alphaMin` / `alphaMax` | `0.01` / `0.99` | Bounding phase-fraction window for evaluating evaporation (`0 ≤ alphaMin < alphaMax ≤ 1`). |
 
-- **INTEGRATION_STEPS.md** - Step-by-step integration guide
-- **PHYSICS_ENHANCEMENTS.md** - Detailed physics documentation
-- **IMPLEMENTATION_GUIDE.md** - Full implementation details
-- **SUMMARY.md** - Overview and status
+### `massTransferCoeffs`
+Optional bulk mass-transfer limiter for the gas phase. Relocating this
+dictionary into `controlDict` puts its activation windows alongside other
+timing settings.
 
----
+| Entry | Default | Description |
+| --- | --- | --- |
+| `rateMax` | `-1` | Maximum `dg/dt` magnitude. Negative disables limiting. |
+| `tStart`, `tEnd` | – | Parallel lists defining activation windows. Missing or empty lists keep the limiter active at all times. |
 
-## Support
+### `laserStartTime` / `laserEndTime`
+Top-level entries that define when the femtosecond laser source is active.
+Entries in `controlDict` override values supplied in `constant/laserProperties`.
+Single-pulse runs may additionally supply `pulseCenterTime` in
+`constant/laserProperties` to delay the Gaussian peak; values outside the
+window are clamped to the configured start/end times, and omitting the entry
+retains the legacy near-start placement. When the keyword is absent the solver
+centres the Gaussian at `laserStartTime + min(0.5·(laserEndTime -
+laserStartTime), 3σ)` so the energy lands within a few pulse widths of the
+trigger. Providing an explicit `pulseCenterTime` simply shifts this centre—it
+does not change the deposited energy, only when the peak arrives during the
+`[laserStartTime, laserEndTime]` window.
+## Notes
+* All diagnostics controlled by `verbose` are now emitted by the master MPI
+  rank only to prevent duplicate messages in parallel runs.
+* The femtosecond-laser pulse-energy check scales its expectation by the
+  Gaussian beam area that intersects the mesh, so clipping the spot no longer
+  triggers spurious mismatch warnings.
+* Defaults above reflect the values compiled into the solver; supply explicit
+  entries in your dictionaries to override them as needed.
+* The femtosecond laser accepts `spatialIntegrationMode` to control axial
+  chord estimation: `exact` (default) scans cell vertices, while `centerline`
+  approximates the span from `V^(1/3)` for faster but less precise deposition.
+## `system/fvSolution:compInterFoamCoeffs`
+The solver re-reads the `compInterFoamCoeffs` sub-dictionary from
+`fvSolution` whenever it needs clamp limits or solver fallbacks. The active
+entries and their in-code defaults are:
 
-For detailed integration instructions, see **INTEGRATION_STEPS.md**
+| Entry | Default | Used in |
+| --- | --- | --- |
+| `maxPressureGradient` | `GREAT` | Caps `∇p_rgh` used in the momentum predictor and zeroes non-finite components. |
+| `maxKineticEnergyDensity` | `1e12` | Aborts the run when `0.5*rho*|U|^2` exceeds the ceiling before solving `UEqn`. |
+| `maxUEqnVelocity` | `GREAT` | Limits `U` before computing `phi = fvc::flux(U)` to prevent runaway mass flux. |
+| `maxVelocity` | `500` | Bounds the velocity magnitude after the pressure correction. |
+| `velocityAlphaThreshold` | `0.01` | Fraction of phase-1 (`alpha1`) used when reporting the post-correction velocity diagnostic. Speeds in cells below this volume fraction are treated as gas/plume motion. |
+| `minUEqnDiag` | `1e-9` | Floors the diagonal before inverting `UEqn` to form `rAU`. |
+| `enableRAUClamp` | `false` | Enables explicit `rAU`/`rAUf` bounding. |
+| `minRAU`, `maxRAU` | `1e-10`, `GREAT` | Cell-wise `rAU` clamp (only when `enableRAUClamp` is `true`). |
+| `minRAUf`, `maxRAUf` | `1e-14`, `GREAT` | Face-wise `rAUf` clamp (only when `enableRAUClamp` is `true`). |
+| `pressureClamp` | `false` | Enables bounding of `p` and `p_rgh`. |
+| `minPressure`, `maxPressure` | `-GREAT`, `GREAT` | Limits applied when `pressureClamp` is `true`. |
 
-For physics details and equations, see **PHYSICS_ENHANCEMENTS.md**
+Any other keys placed in `compInterFoamCoeffs` are ignored by the current
+code, so make sure to set the values above if you need runtime clamping.
 
----
+## Solver field symbols
+The solver allocates the following named fields and helper scalars during
+startup. Units follow the dimensions supplied when the objects are
+constructed in `createFields.H` and the equation includes; the short
+descriptions summarise their role in the femtosecond LIFT workflow.
 
-**Version:** 2.0 (Combined File)
-**Date:** 2025-01-16
-**Status:** Ready for integration
+| Symbol | Units | Short description |
+| --- | --- | --- |
+| `trDeltaT` | s⁻¹ | Inverse local time-step used when LTS is active (`fv::localEulerDdt::rDeltaTName`). 【F:createFields.H†L4-L34】 |
+| `trSubDeltaT` | s⁻¹ | Inverse sub-cycled time-step companion to `trDeltaT` for LTS momentum updates. 【F:createFields.H†L4-L41】 |
+| `p_rgh` | Pa | Pressure relative to the hydrostatic column, read from the latest time directory. 【F:createFields.H†L46-L68】 |
+| `U` | m s⁻¹ | Mixture velocity field solved by the momentum predictor. 【F:createFields.H†L70-L93】 |
+| `phi` | m³ s⁻¹ | Face volumetric flux obtained from `fvc::flux(U)` for use in transport terms. 【F:createFields.H†L95-L118】 |
+| `recoilTractionf` | N m⁻³ | Face-based recoil traction initialised to zero and later populated by the recoil model. 【F:createFields.H†L120-L143】 |
+| `T` | K | Single-temperature field (initialised to 300 K) that seeds metal/gas temperatures. 【F:createFields.H†L145-L170】 |
+| `gasMetalHeatFlux` | W m⁻³ | Volumetric accumulator for Kapitza-style heat exchange between gas and metal. 【F:createFields.H†L172-L195】 |
+| `alpha1`, `alpha2` | – | Phase-fraction fields for metal (`alpha.metal`) and gas (`alpha.gas`) retrieved from the mixture. 【F:createFields.H†L324-L341】 |
+| `rho` | kg m⁻³ | Mixture density assembled from `alpha1*rho1 + alpha2*rho2`. 【F:createFields.H†L353-L369】 |
+| `g` | m s⁻² | Uniform gravitational acceleration vector read from `constant/g`. 【F:createFields.H†L381-L401】 |
+| `hRef` | m | Reference height used when reconstructing hydrostatic pressure. 【F:createFields.H†L403-L412】 |
+| `ghRef` | m² s⁻² | Reference gravitational potential (`g·hRef`) preserving the gravity direction. 【F:createFields.H†L414-L427】 |
+| `gh`, `ghf` | m² s⁻² | Cell- and face-based gravitational potentials used when forming `p` and flux corrections. 【F:createFields.H†L429-L436】 |
+| `p` | Pa | Absolute pressure field defined as `p_rgh + rho*gh` for output and diagnostics. 【F:createFields.H†L438-L454】 |
+| `pRefCell`, `pRefValue` | –, Pa | Reference cell index and pressure used to stabilise the pressure solve. 【F:createFields.H†L456-L463】 |
+| `rhoPhi` | kg s⁻¹ | Mass flux computed from interpolated density and volumetric flux. 【F:createFields.H†L465-L478】 |
+| `dgdt` | kg m⁻³ s⁻¹ | Volumetric mass-transfer rate supplied by the phase-change thermo model. 【F:createFields.H†L480-L488】 |
+| `alphaPhi10` | m³ s⁻¹ | Face flux of the metal phase used in the compressive VOF transport. 【F:createFields.H†L490-L520】 |
+| `nAlphaSubCycles`, `nAlphaCorr` | count | Controls for the alpha equation sub-cycling and correction passes read from `fvSolution`. 【F:createFields.H†L522-L539】 |
+| `MULESCorr`, `alphaApplyPrevCorr` | Boolean | Switches governing the compressive VOF algorithm behaviour. 【F:createFields.H†L541-L551】 |
+| `icAlpha`, `scAlpha` | – | Interface-compression and smoothing coefficients applied in the alpha transport. 【F:createFields.H†L553-L561】 |
+| `recoilPressure` | Pa | Legacy recoil-pressure field allocated when advanced interface capturing is disabled. 【F:createFields.H†L642-L688】 |
+| `K` | m² s⁻² | Specific kinetic energy (`0.5·|U|²`) updated after the momentum correction for diagnostics. 【F:createFields.H†L571-L579】【F:UEqn.H†L602-L610】 |
+| `rAU` | aP⁻¹ | Reciprocal diagonal of the momentum matrix (`1/A`) with dimensions inherited from `UEqn.A()`. 【F:UEqn.H†L612-L624】 |
+| `rhoPhi` (post-momentum) | kg s⁻¹ | Updated mass flux after the velocity-limiting pass before the pressure solve. 【F:UEqn.H†L646-L656】 |
+| `p_rgh` (corrected) | Pa | Pressure-relative field repeatedly refreshed in the pressure equation include. 【F:pEqn.H†L172-L207】 |
+| `magUAll`, `magULiquid` | m s⁻¹ | Velocity magnitude diagnostics for mixture and metal-dominated regions. 【F:pEqn.H†L378-L405】 |
+| `phaseChangeSource`, `phaseChangeRelaxCoeff` | K s⁻¹, s⁻¹ | Temperature-source term and its implicit relaxation coefficient imported from the thermo model. 【F:compInterFoam.C†L724-L734】【F:twoPhaseMixtureThermo.C†L70-L101】 |
