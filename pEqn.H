@@ -63,16 +63,28 @@ surfaceScalarField phig
 
 // Get solver coefficients dictionary for all stability controls
 const Foam::dictionary solverCoeffs = compInterFoamCoeffsDict(mesh);
-// IMPORTANT: Must interpolate alpha1 to faces BEFORE applying to gradient
-// snGrad operates on face values, so we need: alpha1(face) * grad(P_recoil)(face)
-// NOT: grad(alpha1 * P_recoil) - these differ due to discretization!
+// Recoil enters the momentum balance as -grad(alpha1*p_recoil); the face
+// force assembled here must match the cell-gradient force used in the
+// UEqn.H predictor so the pressure correction does not cancel it.
 if (recoilPressurePtr)
 {
-    // Interpolate alpha1 to face values for proper discretization
-    surfaceScalarField alpha1f = fvc::interpolate(alpha1);
-    // Apply alpha1 weighting: alpha1(face) * snGrad(P_recoil)
-    // This gives the correct face-based force consistent with UEqn momentum predictor
-phig -= fvc::snGrad(alpha1 * (*recoilPressurePtr)) * rAUf * mesh.magSf();
+    phig -= fvc::snGrad(alpha1*(*recoilPressurePtr))*rAUf*mesh.magSf();
+}
+
+// Phase-explosion and plasma pressures are part of the predictor's
+// totalPressure (UEqn.H); include the same face forces here so the
+// corrector sees a force field consistent with the predictor.
+if (liftPhysics.valid())
+{
+    if (liftPhysics->phaseExplosionEnabled())
+    {
+        phig -= fvc::snGrad(liftPhysics->explosivePressure())*rAUf*mesh.magSf();
+    }
+
+    if (liftPhysics->plasmaEnabled())
+    {
+        phig -= fvc::snGrad(liftPhysics->plasmaPressure())*rAUf*mesh.magSf();
+    }
 }
 
 phiHbyA += phig;
@@ -106,40 +118,46 @@ if (maxMassFlux < Foam::GREAT)
 }
 constrainPressure(p_rgh, U, phiHbyA, rAUf);
 
+// Phase-change volume source [1/s]: dgdt = mdot/rho1, so the mixture
+// dilatation is div(U) = mdot*(1/rho2 - 1/rho1) = (rho1/rho2 - 1)*dgdt
+// (positive for evaporation: dense metal converts to expanding vapour).
+const volScalarField& dgdt = mixture.dgdt();
+const dimensionedScalar& rhoLiquid = mixture.rho1();
+const dimensionedScalar& rhoGas = mixture.rho2();
+
+// Mixture acoustic compliance (alpha_i*psi_i/rho_i)*ddt(p): restores the
+// compressible response of the gas/vapour phase (the Boussinesq metal has
+// psi = 0).  The advected d(rho_i)/dt contributions kept by the upstream
+// compressibleInterFoam pEqn are negligible over femtosecond time steps.
+volScalarField psiByRho
+(
+    "psiByRho",
+    max(alpha1, scalar(0))*mixture.thermo1().psi()/mixture.thermo1().rho()
+  + max(alpha2, scalar(0))*mixture.thermo2().psi()/mixture.thermo2().rho()
+);
+
 while (pimple.correctNonOrthogonal())
 {
-// Get phase change mass source [1/s]
-// dgdt represents volumetric mass transfer rate from compressibility
-// Reference: OpenFOAM compressibleInterFoam, Weng (2024)
-const volScalarField& dgdt = mixture.dgdt();
-
-// Volume source from phase change: evaporation creates volume
-// dgdt = -ṁ/ρ₁ where ṁ is mass transfer rate per unit volume [kg/(m³·s)]
-
-// Volumetric expansion rate: ∇·U = ṁ·(1/ρ₂ - 1/ρ₁) = dgdt·(1 - ρ₁/ρ₂)
-
-const dimensionedScalar& rho1 = mixture.rho1();
-
-const dimensionedScalar& rho2 = mixture.rho2();
-
- 
-
-fvScalarMatrix pEqn
-
-(
-
-    fvm::laplacian(rAUf, p_rgh)
-
- == fvc::div(phiHbyA)
-
-  + (1.0 - rho1/rho2)*dgdt  // Phase change volume source [1/s]
-);
+    // Assembled in the upstream compressibleInterFoam arrangement
+    // (div - laplacian) so that pEqn.flux() carries -rAUf*snGrad(p_rgh)
+    // and "phi = phiHbyA + pEqn.flux()" restores discrete continuity.
+    // With the previous (laplacian == div) arrangement the flux entered
+    // with the WRONG SIGN, driving flow up pressure gradients and causing
+    // the GAMG stall documented in CONVERGENCE_ISSUE_DIAGNOSIS.md.
+    fvScalarMatrix pEqn
+    (
+        fvm::ddt(psiByRho, p_rgh)
+      + fvc::div(phiHbyA)
+      - fvm::laplacian(rAUf, p_rgh)
+     ==
+        (rhoLiquid/rhoGas - 1.0)*dgdt
+    );
 
     pEqn.setReference(pRefCell, pRefValue);
 
-    // Add under-relaxation for stability with extreme recoil pressures
- const scalar pRelaxFactor = solverCoeffs.lookupOrDefault<scalar>("pRelaxationFactor", 0.7);
- pEqn.relax(pRelaxFactor);
+    // NOTE: the pressure-correction matrix must NOT be under-relaxed;
+    // relaxing it decouples pEqn.flux() from the solved pressure and
+    // breaks discrete mass conservation inside the PISO corrector.
     pEqn.solve();
     if (pimple.finalNonOrthogonalIter())
     {
@@ -569,11 +587,11 @@ Foam::scalar recoilVelocityScale = 0.0;
 
 if (maxRecoilPa > 0)
 {
-    const Foam::scalar rhoLiquid = gMax(rho1);
+    const Foam::scalar rhoLiquidMax = gMax(rho1);
 
-    if (rhoLiquid > SMALL)
+    if (rhoLiquidMax > SMALL)
     {
-        recoilVelocityScale = Foam::sqrt(2.0*maxRecoilPa/rhoLiquid);
+        recoilVelocityScale = Foam::sqrt(2.0*maxRecoilPa/rhoLiquidMax);
     }
 }
 

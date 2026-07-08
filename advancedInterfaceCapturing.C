@@ -153,7 +153,9 @@ advancedInterfaceCapturing::advancedInterfaceCapturing
             7.95e-26
         )
     ),
-    momentumAccommodationCoeff_(0.18)
+    momentumAccommodationCoeff_(0.18),
+    recoilCoefficient_(0.54),
+    relaxTimeIndex_(-1)
 {
     const dictionary& aicDict =
         mesh.time().controlDict().subOrEmptyDict("advancedInterfaceCapturing");
@@ -511,6 +513,20 @@ advancedInterfaceCapturing::advancedInterfaceCapturing
             << ") must lie in [0, 1]"
             << abort(FatalError);
     }
+
+    recoilCoefficient_ = aicDict.lookupOrDefault<scalar>
+    (
+        "recoilCoefficient",
+        recoilCoefficient_
+    );
+    if (recoilCoefficient_ <= 0 || recoilCoefficient_ > 1)
+    {
+        FatalErrorInFunction
+            << "recoilCoefficient (" << recoilCoefficient_
+            << ") must lie in (0, 1]; the Anisimov/Knight Knudsen-layer"
+            << " analysis gives ~0.54"
+            << abort(FatalError);
+    }
     if (alphaMin_ >= alphaMax_)
     {
         FatalErrorInFunction
@@ -581,6 +597,19 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
         havePreviousRecoil_ = false;
     }
 
+    // Freeze the relaxation/rate-limit reference once per time step so that
+    // the repeated recoil updates inside one PIMPLE step (outer iterations,
+    // pressure correctors, alpha sub-cycles) all damp against the SAME
+    // previous-step field.  Updating the reference on every call made the
+    // effective damping depend on the number of calls per step.
+    const label currentTimeIndex = mesh_.time().timeIndex();
+    if (currentTimeIndex != relaxTimeIndex_)
+    {
+        previousRecoilPressure_ = recoilPressure_.primitiveField();
+        havePreviousRecoil_ = true;
+        relaxTimeIndex_ = currentTimeIndex;
+    }
+
     if (!femtosecondCase_)
     {
         if (rampProgress_ < scalar(1))
@@ -615,7 +644,6 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
 
     const scalar k_B = boltzmannConstant_.value();
     const scalar particleMass = vaporParticleMass_.value();
-    const scalar betaMomentum = momentumAccommodationCoeff_;
 
     const scalar evaporationCoeff = mixture_.evaporationCoeff();
     const scalar safeParticleMass = Foam::max(Foam::mag(particleMass), VSMALL);
@@ -623,9 +651,15 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
 
     const bool validEvaporationCoeff = Foam::mag(evaporationCoeff) > Foam::SMALL;
 
+    // With the Hertz-Knudsen flux j_net = alpha_e*p_sat/sqrt(2*pi*R*T),
+    //   p_recoil = recoilCoefficient*p_sat
+    //            = (recoilCoefficient/alpha_e)*j_net*sqrt(2*pi*R*T).
+    // recoilCoefficient ~ 0.54 from the Knudsen-layer analysis (Anisimov
+    // 1968; Knight, AIAA J. 17, 1979); the previous (2-beta_m)/2 prefactor
+    // gave ~0.9*p_sat, ~70% above the accepted value.
     const scalar knightCoeff = validEvaporationCoeff
-        ? (2.0 - betaMomentum)
-           /(2.0*Foam::max(Foam::mag(evaporationCoeff), Foam::SMALL))
+        ? recoilCoefficient_
+           /Foam::max(Foam::mag(evaporationCoeff), Foam::SMALL)
         : 0.0;
     const scalar scaledKnightCoeff = pressureScale_.value()*knightCoeff;
     
@@ -717,10 +751,11 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
             alphaMask = Foam::min(Foam::max(ramp, scalar(0)), scalar(1));
         }
 
-        // Knight (Phys. Rev. B 20, 1979) recoil model:
-        //   p_recoil = ((2 - beta_m)/(2*alpha_e)) * j_net * sqrt(2*pi*R*T)
+        // Anisimov/Knight recoil closure:
+        //   p_recoil = (recoilCoefficient/alpha_e) * j_net * sqrt(2*pi*R*T)
+        //            = recoilCoefficient * p_sat(T)
         // The evaporation coefficient already scales j_net, so dividing by
-        // alpha_e restores the physical momentum flux.
+        // alpha_e restores the saturation-pressure level.
         const scalar pRecoil = scaledKnightCoeff*jNet*sqrtTerm;
         const scalar rawRecoil = pRecoil;
         scalar recoilValue = rawRecoil;
@@ -876,26 +911,14 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
     const bool applyRelaxation = recoilRelax < (1.0 - Foam::SMALL);
     if (applyRelaxation)
     {
-        if (!havePreviousRecoil_)
+        // Blend against the per-step frozen reference; the reference is
+        // advanced once per time step at the top of this function.
+        forAll(recoilField, cellI)
         {
-            previousRecoilPressure_ = recoilField;
-            havePreviousRecoil_ = true;
+            recoilField[cellI] =
+                recoilRelax*recoilField[cellI]
+              + (1.0 - recoilRelax)*previousRecoilPressure_[cellI];
         }
-        else
-        {
-            forAll(recoilField, cellI)
-            {
-                recoilField[cellI] =
-                    recoilRelax*recoilField[cellI]
-                  + (1.0 - recoilRelax)*previousRecoilPressure_[cellI];
-            }
-            previousRecoilPressure_ = recoilField;
-        }
-    }
-    else
-    {
-        previousRecoilPressure_ = recoilField;
-        havePreviousRecoil_ = true;
     }
     
     label globalInterfaceCells = interfaceCells;

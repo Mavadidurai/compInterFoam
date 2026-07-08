@@ -790,6 +790,25 @@ void twoTemperatureModel::solveLatticeEquation
        - metalPhysicalActive*gasMetalHeatFlux
      );
 
+     if
+     (
+         dict_.lookupOrDefault<Switch>("advectTemperatures", true)
+      && mesh_.foundObject<surfaceScalarField>("phi")
+     )
+     {
+         // Transport the lattice temperature with the mixture flux so that
+         // ejected material carries its thermal state (advective form; the
+         // Sp correction removes the dilatational div(phi) contribution).
+         // Without this term the temperature field stays behind while the
+         // film moves through it.
+         const surfaceScalarField& phi =
+             mesh_.lookupObject<surfaceScalarField>("phi");
+
+         TlEqn +=
+             capacity.internalField()*fvm::div(phi, Tl_)
+           - fvm::Sp(capacity*fvc::div(phi), Tl_);
+     }
+
      TlEqn.relax();
      TlEqn.solve(mesh_.solver("Tl"));
      Tl_.correctBoundaryConditions();
@@ -844,6 +863,22 @@ void twoTemperatureModel::solveElectronEquation
        + metalPhysicalActive*laserSource
        + metalPhysicalActive*G*Tl_
      );
+
+     if
+     (
+         dict_.lookupOrDefault<Switch>("advectTemperatures", true)
+      && mesh_.foundObject<surfaceScalarField>("phi")
+     )
+     {
+         // Electron energy moves with the material on hydrodynamic time
+         // scales; use the same advective-form transport as the lattice.
+         const surfaceScalarField& phi =
+             mesh_.lookupObject<surfaceScalarField>("phi");
+
+         TeEqn +=
+             capacity.internalField()*fvm::div(phi, Te_)
+           - fvm::Sp(capacity*fvc::div(phi), Te_);
+     }
 
      TeEqn.relax();
      TeEqn.solve(mesh_.solver("Te"));
@@ -2169,7 +2204,45 @@ tmp<volScalarField> Foam::twoTemperatureModel::kl() const
     const scalar klHighTThreshold =
         dict_.lookupOrDefault<scalar>("klHighTThreshold", 1000.0);
     const scalar klExponent =
-        dict_.lookupOrDefault<scalar>("klExponent", 0.5);    
+        dict_.lookupOrDefault<scalar>("klExponent", 0.5);
+
+    // Lattice (phonon) conductivity.  The Cl*De fallback re-uses the
+    // ELECTRON diffusivity and overestimates phonon conduction by 1-2
+    // orders of magnitude for transition metals (Ti: ~250 vs ~5 W/m/K);
+    // supply an explicit 'kl' entry in twoTemperatureProperties.
+    dimensionedScalar kl0
+    (
+        "kl",
+        dimPower/dimLength/dimTemperature,
+        Cl_.value()*De_.value()
+    );
+
+    if (dict_.found("kl"))
+    {
+        kl0 = dict_.lookupOrDefault<dimensionedScalar>("kl", kl0);
+
+        if (kl0.value() <= 0)
+        {
+            FatalIOErrorInFunction(dict_)
+                << "Entry 'kl' in twoTemperatureProperties must be positive"
+                << exit(FatalIOError);
+        }
+    }
+    else
+    {
+        static bool warnedKlFallback = false;
+
+        if (!warnedKlFallback && Pstream::master())
+        {
+            WarningInFunction
+                << "No lattice conductivity 'kl' supplied in"
+                << " twoTemperatureProperties; falling back to Cl*De = "
+                << kl0.value() << " W/m/K, which overestimates phonon"
+                << " conduction for metals." << endl;
+            warnedKlFallback = true;
+        }
+    }
+
     tmp<volScalarField> tkl
     (
         new volScalarField
@@ -2184,12 +2257,7 @@ tmp<volScalarField> Foam::twoTemperatureModel::kl() const
                 false
             ),
             mesh_,
-            dimensionedScalar
-            (
-                "kl",
-                dimPower/dimLength/dimTemperature,
-                Cl_.value()*De_.value()
-            )
+            kl0
         )
     );
     volScalarField& kl = tkl.ref();

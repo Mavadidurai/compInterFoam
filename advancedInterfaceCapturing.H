@@ -79,7 +79,9 @@ private:
     dimensionedScalar boltzmannConstant_;      // Boltzmann constant
     dimensionedScalar vaporParticleMass_;      // Mass of vapor particle
     scalar momentumAccommodationCoeff_;        // Momentum accommodation coefficient
-    
+    scalar recoilCoefficient_;       // p_recoil/p_sat ratio (Anisimov ~0.54)
+    label relaxTimeIndex_;           // Time index of stored relaxation reference
+
 public:
     // Constructor
     advancedInterfaceCapturing
@@ -110,6 +112,7 @@ public:
         previousRecoilPressure_ = 0.0;
         havePreviousRecoil_ = false;
         rampProgress_ = 0.0;
+        relaxTimeIndex_ = -1;
     }
 };
 } // End namespace Foam

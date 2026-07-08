@@ -66,7 +66,11 @@ class twoPhaseMixtureThermo
         //- Phase-fraction window for evaluating evaporation []
         scalar alphaMin_;
         scalar alphaMax_;
-        
+
+        //- Minimum |grad(alpha)|*cellSize identifying a resolved interface;
+        //  cells below it carry no Hertz-Knudsen source (bulk metal) []
+        scalar interfaceGradientCutoff_;
+
         //- Restrict phase change to temperatures above T_vapor
         Switch onlyAboveVapor_;
 
