@@ -5,11 +5,11 @@ alpha1.correctBoundaryConditions();
 alpha2 = scalar(1) - alpha1;
 alpha2.correctBoundaryConditions();
 
-const label electronSubCyclesForAlpha =
-    // Use the const helper so we base the guard on the pending global step
-    ttm.plannedElectronSubCycles(runTime.deltaT());
-const label nAlphaSubCyclesForStep =
-    Foam::max(nAlphaSubCycles, electronSubCyclesForAlpha);
+// Alpha sub-cycling is controlled by fvSolution (nAlphaSubCycles) alone;
+// the electron micro-step count is a thermal-stiffness control and has no
+// bearing on the interface CFL, so tying the two multiplied the cost of
+// the alpha transport (and the per-sub-cycle recoil updates) needlessly.
+const label nAlphaSubCyclesForStep = nAlphaSubCycles;
 
 if (useAdvancedCapturing && pInterfaceCapturing.valid())
 {

@@ -185,6 +185,6 @@ compInterFoamCoeffs
     // Recoil force smoothing to prevent GAMG divergence
     // Reference: Brackbill et al., JCP 100:335 (1992)
     URelaxationFactor      0.3;   // Aggressive U equation relaxation
-    pRelaxationFactor      0.2;   // Aggressive p equation relaxation  
+    // pRelaxationFactor removed: the pressure-correction matrix must not be relaxed (breaks mass conservation)
     recoilSmoothingFactor  0.8;   // Smooth recoil application over timesteps
 }

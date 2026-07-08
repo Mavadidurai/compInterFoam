@@ -758,7 +758,9 @@ else
     );
 
     legacyRecoilPressure->correctBoundaryConditions();
-    recoilPressurePtr = legacyRecoilPressure.ptr();
+    // get() keeps ownership with the autoPtr (ptr() would release it and
+    // leave legacyRecoilPressure invalid for the refresh/write calls).
+    recoilPressurePtr = legacyRecoilPressure.get();
 }
 autoPtr<enhancedLIFTPhysics> liftPhysics;
 

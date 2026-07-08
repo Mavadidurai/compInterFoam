@@ -278,6 +278,10 @@ Foam::enhancedLIFTPhysics::BreakupData::BreakupData
     (
         dict.lookupOrDefault<Switch>("enableDropletBreakup", true)
     ),
+    applyToAlpha_
+    (
+        dict.lookupOrDefault<Switch>("applyAlphaRedistribution", false)
+    ),
     WeberNumber_
     (
         IOobject
@@ -337,7 +341,10 @@ Foam::enhancedLIFTPhysics::BreakupData::BreakupData
             << "    We_critical = " << We_critical_ << nl
             << "    Min jet diameter = " << minJetDiameter_.value()*1e6 << " μm" << nl
             << "    Max jet diameter = " << maxJetDiameter_.value()*1e6 << " μm" << nl
-            << "    Breakup time coefficient = " << breakupTimeCoeff_ << endl;
+            << "    Breakup time coefficient = " << breakupTimeCoeff_ << nl
+            << "    Direct alpha redistribution = "
+            << (applyToAlpha_ ? "ON (non-conservative!)" : "OFF (diagnostics only)")
+            << endl;
     }
 }
 
@@ -731,9 +738,11 @@ void Foam::enhancedLIFTPhysics::updateBreakup
     const scalarField& UmagField = tUmagField();
     scalarField& indicatorField = breakup_->breakupIndicator_.primitiveFieldRef();
     scalarField& diameterField = breakup_->dropletDiameter_.primitiveFieldRef();
-    scalarField& rateField = breakup_->breakupRate_.primitiveFieldRef(); 
-    // Only apply breakup if material is actually molten
-    const scalar T_melt = 1337.0;  // Gold melting point in K
+    scalarField& rateField = breakup_->breakupRate_.primitiveFieldRef();
+    // Only apply breakup if material is actually molten; take the melting
+    // temperature from the mixture (a gold value was hardcoded here before,
+    // in an otherwise titanium-configured solver).
+    const scalar T_melt = mixture_.T_melt();
 
     label nBreakupCells = 0;
  
@@ -790,6 +799,15 @@ void Foam::enhancedLIFTPhysics::applyBreakup
 {
     if (!breakup_.valid() || !breakup_->enabled_)
     {
+        return;
+    }
+
+    if (!breakup_->applyToAlpha_)
+    {
+        // The direct alpha redistribution below creates/destroys metal
+        // volume without a matching source term (non-conservative).  Keep
+        // the breakup fields as diagnostics unless the user explicitly
+        // enables 'applyAlphaRedistribution'.
         return;
     }
 

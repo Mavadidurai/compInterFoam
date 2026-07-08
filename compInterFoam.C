@@ -545,10 +545,12 @@ namespace
 
         const Foam::scalarField& alphaInternal = alpha1.primitiveField();
         const Foam::vectorField& UInternal = U.primitiveField();
+        const Foam::scalarField& rhoInternal = rho.primitiveField();
 
         Foam::scalar maxVel = 0.0;
         Foam::scalar weightedVelSum = 0.0;
         Foam::scalar metalVolumeWeight = 0.0;
+        Foam::scalar metalMassWeight = 0.0;
 
         forAll(alphaInternal, cellI)
         {
@@ -559,12 +561,14 @@ namespace
                 const Foam::scalar weight = alphaInternal[cellI]*cellVolumes[cellI];
                 weightedVelSum += velMag*weight;
                 metalVolumeWeight += weight;
+                metalMassWeight += weight*rhoInternal[cellI];
             }
         }
 
         Foam::reduce(maxVel, Foam::maxOp<Foam::scalar>());
         Foam::reduce(weightedVelSum, Foam::sumOp<Foam::scalar>());
         Foam::reduce(metalVolumeWeight, Foam::sumOp<Foam::scalar>());
+        Foam::reduce(metalMassWeight, Foam::sumOp<Foam::scalar>());
 
         Foam::scalar avgVel = 0.0;
         if (metalVolumeWeight > Foam::VSMALL)
@@ -739,8 +743,13 @@ namespace
             }
         }
         // 6. Energy partitioning
-        const Foam::scalar kineticEnergyMetal = 0.5 * metalVolumeWeight * avgVel * avgVel;
-        const Foam::scalar totalLaserEnergy = fvc::domainIntegrate(alpha1 * QLaser).value() * t;
+        // Kinetic energy uses the metal MASS (alpha*rho*V); the previous
+        // volume-based weight was dimensionally wrong.  The absorbed laser
+        // energy is integrated in time instead of the (power*t) shortcut.
+        const Foam::scalar kineticEnergyMetal = 0.5*metalMassWeight*avgVel*avgVel;
+        static Foam::scalar cumulativeAbsorbedLaserEnergy = 0.0;
+        cumulativeAbsorbedLaserEnergy += laserPowerMetal*dt;
+        const Foam::scalar totalLaserEnergy = cumulativeAbsorbedLaserEnergy;
         const Foam::scalar kineticEfficiency = totalLaserEnergy > Foam::SMALL ?
             (kineticEnergyMetal / totalLaserEnergy) * 100.0 : 0.0;
 
@@ -1477,7 +1486,10 @@ int main(int argc, char *argv[])
             << " (enableLiftProcessTracker in controlDict)" << Foam::endl;
     }
 
-    runTime.functionObjects().start();
+    // Function objects are started and executed automatically by
+    // Time::operator++ / Time::run(); manual start()/execute() calls here
+    // ran every function object two to three times per step (duplicated
+    // sampling, probes, and surface output).
     // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
     Info<< "\nStarting time loop\n" << endl;
@@ -1668,8 +1680,6 @@ int main(int argc, char *argv[])
             }
         }
 */
-        runTime.functionObjects().execute();
-
         Info<< "Time = " << runTime.timeName() << nl << endl;
 
         // Update laser model
@@ -1713,9 +1723,12 @@ while (pimple.loop())
         
         mixture.setClTTM(ttm.Cl());
     }
-        // Keep gas temperature consistent with lattice temperature for momentum coupling
-        T = ttm.Tl();
-        T.correctBoundaryConditions();
+        // NOTE: T is intentionally NOT overwritten with Tl here.  TEqn.H
+        // already projects T -> Tl in metal-dominated cells (alpha1 > 0.9).
+        // Overwriting the whole field discarded the solved gas/vapour
+        // temperature every outer iteration, pinned the plume at ambient
+        // conditions through the gas EOS, and thereby removed the
+        // thermal-expansion driver of the LIFT transfer.
     // Update enhanced LIFT physics (all three models updated in one call)
     if (liftPhysics.valid())
     {
@@ -1748,7 +1761,10 @@ while (pimple.loop())
     }
     else if (legacyRecoilPressure.valid())
     {
-        refreshLegacyRecoilPressure(legacyRecoilPressure.ptr());
+        // get() keeps ownership with the autoPtr; the previous ptr() call
+        // released it on the first pass, so the field was never refreshed
+        // nor written afterwards.
+        refreshLegacyRecoilPressure(legacyRecoilPressure.get());
     }
 
     // ✅ NOW SOLVE MOMENTUM WITH CORRECT RECOIL
@@ -1775,13 +1791,15 @@ if (liftPhysics.valid() && liftPhysics->breakupEnabled())
     liftPhysics->applyBreakup(alpha1, U);
 }
         dimensionedScalar Ek = fvc::domainIntegrate(0.5*rho*magSqr(U));
-        tmp<volScalarField> tCe = ttm.electronHeatCapacity();
-        const volScalarField& CeField = tCe();
-        const volScalarField& TeField = ttm.Te();
         const volScalarField& TlField = ttm.Tl();
         const dimensionedScalar& Cl_ = ttm.Cl();
 
-        dimensionedScalar Ee = fvc::domainIntegrate(alpha1*CeField*TeField);
+        // Electron energy density is the integral of Ce(T') dT' up to Te;
+        // for the linear Ce = gamma*Te model, Ce(Te)*Te overestimates the
+        // energy by a factor of two.
+        tmp<volScalarField> tEe = ttm.electronInternalEnergy(ttm.Te());
+        dimensionedScalar Ee = fvc::domainIntegrate(alpha1*tEe());
+        tEe.clear();
         dimensionedScalar Elattice = fvc::domainIntegrate(alpha1*Cl_*TlField);
         const dimensionedScalar El = ttm.cumulativePhaseChangeEnergy();
         const volScalarField& he2 = mixture.thermo2().he();
@@ -1844,11 +1862,14 @@ if (liftPhysics.valid() && liftPhysics->breakupEnabled())
         const scalar currEtotMag = mag(Etot.value());
 
         const scalar denom = max(max(prevEtotMag, currEtotMag), minEnergyForCheck);
-        // Account for boundary losses in energy change calculation
+        // Account for boundary losses in the PER-STEP energy change; the
+        // cumulative flux belongs to the whole history and comparing it
+        // against a single-step change made this warning meaningless.
+        const scalar boundaryLossThisStep =
+            boundaryEnergyThisStep.value()*runTime.deltaTValue();
 
         const scalar energyChangeWithFlux =
-
-            mag(Etot.value() - prevEtot + cumulativeBoundaryFlux.value());
+            mag(Etot.value() - prevEtot + boundaryLossThisStep);
 
         const scalar relChange = energyChangeWithFlux/denom;
         const bool accountForBoundaryFlux =
@@ -1899,7 +1920,6 @@ if (liftPhysics.valid() && liftPhysics->breakupEnabled())
         }
 
         prevEtot = Etot.value();
-        tCe.clear();
 
         liftProcessTracker
         (
@@ -1916,8 +1936,6 @@ if (liftPhysics.valid() && liftPhysics->breakupEnabled())
             enableLiftProcessTracker,
             laser
         );
-
-        runTime.functionObjects().execute();
 
         // Write additional model fields and data
         if (runTime.write())

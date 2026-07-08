@@ -176,11 +176,6 @@ private:
             const volScalarField& gasMetalHeatFlux,
             const dimensionedScalar& dtDim
         ) const;
-        //- Electron internal energy density for supplied temperature field
-        tmp<volScalarField> electronInternalEnergy
-        (
-            const volScalarField& T
-        ) const;
         //- Compute current total metal energy
         dimensionedScalar currentTotalEnergy() const;
         //- Emit optional energy diagnostics and tracking information
@@ -250,6 +245,12 @@ public:
         tmp<volScalarField> electronThermalConductivity() const;
         //- Calculate electron heat capacity
         tmp<volScalarField> electronHeatCapacity() const;
+        //- Electron internal energy density (integral of Ce dT) for the
+        //  supplied temperature field; used by the solver energy audit
+        tmp<volScalarField> electronInternalEnergy
+        (
+            const volScalarField& T
+        ) const;
         //- Calculate electron-phonon coupling
         tmp<volScalarField> electronPhononCoupling() const;
         //- Gas-metal exchange coefficient for coupling with gas solver

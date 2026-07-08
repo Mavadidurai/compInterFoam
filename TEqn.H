@@ -1109,6 +1109,11 @@ if (verbose && Foam::Pstream::master() && timeIndex % 10 == 0)
             prevCoeff = Foam::min(prevCoeff, *maxInterfaceExchangePtr);
         }
 
+        // Restrict the relaxation memory to current interface cells;
+        // otherwise the minimum-coefficient floor re-introduces a
+        // domain-wide gas-lattice coupling through the blending below.
+        prevCoeff = interfaceMask*prevCoeff;
+
         prevCoeff.correctBoundaryConditions();
 
         cappedInterfaceExchange =

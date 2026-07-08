@@ -48,9 +48,9 @@ div(phir,alpha.air) 	Gauss interfaceCompression;
     // Momentum - could be more conservative
     div(rhoPhi,U)                    Gauss linearUpwind grad(U); // IMPROVE: Add gradient limiting
     
-    div(phi,T)       Gauss linearUpwind;           // Changed from limitedLinear
-    div(phi,Te)      Gauss linearUpwind;           // Changed from limitedLinear
-    div(phi,Tl)      Gauss linearUpwind;           // Changed from limitedLinear
+    div(phi,T)       Gauss limitedLinear 1;   // bounded (bare linearUpwind lacks its gradient argument)
+    div(phi,Te)      Gauss limitedLinear 1;   // used by the TTM advection term
+    div(phi,Tl)      Gauss limitedLinear 1;   // used by the TTM advection term
     
     // Pressure gradient - good change
     div(phi,p_rgh)                   Gauss upwind;           // ✓ GOOD change from linear

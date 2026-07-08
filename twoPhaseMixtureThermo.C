@@ -27,6 +27,7 @@ License
 #include "mixedEnergyFvPatchScalarField.H"
 #include "collatedFileOperation.H"
 #include "autoPtr.H"
+#include "fvcGrad.H"
 
 #include "Pstream.H"
 #include "Switch.H"
@@ -66,6 +67,7 @@ Foam::twoPhaseMixtureThermo::twoPhaseMixtureThermo
     ),
     alphaMin_(0.01),
     alphaMax_(1.0),
+    interfaceGradientCutoff_(1e-3),
     onlyAboveVapor_(false),
     activationWindows_(),
     Q_laser_
@@ -725,6 +727,20 @@ Foam::twoPhaseMixtureThermo::twoPhaseMixtureThermo
             << exit(FatalIOError);
     }
 
+    interfaceGradientCutoff_ = phaseChangeDict.lookupOrDefault<scalar>
+    (
+        "interfaceGradientCutoff",
+        interfaceGradientCutoff_
+    );
+
+    if (interfaceGradientCutoff_ < 0 || !std::isfinite(interfaceGradientCutoff_))
+    {
+        FatalIOErrorInFunction(phaseChangeDict)
+            << "Entry 'interfaceGradientCutoff' in " << phaseChangeDictDisplay
+            << " must be finite and non-negative"
+            << exit(FatalIOError);
+    }
+
     if (debug)
     {
         const Switch writePhaseTemperatures =
@@ -1117,9 +1133,15 @@ void Foam::twoPhaseMixtureThermo::computePhaseChange()
     const bool enforceUpper = alphaMax_ < (scalar(1) - Foam::SMALL);
 
     const scalarField& cellVolumes = mesh.V();
-    const cellList& cellFaces = mesh.cells();
-    const scalarField& magSf = mesh.magSf();
     const bool restrictToVapor = onlyAboveVapor_;
+
+    // Interface area density |grad(alpha)| [1/m]: the Hertz-Knudsen flux is
+    // a SURFACE mechanism, so the volumetric source must vanish in bulk
+    // metal (uniform alpha) and act only across the resolved free surface.
+    // The previous cell-thickness heuristic applied full-surface evaporation
+    // to every hot cell in the alpha window, i.e. through the whole film.
+    tmp<volVectorField> tGradAlpha(fvc::grad(alpha1()));
+    const volVectorField& gradAlpha = tGradAlpha();
 
     const scalar Tmax = maxPhaseChangeTemperature_;
     const scalar saturationTmin = Foam::max(T_vapor_, SMALL);
@@ -1195,6 +1217,22 @@ void Foam::twoPhaseMixtureThermo::computePhaseChange()
             continue;
         }
 
+        const scalar cellVolume = cellVolumes[cellI];
+
+        if (cellVolume <= VSMALL || alpha <= VSMALL)
+        {
+            continue;
+        }
+
+        // Interface gate: skip cells without a resolved free surface.
+        const scalar gradMag = Foam::mag(gradAlpha[cellI]);
+        const scalar cellLength = Foam::cbrt(cellVolume);
+
+        if (gradMag*cellLength < interfaceGradientCutoff_)
+        {
+            continue;
+        }
+
         bool satClamped = false;
         scalar p_vapor = saturationPressure(T_eff, satClamped);
 
@@ -1258,43 +1296,19 @@ void Foam::twoPhaseMixtureThermo::computePhaseChange()
             continue;
         }
 
-        scalar heatFlux = j_net*L;  // [W/m^2]
-        const scalar cellVolume = cellVolumes[cellI];
+        const scalar heatFlux = j_net*L;  // [W/m^2] at the interface
 
-        if (cellVolume <= VSMALL)
-        {
-            continue;
-        }
-
-      if (alpha <= VSMALL)
-        {
-            continue;
-        }
-
-        const labelList& faces = cellFaces[cellI];
-        scalar maxFaceArea = VSMALL;
-
-        forAll(faces, faceI)
-        {
-            const label faceId = faces[faceI];
-            maxFaceArea = Foam::max(maxFaceArea, magSf[faceId]);
-        }
-
-        const scalar meltThickness = Foam::max(cellVolume/maxFaceArea, VSMALL);
+        // Convert the surface flux to a volumetric source with the
+        // interface area density: q_vol = q_surf*|grad(alpha)| [W/m^3]
+        // (Hardt & Wondra, J. Comput. Phys. 227, 2008).
+        scalar volumetricHeat = heatFlux*gradMag;
         const scalar maxSource = maxPhaseChangeSource_.value();
 
-        if (maxSource > SMALL)
+        if (maxSource > SMALL && Foam::mag(volumetricHeat) > maxSource)
         {
-            const scalar maxHeatFlux = maxSource*meltThickness;
-
-            if (Foam::mag(heatFlux) > maxHeatFlux)
-            {
-                const scalar limitedHeatFlux = Foam::sign(heatFlux)*maxHeatFlux;
-                heatFlux = limitedHeatFlux;
-                j_net = limitedHeatFlux/L;
-            }
+            volumetricHeat = Foam::sign(volumetricHeat)*maxSource;
+            j_net = volumetricHeat/(L*Foam::max(gradMag, VSMALL));
         }
-        const scalar volumetricHeat = heatFlux/meltThickness;  // [W/m^3]
 
         // A positive mass flux (evaporation) must *remove* lattice energy.
         // Store the volumetric temperature rate with a sign convention where

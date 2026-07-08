@@ -109,14 +109,18 @@ if (recoilPressurePtr)
     }
 
 totalPressure += alpha1 * (*recoilContribution);
-recoilPressurePtr->relax(0.5);
+// NOTE: no field relaxation here.  Temporal smoothing of the recoil load
+// is handled inside advancedInterfaceCapturing (recoilRelax), and calling
+// relax() on the shared const field was ill-formed anyway.
 }
 
 // CRITICAL: Aggressive under-relaxation for extreme pressure gradients
 // Must be AFTER solverCoeffs declaration. Reference: Tryggvason et al. (2011)
 const scalar URelaxFactor = solverCoeffs.lookupOrDefault<scalar>("URelaxationFactor", 0.7);
-if (URelaxFactor > 0 && URelaxFactor < 1.0)
+if (URelaxFactor > 0 && URelaxFactor < 1.0 && !pimple.finalIter())
 {
+    // Keep the final PIMPLE sweep unrelaxed so the converged state is not
+    // biased by the relaxation source term.
     UEqn.relax(URelaxFactor);
 }
 

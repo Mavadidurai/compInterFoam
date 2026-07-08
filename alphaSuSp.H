@@ -27,9 +27,6 @@ scalarField& SpField = Sp.ref();
 scalarField& SuField = Su.ref();
 
 const scalarField& alpha1Field = alpha1.internalField();
-const scalarField& alpha2Field = alpha2.internalField();
-const scalarField& rho1Field = rho1.internalField();
-const scalarField& rho2Field = rho2.internalField();
 const scalarField& dgdtField = dgdt.internalField();
 
 forAll(SpField, celli)
@@ -41,28 +38,26 @@ forAll(SpField, celli)
         rate = Foam::max(Foam::min(rate, sourceMaxMag), -sourceMaxMag);
     }
 
-    const scalar a1 = alpha1Field[celli];
-    const scalar a2 = alpha2Field[celli];
+    // dgdt > 0: evaporation (metal -> gas) removes alpha1 at rate dgdt;
+    // dgdt < 0: condensation restores it.  Written in the bounded Weller
+    // form used by upstream compressibleInterFoam: the implicit
+    // coefficient must be NEGATIVE for MULES boundedness (the previous
+    // positive "stabilizing" diagonal weakened the bound and injected a
+    // spurious 2*Sp*alpha1 source).
+    if (rate > 0.0)
+    {
+        // Sink proportional to alpha1: equals -rate at the current value
+        // and shuts off smoothly as alpha1 -> 0.
+        SpField[celli] -= rate/Foam::max(alpha1Field[celli], scalar(1e-4));
+    }
+    else if (rate < 0.0)
+    {
+        const scalar coeff =
+            rate/Foam::max(1.0 - alpha1Field[celli], scalar(1e-4));
 
-    const scalar rhoMix = Foam::max
-    (
-        a1*rho1Field[celli] + a2*rho2Field[celli],
-        SMALL
-    );
-
-    const scalar absRate = Foam::mag(rate);
-    const scalar evapRate = 0.5*(rate + absRate);
-    const scalar condRate = 0.5*(absRate - rate);
-
-    const scalar evapWeight = (a2*rho2Field[celli])/rhoMix;
-    const scalar condWeight = (a1*rho1Field[celli])/rhoMix;
-
-    // Store diagonal magnitude explicitly positive for stable implicit treatment
-    // Following Hardt & Wondra (J. Comput. Phys. 227, 2008)
-    const scalar diagMag = evapRate*evapWeight + condRate*condWeight;
-
-    SpField[celli] = diagMag;  // Positive diagonal strengthens matrix
-    SuField[celli] = -rate + diagMag*a1;  // Explicit source term
+        SpField[celli] += coeff;   // negative (rate < 0)
+        SuField[celli] -= coeff;   // positive source, bounded as alpha1 -> 1
+    }
 }
 
 tmp<volScalarField> divU

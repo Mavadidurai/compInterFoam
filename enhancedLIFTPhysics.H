@@ -125,6 +125,10 @@ public:
             scalar breakupTimeCoeff_;
             Switch enabled_;
 
+            //- Allow the (non-conservative) direct alpha redistribution;
+            //  disabled by default: breakup fields remain diagnostics
+            Switch applyToAlpha_;
+
             volScalarField WeberNumber_;
             volScalarField breakupIndicator_;
             volScalarField dropletDiameter_;

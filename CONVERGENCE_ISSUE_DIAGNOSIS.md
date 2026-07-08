@@ -261,3 +261,19 @@ After implementing fixes:
 ---
 **Status:** Analysis complete, fixes identified, awaiting implementation
 **Next Action:** Apply recommended parameter changes and restart simulation
+
+---
+
+## ADDENDUM (2026-07-08): actual root cause found and fixed
+
+The parameter issues above were secondary. The primary defect was in
+`pEqn.H`: the pressure matrix was assembled as
+`laplacian == div(phiHbyA) + S` while the flux update kept
+`phi = phiHbyA + pEqn.flux()`, which for that arrangement applies the
+pressure correction with the WRONG SIGN (flux driven up the gradient).
+Together with `pEqn.relax(0.2)` (mass-conservation error inside the PISO
+corrector) this fully explains the GAMG stall at residual ~1 and the
+pressure/recoil inconsistency reported here. Both are fixed on branch
+`claude/lift-code-review-debug-h6hfzr`; see `LIFT_PHYSICS_FIXES.md` for the
+complete list (including the restored evaporationCoeff = 0.18 from
+Priority 2 of this document).
