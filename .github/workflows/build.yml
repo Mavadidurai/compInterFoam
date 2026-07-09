@@ -30,5 +30,17 @@ jobs:
             exit 1
           fi
           echo "Sourcing $bashrc"
+          # OpenFOAM's config.sh/setup uses functions with local/return for
+          # its own early-exit control flow. GitHub's default "bash -e" step
+          # can abort mid-function on a failed internal check there without
+          # unwinding bash's variable-context stack, so the *next* return
+          # trips "pop_var_context: head of shell_variables not a function
+          # context" -- a shell-compatibility artifact of sourcing under
+          # errexit, unrelated to this repo. Disable errexit only for the
+          # source; wmake below still runs under -e so a real compile
+          # failure (or a missing 'wmake' if sourcing truly failed) still
+          # fails the job.
+          set +e
           source "$bashrc"
+          set -e
           wmake
