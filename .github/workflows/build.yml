@@ -1,0 +1,34 @@
+name: Build compInterFoam
+
+# Compiles the solver against OpenFOAM v2406 (OpenCFD/ESI branch, per the
+# "www.openfoam.com" headers in the source files) so that PRs are verified
+# to compile before merge, instead of relying on a manual local wmake.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  wmake:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install OpenFOAM v2406
+        run: |
+          curl -s https://dl.openfoam.com/add-debian-repo.sh | sudo bash
+          sudo apt-get update
+          sudo apt-get install -y openfoam2406-default
+
+      - name: wmake compInterFoam
+        shell: bash
+        run: |
+          bashrc="$(find /usr/lib/openfoam /opt -maxdepth 4 -iname bashrc 2>/dev/null | grep -i openfoam | head -n1)"
+          if [ -z "$bashrc" ]; then
+            echo "Could not locate the OpenFOAM v2406 etc/bashrc after installation" >&2
+            exit 1
+          fi
+          echo "Sourcing $bashrc"
+          source "$bashrc"
+          wmake
