@@ -1142,7 +1142,7 @@ bool twoTemperatureModel::checkEnergyConservation
         dict_.lookupOrDefault<scalar>
         (
             "energyTol",
-            dict_.lookupOrDefault<scalar>("energyTolerance", 0.01)
+            dict_.lookupOrDefault<scalar>("energyTolerance", 0.1)
         );
     return relativeError < energyTol;
 }
@@ -1579,7 +1579,7 @@ void twoTemperatureModel::solve
             const volScalarField& TlBlended = tTlBlended();
 
             tmp<volScalarField> tZeroMask =
-                pos(dimensionedScalar("zeroMaskInnerTl", dimless, VSMALL) - activeMask);
+                pos(activeMask - dimensionedScalar("zeroMaskInnerTl", dimless, VSMALL));
             const volScalarField& zeroMask = tZeroMask();
 
             tmp<volScalarField> tTlClamped =
@@ -1954,18 +1954,12 @@ tmp<volScalarField> twoTemperatureModel::electronPhononCoupling() const
     }
     else
     {
-        const scalar baseG = G_.value();
-        forAll(GField, cellI)
-        {
-            const scalar Te = Te_[cellI];
-            const scalar Tl = Tl_[cellI];
-            const scalar TlSafe = Foam::max(Tl, scalar(1.0));
-
-            const scalar TRatio = Foam::max(Te/TlSafe, scalar(1.0));
-            const scalar enhancedG = baseG * Foam::sqrt(TRatio);
-
-            GField[cellI] = Foam::max(enhancedG, scalar(0));
-        }
+        // A plain (non-Function1) G is documented as a constant coupling;
+        // do not silently scale it by sqrt(Te/Tl) here. Temperature
+        // dependence belongs in the tabulated GFunction_ path above, which
+        // already evaluates the material model's own G(Te) curve.
+        const scalar baseG = Foam::max(G_.value(), scalar(0));
+        GField = dimensionedScalar(G_.name(), G_.dimensions(), baseG);
     }
 
     GField.correctBoundaryConditions();

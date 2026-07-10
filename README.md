@@ -90,7 +90,7 @@ Defines parameters for the recoil-pressure helper used when
 | `vaporTemperature` | mixture `T_vapor` | Upper activation bound. |
 | `phaseChangeTempOffset` | `0 K` | Shifts temperature threshold. |
 | `recoilTempOffset` | `0 K` | Extra offset applied before recoil activation. Must be non-negative and less than `vaporTemperature`. |
-| `pressureScale` | `1 Pa·s` (`[1 -1 -1 0 0 0 0]`) | Scaling factor for recoil response; supply as a Pa·s dimensioned scalar. |
+| `pressureScale` | `1 Pa` (`[1 -1 -2 0 0 0 0]`) | Dimensionless multiplier on the recoil pressure; supply as a bare number or a Pa-dimensioned scalar (any other dimension is rejected). |
 | `recoilMax` | `5e6 Pa` | Absolute recoil-pressure cap. |
 | `clampRecoil` | `true` | Enables capping of recoil pressure. |
 | `scaleRecoilMax` | `false` | Scales `recoilMax` with interface weighting. |

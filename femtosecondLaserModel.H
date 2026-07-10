@@ -100,6 +100,14 @@ private:
     mutable scalar       pulseEnergyAccumulator_;
     mutable scalar       pulseExpectedAccumulator_;
     mutable scalar       pulseDepositableExpectedAccumulator_;
+    // Integral of the source field as computed from the Gaussian/absorption
+    // model, accumulated BEFORE the energy-conservation rescale in
+    // calculateSource() forces it to match depositableExpectedThisStep.
+    // Comparing this against the expected energy is the only check that can
+    // actually catch a wrong Gaussian prefactor, FWHM conversion, or
+    // absorption-depth bug -- the rescaled/deposited comparison cannot,
+    // since the rescale makes it match the expectation by construction.
+    mutable scalar       pulseRawEnergyAccumulator_;
     mutable scalar       currentPulseStartTime_;
     mutable label        pulseCounter_;
     mutable bool         trackingPulse_;
@@ -129,6 +137,8 @@ private:
         scalar totalBeamVolume         = 0.0; // [m^3] summed beam volume
         scalar maxSourceCap            = 0.0; // [W/m^3] configured cap
         bool   limitSource             = false; // true when limiting is active
+        scalar rawSourceIntegral       = 0.0; // [W] integrated source before
+                                               // the energy-conservation rescale
     };
 
     // --- helpers ---

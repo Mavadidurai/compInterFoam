@@ -1699,7 +1699,10 @@ int main(int argc, char *argv[])
 
 while (pimple.loop())
 {
-    mixture.correct();  // Update phase fractions
+    // Refresh transport properties and phase-change source terms ahead of
+    // the alpha sub-cycle below (alpha1/alpha2 themselves are updated by
+    // compressibleAlphaEqnSubCycle.H, not by mixture.correct()).
+    mixture.correct();
 
     #include "compressibleAlphaEqnSubCycle.H"
     transportModel.correctPhasePhi();
@@ -1789,6 +1792,17 @@ while (pimple.loop())
 if (liftPhysics.valid() && liftPhysics->breakupEnabled())
 {
     liftPhysics->applyBreakup(alpha1, U);
+    alpha1.correctBoundaryConditions();
+    alpha2 = 1.0 - alpha1;
+    alpha2.correctBoundaryConditions();
+
+    // Breakup mutates alpha1 outside the PIMPLE loop; refresh the mixture
+    // density and thermo state before the energy diagnostic and write-out
+    // below read them, so they are not briefly inconsistent with the
+    // remapped interface.
+    rho = alpha1*rho1 + alpha2*rho2;
+    rho.correctBoundaryConditions();
+    mixture.correct();
 }
         dimensionedScalar Ek = fvc::domainIntegrate(0.5*rho*magSqr(U));
         const volScalarField& TlField = ttm.Tl();

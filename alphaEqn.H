@@ -194,6 +194,12 @@ extern Foam::Switch verbose;
 
     #include "alphaSuSp.H"
 
+    // MULESCorr may be dynamically disabled below for femtosecond steps;
+    // capture the value actually used to decide whether talphaPhi1Corr0
+    // gets cached this call, so the end-of-step delta conversion stays
+    // consistent with whether it was populated.
+    const bool usedMULESCorrThisStep = MULESCorr;
+
     if (MULESCorr)
     {
         fvScalarMatrix alpha1Eqn
@@ -256,9 +262,52 @@ extern Foam::Switch verbose;
         tmp<surfaceScalarField> talphaPhi1UD(alpha1Eqn.flux());
         alphaPhi10 = talphaPhi1UD();
 
+        if (alphaApplyPrevCorr && talphaPhi1Corr0.valid())
+        {
+            if (verbose && Foam::Pstream::master())
+            {
+                Info<< "Applying the previous iteration compression flux"
+                    << endl;
+            }
+
+            if (divU.valid())
+            {
+                MULES::correct
+                (
+                    geometricOneField(),
+                    alpha1,
+                    talphaPhi1UD(),
+                    talphaPhi1Corr0.ref(),
+                    Sp(),
+                    Su(),
+                    oneField(),
+                    zeroField()
+                );
+            }
+            else
+            {
+                MULES::correct
+                (
+                    geometricOneField(),
+                    alpha1,
+                    talphaPhi1UD(),
+                    talphaPhi1Corr0.ref(),
+                    oneField(),
+                    zeroField()
+                );
+            }
+
+            alphaPhi10 += talphaPhi1Corr0();
+        }
+
+        // Cache this step's upwind flux; turned into the actual correction
+        // (for re-use as "previous correction") once alphaPhi10 is final,
+        // below.
+        talphaPhi1Corr0 = talphaPhi1UD;
+
         alpha2 = 1.0 - alpha1;
         alpha2.correctBoundaryConditions();
-        
+
         mixture.correct();
     }
 
@@ -372,6 +421,14 @@ extern Foam::Switch verbose;
         alpha2.correctBoundaryConditions();
         
         mixture.correct();
+    }
+
+    if (alphaApplyPrevCorr && usedMULESCorrThisStep && talphaPhi1Corr0.valid())
+    {
+        // Turn the cached upwind flux into the actual correction applied
+        // this step, so the next call seeds MULES with the real
+        // compression correction rather than the raw upwind baseline.
+        talphaPhi1Corr0 = alphaPhi10 - talphaPhi1Corr0;
     }
 
     #include "rhofs.H"

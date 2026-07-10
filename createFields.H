@@ -5,6 +5,23 @@ tmp<volScalarField> trDeltaT;
 tmp<volScalarField> trSubDeltaT;
 if (LTS)
 {
+    // localEuler (LTS) discretizes every ddt() with a per-cell pseudo-time
+    // step (fv::localEulerDdt looks up its own rDeltaT field and ignores
+    // runTime.deltaT()), decoupling the fields from a single, physically
+    // meaningful elapsed time. This solver gates laser pulses
+    // (femtosecondLaserModel), phase-change kinetics, and two-temperature
+    // sub-cycling on runTime.value()/deltaT, so running with LTS silently
+    // desynchronizes what the fields actually evolved against from what
+    // gets reported/used as physical time. LTS is only valid for
+    // steady-state acceleration, never for this time-accurate solver.
+    FatalErrorInFunction
+        << "ddtSchemes selects localEuler (LTS), which is incompatible with "
+        << "compInterFoam: laser pulse timing, phase-change kinetics, and "
+        << "two-temperature sub-cycling all rely on a single physically "
+        << "consistent runTime.deltaT() across cells. Use a time-accurate "
+        << "scheme such as Euler or backward instead."
+        << exit(FatalError);
+
     if (verbose && Foam::Pstream::master())
     {
         Info<< "Using LTS" << endl;
@@ -637,10 +654,44 @@ if (verbose && Foam::Pstream::master())
 {
     Info<< "Creating two-temperature model\n" << endl;
 }
-dictionary twoTemperatureDict
+// README documents twoTemperatureProperties as readable from either
+// system/controlDict or the optional constant/twoTemperatureProperties;
+// the latter was never actually wired up. Read constant/ as the base (if
+// present) and let a controlDict.twoTemperatureProperties subdict override
+// it, matching how laserProperties/laserEndTime are merged above.
+IOobject twoTemperaturePropertiesHeader
 (
-    runTime.controlDict().subDict("twoTemperatureProperties")
+    "twoTemperatureProperties",
+    runTime.constant(),
+    mesh,
+    IOobject::READ_IF_PRESENT,
+    IOobject::NO_WRITE
 );
+
+const bool haveTwoTemperaturePropertiesFile =
+    twoTemperaturePropertiesHeader.typeHeaderOk<IOdictionary>();
+
+dictionary twoTemperatureDict;
+
+if (haveTwoTemperaturePropertiesFile)
+{
+    twoTemperatureDict = IOdictionary(twoTemperaturePropertiesHeader);
+}
+
+if (runTime.controlDict().found("twoTemperatureProperties"))
+{
+    twoTemperatureDict.merge
+    (
+        runTime.controlDict().subDict("twoTemperatureProperties")
+    );
+}
+else if (!haveTwoTemperaturePropertiesFile)
+{
+    FatalIOErrorInFunction(runTime.controlDict())
+        << "Specify 'twoTemperatureProperties' in controlDict or"
+        << " constant/twoTemperatureProperties"
+        << exit(FatalIOError);
+}
 
 scalar energyToleranceValue =
     twoTemperatureDict.lookupOrDefault<scalar>("energyTolerance", 0.1);
@@ -687,6 +738,11 @@ bool alphaApplyPrevCorr
 (
     alphaSolverControls.lookupOrDefault<Foam::Switch>("alphaApplyPrevCorr", false)
 );
+// Persists across time steps (alphaEqn.H is #included afresh each call):
+// caches the previous MULESCorr compression flux so it can seed the next
+// correction when alphaApplyPrevCorr is enabled. Left invalid until the
+// first MULESCorr pass populates it.
+tmp<surfaceScalarField> talphaPhi1Corr0;
 scalar icAlpha
 (
     alphaSolverControls.lookupOrDefault<scalar>("icAlpha", 0.0)

@@ -382,7 +382,6 @@ if (verbose && Foam::Pstream::master() && timeIndex % 10 == 0)
     }
 
     interfaceMask.correctBoundaryConditions();
-    const volScalarField& contactMask = interfaceMask;
 
     // Limit the gas-metal exchange strictly to the identified interface cells
     // so that pure-gas regions do not inherit a neighbour-averaged coupling.
@@ -445,14 +444,27 @@ if (verbose && Foam::Pstream::master() && timeIndex % 10 == 0)
 
     if (applyHeatFluxCap)
     {
-        const dimensionedScalar unitTemperature
+        // Use the actual (lagged, pre-solve) gas/lattice temperature
+        // difference rather than a fictitious 1 K reference: qCap is a
+        // physical W/m^2 flux cap, so converting it to a volumetric
+        // exchange coefficient must divide by the real driving delta-T,
+        // not an assumed 1 K one -- otherwise the cap only bounds the
+        // coefficient for a 1 K difference and is decorative at the much
+        // larger delta-T seen during a femtosecond pulse.
+        const dimensionedScalar minReferenceDeltaT
         (
-            "unitTemperature",
+            "minReferenceDeltaT",
             dimTemperature,
             1.0
         );
 
-        tMaxInterfaceExchange = (qCapDim/unitTemperature)/interfaceDelta;
+        tmp<volScalarField> tReferenceDeltaT
+        (
+            Foam::max(mag(Tl - T), minReferenceDeltaT)
+        );
+        const volScalarField& referenceDeltaT = tReferenceDeltaT();
+
+        tMaxInterfaceExchange = (qCapDim/referenceDeltaT)/interfaceDelta;
         const volScalarField& maxInterfaceExchange = tMaxInterfaceExchange();
         maxInterfaceExchangePtr = &maxInterfaceExchange;
 
@@ -543,11 +555,12 @@ if (verbose && Foam::Pstream::master() && timeIndex % 10 == 0)
     auto projectTemperature =
         [&](const word& stage)
         {
-            if (femtosecondShot)
-            {
-                T.correctBoundaryConditions();
-                return;
-            }
+            // femtosecondShot always has enableTClamp == false (see above),
+            // so it already falls into the branch below, which applies the
+            // basic minT/maxT floor and ceiling. Skip only the elaborate
+            // diagnostic-tracking projection, not the bound itself --
+            // otherwise T is left completely unbounded during exactly the
+            // highest-risk period for overshoot.
             if (!enableTClamp)
             {
                 T = Foam::max(T, minTDim);
@@ -1209,10 +1222,34 @@ if (verbose && Foam::Pstream::master() && timeIndex % 10 == 0)
         (
             Foam::pos(metalCutoffDim - metalFraction)
         );
+        volScalarField& gasLaserMask = tGasLaserMask.ref();
 
-        const volScalarField& gasLaserMask = tGasLaserMask();
+        // contactMask (interfaceMask) requires metalFraction above the
+        // interface floor, so contactMask*gasLaserMask was structurally
+        // always ~zero: a cell cannot simultaneously be "gas-dominated"
+        // (gasLaserMask) and "contain metal above the floor" (contactMask).
+        // What this feature needs is GAS cells adjacent to the interface
+        // (close enough to the metal surface for the laser to also deposit
+        // energy directly into the gas), identified the same way
+        // interfaceMask identifies metal-side interface cells: a nonzero
+        // metal-fraction gradient.
+        scalarField& gasLaserMaskInternal = gasLaserMask.primitiveFieldRef();
 
-        TEqn.source() += mesh.V()*contactMask*gasLaserMask*mixture.Q_laser();
+        forAll(gasLaserMaskInternal, cellI)
+        {
+            if
+            (
+                gasLaserMaskInternal[cellI] > SMALL
+             && mag(gradMetal[cellI]) < interfaceGradientCutoff
+            )
+            {
+                gasLaserMaskInternal[cellI] = 0.0;
+            }
+        }
+
+        gasLaserMask.correctBoundaryConditions();
+
+        TEqn.source() += mesh.V()*gasLaserMask*mixture.Q_laser();
     }
 
     TEqn.relax();
@@ -1249,10 +1286,44 @@ if (verbose && Foam::Pstream::master() && timeIndex % 10 == 0)
         strictMetalThreshold
     );
 
-    tmp<volScalarField> tPureMetal
-    (
-        Foam::pos(metalFraction - strictMetalDim)
-    );
+    // Blend over the same width used for activeMask above instead of a
+    // hard step at strictMetalThreshold, which otherwise creates a sharp T
+    // discontinuity exactly at metalFraction = 0.9.
+    tmp<volScalarField> tPureMetal;
+
+    if (blendWidth <= SMALL)
+    {
+        tPureMetal = Foam::pos(metalFraction - strictMetalDim);
+    }
+    else
+    {
+        const scalar strictMetalLowerValue =
+            Foam::max(strictMetalThreshold - blendWidth, scalar(0));
+        const dimensionedScalar strictMetalLower
+        (
+            "strictMetalLowerBound",
+            dimless,
+            strictMetalLowerValue
+        );
+        const dimensionedScalar strictMetalBlendDim
+        (
+            "strictMetalBlendWidth",
+            dimless,
+            Foam::max(blendWidth, SMALL)
+        );
+
+        tPureMetal =
+            Foam::min
+            (
+                dimensionedScalar("one", dimless, 1.0),
+                Foam::max
+                (
+                    dimensionedScalar("zero", dimless, 0.0),
+                    (metalFraction - strictMetalLower)/strictMetalBlendDim
+                )
+            );
+    }
+
     const volScalarField& pureMetal = tPureMetal();
 
     T = (scalar(1) - pureMetal)*T + pureMetal*Tl;
@@ -1265,6 +1336,13 @@ if (verbose && Foam::Pstream::master() && timeIndex % 10 == 0)
     volScalarField& rawFlux = tRawFlux.ref();
 
     rawFlux.correctBoundaryConditions();
+
+    // Snapshot of the flux implied by the already-solved (unclamped) TEqn,
+    // used below to feed any subsequent clamping back into T so that gas
+    // never gains more energy than what gasMetalHeatFlux later removes
+    // from the lattice equation.
+    tmp<volScalarField> tOriginalRawFlux(rawFlux.clone());
+    const volScalarField& originalRawFlux = tOriginalRawFlux();
 
     // Use VSMALL as minimum timestep to prevent division by near-zero values
     // that could produce unrealistic heating/cooling rates. VSMALL ~ 1e-300
@@ -1403,6 +1481,43 @@ if (verbose && Foam::Pstream::master() && timeIndex % 10 == 0)
     }
 
     rawFlux = surfaceFlux/interfaceDelta;
+
+    // The clamps above (per-cell rate cap, gas-heating-rate cap, qCap) may
+    // have reduced |rawFlux| below what TEqn's implicit solve already used
+    // (relaxedInterfaceExchange*(Tl - T)). Feed the shortfall back into T so
+    // the gas only retains the energy that gasMetalHeatFlux will actually
+    // remove from the lattice below -- otherwise every engaged clamp
+    // creates energy from nothing.
+    {
+        scalarField& TInternal = T.primitiveFieldRef();
+        const scalarField& finalFluxInternal = rawFlux.internalField();
+        const scalarField& origFluxInternal = originalRawFlux.internalField();
+
+        forAll(TInternal, cellI)
+        {
+            const scalar cap = Foam::max(capInternal[cellI], VSMALL);
+            TInternal[cellI] +=
+                (finalFluxInternal[cellI] - origFluxInternal[cellI])*dtVal/cap;
+        }
+
+        forAll(T.boundaryField(), patchI)
+        {
+            scalarField& TPatch = T.boundaryFieldRef()[patchI];
+            const scalarField& capPatch = CvolLimited.boundaryField()[patchI];
+            const scalarField& fluxPatch = rawFlux.boundaryField()[patchI];
+            const scalarField& origFluxPatch =
+                originalRawFlux.boundaryField()[patchI];
+
+            forAll(TPatch, faceI)
+            {
+                const scalar cap = Foam::max(capPatch[faceI], VSMALL);
+                TPatch[faceI] +=
+                    (fluxPatch[faceI] - origFluxPatch[faceI])*dtVal/cap;
+            }
+        }
+
+        T.correctBoundaryConditions();
+    }
 
     const volScalarField& metalToGasFlux = tRawFlux();
 

@@ -88,6 +88,13 @@ class twoPhaseMixtureThermo
         volScalarField dgdt_;
         //- Physical phase-change mass flux [kg/(m^2 s)]
         volScalarField phaseChangeMassFlux_;
+        //- Volumetric mass-transfer rate [1/s] consistent with the
+        //  unconditional Hertz-Knudsen phaseChangeSource_/phaseChangeMassFlux_
+        //  computed in computePhaseChange(). Used as the default dgdt_ when
+        //  the optional massTransferCoeffs dict is not configured, so latent
+        //  heat removed from the lattice always has matching mass leaving
+        //  alpha1 (see computeMassTransfer()).
+        volScalarField phaseChangeVolumetricRate_;
         //- Kinematic viscosity of each phase from transportProperties
         dimensionedScalar nu1_;
         dimensionedScalar nu2_;
