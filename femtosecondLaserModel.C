@@ -116,6 +116,7 @@ femtosecondLaserModel::femtosecondLaserModel
     pulseEnergyAccumulator_(0.0),
     pulseExpectedAccumulator_(0.0),
     pulseDepositableExpectedAccumulator_(0.0),
+    pulseRawEnergyAccumulator_(0.0),
     currentPulseStartTime_(0.0),
     pulseCounter_(0),
     trackingPulse_(false),
@@ -659,6 +660,7 @@ void femtosecondLaserModel::finalizePulseEnergyCheck
         pulseEnergyAccumulator_ = 0.0;
         pulseExpectedAccumulator_ = 0.0;
         pulseDepositableExpectedAccumulator_ = 0.0;
+        pulseRawEnergyAccumulator_ = 0.0;
         currentPulseStartTime_ = 0.0;
         return;
     }
@@ -709,6 +711,17 @@ void femtosecondLaserModel::finalizePulseEnergyCheck
     const scalar maxDeviation =
         max(diffDepositableExpected, diffConfigured);
 
+    // Independent check: pulseRawEnergyAccumulator_ is the integral of the
+    // source field as computed by the Gaussian/absorption model BEFORE the
+    // energy-conservation rescale above forces its total to match
+    // depositableExpected. Unlike diffDepositableExpected (which compares
+    // the rescaled/deposited energy and is tautologically close to zero by
+    // construction), this can actually catch a wrong Gaussian prefactor,
+    // FWHM conversion, or absorption-depth bug in the spatial model.
+    const scalar diffRawModel =
+        mag(pulseRawEnergyAccumulator_ - depositableExpected);
+    const bool warnRawModel = diffRawModel > tolerance;
+
     ++pulseCounter_;
 
     const bool master = Pstream::master();
@@ -720,6 +733,8 @@ void femtosecondLaserModel::finalizePulseEnergyCheck
             << "  Start time:       " << currentPulseStartTime_ << " s" << nl
             << "  End time:         " << currentTime << " s" << nl
             << "  Deposited energy:           " << pulseEnergyAccumulator_
+            << " J" << nl
+            << "  Raw model energy (pre-rescale): " << pulseRawEnergyAccumulator_
             << " J" << nl
             << "  Incident expected (integrated): " << incidentExpected << " J" << nl
             << "  Depositable expected (integrated): " << depositableExpected
@@ -748,6 +763,21 @@ void femtosecondLaserModel::finalizePulseEnergyCheck
     const bool warnDepositable = diffDepositableExpected > tolerance;
     const bool warnConfigured = configuredResidual > tolerance;
     const bool warnIncident = incidentResidual > tolerance;
+
+    if (warnRawModel)
+    {
+        WarningInFunction
+            << "Laser spatial source model mismatch after pulse "
+            << pulseCounter_ << ": the Gaussian/absorption model integrated "
+            << "to " << pulseRawEnergyAccumulator_
+            << " J before energy-conservation rescaling, vs depositable "
+            << "energy expected from the temporal envelope "
+            << depositableExpected << " J. Residual mismatch "
+            << diffRawModel << " J exceeds tolerance " << tolerance
+            << " J -- check the Gaussian prefactor, FWHM conversion, and"
+            << " absorption depth; the rescale step masks this from the"
+            << " deposited-energy check above." << endl;
+    }
 
     if (warnDepositable)
     {
@@ -816,6 +846,7 @@ void femtosecondLaserModel::finalizePulseEnergyCheck
     pulseEnergyAccumulator_ = 0.0;
     pulseExpectedAccumulator_ = 0.0;
     pulseDepositableExpectedAccumulator_ = 0.0;
+    pulseRawEnergyAccumulator_ = 0.0;
     currentPulseStartTime_ = 0.0;
 }
 
@@ -1288,7 +1319,67 @@ femtosecondLaserModel::applySpatialWeighting
         Info<< endl;
     }
 
-    const scalar filmThickness = Foam::max(filmYMax_ - filmYMin_, scalar(0));
+    const pointField& cellCentres = mesh_.C();
+    const scalarField& cellVolumes = mesh_.V();
+    const pointField& meshPoints = mesh_.points();
+    const volScalarField* metalFractionPtr = nullptr;
+
+    if (mesh_.foundObject<volScalarField>("alpha.metal"))
+    {
+        metalFractionPtr = &mesh_.lookupObject<volScalarField>("alpha.metal");
+    }
+    else if (mesh_.foundObject<volScalarField>("alpha1"))
+    {
+        metalFractionPtr = &mesh_.lookupObject<volScalarField>("alpha1");
+    }
+
+    const scalarField* metalFractions = nullptr;
+
+    if (metalFractionPtr)
+    {
+        metalFractions = &metalFractionPtr->internalField();
+    }
+
+    const scalar metalFractionTol = 1e-6;
+
+    // filmYMin_/filmYMax_ are set once from the initial geometry and never
+    // updated as the film melts, spreads, or ejects material. Rebuild the
+    // effective band from the live alpha field each call so absorption
+    // depth and ray-clipping below track the metal that is actually there
+    // instead of silently zeroing deposition once it moves outside the
+    // original band.
+    scalar liveFilmYMin = filmYMin_;
+    scalar liveFilmYMax = filmYMax_;
+
+    if (metalFractions)
+    {
+        scalar localMin = GREAT;
+        scalar localMax = -GREAT;
+        bool foundMetal = false;
+
+        forAll(*metalFractions, cellI)
+        {
+            if ((*metalFractions)[cellI] > metalFractionTol)
+            {
+                const scalar y = cellCentres[cellI].y();
+                localMin = Foam::min(localMin, y);
+                localMax = Foam::max(localMax, y);
+                foundMetal = true;
+            }
+        }
+
+        reduce(foundMetal, orOp<bool>());
+
+        if (foundMetal)
+        {
+            reduce(localMin, minOp<scalar>());
+            reduce(localMax, maxOp<scalar>());
+            liveFilmYMin = localMin;
+            liveFilmYMax = localMax;
+        }
+    }
+
+    const scalar filmThickness = Foam::max(liveFilmYMax - liveFilmYMin, scalar(0));
     const scalar beamRadius = spotSize_.value()/2.0;
     const scalar radialHalfWidth = 3.0*beamRadius; // ~3-sigma laterally
 
@@ -1335,28 +1426,6 @@ femtosecondLaserModel::applySpatialWeighting
             << "==============================" << endl;
     }
 
-    const pointField& cellCentres = mesh_.C();
-    const scalarField& cellVolumes = mesh_.V();
-    const pointField& meshPoints = mesh_.points();
-    const volScalarField* metalFractionPtr = nullptr;
-
-    if (mesh_.foundObject<volScalarField>("alpha.metal"))
-    {
-        metalFractionPtr = &mesh_.lookupObject<volScalarField>("alpha.metal");
-    }
-    else if (mesh_.foundObject<volScalarField>("alpha1"))
-    {
-        metalFractionPtr = &mesh_.lookupObject<volScalarField>("alpha1");
-    }
-
-    const scalarField* metalFractions = nullptr;
-
-    if (metalFractionPtr)
-    {
-        metalFractions = &metalFractionPtr->internalField();
-    }
-
-    const scalar metalFractionTol = 1e-6;
     const vector directionUnit(direction_);
 
     point entryPoint = focus_;
@@ -1413,8 +1482,8 @@ femtosecondLaserModel::applySpatialWeighting
 
     if (mag(dirY) > VSMALL)
     {
-        const scalar sToMin = (filmYMin_ - entryPoint.y())/dirY;
-        const scalar sToMax = (filmYMax_ - entryPoint.y())/dirY;
+        const scalar sToMin = (liveFilmYMin - entryPoint.y())/dirY;
+        const scalar sToMax = (liveFilmYMax - entryPoint.y())/dirY;
         const scalar intervalMin = Foam::min(sToMin, sToMax);
         const scalar intervalMax = Foam::max(sToMin, sToMax);
         const scalar positiveStart = Foam::max(intervalMin, scalar(0));
@@ -1428,8 +1497,8 @@ femtosecondLaserModel::applySpatialWeighting
     }
     else if
     (
-        entryPoint.y() >= filmYMin_
-     && entryPoint.y() <= filmYMax_
+        entryPoint.y() >= liveFilmYMin
+     && entryPoint.y() <= liveFilmYMax
     )
     {
         filmIntervalStart = 0.0;
@@ -1444,7 +1513,7 @@ femtosecondLaserModel::applySpatialWeighting
 
         if (mag(dirY) > VSMALL)
         {
-            const scalar targetY = (dirY >= 0) ? filmYMin_ : filmYMax_;
+            const scalar targetY = (dirY >= 0) ? liveFilmYMin : liveFilmYMax;
             filmEntryOffset = (targetY - entryPoint.y())/dirY;
             filmEntryOffset = Foam::max(filmEntryOffset, scalar(0));
         }
@@ -1464,7 +1533,7 @@ femtosecondLaserModel::applySpatialWeighting
         ++cellsInSearchBox;
         ++cellsChecked;
         
-        bool inFilm = (c.y() >= filmYMin_ && c.y() <= filmYMax_);
+        bool inFilm = (c.y() >= liveFilmYMin && c.y() <= liveFilmYMax);
 
         if (metalFractions)
         {
@@ -1802,6 +1871,7 @@ void femtosecondLaserModel::updateEnergyTracking
         const scalar coverageFraction = beamCoverageFraction();
         const scalar depositableExpectedThisStep =
             incidentEnergyThisStep*depositableFraction*coverageFraction;
+        const scalar rawStepEnergy = metrics.rawSourceIntegral*dt;
 
         if (depositionActive || trackingPulse_)
         {
@@ -1812,12 +1882,14 @@ void femtosecondLaserModel::updateEnergyTracking
                 pulseEnergyAccumulator_ = 0.0;
                 pulseExpectedAccumulator_ = 0.0;
                 pulseDepositableExpectedAccumulator_ = 0.0;
+                pulseRawEnergyAccumulator_ = 0.0;
                 currentPulseStartTime_ = overlapStart;
             }
 
             pulseEnergyAccumulator_ += stepEnergy;
             pulseExpectedAccumulator_ += incidentEnergyThisStep;
             pulseDepositableExpectedAccumulator_ += depositableExpectedThisStep;
+            pulseRawEnergyAccumulator_ += rawStepEnergy;
         }
     }
 
@@ -1900,6 +1972,7 @@ void femtosecondLaserModel::calculateSource() const
         pulseEnergyAccumulator_ = 0.0;
         pulseExpectedAccumulator_ = 0.0;
         pulseDepositableExpectedAccumulator_ = 0.0;
+        pulseRawEnergyAccumulator_ = 0.0;
         currentPulseStartTime_ = 0.0;
         pulseCounter_ = 0;
     }
@@ -2183,6 +2256,7 @@ void femtosecondLaserModel::calculateSource() const
         const scalar desiredPower =
             incidentPower*depositableFraction*coverageFraction;
         const scalar actualPower = metrics.totalSourceIntegral;
+        metrics.rawSourceIntegral = actualPower;
 
         if (actualPower > VSMALL)
         {

@@ -89,6 +89,11 @@ if (liftPhysics.valid())
 
 phiHbyA += phig;
 
+// No-op while no MRF zones are configured (the current non-rotating LIFT
+// geometry); keeps this stage consistent with UEqn.H's MRF.DDt(rho, U) so
+// the formulation is not silently wrong if an MRF zone is ever added.
+MRF.makeRelative(phiHbyA);
+
 // Limit mass flux to prevent pressure divergence from extreme recoil/phase change
 const Foam::scalar maxMassFlux =
     solverCoeffs.lookupOrDefault<Foam::scalar>("maxMassFlux", Foam::GREAT);
@@ -127,8 +132,7 @@ const dimensionedScalar& rhoGas = mixture.rho2();
 
 // Mixture acoustic compliance (alpha_i*psi_i/rho_i)*ddt(p): restores the
 // compressible response of the gas/vapour phase (the Boussinesq metal has
-// psi = 0).  The advected d(rho_i)/dt contributions kept by the upstream
-// compressibleInterFoam pEqn are negligible over femtosecond time steps.
+// psi = 0).
 volScalarField psiByRho
 (
     "psiByRho",
@@ -144,9 +148,21 @@ while (pimple.correctNonOrthogonal())
     // With the previous (laplacian == div) arrangement the flux entered
     // with the WRONG SIGN, driving flow up pressure gradients and causing
     // the GAMG stall documented in CONVERGENCE_ISSUE_DIAGNOSIS.md.
+    // fvc::ddt(rho)/rho feeds back density changes not captured by
+    // psiByRho's pressure-only acoustic compliance -- in particular the
+    // two-temperature model's large T swings driving thermal expansion of
+    // alpha1*rho1. This is negligible over femtosecond steps (matching the
+    // previous omission) but becomes significant once deltaT grows into
+    // the ns-us range during droplet ejection/relaxation, so it is kept
+    // unconditionally rather than gated on the current time-step regime.
+    // Divided by rho (d(ln rho)/dt) because this equation is normalized by
+    // psiByRho = alpha_i*psi_i/rho_i, not the raw density-flux form stock
+    // compressibleInterFoam uses, so the whole equation carries dimensions
+    // of 1/s rather than kg/(m^3 s).
     fvScalarMatrix pEqn
     (
-        fvm::ddt(psiByRho, p_rgh)
+        fvc::ddt(rho)/rho
+      + fvm::ddt(psiByRho, p_rgh)
       + fvc::div(phiHbyA)
       - fvm::laplacian(rAUf, p_rgh)
      ==
@@ -165,12 +181,28 @@ while (pimple.correctNonOrthogonal())
         const Foam::scalar maxPressureGradient =
             solverCoeffs.lookupOrDefault<Foam::scalar>("maxPressureGradient", Foam::GREAT);
 
+        // Excess (unclamped-minus-clamped) gradient, rAU-weighted so it can
+        // be subtracted directly from the reconstructed velocity/flux below.
+        // p_rgh itself is left untouched -- only U/phi are bounded, since
+        // reconstructing p_rgh from a clamped gradient is not well-posed on
+        // an unstructured mesh. Seed from the actual rAU*grad(p_rgh)
+        // expression so its dimensions are inferred rather than guessed.
+        Foam::volVectorField pressureGradientExcess(rAU*fvc::grad(p_rgh));
+        pressureGradientExcess =
+            dimensionedVector
+            (
+                "zero",
+                pressureGradientExcess.dimensions(),
+                Foam::vector::zero
+            );
+
         if (maxPressureGradient < Foam::GREAT)
         {
-            Foam::tmp<Foam::volVectorField> tGradPrgh = fvc::grad(p_rgh);
-            Foam::volVectorField& gradPrgh = tGradPrgh.ref();
+            Foam::volVectorField gradPrgh(fvc::grad(p_rgh));
 
             Foam::vectorField& gradInternal = gradPrgh.primitiveFieldRef();
+            Foam::vectorField& excessInternal =
+                pressureGradientExcess.primitiveFieldRef();
             bool gradLimited = false;
 
             forAll(gradInternal, celli)
@@ -180,7 +212,8 @@ while (pimple.correctNonOrthogonal())
 
                 if (magG > maxPressureGradient && magG > Foam::SMALL)
                 {
-                    g *= maxPressureGradient / magG;
+                    const Foam::vector gClamped = g*(maxPressureGradient/magG);
+                    excessInternal[celli] = rAU[celli]*(g - gClamped);
                     gradLimited = true;
                 }
             }
@@ -191,9 +224,7 @@ while (pimple.correctNonOrthogonal())
                     << maxPressureGradient << " Pa/m" << Foam::endl;
             }
 
-            // Reconstruct p_rgh from limited gradient (simple Euler integration)
-            // This helps prevent the pressure field from developing extreme values
-            tGradPrgh.clear();
+            pressureGradientExcess.correctBoundaryConditions();
         }
 
         const Foam::Switch pressureClamp
@@ -308,8 +339,19 @@ while (pimple.correctNonOrthogonal())
         phi = phiHbyA + pEqn.flux();
 
         U = HbyA + rAU*fvc::reconstruct((phig + pEqn.flux())/rAUf);
+
+        if (maxPressureGradient < Foam::GREAT)
+        {
+            // Actually apply the clamp computed above: remove the
+            // over-the-cap portion of the pressure-gradient-driven velocity
+            // and the matching face flux, instead of just logging it.
+            U -= pressureGradientExcess;
+            phi -= fvc::interpolate(pressureGradientExcess) & mesh.Sf();
+        }
+
         U.correctBoundaryConditions();
         fvOptions.correct(U);
+        MRF.correctBoundaryVelocity(U);
     }
 }
 

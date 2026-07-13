@@ -17,10 +17,16 @@ FoamFile
 
 ddtSchemes
 {
-    default          localEuler;              // ✓ GOOD - First-order, stable
-    ddt(alpha)       localEuler;              // ✓ GOOD - Consistent with alpha equation
-    ddt(rho,U)       localEuler;              // ✓ GOOD - Momentum conservation
-    ddt(rho)         localEuler;              // ✓ GOOD - Mass conservation
+    // localEuler (LTS) uses a per-cell pseudo-time step for every ddt()
+    // discretization, decoupled from runTime.value(). This solver gates
+    // laser pulses, phase-change kinetics, and two-temperature subcycling
+    // on runTime.value()/deltaT, so LTS silently desynchronizes the fields
+    // from the physical time being reported -- it does not improve
+    // conservation. Use Euler, matching TEST1/TEST3/TestCase.
+    default          Euler;
+    ddt(alpha)       Euler;
+    ddt(rho,U)       Euler;
+    ddt(rho)         Euler;
 }
 
 gradSchemes

@@ -442,8 +442,8 @@ Foam::scalar Foam::enhancedLIFTPhysics::sahaIonization
     const scalar lambda_dB_sq = sqr(h) / (2.0 * pi * m_e * k_B * T);
     const scalar g_ratio = 2.0;
 
-    const scalar K_saha = g_ratio * pow(2.0 / (lambda_dB_sq * n_atoms), 1.5)
-                        * exp(-E_ion / (k_B * T));
+    const scalar K_saha = g_ratio * pow(2.0 / lambda_dB_sq, 1.5)
+                        * exp(-E_ion / (k_B * T)) / n_atoms;
 
     const scalar discriminant = sqr(K_saha) + 4.0 * K_saha;
     const scalar alpha = max
@@ -603,7 +603,17 @@ void Foam::enhancedLIFTPhysics::updatePhaseExplosion
 
             indicatorField[cellI] = xi;
 
-            const scalar explosionRate = (rho_local / tau) * exp(10.0 * xi);
+            // exp(10*xi) can reach ~2.2e4 at xi=1; unlike explosivePressure_
+            // (naturally bounded by p_critical_*xi^2), this had no ceiling,
+            // so at anything beyond femtosecond time steps
+            // explosionRate*dt could exceed the mass actually present in
+            // the cell. Cap it there.
+            const scalar explosionRate =
+                Foam::min
+                (
+                    (rho_local / tau) * exp(10.0 * xi),
+                    rho_local / Foam::max(mesh_.time().deltaTValue(), SMALL)
+                );
             massSourceField[cellI] = explosionRate;
 
             pressureField[cellI] = phaseExplosion_->p_critical_.value() * sqr(xi);

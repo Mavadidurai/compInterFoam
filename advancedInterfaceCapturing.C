@@ -327,6 +327,14 @@ advancedInterfaceCapturing::advancedInterfaceCapturing
             << ") must be non-negative"
             << abort(FatalError);
     }
+    if (recoilTempOffset_.value() >= vaporTemp_.value())
+    {
+        FatalErrorInFunction
+            << "recoilTempOffset (" << recoilTempOffset_.value()
+            << ") must be less than vaporTemperature ("
+            << vaporTemp_.value() << ")"
+            << abort(FatalError);
+    }
     if (recoilTempOffset_.value() > phaseChangeTempOffset_.value())
     {
         if (master)
@@ -701,6 +709,15 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
 
         ++interfaceCells;
 
+        if (alpha < metalAlphaCutoff_)
+        {
+            // Below the metal-dominated threshold: too little condensed
+            // metal present for the kinetic recoil closure below (which
+            // assumes emission from a metal surface) to be meaningful.
+            recoilField[cellI] = 0.0;
+            continue;
+        }
+
         const scalar Tlocal = Foam::max(temperatureField[cellI], scalar(0));
         const scalar Tactive = Foam::min(Tlocal, maxPhysicalT);
 
@@ -755,8 +772,11 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
         //   p_recoil = (recoilCoefficient/alpha_e) * j_net * sqrt(2*pi*R*T)
         //            = recoilCoefficient * p_sat(T)
         // The evaporation coefficient already scales j_net, so dividing by
-        // alpha_e restores the saturation-pressure level.
-        const scalar pRecoil = scaledKnightCoeff*jNet*sqrtTerm;
+        // alpha_e restores the saturation-pressure level. momentumAccommodationCoeff_
+        // then scales the fraction of that kinetic momentum actually
+        // transferred to the surface as recoil (documented in README.md).
+        const scalar pRecoil =
+            momentumAccommodationCoeff_*scaledKnightCoeff*jNet*sqrtTerm;
         const scalar rawRecoil = pRecoil;
         scalar recoilValue = rawRecoil;
         if (clampRecoil_)
@@ -990,8 +1010,7 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
 
                 if (maxRawMassFlux > massRateEps_)
                 {
-            Info<< "  Max |j_net| = " << maxMassFlux
-                        << maxRawMassFlux
+                    Info<< "  Max |j_net| = " << maxRawMassFlux
                         << " kg/m^2/s (filtered by massRateEps)." << nl;
                 }
 

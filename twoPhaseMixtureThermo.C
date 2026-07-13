@@ -112,6 +112,19 @@ Foam::twoPhaseMixtureThermo::twoPhaseMixtureThermo
             0.0
         )
     ),
+    phaseChangeVolumetricRate_
+    (
+        IOobject
+        (
+            "phaseChangeVolumetricRate",
+            U.mesh().time().timeName(),
+            U.mesh(),
+            IOobject::NO_READ,
+            IOobject::NO_WRITE
+        ),
+        U.mesh(),
+        dimensionedScalar("phaseChangeVolumetricRate", dimless/dimTime, 0.0)
+    ),
     nu1_("nu1", dimViscosity, 0.0),
     nu2_("nu2", dimViscosity, 0.0),
     rho1_("rho1", dimDensity, 0.0),
@@ -682,6 +695,25 @@ Foam::twoPhaseMixtureThermo::twoPhaseMixtureThermo
         relaxationTime_ = val;
     }
 
+    if (phaseChangeDict.found("dtFloor"))
+    {
+        // Bare scalar in seconds, matching relaxationTime/evapRelaxationTime
+        // and the README (dtFloor entries are not bracket-dimensioned in
+        // shipped cases).
+        const scalar val = readScalar(phaseChangeDict.lookup("dtFloor"));
+        ensureFinite("dtFloor", val);
+
+        if (val <= 0)
+        {
+            FatalIOErrorInFunction(phaseChangeDict)
+                << "Entry 'dtFloor' in " << phaseChangeDictDisplay
+                << " must be positive"
+                << exit(FatalIOError);
+        }
+
+        dtFloor_ = val;
+    }
+
     if (phaseChangeDict.found("alphaMin"))
     {
         const dimensionedScalar value("alphaMin", phaseChangeDict);
@@ -1058,6 +1090,8 @@ void Foam::twoPhaseMixtureThermo::computePhaseChange()
     phaseChangeRelaxCoeff_.primitiveFieldRef() = 0.0;
     phaseChangeMassFlux_.primitiveFieldRef() = 0.0;
     phaseChangeMassFlux_.boundaryFieldRef() = 0.0;
+    phaseChangeVolumetricRate_.primitiveFieldRef() = 0.0;
+    phaseChangeVolumetricRate_.boundaryFieldRef() = 0.0;
 
     const fvMesh& mesh = T_.mesh();
     const Time& time = mesh.time();
@@ -1144,7 +1178,7 @@ void Foam::twoPhaseMixtureThermo::computePhaseChange()
     const volVectorField& gradAlpha = tGradAlpha();
 
     const scalar Tmax = maxPhaseChangeTemperature_;
-    const scalar saturationTmin = Foam::max(T_vapor_, SMALL);
+    const scalar saturationTmin = Foam::max(T_melt_, SMALL);
 
     static bool warnedSatRange = false;
     static bool warnedPvapClamp = false;
@@ -1314,11 +1348,24 @@ void Foam::twoPhaseMixtureThermo::computePhaseChange()
         // Store the volumetric temperature rate with a sign convention where
         // evaporation yields a negative contribution and condensation positive.
         const scalar rate = volumetricHeat/Cl;
-        const scalar relax = 1.0/relaxationTime_;
+        // dtFloor clamps the implicit relaxation coefficient to 1/dtFloor
+        // (i.e. the effective relaxation time is never allowed below
+        // dtFloor), preventing a very short evapRelaxationTime from
+        // producing an unbounded implicit coefficient.
+        const scalar effectiveRelaxationTime =
+            Foam::max(relaxationTime_, dtFloor_);
+        const scalar relax = 1.0/effectiveRelaxationTime;
 
         phaseChangeRelaxCoeff_[cellI] = relax;
         phaseChangeSource_[cellI] = -rate;
         phaseChangeMassFlux_[cellI] = j_net;
+
+        // Volumetric mass-transfer rate [1/s] matching the volumetric energy
+        // sink above (same j_net, same interface area density), so alpha1
+        // depletes in lockstep with the latent heat removed from the
+        // lattice. Positive for evaporation, consistent with dgdt's sign
+        // convention (see alphaSuSp.H).
+        phaseChangeVolumetricRate_[cellI] = j_net*gradMag/rho1_.value();
     }
 }
 Foam::tmp<Foam::volScalarField>
@@ -1361,10 +1408,20 @@ Foam::twoPhaseMixtureThermo::computeMassTransfer() const
 
     if (!mtPtr)
     {
+        // No optional dict-driven rate model configured: fall back to the
+        // volumetric rate already implied by the unconditional
+        // Hertz-Knudsen phaseChangeSource_/phaseChangeMassFlux_ computed in
+        // computePhaseChange(), instead of leaving dgdt at zero. Otherwise
+        // latent heat is removed from the lattice every step with no
+        // compensating mass leaving alpha1, breaking mass/energy
+        // conservation whenever massTransferCoeffs is omitted.
         if (master)
         {
-            Info<< "massTransferCoeffs not found - skipping mass transfer" << nl;
+            Info<< "massTransferCoeffs not found - using Hertz-Knudsen"
+                << " phase-change flux as the default mass-transfer rate"
+                << nl;
         }
+        dgdt = phaseChangeVolumetricRate_;
         return tDgdt;
     }
     const dictionary& mt = *mtPtr;
@@ -1955,7 +2012,28 @@ Foam::tmp<Foam::scalarField> Foam::twoPhaseMixtureThermo::rhoEoS
 }
 Foam::tmp<Foam::volScalarField> Foam::twoPhaseMixtureThermo::gamma() const
 {
-    return alpha1()*thermo1_->gamma() + alpha2()*thermo2_->gamma();
+    const volScalarField& alpha1Field = alpha1();
+    const volScalarField& alpha2Field = alpha2();
+
+    tmp<volScalarField> tGamma1 = thermo1_->gamma();
+    tmp<volScalarField> tGamma2 = thermo2_->gamma();
+    tmp<volScalarField> trho1 = thermo1_->rho();
+    tmp<volScalarField> trho2 = thermo2_->rho();
+
+    tmp<volScalarField> numerator =
+        alpha1Field*trho1()*tGamma1()
+      + alpha2Field*trho2()*tGamma2();
+
+    tmp<volScalarField> denominator =
+        alpha1Field*trho1()
+      + alpha2Field*trho2();
+
+    return numerator
+       /
+        (
+            denominator
+          + dimensionedScalar("rhoMin", dimDensity, Foam::SMALL)
+        );
 }
 Foam::tmp<Foam::scalarField> Foam::twoPhaseMixtureThermo::gamma
 (
@@ -1964,13 +2042,55 @@ Foam::tmp<Foam::scalarField> Foam::twoPhaseMixtureThermo::gamma
     const label patchi
 ) const
 {
-    return
-        alpha1().boundaryField()[patchi]*thermo1_->gamma(p, T, patchi)
-      + alpha2().boundaryField()[patchi]*thermo2_->gamma(p, T, patchi);
+    const fvPatchScalarField& alpha1Patch = alpha1().boundaryField()[patchi];
+    const fvPatchScalarField& alpha2Patch = alpha2().boundaryField()[patchi];
+
+    tmp<scalarField> tGamma1 = thermo1_->gamma(p, T, patchi);
+    tmp<scalarField> tGamma2 = thermo2_->gamma(p, T, patchi);
+    tmp<scalarField> trho1 = thermo1_->rho(patchi);
+    tmp<scalarField> trho2 = thermo2_->rho(patchi);
+
+    scalarField result(tGamma1().size(), 0.0);
+
+    forAll(result, facei)
+    {
+        result[facei] = massWeighted
+        (
+            alpha1Patch[facei],
+            trho1()[facei],
+            tGamma1()[facei],
+            alpha2Patch[facei],
+            trho2()[facei],
+            tGamma2()[facei]
+        );
+    }
+
+    return tmp<scalarField>(new scalarField(std::move(result)));
 }
 Foam::tmp<Foam::volScalarField> Foam::twoPhaseMixtureThermo::Cpv() const
 {
-    return alpha1()*thermo1_->Cpv() + alpha2()*thermo2_->Cpv();
+    const volScalarField& alpha1Field = alpha1();
+    const volScalarField& alpha2Field = alpha2();
+
+    tmp<volScalarField> tCpv1 = thermo1_->Cpv();
+    tmp<volScalarField> tCpv2 = thermo2_->Cpv();
+    tmp<volScalarField> trho1 = thermo1_->rho();
+    tmp<volScalarField> trho2 = thermo2_->rho();
+
+    tmp<volScalarField> numerator =
+        alpha1Field*trho1()*tCpv1()
+      + alpha2Field*trho2()*tCpv2();
+
+    tmp<volScalarField> denominator =
+        alpha1Field*trho1()
+      + alpha2Field*trho2();
+
+    return numerator
+       /
+        (
+            denominator
+          + dimensionedScalar("rhoMin", dimDensity, Foam::SMALL)
+        );
 }
 Foam::tmp<Foam::scalarField> Foam::twoPhaseMixtureThermo::Cpv
 (
@@ -1979,15 +2099,55 @@ Foam::tmp<Foam::scalarField> Foam::twoPhaseMixtureThermo::Cpv
     const label patchi
 ) const
 {
-    return
-        alpha1().boundaryField()[patchi]*thermo1_->Cpv(p, T, patchi)
-      + alpha2().boundaryField()[patchi]*thermo2_->Cpv(p, T, patchi);
+    const fvPatchScalarField& alpha1Patch = alpha1().boundaryField()[patchi];
+    const fvPatchScalarField& alpha2Patch = alpha2().boundaryField()[patchi];
+
+    tmp<scalarField> tCpv1 = thermo1_->Cpv(p, T, patchi);
+    tmp<scalarField> tCpv2 = thermo2_->Cpv(p, T, patchi);
+    tmp<scalarField> trho1 = thermo1_->rho(patchi);
+    tmp<scalarField> trho2 = thermo2_->rho(patchi);
+
+    scalarField result(tCpv1().size(), 0.0);
+
+    forAll(result, facei)
+    {
+        result[facei] = massWeighted
+        (
+            alpha1Patch[facei],
+            trho1()[facei],
+            tCpv1()[facei],
+            alpha2Patch[facei],
+            trho2()[facei],
+            tCpv2()[facei]
+        );
+    }
+
+    return tmp<scalarField>(new scalarField(std::move(result)));
 }
 Foam::tmp<Foam::volScalarField> Foam::twoPhaseMixtureThermo::CpByCpv() const
 {
-    return
-        alpha1()*thermo1_->CpByCpv()
-      + alpha2()*thermo2_->CpByCpv();
+    const volScalarField& alpha1Field = alpha1();
+    const volScalarField& alpha2Field = alpha2();
+
+    tmp<volScalarField> tCpByCpv1 = thermo1_->CpByCpv();
+    tmp<volScalarField> tCpByCpv2 = thermo2_->CpByCpv();
+    tmp<volScalarField> trho1 = thermo1_->rho();
+    tmp<volScalarField> trho2 = thermo2_->rho();
+
+    tmp<volScalarField> numerator =
+        alpha1Field*trho1()*tCpByCpv1()
+      + alpha2Field*trho2()*tCpByCpv2();
+
+    tmp<volScalarField> denominator =
+        alpha1Field*trho1()
+      + alpha2Field*trho2();
+
+    return numerator
+       /
+        (
+            denominator
+          + dimensionedScalar("rhoMin", dimDensity, Foam::SMALL)
+        );
 }
 Foam::tmp<Foam::scalarField> Foam::twoPhaseMixtureThermo::CpByCpv
 (
@@ -1996,13 +2156,55 @@ Foam::tmp<Foam::scalarField> Foam::twoPhaseMixtureThermo::CpByCpv
     const label patchi
 ) const
 {
-    return
-        alpha1().boundaryField()[patchi]*thermo1_->CpByCpv(p, T, patchi)
-      + alpha2().boundaryField()[patchi]*thermo2_->CpByCpv(p, T, patchi);
+    const fvPatchScalarField& alpha1Patch = alpha1().boundaryField()[patchi];
+    const fvPatchScalarField& alpha2Patch = alpha2().boundaryField()[patchi];
+
+    tmp<scalarField> tCpByCpv1 = thermo1_->CpByCpv(p, T, patchi);
+    tmp<scalarField> tCpByCpv2 = thermo2_->CpByCpv(p, T, patchi);
+    tmp<scalarField> trho1 = thermo1_->rho(patchi);
+    tmp<scalarField> trho2 = thermo2_->rho(patchi);
+
+    scalarField result(tCpByCpv1().size(), 0.0);
+
+    forAll(result, facei)
+    {
+        result[facei] = massWeighted
+        (
+            alpha1Patch[facei],
+            trho1()[facei],
+            tCpByCpv1()[facei],
+            alpha2Patch[facei],
+            trho2()[facei],
+            tCpByCpv2()[facei]
+        );
+    }
+
+    return tmp<scalarField>(new scalarField(std::move(result)));
 }
 Foam::tmp<Foam::volScalarField> Foam::twoPhaseMixtureThermo::W() const
 {
-    return alpha1()*thermo1_->W() + alpha2()*thermo2_->W();
+    const volScalarField& alpha1Field = alpha1();
+    const volScalarField& alpha2Field = alpha2();
+
+    tmp<volScalarField> tW1 = thermo1_->W();
+    tmp<volScalarField> tW2 = thermo2_->W();
+    tmp<volScalarField> trho1 = thermo1_->rho();
+    tmp<volScalarField> trho2 = thermo2_->rho();
+
+    tmp<volScalarField> numerator =
+        alpha1Field*trho1()*tW1()
+      + alpha2Field*trho2()*tW2();
+
+    tmp<volScalarField> denominator =
+        alpha1Field*trho1()
+      + alpha2Field*trho2();
+
+    return numerator
+       /
+        (
+            denominator
+          + dimensionedScalar("rhoMin", dimDensity, Foam::SMALL)
+        );
 }
 Foam::tmp<Foam::volScalarField> Foam::twoPhaseMixtureThermo::nu() const
 {
