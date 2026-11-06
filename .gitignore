@@ -1,0 +1,24 @@
+# build output
+src/Make/linux*
+src/lnInclude/
+*.o
+*.dep
+
+# run output inside the cases
+cases/*/0/
+cases/*/[1-9]*/
+cases/*/0.[0-9]*/
+cases/*/[0-9]*e-[0-9]*/
+cases/*/processor*/
+cases/*/constant/polyMesh/
+cases/*/postProcessing/
+cases/*/log.*
+cases/*/*.foam
+cases/*/run_status.txt
+cases/*/droplet_detections.txt
+cases/*/droplet_report_only
+cases/*/liftProcessTracking.csv
+
+# intermediate analysis files
+tools/axis_timeseries_*.csv
+__pycache__/

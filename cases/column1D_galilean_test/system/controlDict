@@ -1,0 +1,282 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+| =========                 |                                                 |
+| \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox           |
+|  \\    /   O peration     | Version:  v2406                                 |
+|   \\  /    A nd           | Website:  www.openfoam.com                      |
+|    \\/     M anipulation  |                                                 |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    location    "system";
+    object      controlDict;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+application     compInterFoam;
+
+startFrom       latestTime;
+startTime       0;
+stopAt          endTime;
+endTime         1e-10;   // Galilean test
+
+deltaT          1e-15;         // Base time step (1 fs)
+adjustTimeStep  yes;           // adaptive time step
+maxCo           0.2;          // Relaxed slightly to avoid needless clipping
+thermalFluxRelax 0.15;          // Stronger damping of interface heat flux
+maxThermalCourant 0.5;         // Tightened for thermal stability
+maxAlphaCo      0.5;          // Allow modest interface Courant growth
+maxDeltaT       1e-12;
+minDeltaT       5e-16;         // Keep floor above numerical noise threshold
+maxDi           20;  // read and logged only; not used by the time-step control
+
+// Laser and phase-change time window
+laserStartTime      0;
+laserEndTime    2e-10;
+
+verbose         true;
+
+// ADAPTIVE OUTPUT - more frequent during active phase, less during cooling
+writeControl    adjustableRunTime;
+writeInterval   1e-11;
+purgeWrite      0;              // Keep more time directories for analysis
+writeFormat     ascii;
+writePrecision  8;
+writeCompression off;
+timeFormat      general;
+timePrecision   8;             // Increased precision for longer runs
+fileHandler     uncollated;
+
+runTimeModifiable yes;
+enableLiftProcessTracker true;
+
+// Phase change (evaporation) at the metal surface
+phaseChangeCoeffs
+{
+    model               clausius_clapeyron;  // saturation pressure from the Clausius-Clapeyron relation
+    hf                  [0 2 -2 0 0 0 0] 9.1e6;   // J/kg (Ti vaporisation)
+    gasConstant         [0 2 -2 -1 0 0 0] 174;    // J/kg/K (Ti vapor)
+    Tsol                [0 0 0 1 0 0 0] 1941;     // K
+    Tvap                [0 0 0 1 0 0 0] 3560;     // K
+    p_ref               [1 -1 -2 0 0 0 0] 101325; // Pa at Tvap
+    // Kinetic theory parameters
+evaporationCoeff       0.18;     // evaporation coefficient beta in the Hertz-Knudsen flux
+    //momentumAccom       0.18;     // Momentum accommodation
+
+    //windowWidth         100;
+    dtFloor             1e-15;
+    relaxationTime      5e-11;        // read and logged only
+    // NOTE: The solver expects maxSource in volumetric units [W/m^3].
+    // A 71 nm film would limit the surface heat flux to ~70 W/m^2 if this were large.
+    // Set to zero so the volumetric cap is fully disabled and phase change is unconstrained.
+    maxSource           [1 -1 -3 0 0 0 0]   1e25;
+    minCoefficient      [1 -1 -3 0 0 0 0] 1e6;          // ignored when maxSource is given
+    onlyAboveVapor      false;
+    phaseChangeVolumeSource false;   // no artificial vapour volume (evaporated mass leaves; recoil carries the momentum)
+    metalFractionCutoff 1e-6;
+    // active time window
+    tStart              (0);
+    tEnd                (2e-10);   // window keys actually read by the solver ("activationTime" was ignored)
+}
+
+// Mass transfer time window
+massTransferCoeffs
+{
+    tStart  (0);
+    tEnd    (2e-10);   // active until 200 ps
+    rateMax 1e11;
+}
+
+
+
+// Evaporation, recoil and vapour pocket at the interface
+useAdvancedInterfaceCapturing  true;
+advancedInterfaceCapturing
+{
+    model               kinetic_theory;  // Hertz-Knudsen evaporation flux
+    stickingCoeff       0.18;
+    momentumAccommodationCoeff       1.0;   // verification: 0.54*p_sat (Anisimov/Knight) already includes the Knudsen-layer back-flux; 0.18 here reduced recoil 5.6x
+    recoilCoefficient     0.54;          // p_recoil = 0.54*p_sat (Anisimov/Knight Knudsen layer)
+    recoilMax             5.0e9;      // [Pa] older name of the recoil bound; maxRecoilPressure below takes precedence
+    clampRecoil           false;
+    scaleRecoilMax        false;
+    recoilTempOffset      0;        // [K] shift of the recoil onset temperature
+    phaseChangeTempOffset 0;      // [K] shift of the evaporation onset temperature
+    recoilRelax           0.7;      // under-relaxation of the recoil pressure between iterations
+    alphaMin              0.01;
+    alphaMax              1;
+    maxPhysicalTemperature  10000;  // [K] highest temperature used in the saturation pressure and evaporation flux
+   // pressureScale [1 -1 -2 0 0 0 0] 0.6;  // NEW: Corrects Knight formula
+    massRateEps           1e-15;        // smallest evaporation rate treated as non-zero
+        // Physical limits
+    maxRecoilPressure   5.0e9;    // [Pa] bound on the recoil pressure (5 GPa)
+}
+logRecoilSuppression true;
+
+// Temperature bounds
+enableTClamp    false;
+minT            200;           // Allow cooling below room temp
+maxT            10000;          // safety bound
+
+// Two-temperature model (electrons and lattice)
+twoTemperatureProperties
+{
+
+    // Linear electronic heat capacity: Ce = γTe
+    Ce
+    {
+        type        polynomial;
+        value       0;
+        coeffs
+        (
+            (0   0)  // Constant term = 0
+            (630 1)  // Linear term: Ce = 630 · Te [J/m³/K²]
+        );
+    }
+
+    // Temperature-dependent coupling (Lin & Zhigilei, Phys. Rev. B 77, 2008)
+G
+{
+    type table;
+    values
+    (
+        (300      1.0e18)
+        (1000     3.0e18)
+        (2000     6.0e18)
+        (3000     1.0e19)
+        (5000     2.0e19)
+        (7000     3.0e19)
+        (10000    5.0e19)
+        (15000    7.0e19)
+        (20000    1.0e20)
+    );
+}
+
+    Cl  [1 -1 -2 -1 0 0 0] 2.5e6;
+    De  [0  2 -1  0 0 0 0] 1e-4;
+    kl  [1  1 -3 -1 0 0 0] 4.5;    // Ti lattice (phonon) conductivity: k_total(21.9) minus electronic part (Wiedemann-Franz)
+    advectTemperatures  true;      // transport Te/Tl with the mixture flux (ejected material keeps its heat)
+
+    gasMetalExchangeCoeff
+    {
+        type        kapitza;    // Use acoustic mismatch model
+        Z_metal     2.3e7;      // Ti acoustic impedance [Pa·s/m]
+        Z_gas       383;        // acoustic impedance of the gas [Pa·s/m] (argon value)
+        rho_metal   4500;       // Ti density [kg/m^3]
+        rho_gas     1.7;        // gas density in this exchange model [kg/m^3] (argon value)
+        maxTemperature 0;      // Optional cap [K] (0 => no cap)
+    }
+    gasMetalCutoffTemperature 3560;
+    minMetalFractionForExchange 0.5;
+    minGasMetalExchangeCoeff [1 -1 -3 -1 0 0 0] 1e6;
+    maxGasMetalExchangeCoeff [1 -1 -3 -1 0 0 0] 5e8;
+    maxGasMetalHeatFlux    5e8;   // Surface heat flux cap [W/m²]
+
+    // Temperature bounds: safety limits, set high enough that they do not act
+    minTe           200;
+    maxTe           18000;       // safety bound; the peak in this test is about 6,640 K
+    maxTl           10000;       // safety bound
+    ambientTemperature 300;
+    temperatureDifferenceFloor 10.0;                     // Guard against Te/Tl collapse
+
+    // ADAPTIVE MICRO-STEPPING
+    electronSubCycles        4;
+    minElectronSubCycles     2;
+    maxElectronSubCycles     20;     // Allow rapid transients
+    maxElectronDeltaT        [0 0 1 0 0 0 0] 1e-15;  // Guard rapid transients
+
+    nInnerCouplingSweeps         3;  // More coupling iterations
+    innerCouplingResidualTol     1e-4; // convergence tolerance of the sweeps
+
+    klHighTThreshold 1000;
+    klExponent       0.5;
+
+    metalFractionFloor      1e-9;
+    metalFractionCutoff     1e-6;
+    metalAmbientBlendWidth  1e-3;
+    CvolGasFloor    1e6;  // J/m^3/K floor for gas cells
+
+    energyTolerance         0.02;    // Relaxed for long runs
+    energyDiagnostics       false;
+    temperatureDiagnostics  false;   // Reduce output volume
+    energyAudit             false;
+}
+enhancedLIFTPhysics
+{
+    // Phase explosion and spinodal decomposition
+    phaseExplosionCoeffs
+    {
+        enablePhaseExplosion   true;
+        T_critical             9500;       // Ti critical temperature [K]
+        T_spinodal             8550;       // 0.9 * T_critical [K]
+        p_critical             1.2e8;      // Ti critical pressure [Pa]
+        tau_explosion          1e-12;      // Explosion timescale [s]
+        explosionMultiplier    100.0;      // Mass flux enhancement factor
+    }
+    // Plasma formation and ionization
+    plasmaIonizationCoeffs
+    {
+        enablePlasmaModel      true;
+        ionizationEnergy       1.093e-18;  // Ti: 6.82 eV = 1.093e-18 J
+        T_ionization           30000;      // Ionization threshold [K]
+        atomicMass             7.95e-26;   // Ti: 47.867 amu [kg]
+        atomicNumberDensity    5.68e28;    // Ti: ~5.68e28 atoms/m^3
+    }
+
+    // Droplet/jet breakup (Weber number criterion)
+    dropletBreakupCoeffs
+    {
+        enableDropletBreakup   true;
+        We_critical            10.0;       // Critical Weber number
+        minJetDiameter         1e-7;       // 100 nm [m]
+        maxJetDiameter         10e-6;      // 10 μm [m]
+        breakupTimeCoeff       1.0;        // Timescale coefficient
+    }
+}
+// Clean monitoring functions
+functions
+{
+    filmProbes
+    {
+        type            probes;
+        libs            (sampling);
+        writeControl    timeStep;
+        writeInterval   1;
+        fields          (Te Tl T p p_rgh alpha.metal U rho);
+        probeLocations
+        (
+            (25e-6 20.0703e-6 5e-6)   // film, glass side (laser entry), 1.1 nm inside
+            (25e-6 20.0357e-6 5e-6)   // film centre
+            (25e-6 20.0011e-6 5e-6)   // film, free side (faces the gap), 1.1 nm inside
+            (25e-6 19.9900e-6 5e-6)   // gas, 10 nm below the film
+        );
+    }
+ /*   // Mid-plane visualization (optional)
+    midPlaneVTK
+    {
+        type            surfaces;
+        libs            ("libsampling.so");
+        writeControl    writeTime;
+        writeInterval   1;
+        surfaceFormat   vtk;
+        fields          (alpha.metal Tl Te T p_rgh U);
+
+        surfaces
+        (
+            midPlane
+            {
+                type                cuttingPlane;
+                planeType           pointAndNormal;
+                pointAndNormalDict
+                {
+                    point   (25e-6 2.00357e-05 5e-6);
+                    normal  (0 1 0);
+                }
+                interpolate         true;
+            }
+        );
+    }
+    */
+}

@@ -1,0 +1,967 @@
+surfaceScalarField rAUf
+(
+    IOobject
+    (
+        "rAUf",
+        runTime.timeName(),
+        mesh,
+        IOobject::NO_READ,
+        IOobject::NO_WRITE
+    ),
+    fvc::interpolate(rAU)
+);
+
+volVectorField HbyA
+(
+    IOobject
+    (
+        "HbyA",
+        runTime.timeName(),
+        mesh,
+        IOobject::NO_READ,
+        IOobject::NO_WRITE
+    ),
+    constrainHbyA(rAU*UEqn.H(), U, p_rgh)
+);
+// HbyA recoil addition disabled - recoil is now included via phig (surface gradient)
+// The momentum predictor (UEqn.H) uses grad(p_rgh + recoilPressure), so pEqn must
+// include snGrad(recoilPressure) in phig for consistent PIMPLE coupling.
+/*
+if (recoilForceReady && tRecoilForce.valid())
+{
+    HbyA += rAU*tRecoilForce();
+}
+*/
+surfaceScalarField phiHbyA
+(
+    IOobject
+    (
+        "phiHbyA",
+        runTime.timeName(),
+        mesh,
+        IOobject::NO_READ,
+        IOobject::NO_WRITE
+    ),
+    fvc::flux(HbyA)
+);
+
+// Option: restrict the CSF surface-tension force to the interface band.
+// interfaceProperties applies sigma*K*snGrad(alpha1) on every face, so small
+// alpha dips inside the bulk film (alpha = 0.97-0.99) receive a force with
+// K ~ 1/cellSize and seed a single-cell pressure-velocity mode.  With
+// the switch on, the force is kept only on faces that touch a cell adjacent
+// to an alpha = 0.5 crossing (the real surfaces); bulk dips get none.
+tmp<surfaceScalarField> tSurfaceTensionForce(mixture.surfaceTensionForce());
+if
+(
+    compInterFoamCoeffsDict(mesh).lookupOrDefault<Switch>
+    (
+        "surfaceTensionInterfaceBand",
+        true    // default on; was false
+    )
+)
+{
+    volScalarField bandIndicator
+    (
+        IOobject
+        (
+            "surfaceTensionBand",
+            runTime.timeName(),
+            mesh,
+            IOobject::NO_READ,
+            IOobject::NO_WRITE
+        ),
+        mesh,
+        dimensionedScalar(dimless, Zero),
+        fvPatchFieldBase::zeroGradientType()
+    );
+
+    const scalarField& a1 = alpha1.primitiveField();
+    const labelUList& own = mesh.owner();
+    const labelUList& nei = mesh.neighbour();
+    scalarField& band = bandIndicator.primitiveFieldRef();
+
+    forAll(nei, facei)
+    {
+        if ((a1[own[facei]] >= 0.5) != (a1[nei[facei]] >= 0.5))   // half-open: alpha = 0.5 counts once
+        {
+            band[own[facei]] = 1;
+            band[nei[facei]] = 1;
+        }
+    }
+
+    forAll(alpha1.boundaryField(), patchi)
+    {
+        const fvPatchScalarField& ap = alpha1.boundaryField()[patchi];
+        if (ap.coupled())
+        {
+            const scalarField aNbr(ap.patchNeighbourField());
+            const labelUList& fc = mesh.boundary()[patchi].faceCells();
+            forAll(fc, i)
+            {
+                if ((a1[fc[i]] >= 0.5) != (aNbr[i] >= 0.5))
+                {
+                    band[fc[i]] = 1;
+                }
+            }
+        }
+    }
+
+    bandIndicator.correctBoundaryConditions();
+
+    // widen the band by (layers - 1) face-neighbour layers. One
+    // layer drops the outer faces of an interface smeared over > ~2 cells:
+    // static-drop benchmark (R/dx = 10) gave a Laplace jump 16.8 % low with
+    // one layer vs 2.3 % low with the CSF everywhere.
+    const label nBandLayers =
+        compInterFoamCoeffsDict(mesh).lookupOrDefault<label>
+        (
+            "surfaceTensionBandLayers",
+            3   // default 3 (1 layer biased the Laplace jump by -17 %)
+        );
+    for (label layer = 1; layer < nBandLayers; ++layer)
+    {
+        const scalarField bandOld(band);
+        forAll(nei, facei)
+        {
+            if (bandOld[own[facei]] > 0.5 || bandOld[nei[facei]] > 0.5)
+            {
+                band[own[facei]] = 1;
+                band[nei[facei]] = 1;
+            }
+        }
+        forAll(bandIndicator.boundaryField(), patchi)
+        {
+            const fvPatchScalarField& bp = bandIndicator.boundaryField()[patchi];
+            if (bp.coupled())
+            {
+                const scalarField bNbr(bp.patchNeighbourField());
+                const labelUList& fc = mesh.boundary()[patchi].faceCells();
+                forAll(fc, i)
+                {
+                    if (bNbr[i] > 0.5)
+                    {
+                        band[fc[i]] = 1;
+                    }
+                }
+            }
+        }
+        bandIndicator.correctBoundaryConditions();
+    }
+
+    if (pimple.firstIter() && runTime.timeIndex() % 100 == 0)
+    {
+        Info<< "    Surface-tension interface band: "
+            << returnReduce(sum(band), sumOp<scalar>())
+            << " band cells" << endl;
+    }
+
+    tSurfaceTensionForce =
+        tSurfaceTensionForce()
+       *localMax<scalar>(mesh).interpolate(bandIndicator);
+}
+
+surfaceScalarField phig
+(
+    IOobject
+    (
+        "phig",
+        runTime.timeName(),
+        mesh,
+        IOobject::NO_READ,
+        IOobject::NO_WRITE
+    ),
+    (
+        tSurfaceTensionForce()
+      - ghf*fvc::snGrad(rho)
+    )*rAUf*mesh.magSf()
+);
+// Momentum-budget diagnostic (opt-in, compInterFoamCoeffs.momentumBudget):
+// keep the surface-tension face force so its integrated effect on the metal
+// can be reported separately below.
+const bool momentumBudget =
+    compInterFoamCoeffsDict(mesh).lookupOrDefault<Switch>("momentumBudget", false);
+autoPtr<surfaceScalarField> budgetSTPtr;
+if (momentumBudget)
+{
+    budgetSTPtr.reset
+    (
+        new surfaceScalarField("budgetST", tSurfaceTensionForce()*mesh.magSf())
+    );
+}
+tSurfaceTensionForce.clear();
+
+// Get solver coefficients dictionary for all stability controls
+const Foam::dictionary solverCoeffs = compInterFoamCoeffsDict(mesh);
+// Recoil enters the momentum balance as the interface traction
+// p_recoil*grad(alpha1) (fix); UEqn.H applies the same face force.
+if (recoilPressurePtr)
+{
+    // Fix: interface traction p_r*grad(alpha1) (CSF form), matching UEqn.H.
+    phig += recoilFaceValue(*recoilPressurePtr)*fvc::snGrad(alpha1)*rAUf*mesh.magSf();
+}
+
+// Phase-explosion and plasma pressures are part of the predictor's
+// totalPressure (UEqn.H); include the same face forces here so the
+// corrector sees a force field consistent with the predictor.
+if (liftPhysics.valid())
+{
+    if (liftPhysics->phaseExplosionEnabled())
+    {
+        phig -= fvc::snGrad(liftPhysics->explosivePressure())*rAUf*mesh.magSf();
+    }
+
+    if (liftPhysics->plasmaEnabled())
+    {
+        phig -= fvc::snGrad(liftPhysics->plasmaPressure())*rAUf*mesh.magSf();
+    }
+}
+
+phiHbyA += phig;
+
+// No-op while no MRF zones are configured (the current non-rotating LIFT
+// geometry); keeps this stage consistent with UEqn.H's MRF.DDt(rho, U) so
+// the formulation is not silently wrong if an MRF zone is ever added.
+MRF.makeRelative(phiHbyA);
+
+// Limit mass flux to prevent pressure divergence from extreme recoil/phase change
+const Foam::scalar maxMassFlux =
+    solverCoeffs.lookupOrDefault<Foam::scalar>("maxMassFlux", Foam::GREAT);
+
+if (maxMassFlux < Foam::GREAT)
+{
+    Foam::surfaceScalarField& phiHbyARef = phiHbyA;
+    Foam::scalarField& phiInternal = phiHbyARef.primitiveFieldRef();
+    bool fluxLimited = false;
+
+    forAll(phiInternal, facei)
+    {
+        Foam::scalar& flux = phiInternal[facei];
+        const Foam::scalar absFlux = Foam::mag(flux);
+
+        if (absFlux > maxMassFlux)
+        {
+            flux *= maxMassFlux / absFlux;
+            fluxLimited = true;
+        }
+    }
+    if (fluxLimited && Foam::Pstream::master())
+    {
+        Info<< "    Mass flux limited to " << maxMassFlux
+            << " kg/s" << Foam::endl;
+    }
+}
+constrainPressure(p_rgh, U, phiHbyA, rAUf);
+
+// Phase-change volume source [1/s]: dgdt = mdot/rho1, so the mixture
+// dilatation is div(U) = mdot*(1/rho2 - 1/rho1) = (rho1/rho2 - 1)*dgdt
+// (positive for evaporation: dense metal converts to expanding vapour).
+const volScalarField& dgdt = mixture.dgdt();
+const dimensionedScalar& rhoLiquid = mixture.rho1();
+const dimensionedScalar& rhoGas = mixture.rho2();
+
+// Mixture acoustic compliance (alpha_i*psi_i/rho_i)*ddt(p): restores the
+// compressible response of the gas/vapour phase (the Boussinesq metal has
+// psi = 0).
+volScalarField psiByRho
+(
+    "psiByRho",
+    max(alpha1, scalar(0))*mixture.thermo1().psi()/mixture.thermo1().rho()
+  + max(alpha2, scalar(0))*mixture.thermo2().psi()/mixture.thermo2().rho()
+);
+
+while (pimple.correctNonOrthogonal())
+{
+    // Assembled in the upstream compressibleInterFoam arrangement
+    // (div - laplacian) so that pEqn.flux() carries -rAUf*snGrad(p_rgh)
+    // and "phi = phiHbyA + pEqn.flux()" restores discrete continuity.
+    // With the previous (laplacian == div) arrangement the flux entered
+    // with the WRONG SIGN, driving flow up pressure gradients and causing
+    // the GAMG stall documented in CONVERGENCE_ISSUE_DIAGNOSIS.md.
+    // fvc::ddt(rho)/rho feeds back density changes not captured by
+    // psiByRho's pressure-only acoustic compliance -- in particular the
+    // two-temperature model's large T swings driving thermal expansion of
+    // alpha1*rho1. This is negligible over femtosecond steps (matching the
+    // previous omission) but becomes significant once deltaT grows into
+    // the ns-us range during droplet ejection/relaxation, so it is kept
+    // unconditionally rather than gated on the current time-step regime.
+    // Divided by rho (d(ln rho)/dt) because this equation is normalized by
+    // psiByRho = alpha_i*psi_i/rho_i, not the raw density-flux form stock
+    // compressibleInterFoam uses, so the whole equation carries dimensions
+    // of 1/s rather than kg/(m^3 s).
+    // Fix: per-phase material-derivative dilatation, as in stock
+    // compressibleInterFoam (p_rghEqnComp1/2). The previous fvc::ddt(rho)/rho
+    // used the LOCAL derivative of the mixture density, which is non-zero
+    // wherever the interface merely moves (d(rho)/dt = -U.grad(rho) across a
+    // 4515:1.2 density jump). That acted as a spurious, velocity-proportional
+    // volume source at interface cells, a positive feedback loop that grew
+    // max|U| exponentially. The terms below vanish for pure advection and
+    // keep only real density change (thermal expansion, compressibility)
+    // of each phase. The pressure part is applied as a correction() so it is
+    // not double counted with the explicit ddt(alpha_i, rho_i).
+    #include "rhofs.H"
+    const surfaceScalarField alphaPhi2c("alphaPhi2c", phi - alphaPhi10);
+    const volScalarField dilatation1
+    (
+        "dilatation1",
+        pos(alpha1)
+       *(
+            (fvc::ddt(alpha1, rho1) + fvc::div(alphaPhi10*rho1f))/rho1
+          - fvc::ddt(alpha1) - fvc::div(alphaPhi10)
+        )
+    );
+    const volScalarField dilatation2
+    (
+        "dilatation2",
+        pos(alpha2)
+       *(
+            (fvc::ddt(alpha2, rho2) + fvc::div(alphaPhi2c*rho2f))/rho2
+          - fvc::ddt(alpha2) - fvc::div(alphaPhi2c)
+        )
+    );
+
+    // Fix: per-phase compressibility matrices (stock compressibleInterFoam
+    // p_rghEqnComp1/2) so that the compressibility dilatation can be fed back
+    // into the alpha equation through dgdtComp after the solve.
+    // optional phase-change volume source. Turning evaporated metal into
+    // gas at the (constant) gas density rho2 inflates the vapour volume by
+    // rho1/rho2 (3890x for air at 1.16 kg/m^3; real Ti vapour at 6 kK and
+    // p_sat ~60 MPa is ~59 kg/m^3), producing GPa pressures. It also
+    // double counts with the recoil pressure, which already represents the
+    // vapour's reaction on the surface. phaseChangeCoeffs.phaseChangeVolumeSource
+    // (default true = previous behaviour) switches it off.
+    const scalar phaseChangeVolumeFactor =
+        runTime.controlDict().subOrEmptyDict("phaseChangeCoeffs")
+           .lookupOrDefault<Switch>("phaseChangeVolumeSource", true) ? 1.0 : 0.0;
+
+    fvScalarMatrix p_rghEqnComp1
+    (
+        (max(alpha1, scalar(0))*mixture.thermo1().psi()/rho1)
+       *correction(fvm::ddt(p_rgh))
+    );
+    p_rghEqnComp1 += dilatation1;
+
+    fvScalarMatrix p_rghEqnComp2
+    (
+        (max(alpha2, scalar(0))*mixture.thermo2().psi()/rho2)
+       *correction(fvm::ddt(p_rgh))
+    );
+    p_rghEqnComp2 += dilatation2;
+
+    fvScalarMatrix pEqn
+    (
+        p_rghEqnComp1 + p_rghEqnComp2
+      + fvc::div(phiHbyA)
+      - fvm::laplacian(rAUf, p_rgh)
+     ==
+        phaseChangeVolumeFactor*(rhoLiquid/rhoGas - 1.0)*dgdt
+    );
+
+    pEqn.setReference(pRefCell, pRefValue);
+
+    // NOTE: the pressure-correction matrix must NOT be under-relaxed;
+    // relaxing it decouples pEqn.flux() from the solved pressure and
+    // breaks discrete mass conservation inside the PISO corrector.
+    pEqn.solve();
+    if (pimple.finalNonOrthogonalIter())
+    {
+        // Fix: compressibility source for the alpha equation, as in stock
+        // compressibleInterFoam (positive = alpha1 grows). alphaSuSp.H
+        // combines it with the phase-change dgdt (positive = alpha1 shrinks).
+        dgdtComp =
+        (
+            alpha1*(p_rghEqnComp2 & p_rgh)
+          - alpha2*(p_rghEqnComp1 & p_rgh)
+        );
+
+        // Limit pressure gradients before reconstruction to prevent velocity spikes
+        const Foam::scalar maxPressureGradient =
+            solverCoeffs.lookupOrDefault<Foam::scalar>("maxPressureGradient", Foam::GREAT);
+
+        // Excess (unclamped-minus-clamped) gradient, rAU-weighted so it can
+        // be subtracted directly from the reconstructed velocity/flux below.
+        // p_rgh itself is left untouched -- only U/phi are bounded, since
+        // reconstructing p_rgh from a clamped gradient is not well-posed on
+        // an unstructured mesh. Seed from the actual rAU*grad(p_rgh)
+        // expression so its dimensions are inferred rather than guessed.
+        Foam::volVectorField pressureGradientExcess(rAU*fvc::grad(p_rgh));
+        pressureGradientExcess =
+            dimensionedVector
+            (
+                "zero",
+                pressureGradientExcess.dimensions(),
+                Foam::vector::zero
+            );
+
+        if (maxPressureGradient < Foam::GREAT)
+        {
+            Foam::volVectorField gradPrgh(fvc::grad(p_rgh));
+
+            Foam::vectorField& gradInternal = gradPrgh.primitiveFieldRef();
+            Foam::vectorField& excessInternal =
+                pressureGradientExcess.primitiveFieldRef();
+            bool gradLimited = false;
+
+            forAll(gradInternal, celli)
+            {
+                Foam::vector& g = gradInternal[celli];
+                const Foam::scalar magG = Foam::mag(g);
+
+                if (magG > maxPressureGradient && magG > Foam::SMALL)
+                {
+                    const Foam::vector gClamped = g*(maxPressureGradient/magG);
+                    excessInternal[celli] = rAU[celli]*(g - gClamped);
+                    gradLimited = true;
+                }
+            }
+
+            if (gradLimited && Foam::Pstream::master())
+            {
+                Info<< "    Pressure gradient limited to "
+                    << maxPressureGradient << " Pa/m" << Foam::endl;
+            }
+
+            pressureGradientExcess.correctBoundaryConditions();
+        }
+
+        const Foam::Switch pressureClamp
+        (
+            solverCoeffs.lookupOrDefault<Foam::Switch>("pressureClamp", true)
+        );
+
+        if (pressureClamp)
+        {
+            Foam::dimensionedScalar minPressure
+            (
+                "minPressure",
+                Foam::dimPressure,
+                solverCoeffs.lookupOrDefault<Foam::scalar>
+                (
+                    "minPressure",
+                    -Foam::GREAT
+                )
+            );
+            
+            const Foam::scalar configuredClampMax =
+                solverCoeffs.lookupOrDefault<Foam::scalar>
+                (
+                    "maxPressure",
+                    Foam::GREAT
+                );
+
+            Foam::dimensionedScalar maxPressure
+            (
+                "maxPressure",
+                Foam::dimPressure,
+                configuredClampMax
+            );
+
+            // Read recoil configuration consistently (same logic as UEqn.H)
+            const dictionary& aicDict =
+                runTime.controlDict().subOrEmptyDict("advancedInterfaceCapturing");
+            scalar recoilClampTarget = 0.0;
+            
+            if (!aicDict.empty())
+            {
+                // Try maxRecoilPressure first, then recoilMax (legacy)
+                scalar maxRecoil = aicDict.lookupOrDefault<scalar>("maxRecoilPressure", 0.0);
+                if (maxRecoil <= SMALL)
+                {
+                    maxRecoil = aicDict.lookupOrDefault<scalar>("recoilMax", 0.0);
+                }
+                if (std::isfinite(maxRecoil) && maxRecoil > SMALL)
+                {
+                    recoilClampTarget = Foam::mag(maxRecoil);
+                }
+
+            }
+            // Adjust for actual recoil pressure if higher than configured
+            if (recoilPressurePtr)
+            {
+                const scalar observedRecoil = Foam::gMax(*recoilPressurePtr);
+
+                recoilClampTarget = Foam::max(recoilClampTarget, Foam::mag(observedRecoil));
+            }
+            scalar safeClampTarget = recoilClampTarget;
+
+            if (safeClampTarget > Foam::SMALL)
+            {
+                // Allow a 10 % margin above the current recoil level so the
+                // clamp does not pin the recoil exactly.
+                const scalar safetyFactor = 1.1;
+                safeClampTarget *= safetyFactor;
+
+                if
+                (
+                    configuredClampMax > Foam::SMALL
+                 && configuredClampMax < 0.99*Foam::GREAT
+                )
+                {
+                    safeClampTarget = Foam::max(safeClampTarget, configuredClampMax);
+                }
+
+                safeClampTarget = Foam::min(safeClampTarget, 0.99*Foam::GREAT);
+
+                if (maxPressure.value() + Foam::SMALL < safeClampTarget)
+                {
+                    if (Foam::Pstream::master())
+                    {
+                        Info<< "    pressureClamp: raising maxPressure from "
+                            << maxPressure.value() << " Pa to "
+                            << safeClampTarget << " Pa" << Foam::nl;
+                    }
+
+                    maxPressure = Foam::dimensionedScalar
+                    (
+                        "maxPressure",
+                        Foam::dimPressure,
+                        safeClampTarget
+                    );
+                }
+            }
+
+            Foam::tmp<Foam::volScalarField> tpTmp = p_rgh + rho*gh;
+            Foam::volScalarField& pTmp = tpTmp.ref();
+
+            pTmp = Foam::max(pTmp, minPressure);
+            pTmp = Foam::min(pTmp, maxPressure);
+
+            p_rgh = pTmp - rho*gh;
+            p_rgh.correctBoundaryConditions();
+        }
+
+        phi = phiHbyA + pEqn.flux();
+
+        U = HbyA + rAU*fvc::reconstruct((phig + pEqn.flux())/rAUf);
+
+        if (momentumBudget && pimple.finalIter() && budgetSTPtr.valid())
+        {
+            // Metal-weighted integral of each reconstructed force density,
+            // sum(alpha1*V*f): the force each term exerts on the metal [N].
+            // Reconstruction is the same operator the corrector uses for U.
+            const volScalarField::Internal w(alpha1.internalField()*mesh.V());
+            auto F = [&](const surfaceScalarField& faceForce) -> vector
+            {
+                return gSum((w*fvc::reconstruct(faceForce)().internalField())());
+            };
+            const vector Fst = F(budgetSTPtr());
+            const vector Fg = F(-ghf*fvc::snGrad(rho)*mesh.magSf());
+            const vector Fp = F(pEqn.flux()/rAUf);
+            vector Fr(Zero);
+            if (recoilPressurePtr)
+            {
+                Fr = F
+                (
+                    recoilFaceValue(*recoilPressurePtr)*fvc::snGrad(alpha1)
+                   *mesh.magSf()
+                );
+            }
+            const vector Fall = F((phig + pEqn.flux())/rAUf);
+            if (runTime.writeTime())
+            {
+                volVectorField stForce
+                (
+                    IOobject("budgetSurfaceTensionForce", runTime.timeName(),
+                        mesh, IOobject::NO_READ, IOobject::NO_WRITE),
+                    fvc::reconstruct(budgetSTPtr())
+                );
+                stForce.write();
+                volVectorField pForce
+                (
+                    IOobject("budgetPressureForce", runTime.timeName(),
+                        mesh, IOobject::NO_READ, IOobject::NO_WRITE),
+                    fvc::reconstruct(pEqn.flux()/rAUf)
+                );
+                pForce.write();
+                volScalarField Kout
+                (
+                    IOobject("budgetSigmaK", runTime.timeName(),
+                        mesh, IOobject::NO_READ, IOobject::NO_WRITE),
+                    mixture.sigmaK()
+                );
+                Kout.write();
+            }
+            Info<< "    momentumBudget [N] (metal-weighted): surfaceTension "
+                << Fst << " recoil " << Fr << " gravity " << Fg
+                << " pressure " << Fp << " total " << Fall << endl;
+        }
+
+        if (maxPressureGradient < Foam::GREAT)
+        {
+            // Actually apply the clamp computed above: remove the
+            // over-the-cap portion of the pressure-gradient-driven velocity
+            // and the matching face flux, instead of just logging it.
+            U -= pressureGradientExcess;
+            phi -= fvc::interpolate(pressureGradientExcess) & mesh.Sf();
+        }
+
+        U.correctBoundaryConditions();
+        fvOptions.correct(U);
+        MRF.correctBoundaryVelocity(U);
+    }
+}
+
+rho = alpha1*rho1 + alpha2*rho2;
+
+rhoPhi = fvc::interpolate(rho)*phi;
+fvc::makeRelative(rhoPhi, U);
+
+p = p_rgh + rho*gh;
+
+// Positivity of the absolute gas pressure after every pressure update, for a
+// compressible gas only: its EOS (e.g. perfectGas) gives an invalid density at
+// p <= 0.  The start-up check (createFields.H) cannot catch a later violation,
+// and pressureClamp may allow a negative lower bound.  An incompressible
+// (rhoConst) gas only reports tension and is not stopped here.
+if (gasCompressible)
+{
+    scalar minGasPstep = GREAT;
+    // every cell that contains gas (the gas EOS is also evaluated in mixed
+    // interface cells); 1e-6 ignores round-off gas fractions in pure metal
+    forAll(p, celli)
+    {
+        if (alpha2[celli] > 1e-6)
+        {
+            minGasPstep = Foam::min(minGasPstep, p[celli]);
+        }
+    }
+    reduce(minGasPstep, minOp<scalar>());
+    if (minGasPstep <= 0)
+    {
+        FatalErrorInFunction
+            << "Absolute pressure " << minGasPstep << " Pa <= 0 in a gas-containing cell with a"
+            << " compressible gas at t = " << runTime.timeName()
+            << ": the gas equation of state is invalid. Use a positive"
+            << " minPressure in compInterFoamCoeffs or a smaller time step."
+            << exit(FatalError);
+    }
+}
+p_rgh.correctBoundaryConditions();
+p.correctBoundaryConditions();
+/*
+if (tRecoilForce.valid())
+{
+    tRecoilForce.clear();
+}
+*/
+const Foam::Switch pressureClamp =
+    solverCoeffs.lookupOrDefault<Foam::Switch>("pressureClamp", true);
+
+Foam::dimensionedScalar minPressure
+(
+    "minPressure",
+    Foam::dimPressure,
+    solverCoeffs.lookupOrDefault<Foam::scalar>
+    (
+        "minPressure",
+        -Foam::GREAT
+    )
+);
+
+const Foam::scalar configuredMaxPressure =
+    solverCoeffs.lookupOrDefault<Foam::scalar>
+    (
+        "maxPressure",
+        Foam::GREAT
+    );
+
+Foam::dimensionedScalar maxPressure
+(
+    "maxPressure",
+    Foam::dimPressure,
+    configuredMaxPressure
+);
+
+Foam::scalar fallbackMinValue = -1e7;
+Foam::scalar fallbackMaxValue = 1e9;
+
+if (configuredMaxPressure > Foam::SMALL && configuredMaxPressure < fallbackMaxValue)
+{
+    fallbackMaxValue = configuredMaxPressure;
+    fallbackMinValue = Foam::min(fallbackMinValue, -configuredMaxPressure);
+}
+
+Foam::scalar recoilLimit = 0.0;
+const Foam::dictionary& aicDict =
+    runTime.controlDict().subOrEmptyDict("advancedInterfaceCapturing");
+
+if (!aicDict.empty())
+{
+    recoilLimit = aicDict.lookupOrDefault<Foam::scalar>("maxRecoilPressure", 0.0);
+
+    if (recoilLimit <= Foam::SMALL)
+    {
+        recoilLimit = aicDict.lookupOrDefault<Foam::scalar>("recoilMax", 0.0);
+    }
+}
+
+if (recoilPressurePtr)
+{
+    const Foam::scalar observedRecoil = Foam::mag(Foam::gMax(*recoilPressurePtr));
+
+    if (observedRecoil > Foam::SMALL)
+    {
+        recoilLimit = Foam::max(recoilLimit, observedRecoil);
+    }
+}
+
+if (recoilLimit > Foam::SMALL)
+{
+    // FIXED: Expand pressure bounds to ACCOMMODATE recoil, not restrict to it
+    // Allow pressures up to the recoil limit with safety factor
+    const scalar recoilSafetyFactor = 1.5;  // 50% overshoot margin
+    fallbackMaxValue = Foam::max(fallbackMaxValue, recoilLimit * recoilSafetyFactor);
+    fallbackMinValue = Foam::min(fallbackMinValue, -recoilLimit * recoilSafetyFactor);
+}
+
+if (fallbackMaxValue <= fallbackMinValue)
+{
+    const Foam::scalar symmetricLimit = Foam::max(Foam::mag(fallbackMaxValue), Foam::mag(fallbackMinValue));
+    fallbackMaxValue = symmetricLimit;
+    fallbackMinValue = -symmetricLimit;
+}
+// Ensure the clamp used for enforcement respects the recoil-aware bounds.
+// Previously maxPressure reverted to the configured limit (e.g., 5e8 Pa),
+// so the clamp message reported the expanded bound while the actual clamp
+// still used the smaller one.
+minPressure = Foam::dimensionedScalar
+(
+    "minPressure",
+    Foam::dimPressure,
+    fallbackMinValue
+);
+
+maxPressure = Foam::dimensionedScalar
+(
+    "maxPressure",
+    Foam::dimPressure,
+    fallbackMaxValue
+);
+const Foam::dimensionedScalar fallbackMinPressure
+(
+    "fallbackMinPressure",
+    Foam::dimPressure,
+    fallbackMinValue
+);
+
+const Foam::dimensionedScalar fallbackMaxPressure
+(
+    "fallbackMaxPressure",
+    Foam::dimPressure,
+    fallbackMaxValue
+);
+
+const Foam::dimensionedScalar observedMinP = Foam::gMin(p);
+const Foam::dimensionedScalar observedMaxP = Foam::gMax(p);
+
+const bool pressureNonFinite =
+    (!std::isfinite(observedMinP.value()) || !std::isfinite(observedMaxP.value()));
+
+const bool pressureOutOfBounds =
+    (observedMinP.value() < minPressure.value() || observedMaxP.value() > maxPressure.value());
+
+if (pressureClamp && (pressureNonFinite || pressureOutOfBounds))
+{
+    if (Foam::Pstream::master())
+    {
+        Info<< "    pressureClamp: enforcing bounds ["
+            << minPressure.value() << ", "
+            << maxPressure.value() << "] Pa" << Foam::endl;
+    }
+
+    Foam::scalarField& pInternal = p.primitiveFieldRef();
+
+    forAll(pInternal, celli)
+    {
+        Foam::scalar& val = pInternal[celli];
+
+        if (!std::isfinite(val))
+        {
+            val = 0.0;
+        }
+
+        val = Foam::max(minPressure.value(), Foam::min(val, maxPressure.value()));
+    }
+
+    forAll(p.boundaryField(), patchi)
+    {
+        Foam::scalarField& patchField = p.boundaryFieldRef()[patchi];
+
+        forAll(patchField, facei)
+        {
+            Foam::scalar& val = patchField[facei];
+
+            if (!std::isfinite(val))
+            {
+                val = 0.0;
+            }
+
+            val = Foam::max(minPressure.value(), Foam::min(val, maxPressure.value()));
+        }
+    }
+
+    p_rgh = p - rho*gh;
+    p_rgh.correctBoundaryConditions();
+    p.correctBoundaryConditions();
+}
+else if (!pressureClamp && (pressureNonFinite || pressureOutOfBounds))
+{
+    WarningInFunction
+        << "Pressure field exceeded physical range while pressureClamp=false"
+        << Foam::nl
+        << "    min(p) = " << observedMinP.value() << " Pa, max(p) = "
+        << observedMaxP.value() << " Pa" << Foam::nl
+        << "    Applying emergency clamp to [" << fallbackMinPressure.value() << ", "
+        << fallbackMaxPressure.value() << "] Pa" << Foam::endl;
+
+    Foam::scalarField& pInternal = p.primitiveFieldRef();
+
+    forAll(pInternal, celli)
+    {
+        Foam::scalar& val = pInternal[celli];
+
+        if (!std::isfinite(val))
+        {
+            val = 0.0;
+        }
+
+        val = Foam::max
+        (
+            fallbackMinPressure.value(),
+            Foam::min(val, fallbackMaxPressure.value())
+        );
+    }
+
+    forAll(p.boundaryField(), patchi)
+    {
+        Foam::scalarField& patchField = p.boundaryFieldRef()[patchi];
+
+        forAll(patchField, facei)
+        {
+            Foam::scalar& val = patchField[facei];
+
+            if (!std::isfinite(val))
+            {
+                val = 0.0;
+            }
+
+            val = Foam::max
+            (
+                fallbackMinPressure.value(),
+                Foam::min(val, fallbackMaxPressure.value())
+            );
+        }
+    }
+
+    p_rgh = p - rho*gh;
+    p_rgh.correctBoundaryConditions();
+    p.correctBoundaryConditions();
+}
+
+const Foam::scalar maxPhysicalVelocity = solverCoeffs.lookupOrDefault<Foam::scalar>
+(
+    "maxVelocity",
+    500.0
+);
+
+// the LIFT jet diagnostics. The speed of interest is that of the donor metal, so ignore plume cells with negligible alpha1 when forming the warning ratios. velocityAlphaThreshold: Minimum metal volume fraction to consider a cell as "metal" for velocity diagnostics.
+// - Default: 0.01 (1% metal fraction)
+// - Physical meaning: Cells with <1% metal are treated as gas/plume
+// - Rationale: Prevents spurious high velocities in low-density vapor regions from triggering divergence warnings
+// - Typical values: 0.001 (0.1%) to 0.1 (10%)
+// - Set to 0 to include all cells regardless of phase
+const Foam::scalar alphaVelocityThreshold = solverCoeffs.lookupOrDefault<Foam::scalar>
+(
+    "velocityAlphaThreshold",
+    0.01
+);
+
+Foam::tmp<Foam::volScalarField> tMagUAll = mag(U);
+const Foam::volScalarField& magUAll = tMagUAll();
+const Foam::scalar maxU = gMax(magUAll);
+
+Foam::scalar maxULiquid = maxU;
+
+if (alphaVelocityThreshold > Foam::SMALL && alphaVelocityThreshold < 1.0)
+{
+    Foam::tmp<Foam::volScalarField> tLiquidMask
+    (
+        Foam::pos(alpha1 - alphaVelocityThreshold)
+    );
+    const Foam::volScalarField& liquidMask = tLiquidMask();
+
+    Foam::tmp<Foam::volScalarField> tMagULiquid(magUAll*liquidMask);
+    maxULiquid = gMax(tMagULiquid());
+
+    if (maxULiquid < Foam::SMALL)
+    {
+        maxULiquid = 0.0;
+    }
+}
+const Foam::scalar maxRecoilPa = recoilPressurePtr ? gMax(*recoilPressurePtr) : 0.0;
+
+Foam::scalar recoilVelocityScale = 0.0;
+
+if (maxRecoilPa > 0)
+{
+    const Foam::scalar rhoLiquidMax = gMax(rho1);
+
+    if (rhoLiquidMax > SMALL)
+    {
+        recoilVelocityScale = Foam::sqrt(2.0*maxRecoilPa/rhoLiquidMax);
+    }
+}
+
+if
+(
+    Foam::Pstream::master()
+ && pressureClamp
+ && recoilVelocityScale > Foam::SMALL
+ && maxPressure.value() < Foam::GREAT
+)
+{
+    const Foam::scalar clampTrigger = 0.98*maxPressure.value();
+
+    if (observedMaxP.value() >= clampTrigger)
+    {
+        Info<< "    Velocity diagnostic: pressure clamp hit maxPressure = "
+            << maxPressure.value() << " Pa while recoil pressure is "
+            << maxRecoilPa/1e6 << " MPa." << Foam::nl
+            << "    Increase maxPressure or reduce recoil forcing to allow flow."
+            << Foam::nl;
+    }
+}
+
+if (maxPhysicalVelocity > 0 && maxULiquid > maxPhysicalVelocity)
+{
+    FatalErrorInFunction
+        << "Velocity field has DIVERGED!" << nl
+        << "Max liquid velocity: " << maxULiquid << " m/s" << nl
+        << "Physical limit: " << maxPhysicalVelocity << " m/s" << nl
+        << nl
+        << "This indicates numerical instability. Check:" << nl
+        << "  1. Time step (current: " << runTime.deltaTValue() << " s)" << nl
+        << "  2. Max recoil pressure: " << maxRecoilPa/1e6 << " MPa" << nl
+        << "     Ideal recoil-driven jet speed sqrt(2*deltaP/rho_liquid): "
+        << recoilVelocityScale << " m/s" << nl
+        << "  3. Courant number" << nl
+        << "  4. Temperature gradients" << nl
+        << abort(FatalError);
+}
+
+if (Foam::Pstream::master() && recoilVelocityScale > Foam::SMALL)
+{
+    const scalar recoilScaleSafe = Foam::max(recoilVelocityScale, Foam::SMALL);
+    const scalar velocityRatio = maxULiquid/recoilScaleSafe;
+
+    Info<< "    Velocity diagnostic: |U|_metal_max = " << maxULiquid << " m/s ("
+        << velocityRatio << " Ã— recoil-limited " << recoilScaleSafe << " m/s)"
+        << Foam::nl;
+
+    if (maxU > maxULiquid*(1.0 + 1e-6))
+    {
+        Info<< "    Gas-phase |U|max = " << maxU
+            << " m/s (diagnostic excludes low-density plume cells)" << Foam::nl;
+    }
+}
+K = 0.5*magSqr(U);

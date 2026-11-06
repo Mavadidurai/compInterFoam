@@ -1,0 +1,56 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+| =========                 |                                                 |
+| \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox           |
+|  \\    /   O peration     | Version:  v2406                                 |
+|   \\  /    A nd           | Website:  www.openfoam.com                      |
+|    \\/     M anipulation  |                                                 |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    object      thermophysicalProperties.air;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+// Gas phase: the air in the gap and the gas that stands in for the donor glass.
+// Constant density (rhoConst), see the equationOfState comment.
+thermoType
+{
+    type            heRhoThermo;
+    mixture         pureMixture;
+    transport       const;
+    thermo          hConst;
+    equationOfState rhoConst;   // incompressible gas (verification choice): the solver lacks the stock compressibility feedback (dgdt) into the alpha equation, so a compressible gas is unstable
+    specie          specie;
+    energy          sensibleEnthalpy;
+}
+
+mixture
+{
+    specie
+    {
+        molWeight   28.97;              // kg/kmol - Air molecular weight
+    }
+    thermodynamics
+    {
+
+        Cp          1000;               // J/kg·K - Air specific heat
+        Hf          0.0;                // J/kg - Heat of formation
+        Tref        300;                // K - Reference temperature
+        Href        0;                  // J/kg - Reference enthalpy
+    }
+    transport
+    {
+        mu          1.8e-5;             // Pa·s - Air dynamic viscosity
+        Pr          0.7;                // Prandtl number for air
+    }
+    equationOfState
+    {
+        rho 1.1614;   // perfect-gas density of air at 1e5 Pa, 300 K
+    }
+
+}
+
+// ************************************************************************* //

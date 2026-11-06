@@ -1,0 +1,123 @@
+# Results of the reference case
+
+Case `cases/fsLIFT_332mJ_axisymmetric`, run to 20 ns on 4 processes with `tools/run_case.sh`. The inputs are described in [MODEL.md](MODEL.md); the main numbers are also in [`figures/fsLIFT_332mJ_axisymmetric/results_table.md`](../figures/fsLIFT_332mJ_axisymmetric/results_table.md).
+
+**Read the [limitations](#limitations) before using any number.** In short:
+- the launch of the film (up to about 1 ns) is the best-resolved part of the result;
+- the separation of a droplet at about 13 ns happens where the film is thinner than one cell, so its time and volume depend on the mesh;
+- after about 10 ns a model artefact (gas flowing in behind the film) affects the speed of the separated metal.
+
+---
+
+## 1. Inputs in brief
+
+| Quantity | Value |
+|---|---|
+| Film | titanium, 71.4 nm, on 1.05 mm glass |
+| Laser | 343 nm, 214 fs (full width at half maximum), beam radius 3 µm at 1/e² |
+| Peak fluence | 332 mJ/cm² before the glass; 4.109e-8 J reaches the film |
+| Gap to the receiver | 12 µm |
+| Mesh | 132,480 cells in a 5° wedge: 4.46 nm across the film, 6 nm cells for the first 3 µm below the film, 50 nm radially |
+
+---
+
+## 2. What happens, stage by stage
+
+### 2.1 Heating: 0–2 ps
+
+- The electrons near the glass-side surface peak at about 16,400 K at 0.54 ps.
+- They pass their energy to the atoms within a fraction of a picosecond: the lattice reaches about 16,400 K by 0.61 ps.
+- By 2 ps the electrons and atoms are at the same temperature (about 16,000 K at the hottest point).
+
+![Electron and lattice temperature during the first 2 ps](../figures/fsLIFT_332mJ_axisymmetric/gallery/montage_heating_Te_Tl.png)
+
+### 2.2 Launch: 2 ps – 1 ns
+
+- The glass-side surface evaporates, and the vapour is trapped against the glass. Its pressure on the beam axis peaks at **524 MPa at 26 ps**, then falls as the gap opens. It is below 1 MPa from 0.59 ns, after which the film coasts.
+- The centre of the film is pushed away from the glass into a dome. On the beam axis it reaches **191.7 m/s at 0.54 ns** and has moved 0.18 µm at 1 ns.
+- At that speed the kinetic energy of the film per unit area, ½ρhv² = 5.92 J/m², is **1.8 times** the surface energy of the two new surfaces a detached piece needs, 2σ = 3.28 J/m². The Weber number ρv²h/σ = 4515 · 191.7² · 71.4e-9 / 1.64 = 7.2. Energetically, the centre can separate.
+
+![Speed on the beam axis, distance moved, trapped-vapour pressure and metal volume against time](../figures/fsLIFT_332mJ_axisymmetric/results_timeseries.png)
+
+### 2.3 Deceleration and thinning: 1–13 ns
+
+- Surface tension, and the surrounding film to which the dome is still attached, slow the dome down. The speed on the axis falls from 191 m/s at 1 ns to 164 m/s at 5 ns and 66 m/s at 10 ns. The dome has moved 0.90 µm at 5 ns and 1.44 µm at 10 ns.
+- The dome deepens into a cup with steep side walls. The walls thin: their horizontal metal thickness falls from about 100–130 nm at 6 ns to 50–87 nm at 8.4 ns, and to about 5 nm at 13.4 ns.
+
+![Metal volume fraction in a section through the axis at several times](../figures/fsLIFT_332mJ_axisymmetric/gallery/montage_alpha.png)
+
+### 2.4 Separation: about 13 ns
+
+- At about 13 ns the side walls tear, away from the axis, and the bottom of the cup is free.
+- At 13.4 ns the free part holds 0.48 µm³ (the volume of a 0.97 µm sphere) and moves at about 130 m/s on average.
+- The torn walls retract into rims on the film that stays on the glass.
+
+### 2.5 Flight: 13–20 ns
+
+At 19.8 ns, counted with `tools/count_metal_pieces.py` (cells with α > 0.5):
+
+| Piece | Volume | Sphere of equal volume | Mean vertical speed |
+|---|---|---|---|
+| Main droplet (the former cup bottom) | 0.254 µm³ | 0.79 µm diameter | 98 m/s towards the receiver |
+| Ring fragments around it | 0.105 µm³ in total, a few cells each | – | 170–217 m/s |
+| Metal smeared below α = 0.5 | about 0.22 µm³ | – | – |
+
+- The ring at the edge of the free piece has broken into fragments. In this axisymmetric model a "fragment" is a ring around the axis; in reality such a ring would break into separate droplets around its circumference.
+- The lowest metal is still about 9.5 µm above the receiver at 20 ns. Nothing has reached the receiver, so there is **no splash** in this run.
+- The total metal volume changed by −0.0135 % over the run, which includes the metal that evaporated.
+
+![Speed in a section through the axis, with direction arrows, at several times](../figures/fsLIFT_332mJ_axisymmetric/gallery/montage_Umag.png)
+
+![The metal surface drawn in 3-D at 1, 6, 13.4 and 19.8 ns](../figures/fsLIFT_332mJ_axisymmetric/gallery/montage_3d.png)
+
+*The 3-D views are the 2-D axisymmetric result revolved about the beam axis; they are not a 3-D simulation.*
+
+### 2.6 Which speed to quote for the separated metal
+
+From about 10 ns on, the gas above the film moves faster than the metal on the axis:
+
+| Time | Metal on the axis | Gas just above it |
+|---|---|---|
+| 6.0 ns | 153 m/s | 124 m/s |
+| 10.0 ns | 66 m/s | 120 m/s |
+| 13.4 ns | 70 m/s | 140 m/s |
+| 16.0 ns | 69 m/s | 173 m/s |
+| 19.8 ns | 121 m/s | 190 m/s |
+
+(speeds towards the receiver)
+
+After the tear this gas streams through the opening and pushes the free piece (see the speed sections above). It is a model artefact (limitation 2 below). The late speed-up of the main droplet, and part of its bell shape, are therefore not reliable. **The speed at separation, about 70–90 m/s at about 13 ns, is the more defensible number**, although the gas is already faster than the metal from about 10 ns on.
+
+### 2.7 Further figures
+
+All in [`figures/fsLIFT_332mJ_axisymmetric/`](../figures/fsLIFT_332mJ_axisymmetric/):
+- `axis_position_speed_temperature.png`: position, speed and lattice temperature of the film on the beam axis;
+- `gallery/`: sections at 0.2, 1, 3, 6, 10, 13.4, 15 and 19.8 ns of the metal fraction (`alpha_*`), the speed with arrows (`Umag_*`), the radial velocity (`Ur_*`) and the pressure (`p_*`); laser heating close-ups at 0.5, 1 and 2 ps (`heat_*`); 3-D views (`3d_*`); and a montage of each series;
+- `data/axis_timeseries.csv` and `data/trapped_vapour_pressure.csv`: the data behind the time plots, with the columns named in the first line.
+
+The pressure sections show a cell-to-cell checkerboard inside the metal. It is a numerical artefact of the pressure field in the thin film.
+
+---
+
+## Limitations
+
+Ordered by how much each could change the answer to "does the film eject, and how?".
+
+1. **The metal is incompressible.** Titanium has a constant density, so the model has no stress waves and no spallation (the tearing of a solid or liquid by a tensile stress wave). In femtosecond LIFT these can drive part of the ejection. How large a part for this film is not known.
+2. **The glass is modelled as an incompressible gas.** The region above the film is a gas of constant density. As the film moves away, this gas must follow it: it pulls on the departing film (a few percent of the trapped-vapour force during the launch) and, after about 10 ns, it streams through the torn film and pushes the free piece (§2.6). A real solid glass with a vapour-filled gap behind the film cannot do this.
+3. **The separation is limited by the mesh.** The gap mesh is refined to 6 nm along the axis but has 50 nm cells radially. The steep walls of the cup become thinner than one radial cell well before they tear. The time of separation and the volumes of the pieces are therefore set by the radial cell size, and the result is not mesh-converged. A run from about 6 ns on a mesh refined radially (about 10 nm for r < 2.5 µm) is needed to settle it.
+4. **Temperatures above the critical point.** The lattice reaches about 16,400 K, above the critical temperature of titanium (the case uses 9,500 K; published estimates vary). There the distinction between liquid and vapour, on which the model rests, no longer strictly holds. The saturation pressure and evaporation flux are evaluated with the temperature capped at 10,000 K.
+5. **Trapped-vapour model simplifications.** No sideways vapour flow between the radial rings, no cooling of the vapour by the glass, and an unknown initial gap (1 nm assumed). None of these has been varied yet.
+6. **No solid phase.** All metal flows as a liquid, even below the melting temperature (1941 K). The cold film outside the heated spot can therefore shear and flow, where real titanium would hold.
+7. **Damping of interface oscillations is too weak** ([VERIFICATION.md §5](VERIFICATION.md#5-open-points)). This matters for the thinning and breaking of liquid necks and walls.
+8. **Axisymmetric only.** Every quantity is the same at every angle around the beam axis. Effects that break this symmetry cannot appear: an off-centre beam, defects in the film, or a ring breaking into separate droplets around its circumference. A full 3-D run would need at least 72 times the cells of the 5° wedge.
+9. **Not validated.** No comparison with measurements is included. The launch speed of 190 m/s lies within the range of transfer speeds reported for LIFT in the literature (tens to hundreds of m/s), which is a plausibility check, not a validation.
+
+## Next steps
+
+In order of priority:
+1. Repeat the window from about 6 ns to 20 ns on a radially refined mesh, to make the separation a mesh-converged result (limitation 3).
+2. Re-tune the interface compression settings now that the compression works on moving interfaces ([VERIFICATION.md §5](VERIFICATION.md#5-open-points)).
+3. Run the launch phase (to 1 ns) on a coarser and a finer mesh, to give the 190 m/s launch speed a numerical error bar.
+4. Vary the ring width (50 and 200 nm) and the initial gap (0.5–5 nm) of the trapped-vapour model, to see whether the result depends on them.
+5. For validation: run the case at several fluences and compare the ejection threshold and the transfer modes with experiments. This will need the physics missing from limitations 1, 2 and 6.

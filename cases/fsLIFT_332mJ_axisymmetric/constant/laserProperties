@@ -1,0 +1,88 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+| =========                 |                                                 |
+| \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox           |
+|  \\    /   O peration     | Version:  v2406                                 |
+|   \\  /    A nd           | Website:  www.openfoam.com                      |
+|    \\/     M anipulation  |                                                 |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    location    "constant";
+    object      laserProperties;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+// Accepted keys for femtosecondLaserModel:
+//   peakIntensity       [W/m^2]
+//   pulseWidth          [s]
+//   wavelength          [m]
+//   absorptionCoeff     [1/m]
+//   spotSize            [m]
+//   pulseEnergy         [J]
+//   direction           (vector)
+//   focus               (point)
+//   scanVelocity        (vector, optional)
+//   pulseFrequency      [1/s, optional]
+//   pulseDutyCycle      [-, optional]
+//   reflectivity        [-]
+//   gaussianProfile     [bool]
+//   continuousLaser     [bool]
+//   pulseCenterTime     [s, optional]
+//   gasAbsorptionCoeff  [1/m, optional, default 0]
+// Parameter checks enforce pulseWidth 10fs–10ps, wavelength 100nm–2µm
+// and peakIntensity ≤6e16 W/m^2.
+// Gaussian pulse focused in the 71.4 nm titanium film (y = 20.0000-20.0714 um),
+// on the axis of the 5-degree axisymmetric wedge (r = 0).
+filmThicknessExpected    71.4e-9;    // 71.4 nm (matches y3 - y2 = 20.0714 - 20.0000)
+filmCenterY              20.0357e-6;    // center at focus.y
+
+// geometry coupling
+gasAbsorptionCoeff 0;     // [1/m] gas absorption (0 disables direct gas heating)
+
+// --- Energy & timing ---
+// Pulse energy reaching the film. The nominal peak fluence F0 = 2E/(pi w0^2)
+// = 332 mJ/cm^2 with w0 = 3 um is defined before the 1.05 mm donor glass, i.e.
+// E = 3320 J/m^2 * pi * (3e-6 m)^2 / 2 = 4.694e-8 J. The air-glass surface reflects
+// 4.60 % (Fresnel reflection with the glass index 1.5463 used below) and 91.77 %
+// of the remaining light crosses the 1.05 mm glass (its internal transmission at
+// 343 nm): (1 - 0.0460) * 0.9177 = 0.87545. Energy on the film:
+// 0.87545 * 4.694e-8 J = 4.109e-8 J. Omit pulseCenterTime to fire the pulse
+// right after laserStartTime.
+pulseEnergy              4.1089e-8;   // [J] energy that reaches the film (see above)
+pulseWidth               214e-15;   // [s] pulse duration
+wavelength               343e-9;    // [m] laser wavelength
+
+// --- Spatial Gaussian profile ---
+spotSize        6.0e-6;       // [m] beam diameter (3 μm 1/e² radius)
+// Beam centre: on the axis, at mid-depth of the film
+focus            (0 20.0357e-6 0);   // on the wedge axis
+direction       (0 -1 0);
+
+// Optical inputs for titanium at 343 nm (refractive index n = 1.7283, k = 2.8242)
+absorptionCoeff          1.03469e8;   // [1/m] 4 pi k / lambda; absorption depth 1/1.0347e8 = 9.66 nm
+
+// Reflectivity / profile
+reflectivity        0.42832;   // glass-titanium interface: ((n - 1.5463)^2 + k^2) / ((n + 1.5463)^2 + k^2), glass index 1.5463
+
+temporalShape       gaussian;
+spatialShape        gaussian;
+
+gaussianProfile     true;
+
+// Optional intensity entry (consistent with pulseEnergy & pulseWidth)
+continuousLaser     false;
+maxVolumetricSource 7e24;  // [W/m^3] safety cap, about 9 times the peak source of this case (7.6e23), so it does not act
+
+// Pulse train (not used: one pulse)
+pulseFrequency      0;  // [1/s] 0 = single pulse
+pulseDutyCycle      0;   // [-] only used for a pulse train
+
+// Tolerance of the start-up check of the pulse energy
+pulseEnergyToleranceRel 0.05; // 5% relative tolerance
+pulseEnergyToleranceAbs 5e-10; // [J] 0.5 nJ absolute tolerance
+
+// NOTE: If peakIntensity is specified, it must match the derived value within 5% or
+// the solver now aborts, so omit it to accept the computed value when iterating setups.
+// ************************************************************************* //

@@ -1,0 +1,10 @@
+
+twoPhaseMixtureThermo.C
+femtosecondLaserModel.C
+twoTemperatureModel.C
+advancedInterfaceCapturing.C
+compressibleInterPhaseTransportModel.C
+compInterFoam.C
+enhancedLIFTPhysics.C 
+
+EXE = $(FOAM_USER_APPBIN)/compInterFoam
