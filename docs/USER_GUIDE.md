@@ -99,7 +99,7 @@ The dictionaries of `cases/fsLIFT_332mJ_axisymmetric` are commented. This sectio
 
 | Entry | Reference value | Meaning |
 |---|---|---|
-| `pulseEnergy` | 4.1089e-8 J | Energy that reaches the film, after the glass (see [MODEL.md §2](MODEL.md#2-laser-heat-source-femtosecondlasermodelc)) |
+| `pulseEnergy` | 4.1089e-8 J | Energy that reaches the film, after the glass (see [MODEL.md §3](MODEL.md#3-laser-energy-deposition)) |
 | `pulseWidth` | 214e-15 s | Full width at half maximum of the Gaussian pulse |
 | `wavelength` | 343e-9 m | |
 | `spotSize` | 6e-6 m | Beam **diameter** at 1/e² intensity (radius 3 µm) |
@@ -165,8 +165,8 @@ In `solvers/"alpha.*"`:
 | Entry | Reference value | Meaning |
 |---|---|---|
 | `nAlphaSubCycles` | 2 | Sub-cycles of the α equation per time step |
-| `cAlpha` | 2.0 | Strength of the interface compression |
-| `compressionLimiter` | 0.5 | Bounds the compression flux relative to the flow flux |
+| `cAlpha` | 2.0 | Interface compression coefficient. The compression speed is min(`cAlpha`, `compressionLimiter`) × the flow speed at the face, so with the values here the effective coefficient is 0.5 and `cAlpha` has no effect above 0.5 ([MODEL.md §7.1](MODEL.md#71-volume-fraction-transport)) |
+| `compressionLimiter` | 0.5 | Upper bound on the compression speed as a fraction of the face flow speed; here it sets the effective compression coefficient |
 | `compressionInterfaceBand` | `true` (default) | Apply compression only near the interface; compression everywhere created small dips of α inside the metal |
 | `stockCompressionFlux` | `true` (default) | Standard OpenFOAM form of the compression flux; it keeps α bounded and conserves the metal volume exactly |
 

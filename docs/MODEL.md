@@ -1,178 +1,525 @@
 # The model
 
-This document describes what the solver computes: the physical sequence it represents, the equations, the input values of the reference case and the order of operations in one time step. The values quoted are those of `cases/fsLIFT_332mJ_axisymmetric`.
+This document describes the mathematical model and its numerical implementation: the physical assumptions, the governing equations as they are implemented in `src/`, the closures and input values of the reference case `cases/fsLIFT_332mJ_axisymmetric`, the characteristic scales that follow from them, and the numerical method. Every figure in the [figures/model](../figures/model) folder is computed from the case inputs with the formulas below by [`tools/plot_model_inputs.py`](../tools/plot_model_inputs.py); figures from the simulation itself are marked as such.
 
-Symbols used throughout:
+**Contents**
+
+1. [Physical setting and modelling assumptions](#1-physical-setting-and-modelling-assumptions)
+2. [The coupled system at a glance](#2-the-coupled-system-at-a-glance)
+3. [Laser energy deposition](#3-laser-energy-deposition)
+4. [Two-temperature model](#4-two-temperature-model)
+5. [Evaporation and recoil pressure](#5-evaporation-and-recoil-pressure)
+6. [Vapour trapped between the glass and the film](#6-vapour-trapped-between-the-glass-and-the-film)
+7. [Two-phase flow, interface capturing and surface tension](#7-two-phase-flow-interface-capturing-and-surface-tension)
+8. [Characteristic scales and dimensionless numbers](#8-characteristic-scales-and-dimensionless-numbers)
+9. [Numerical method](#9-numerical-method)
+10. [Sub-models present but switched off](#10-sub-models-present-but-switched-off)
+11. [Input parameters](#11-input-parameters)
+12. [References](#12-references)
+
+Notation:
 
 | Symbol | Meaning | Unit |
 |---|---|---|
-| α | metal volume fraction of a cell: 1 = metal, 0 = gas | – |
-| T_e | electron temperature | K |
-| T_l | lattice temperature: the temperature of the atoms | K |
-| p_sat | saturation (vapour) pressure of the metal at the surface temperature | Pa |
-| j | evaporation mass flux | kg/(m² s) |
-| r, y | distance from the beam axis, and position along it | m |
+| $\alpha$ | volume fraction of metal in a cell (1 = metal, 0 = gas) | – |
+| $\mathbf{u}$, $p$ | mixture velocity and pressure | m/s, Pa |
+| $T_e$, $T_l$ | electron and lattice (atom) temperature | K |
+| $Q$ | absorbed laser power per unit volume | W/m³ |
+| $p_{sat}$ | saturation vapour pressure of titanium | Pa |
+| $j$ | evaporation mass flux per unit interface area | kg/(m² s) |
+| $r$, $y$ | distance from the beam axis; position along the axis | m |
+| $d$ | depth below the glass-side surface of the film | m |
+| $h$ | film thickness, 71.4 nm | m |
 
 ---
 
-## 1. The physical sequence and its time scales
+## 1. Physical setting and modelling assumptions
 
-The laser enters through the glass and travels in −y. It is absorbed in the titanium film just below the glass. The film surface facing the glass is called the *glass-side surface* below, and the surface facing the gap the *gap-side surface*.
+A 214 fs pulse at 343 nm crosses a 1.05 mm glass plate and is absorbed in a 71.4 nm titanium film coated on the glass. The film surface bonded to the glass is called the **glass-side surface**; the surface facing the 12 µm gap to the receiver is the **gap-side surface**. The laser travels in −y.
 
-| Stage | Time after the pulse | What happens | Model part |
+The model rests on the following assumptions. Each is a deliberate simplification; their consequences are discussed in [RESULTS.md](RESULTS.md#limitations).
+
+| # | Assumption | Justification | Consequence |
 |---|---|---|---|
-| 1. Absorption | 0–0.5 ps | The 214 fs pulse is absorbed by the electrons within ~10 nm of the glass-side surface | laser source (§2) |
-| 2. Electron–lattice heating | ~0.5–5 ps | The hot electrons heat the atoms and carry heat deeper into the film | two-temperature model (§3) |
-| 3. Melting and evaporation | ps to ns | Hot metal evaporates, first at the glass-side surface | evaporation (§4) |
-| 4. Pressure build-up | ps to ns | On the gap side the vapour escapes freely and pushes back on the surface (recoil). On the glass side it is trapped and builds a pressure | recoil (§4) and trapped vapour (§5) |
-| 5. Film motion | 0.1 to tens of ns | The pressure difference pushes the molten centre of the film towards the receiver and forms a dome | flow and interface (§6) |
-| 6. Ejection, or not | ns to tens of ns | The dome thins. It either separates into a droplet or is pulled back by surface tension | flow and surface tension (§6) |
-
-The problem is numerically demanding because of these ranges:
-- **length:** 10 nm (absorption depth) to 71.4 nm (film) to 12 µm (gap);
-- **time:** femtoseconds (laser) to picoseconds (electrons) to tens of nanoseconds (ejection).
-
----
-
-## 2. Laser heat source (`femtosecondLaserModel.C`)
-
-Absorbed power per unit volume:
-
-  Q = (1 − R) · I(t) · exp(−2r²/w₀²) · a · exp(−a·d)
-
-where:
-- I(t) is a Gaussian pulse in time, with the full width at half maximum given by `pulseWidth` (214 fs);
-- w₀ = 3 µm is the beam radius at which the intensity falls to 1/e²;
-- d is the depth below the glass-side surface;
-- a is the absorption coefficient and R the reflectivity of the glass–titanium interface.
-
-**Optical inputs (titanium at 343 nm, refractive index n = 1.7283, k = 2.8242):**
-- a = 4πk/λ = 1.0347e8 1/m, i.e. an absorption depth of 9.66 nm;
-- R = 0.428 at the glass–titanium interface (glass index 1.5463).
-
-**Energy reaching the film.** The nominal peak fluence 332 mJ/cm² is defined before the 1.05 mm glass plate. The corresponding pulse energy is E = F₀ · πw₀²/2 = 3320 J/m² · π · (3e-6 m)² / 2 = 4.694e-8 J. The air–glass surface reflects 4.60 % and 91.77 % of the rest crosses the glass, so the film receives (1 − 0.0460) · 0.9177 = 0.87545 of it: 4.109e-8 J. The derivation is repeated in the comments of `constant/laserProperties`.
-
-**Wedge geometry.** The computational domain is a 5° slice of the cylinder. `beamCoverage geometric` deposits exactly the share of the pulse energy that falls into the slice.
+| A1 | **Axisymmetry.** All fields are independent of the azimuthal angle; the domain is a 5° wedge | beam at normal incidence on a uniform film | no azimuthal break-up of rings into droplets |
+| A2 | **Continuum, two immiscible phases** (liquid titanium and a gas), tracked by a volume fraction | film thickness ≫ atomic spacing | atomistic processes (spallation by voids, homogeneous nucleation) are not resolved |
+| A3 | **Both phases incompressible** with constant density | removes acoustic time steps; the flow is far below the sound speed after the first tens of ps | **no stress waves**: the heating (≈ 0.3 ps) is much faster than the acoustic time across the film (≈ 10–20 ps, see §8), so a real film is stress-confined; this physics is absent |
+| A4 | **The metal is a liquid everywhere** | the film is melted near the axis within picoseconds | the cold film outside the spot can flow; there is no solid rim |
+| A5 | **The glass is represented by a gas** of constant density | the solver is two-phase | the gas can flow in behind the departing film (an artefact after ≈ 10 ns) |
+| A6 | **Electrons and lattice have separate temperatures** (two-temperature model) | electron–lattice coupling time ≈ 0.03–0.2 ps is comparable to the pulse | captures the non-equilibrium heating |
+| A7 | **Evaporation follows Hertz–Knudsen kinetics** with a Clausius–Clapeyron saturation pressure | standard for surface evaporation of metals | above the critical temperature of titanium the liquid–vapour picture no longer strictly holds |
+| A8 | **Vapour on the glass side is held in a lumped model**, one column per radial ring, not resolved as a field | the field solver cannot hold a compressible vapour (A3) | no sideways vapour flow; vapour temperature equals the surface temperature |
+| A9 | **No optical effects of the hot metal or the vapour**: constant reflectivity and absorption coefficient; no plasma shielding | the pulse is over before significant motion | changes of optical properties during the pulse are ignored |
 
 ---
 
-## 3. Two-temperature model (`twoTemperatureModel.C`, `TEqn.H`)
+## 2. The coupled system at a glance
 
-A femtosecond pulse heats the electrons far faster than they can pass the energy to the atoms. The model therefore carries two temperatures:
+| Unknown | Equation | Where in `src/` | Section |
+|---|---|---|---|
+| $Q(\mathbf{x},t)$ | Beer–Lambert absorption of a Gaussian beam, integrated over each cell and time step | `femtosecondLaserModel.C` | §3 |
+| $T_e$, $T_l$ | two coupled heat equations (two-temperature model), with laser source and latent-heat sink | `twoTemperatureModel.C`, `TEqn.H` | §4 |
+| $j$, $p_{sat}$, recoil $p_r$ | Hertz–Knudsen flux, Clausius–Clapeyron, Anisimov recoil | `twoPhaseMixtureThermo.C`, `advancedInterfaceCapturing.C` | §5 |
+| $m_b$, $d_b$, $p_b$ per ring | ordinary differential equations for the trapped vapour | `advancedInterfaceCapturing.C` | §6 |
+| $\alpha$ | volume-fraction transport with interface compression and evaporation sink | `alphaEqn.H` | §7.1 |
+| $\mathbf{u}$, $p$ | incompressible two-phase Navier–Stokes with surface tension and recoil force | `UEqn.H`, `pEqn.H` | §7.2 |
 
-  C_e(T_e) ∂T_e/∂t = ∇·(k_e ∇T_e) − G(T_e) (T_e − T_l) + Q
-
-  C_l ∂T_l/∂t = ∇·(k_l ∇T_l) + G(T_e) (T_e − T_l) − (latent heat removed by evaporation at the surface)
-
-| Input | Value in the reference case |
-|---|---|
-| Electron heat capacity C_e | 630 · T_e J/(m³ K) |
-| Electron–lattice coupling G(T_e) | table from 1e18 W/(m³ K) at 300 K to 1e20 W/(m³ K) at 20,000 K |
-| Lattice heat capacity C_l | 2.5e6 J/(m³ K) |
-| Lattice conductivity k_l | 4.5 W/(m K) |
-| Electron conductivity k_e | k_e0 · T_e / T_l with k_e0 = 18.9 W/(m K) (option `ke0`) |
-
-**Electron conductivity.** The form k_e = k_e0 · T_e/T_l is the usual Drude-type form for T_e well below the Fermi temperature. The older form k_e = C_e · D_e (still available) grows with T_e even when the electrons and atoms are at the same temperature. In a hot film this made it 10–17 times too high, and the film moved the wrong way in early tests. Use `ke0`.
-
-**Time stepping.** The electron equation is stiff and is sub-stepped within each flow time step (`electronSubCycles 4`).
-
-The temperatures are also carried with the flow (`advectTemperatures true`), so ejected metal keeps its heat.
+The coupling within one time step is described in §9.4.
 
 ---
 
-## 4. Evaporation and recoil (`twoPhaseMixtureThermo.C`, `advancedInterfaceCapturing.C`)
+## 3. Laser energy deposition
 
-**Saturation pressure** (Clausius–Clapeyron):
+### 3.1 Equations
 
-  p_sat = p_ref · exp[ (h_v / R_v) · (1/T_v − 1/T_l) ]
+The intensity reaching the film is Gaussian in time and radius:
 
-with p_ref = 101,325 Pa at T_v = 3560 K, latent heat of vaporisation h_v = 9.1e6 J/kg and gas constant of titanium vapour R_v = 174 J/(kg K). The temperature used in p_sat and j is capped at `maxPhysicalTemperature` = 10,000 K.
+$$
+I(r,t) = I_0 \exp\!\left(-\frac{(t-t_c)^2}{2\sigma_t^2}\right) \exp\!\left(-\frac{2r^2}{w_0^2}\right),
+\qquad \sigma_t = \frac{\tau_{FWHM}}{2\sqrt{2\ln 2}}
+$$
 
-**Evaporation flux** (Hertz–Knudsen):
+with the pulse duration $\tau_{FWHM}$ = 214 fs (full width at half maximum), the beam radius $w_0$ = 3 µm at which the intensity falls to $1/e^2$, and the pulse centre $t_c = \min\left(\tfrac{1}{2}(t_{end}-t_{start}),\, 3\sigma_t\right)$ = 273 fs when `pulseCenterTime` is not given. The peak intensity follows from the pulse energy $E$ that reaches the film:
 
-  j = β · p_sat / √(2π R_v T_l),  with β = 0.18 (`evaporationCoeff`).
+$$
+E = I_0 \cdot \frac{\pi w_0^2}{2} \cdot \tau_{FWHM}\sqrt{\frac{\pi}{4\ln 2}}
+\quad\Rightarrow\quad
+I_0 = 1.276\times10^{16}\ \text{W/m}^2
+$$
 
-The interface area used with j is the area of the cell faces projected on the interface normal. The evaporated mass leaves the metal; no artificial vapour volume is added to the gas (`phaseChangeVolumeSource false`).
+Inside the film the light is absorbed exponentially with depth $d$ (Beer–Lambert):
 
-**Recoil pressure on a free surface** (Anisimov's result for the vapour leaving through a thin non-equilibrium layer): p_r = 0.54 · p_sat. It is applied to the fluid as a force on the cell faces at the interface. The face value is taken from the larger neighbour (`recoilFaceInterpolation localMax`). A plain average applied only half the recoil and was corrected during testing. The recoil is bounded at 5 GPa (`maxRecoilPressure`), a value the reference run does not reach.
+$$
+Q(r,d,t) = (1-R)\, I(r,t)\, a\, e^{-a d}
+$$
+
+with the reflectivity $R$ of the glass–titanium interface and the absorption coefficient $a$.
+
+### 3.2 Implementation
+
+The solver does not evaluate $Q$ at the cell centre. For each cell it computes the path interval $[s_{in}, s_{out}]$ of the beam through the cell and deposits the **exact cell average**
+
+$$
+\bar Q_{cell} = (1-R)\,\bar I \;\frac{e^{-a s_{in}} - e^{-a s_{out}}}{s_{out}-s_{in}},
+$$
+
+where $\bar I$ is the intensity **averaged over the time step** (the Gaussian integrated analytically between $t$ and $t+\Delta t$). The deposited energy is therefore exact for any cell size and time step: panel (b) below compares the exact profile with the 16 cell averages across the film. In the 5° wedge, `beamCoverage geometric` normalises the deposition to the share of the beam that falls into the wedge sector.
+
+![Laser source: pulse in time, absorption across the film with the cell averages, and radial profile](../figures/model/laser_source.png)
+
+*(a) Temporal profile of the pulse. (b) Absorbed power density at the pulse peak across the 71.4 nm film: exact profile and the cell averages the solver deposits on the 4.46 nm cells. (c) Radial profile of the beam.*
+
+### 3.3 Optical inputs and the energy reaching the film
+
+| Quantity | Value | Origin |
+|---|---|---|
+| Refractive index of titanium at 343 nm | $n$ = 1.7283, $k$ = 2.8242 | case input |
+| Absorption coefficient | $a = 4\pi k/\lambda = 1.0347\times10^8$ 1/m; absorption depth $1/a$ = 9.66 nm | derived |
+| Reflectivity of the glass–titanium interface | $R = \dfrac{(n-n_g)^2+k^2}{(n+n_g)^2+k^2} = 0.428$ with the glass index $n_g$ = 1.5463 | derived |
+| Nominal peak fluence before the glass | $F_0 = 2E_0/(\pi w_0^2)$ = 332 mJ/cm², so $E_0$ = 4.694e-8 J | case definition |
+| Transmission to the film | (1 − 0.0460) × 0.9177 = 0.87545: Fresnel reflection at the air–glass surface and internal transmission of the glass | case input |
+| Energy reaching the film | $E$ = 0.87545 $E_0$ = 4.109e-8 J; peak fluence on the film 290.6 mJ/cm² | derived |
+| Absorbed fraction | $(1-R)(1-e^{-ah}) = 0.572 \times 0.99938 = 0.5717$; only $e^{-ah} = 6\times10^{-4}$ of the light leaves the film on the gap side | derived |
+| Peak absorbed fluence on the axis | 0.5717 × 290.6 = 166 mJ/cm² | derived |
+| Peak absorbed power density | $Q_0 = (1-R) I_0 a = 7.55\times10^{23}$ W/m³ | derived |
+
+**Energy estimate.** The energy absorbed per unit volume right at the glass-side surface on the axis is $a \times 1661\ \text{J/m}^2 = 1.7\times10^{11}$ J/m³. If it stayed where it was absorbed, electrons and lattice in equilibrium would reach the temperature $T$ that solves $\tfrac12\gamma T^2 + C_l T = 1.7\times10^{11}$ J/m³, i.e. about 19,700 K. The simulation reaches about 16,400 K, slightly lower because the electrons carry part of the energy deeper into the film during the pulse (§4.3).
+
+![Simulated laser source in the film at 0.5 ps](../figures/fsLIFT_332mJ_axisymmetric/gallery/heat_Q_laser_0000500fs.png)
+
+*Simulation: absorbed power at 0.5 ps (0.23 ps after the pulse peak) in an 8 µm wide close-up of the film, vertical scale stretched 15 times, logarithmic colour scale.*
 
 ---
 
-## 5. Vapour trapped between the glass and the film
+## 4. Two-temperature model
 
-**Why it is needed.** In the experiment the glass-side surface of the film is bonded to the glass. Vapour formed there cannot escape: it is trapped and pushes the film away from the glass. Both phases in the flow solver are incompressible (see [Limitations](RESULTS.md#limitations)), so the field equations cannot hold a compressible vapour volume. The vapour is therefore held in a small model of its own, solved alongside the flow.
+### 4.1 Equations
 
-**One vapour column per radial ring** (`mode local`). The glass-side surface is divided into rings 100 nm wide (`binWidth`). In each ring b, at every time step:
+A femtosecond pulse heats the conduction electrons much faster than they can transfer energy to the lattice. The electron and lattice temperatures are therefore carried separately:
 
-```
-m_b += Δt · Σ j·dA                  evaporated mass from the glass-side interface cells of the ring
-d_b += Δt · (mean film velocity away from the glass)
-V_b  = A_b · (h₀ + max(d_b, 0)) + m_b / ρ_metal     vapour volume: initial gap h₀ = 1 nm, the opened gap,
-                                                     and the volume of the metal that evaporated
-p_b  = min( p_sat,b ,  m_b · R_v · T_v,b / V_b )    ideal gas, at most the saturation pressure
-```
+$$
+C_e(T_e)\,\frac{\partial T_e}{\partial t} = \nabla\cdot\big(k_e \nabla T_e\big) - G(T_e)\,(T_e - T_l) + Q
+$$
 
-- If the ideal-gas pressure would exceed the saturation pressure, the excess vapour condenses (m_b is reduced).
-- p_sat,b and the vapour temperature T_v,b are averages over the ring, weighted by the evaporation flux, so the hottest surface dominates.
-- The pressure applied to the glass-side surface is the larger of p_b and the free-surface recoil, through the same face force as in §4.
-- Only metal above `filmMinHeight` = 9 µm counts as donor film; the receiver top is at 8 µm.
+$$
+C_l\,\frac{\partial T_l}{\partial t} = \nabla\cdot\big(k_l \nabla T_l\big) + G(T_e)\,(T_e - T_l) - S_{evap}
+$$
 
-**Why one column per ring, and not one pocket for the whole spot.** A single pocket for the whole spot (`mode uniform`) pushed the whole 7.4 µm-wide heated area as a rigid plug and tore the film at its cold edge. Within a few nanoseconds the real vapour cannot flow far sideways, so independent rings are the better approximation.
+where $S_{evap} = j\,h_v\,|\nabla\alpha|$ is the latent heat removed by evaporation (§5.2). Both temperatures are also transported with the flow (`advectTemperatures true`), so ejected metal keeps its heat. Heat exchange between the metal and the surrounding gas is handled by a separate interfacial exchange model; it is small compared with the terms above.
 
-**Restarts.** The vapour state is written to `<time>/uniform/vapourPocket`. A restart with a different `mode` or `binWidth` stops with an error rather than continue with an inconsistent state.
+### 4.2 Closures
 
-**Simplifications:**
-- no sideways vapour flow between rings;
-- no heat loss of the vapour to the glass;
-- the vapour temperature equals the flux-weighted surface temperature;
-- the initial gap h₀ is not known; 1 nm is assumed.
+| Property | Model | Value in the reference case |
+|---|---|---|
+| Electron heat capacity | Sommerfeld, linear in $T_e$ | $C_e = \gamma T_e$, $\gamma$ = 630 J/(m³ K²) |
+| Lattice heat capacity | constant | $C_l$ = 2.5×10⁶ J/(m³ K) |
+| Electron–lattice coupling | tabulated $G(T_e)$, linear interpolation | 10¹⁸ W/(m³ K) at 300 K to 10²⁰ W/(m³ K) at 20,000 K |
+| Electron conductivity | Drude-type, valid for $T_e \ll T_F$ | $k_e = k_{e0}\, T_e/T_l$, $k_{e0}$ = 18.9 W/(m K) |
+| Lattice conductivity | constant | $k_l$ = 4.5 W/(m K) |
+
+![Two-temperature model: heat capacities, coupling factor and coupling times](../figures/model/two_temperature_properties.png)
+
+*(a) Electron and lattice heat capacities. Above about 4,000 K the electron heat capacity exceeds that of the lattice. (b) The coupling factor $G(T_e)$ and its table points. (c) The characteristic times $C_e/G$ (electron cooling), $C_l/G$ (lattice heating) and the equilibration time $\tau_{eq} = [G(1/C_e + 1/C_l)]^{-1}$ of the linearised system.*
+
+**Electron conductivity.** In the Drude picture $k_e = \tfrac13 v_F^2 C_e \tau_e$ with the electron relaxation time dominated by electron–phonon scattering, $1/\tau_e \propto T_l$. With $C_e \propto T_e$ this gives $k_e \propto T_e/T_l$. The constant $k_{e0}$ = 18.9 W/(m K) equals $C_e D_e$ at 300 K with $D_e = 10^{-4}$ m²/s, so room-temperature conduction is unchanged. The older form $k_e = C_e D_e$, still available, is the same as the Drude form with the lattice temperature frozen at 300 K. In a film where electrons and lattice are both at 5,000 K it gives 315 W/(m K) instead of 18.9: 17 times too high. In early tests this carried the heat away from the glass-side surface so fast that the film moved the wrong way.
+
+![Electron conductivity: Drude form at three lattice temperatures and the older form](../figures/model/electron_conductivity.png)
+
+*Electron conductivity. The older form $C_e D_e$ (dashed red) coincides with the Drude form at $T_l$ = 300 K (grey) and ignores the heating of the lattice.*
+
+### 4.3 Time scales of the heating
+
+From the closures (figure above, panel c, and §8):
+
+| Process | Estimate | Value |
+|---|---|---|
+| Pulse | $\tau_{FWHM}$ | 0.21 ps |
+| Electron–lattice equilibration | $\tau_{eq} = [G(1/C_e+1/C_l)]^{-1}$ | 0.17 ps at 1,000 K; 0.07 ps at 5,000 K; 0.03 ps at 16,000 K |
+| Electron diffusion across the film while the lattice is cold ($T_l$ = 300 K) | $h^2/D_e$, $D_e = k_e/C_e = k_{e0}/(\gamma T_l) = 10^{-4}$ m²/s | 0.05 ps |
+| Electron diffusion across the film once the lattice is hot ($T_l$ = 10,000 K) | $h^2/D_e$, $D_e = 3\times10^{-6}$ m²/s | 1.7 ns |
+
+Because equilibration is as fast as the pulse, electrons and lattice reach nearly the same temperature within a few hundred femtoseconds. Once the lattice is hot, the electron conductivity drops ($k_e \propto 1/T_l$) and the heat stays near the glass-side surface for nanoseconds. This is what the simulation shows:
+
+![Simulated electron and lattice temperature in the film at 0.5, 1 and 2 ps](../figures/fsLIFT_332mJ_axisymmetric/gallery/montage_heating_Te_Tl.png)
+
+*Simulation: electron (top) and lattice (bottom) temperature at 0.5, 1 and 2 ps in an 8 µm wide close-up of the film (vertical scale stretched 15 times). The electrons peak at about 16,400 K at 0.54 ps; the lattice reaches the same temperature by 0.61 ps.*
+
+### 4.4 Implementation
+
+- Both equations are discretised implicitly (Euler) with the coupling term $G(T_e-T_l)$ treated in coupled sweeps (`nInnerCouplingSweeps 3`, tolerance 1e-4).
+- The electron equation is sub-stepped within each flow time step (`electronSubCycles 4`, electron sub-step at most 1 fs).
+- The temperatures are bounded by safety limits (`maxTe`, `maxTl`, `maxT` = 50,000 K) that are never reached in the reference case. Limits of 10,000 K, used in early development, were reached and removed energy.
+- The implementation is checked against an independent finite-difference solution of the same equations ([VERIFICATION.md](VERIFICATION.md#21-laser-heating-and-two-temperature-model)): peak electron temperature −0.5 %, time at which electrons and lattice meet +0.8 %.
+
+![1-D column against the independent finite-difference code](../figures/verification/ttm_column_vs_fd.png)
+
+*Verification: electron (solid) and lattice (dashed) temperatures at three depths of a 1-D film against the independent finite-difference code (dotted). This test uses verification inputs (reflectivity 0.35, absorption coefficient 1.07e7 1/m, $k_e = C_e D_e$), not the physical optics of §3.3.*
 
 ---
 
-## 6. Flow and interface (`alphaEqn.H`, `UEqn.H`, `pEqn.H`)
+## 5. Evaporation and recoil pressure
 
-**Interface capturing.** The volume-of-fluid method with OpenFOAM's MULES scheme transports α. An interface compression term keeps the interface sharp:
-- `cAlpha 2`, applied only near the interface (`compressionInterfaceBand true`);
-- `compressionLimiter 0.5`;
-- 2 sub-cycles of the α equation per time step.
+### 5.1 Saturation pressure and evaporation flux
 
-The compression uses the interface normal of the current time step. An earlier version used a normal frozen at the start of the run, so the compression had no effect on a moving interface; this was found and corrected during testing (see [VERIFICATION.md](VERIFICATION.md#4-defects-found-and-corrected)).
+The saturation pressure follows the integrated Clausius–Clapeyron relation, referenced to the normal boiling point:
 
-**Phases.** Both phases are incompressible and Newtonian:
+$$
+p_{sat}(T) = p_{ref}\,\exp\!\left[\frac{h_v}{R_v}\left(\frac{1}{T_v} - \frac{1}{T}\right)\right]
+$$
+
+with $p_{ref}$ = 101,325 Pa at $T_v$ = 3,560 K, the latent heat of vaporisation $h_v$ = 9.1×10⁶ J/kg and the specific gas constant of titanium vapour $R_v = R/M$ = 8.314/0.047867 ≈ 174 J/(kg K). The net evaporation flux is the Hertz–Knudsen expression:
+
+$$
+j = \beta\,\frac{p_{sat}(T) - p_{v,\infty}}{\sqrt{2\pi R_v T}}
+$$
+
+with the evaporation coefficient β = 0.18. The back-flux term $p_{v,\infty}$ is read from a metal-vapour pressure field when one exists; no provided case creates it, so $p_{v,\infty}$ = 0 and $j$ is the one-way evaporation flux. The temperature $T$ is the lattice temperature, capped at `maxPhysicalTemperature` = 10,000 K. Evaporation is evaluated only in interface cells: cells above the melting temperature, with α ≥ 0.01 and a resolved interface ($|\nabla\alpha|\,\Delta x \geq 10^{-3}$).
+
+![Saturation pressure, recoil and evaporation flux against temperature](../figures/model/phase_change.png)
+
+*(a) Saturation pressure and free-surface recoil pressure; the dashed line is the peak trapped-vapour pressure of the reference run. (b) Evaporation flux and the corresponding surface recession speed $j/\rho$. Both curves are flat above 10,000 K because of the temperature cap. The vertical lines mark the melting and boiling temperatures, the critical temperature given in the case (9,500 K), and the cap.*
+
+| Surface temperature | $p_{sat}$ | Recoil 0.54 $p_{sat}$ | Flux $j$ | Recession speed $j/\rho$ |
+|---|---|---|---|---|
+| 3,560 K (boiling) | 0.10 MPa | 0.055 MPa | 9.2 kg/(m² s) | 2.0 mm/s |
+| 5,000 K | 7.0 MPa | 3.8 MPa | 540 kg/(m² s) | 0.12 m/s |
+| 7,000 K | 138 MPa | 75 MPa | 9.0×10³ kg/(m² s) | 2.0 m/s |
+| 10,000 K (cap) | 1.30 GPa | 0.70 GPa | 7.1×10⁴ kg/(m² s) | 15.7 m/s |
+
+At 10,000 K the surface recedes by 15.7 nm per nanosecond. Evaporation is therefore significant only while the surface is far above the boiling point, i.e. during the first few hundred picoseconds. Over the whole reference run the metal volume decreases by 0.0135 %.
+
+### 5.2 Mass and heat sources
+
+The surface flux is converted into volumetric sources with the interface area density $|\nabla\alpha|$, a continuum-field representation of the interface source (Hardt & Wondra, 2008):
+
+$$
+\dot m''' = j\,|\nabla\alpha|, \qquad
+S_{evap} = j\,h_v\,|\nabla\alpha|, \qquad
+\left.\frac{\partial\alpha}{\partial t}\right|_{evap} = -\frac{j\,|\nabla\alpha|}{\rho_m}
+$$
+
+The evaporated mass leaves the metal; no gas volume is created in its place (`phaseChangeVolumeSource false`). The same $j$ and the same $|\nabla\alpha|$ are used for the mass and the heat, so the metal and its latent heat are removed in step. The heat source is bounded by `maxSource` = 10²⁵ W/m³, which is not reached.
+
+### 5.3 Recoil pressure
+
+Vapour leaving a free surface carries momentum away and pushes back on the liquid. For strong evaporation into vacuum, the gas-dynamic analysis of the thin non-equilibrium (Knudsen) layer above the surface (Anisimov, 1968) gives a recoil pressure of about 0.54 $p_{sat}$, with the back-flux of vapour already included. The solver computes
+
+$$
+p_r = c_m\,\frac{0.54}{\beta}\, j\, \sqrt{2\pi R_v T} \;=\; c_m \cdot 0.54\, p_{sat}(T)
+$$
+
+with the momentum accommodation coefficient $c_m$ = 1 (`momentumAccommodationCoeff`). The recoil is bounded at 5 GPa (`maxRecoilPressure`). Because of the temperature cap it cannot exceed 0.54 × 1.30 GPa = 0.70 GPa, so the bound is never reached.
+
+**How the recoil enters the momentum equation.** The recoil pressure is non-zero only in interface cells. It is applied as a force on the cell faces that carry the jump of α, $\mathbf{f}_f = -p_{r,f}\,\Delta\alpha_f\,\mathbf{S}_f$, consistent with the surface-tension force (§7.3). The face value $p_{r,f}$ is taken from the neighbour with the larger recoil (`recoilFaceInterpolation localMax`). Then the sum over the faces of a monotone interface is exactly $p_r A$. A linear face average gave each of the two faces half the cell value, so only half the recoil was applied; this was found by the force-balance test and corrected.
+
+---
+
+## 6. Vapour trapped between the glass and the film
+
+### 6.1 Why a separate model is needed
+
+On the glass-side surface the vapour cannot escape: it is confined between the glass and the film and pushes the film away from the glass. This is the main driving force of LIFT. Both phases of the flow solver are incompressible (A3), so a compressible vapour layer cannot be represented in the fields. The vapour is therefore held in a lumped model that is integrated alongside the flow and acts on the film through a surface pressure.
+
+![Trapped-vapour model: one vapour column per radial ring](../figures/model/trapped_vapour_schematic.png)
+
+### 6.2 Equations
+
+The glass-side surface is divided into rings $b$ of width $\Delta r$ = 100 nm (`binWidth`), out to $r_{max}$ = 10 µm. Each ring is an independent vapour column. Over a time step $\Delta t$:
+
+$$
+m_b \;\leftarrow\; m_b + \Delta t \sum_{c\,\in\,b} j_c\,|\nabla\alpha|_c\,V_c
+\qquad\text{(evaporated mass from the glass-side interface cells of the ring)}
+$$
+
+$$
+d_b \;\leftarrow\; d_b + \Delta t\,\frac{\sum_{c\in b} \rho_m \alpha_c V_c\, \mathbf{u}_c\cdot(-\mathbf{n}_g)}{\sum_{c\in b} \rho_m \alpha_c V_c}
+\qquad\text{(mass-averaged displacement of the film away from the glass)}
+$$
+
+$$
+V_b = A_b\,\big(h_0 + \max(d_b, 0)\big) + \frac{m_b}{\rho_m}
+\qquad\text{(initial gap } h_0\text{, opened gap, and the volume left by the evaporated metal)}
+$$
+
+$$
+p_b = \min\!\left(\langle p_{sat}\rangle_b,\; \frac{m_b R_v \langle T\rangle_b}{V_b}\right),
+\qquad m_b \leftarrow \min\!\left(m_b,\ \frac{\langle p_{sat}\rangle_b V_b}{R_v \langle T\rangle_b}\right)
+$$
+
+- $A_b$ is the ring area in the wedge and $\mathbf{n}_g$ the normal pointing into the glass.
+- $\langle\cdot\rangle_b$ are averages over the evaporating cells of the ring, weighted by the evaporation flux, so the hottest surface dominates.
+- The vapour behaves as an ideal gas but cannot exceed the saturation pressure. Vapour in excess of saturation condenses back (it is removed from $m_b$).
+- When no cell of the ring evaporates any more, the stored vapour keeps its ideal-gas pressure without the saturation cap.
+- Like the recoil, $p_b$ is bounded at 5 GPa; this bound is not reached.
+
+The pressure applied to the glass-side interface cells of ring $b$ is $\max(p_b,\ p_r)$, through the same face force as the recoil (§5.3).
+
+### 6.3 Parameters and behaviour in the reference case
+
+| Parameter | Value | Note |
+|---|---|---|
+| `mode` | `local` | one column per ring |
+| `binWidth` | 100 nm | 2 radial cells |
+| `maxRadius` | 10 µm | beyond the domain (8 µm) |
+| `minThickness` $h_0$ | 1 nm | not known; assumed |
+| `metalDensity` | 4515 kg/m³ | |
+| `filmMinHeight` | 9 µm | only metal above y = 9 µm counts as donor film (receiver top at 8 µm) |
+
+In the reference run the pressure on the axis peaks at **524 MPa at 26 ps**. It then falls by more than two orders of magnitude within the first nanosecond, as the gap opens and the surface cools, and is below 1 MPa from 0.59 ns on.
+
+**Why rings, and not one pocket for the whole spot.** A single pocket (`mode uniform`) applies one pressure to the whole heated area and pushed a 7.4 µm-wide region as a rigid plug, which tore at its cold edge. Within a few nanoseconds the real vapour cannot travel far sideways, so independent rings are the better approximation. The truth lies between these limits, since sideways flow is neglected (A8).
+
+**Restarts.** The ring state ($m_b$, $d_b$, vapour temperature) is written to `<time>/uniform/vapourPocket`. A restart with a different `mode`, `binWidth` or `maxRadius` stops with an error, because the saved columns would be reassigned.
+
+---
+
+## 7. Two-phase flow, interface capturing and surface tension
+
+### 7.1 Volume-fraction transport
+
+The metal fraction is transported with an interface-compression term (Weller's formulation, used by OpenFOAM's volume-of-fluid solvers):
+
+$$
+\frac{\partial\alpha}{\partial t} + \nabla\cdot(\alpha\,\mathbf{u}) + \nabla\cdot\big(\alpha(1-\alpha)\,\mathbf{u}_c\big) = -\frac{j\,|\nabla\alpha|}{\rho_m}
+$$
+
+The compression velocity acts only normal to the interface. On each face
+
+$$
+\mathbf{u}_{c,f} = \min\!\left(c_\alpha\,|u_f|,\ \lambda\,|u_f|\right)\,\mathbf{n}_f,
+\qquad \mathbf{n}_f = \frac{(\nabla\alpha)_f}{|(\nabla\alpha)_f| + \delta},
+$$
+
+with $|u_f| = |\phi_f|/|S_f|$ the face-normal flow speed, $c_\alpha$ = `cAlpha` and λ = `compressionLimiter`.
+
+- **Effective compression coefficient.** With the reference values $c_\alpha$ = 2 and λ = 0.5, the compression speed is $\min(2, 0.5)\,|u_f| = 0.5\,|u_f|$. The effective coefficient is therefore **0.5**, and `cAlpha` has no effect as long as it is above 0.5.
+- **Interface normal.** The normal is evaluated from the current α field at every time step. An earlier version used a normal built once at the start, which left the compression without effect on a moving interface.
+- **Band.** The compression acts only on faces next to an α = 0.5 crossing (`compressionInterfaceBand true`). Applied everywhere, it amplified small round-off dips of α inside the metal.
+- **Discretisation.** The equation is solved with the MULES limiter, which keeps α within [0, 1], with van Leer interpolation for $\alpha\mathbf{u}$ and 2 sub-cycles per time step. The compression flux uses the standard bounded form $\alpha(1-\alpha)\phi_c$ (`stockCompressionFlux true`); the volume of the metal is conserved to machine precision apart from evaporation.
+
+### 7.2 Momentum and pressure
+
+Both phases are incompressible and Newtonian. The mixture density and viscosity are
+
+$$
+\rho = \alpha\rho_m + (1-\alpha)\rho_g, \qquad \mu = \alpha\mu_m + (1-\alpha)\mu_g
+$$
 
 | Phase | Density | Viscosity |
 |---|---|---|
-| Metal (titanium, liquid everywhere) | 4515 kg/m³ | 2.35e-3 Pa s |
-| Gas (in the gap, and standing in for the glass) | 1.16 kg/m³ | 1.8e-5 Pa s |
+| Metal: liquid titanium | 4515 kg/m³ | 2.35×10⁻³ Pa s |
+| Gas: the gap, and the stand-in for the glass | 1.16 kg/m³ | 1.8×10⁻⁵ Pa s |
 
-**Surface tension.** Continuum surface force with σ = 1.64 N/m. It is applied in a band three cells wide around the interface (`surfaceTensionBandLayers 3`); a band one cell wide missed about 17 % of the force.
+The momentum equation is
 
-**Pressure–velocity coupling.** PIMPLE, with 3 outer and 3 pressure correctors. The momentum equation contains the recoil and trapped-vapour face forces and the surface tension.
+$$
+\frac{\partial(\rho\mathbf{u})}{\partial t} + \nabla\cdot(\rho\,\mathbf{u}\mathbf{u})
+= -\nabla p_{rgh} - \mathbf{g}\cdot\mathbf{x}\,\nabla\rho
++ \nabla\cdot\big[\mu\big(\nabla\mathbf{u} + \nabla\mathbf{u}^T\big)\big]
++ \mathbf{f}_\sigma + \mathbf{f}_r
+$$
+
+with the pressure written as $p = p_{rgh} + \rho\,\mathbf{g}\cdot\mathbf{x}$, the surface-tension force $\mathbf{f}_\sigma$ (§7.3) and the recoil and trapped-vapour force $\mathbf{f}_r$ (§5.3, §6). Gravity is included but negligible: the Bond number of the film is about 10⁻¹⁰.
+
+The pressure–velocity coupling uses the PIMPLE algorithm, with 3 outer iterations and 3 pressure correctors per time step. Continuity $\nabla\cdot\mathbf{u} = 0$ is enforced by the pressure equation. The face forces $\mathbf{f}_\sigma$ and $\mathbf{f}_r$ enter the face fluxes in the same way as the pressure gradient (a balanced-force formulation). The optional pressure clamp must be off (`pressureClamp false`): it overwrote $p_{rgh}$ after the pressure solve, so the fluxes no longer satisfied continuity.
+
+The density is updated once per time step, after the α sub-cycles. Updating it inside the sub-cycles corrupted the old-time density in $\partial(\rho\mathbf{u})/\partial t$. A uniformly moving interface then carried a spurious pressure of $-\rho_m U^2$, about −1.3×10⁸ Pa at 170 m/s. This was found by the Galilean-invariance test and corrected.
+
+### 7.3 Surface tension
+
+Surface tension is modelled as a continuum surface force (Brackbill, Kothe & Zemach, 1992):
+
+$$
+\mathbf{f}_\sigma = \sigma\,\kappa\,\nabla\alpha, \qquad \kappa = -\nabla\cdot\left(\frac{\nabla\alpha}{|\nabla\alpha|}\right)
+$$
+
+with σ = 1.64 N/m. The force is applied only in a band three cells wide around the α = 0.5 crossings (`surfaceTensionBandLayers 3`). A band one cell wide misses part of the force, because the interface is spread over two to three cells: it gave a pressure jump 17 % too low in the static-drop test.
+
+The curvature is computed from the gradient of α. This produces small spurious velocities, and the pressure-jump error does not vanish under refinement but settles near −4 % ([VERIFICATION.md](VERIFICATION.md#23-flow-interface-and-surface-tension)). The same spurious velocities make the damping of capillary oscillations too weak. This matters for the thinning and breaking of liquid sheets.
 
 ---
 
-## 7. What happens in one time step
+## 8. Characteristic scales and dimensionless numbers
 
-Order of operations in `compInterFoam.C`:
+Evaluated with the inputs of §11 and, where a speed is needed, the peak speed of the film on the axis, $v$ = 191.7 m/s.
 
-1. **Time step.** Δt is the smallest of the limits from the flow Courant number (`maxCo 0.2`), the interface Courant number (`maxAlphaCo 0.5`), the thermal Courant number (`maxThermalCourant 0.5`) and `maxDeltaT`.
-   - `tools/run_case.sh` sets `maxDeltaT` to 10 fs for the first 2 ps (pulse and electron–lattice coupling), 1 ps up to 1 ns, and 2.5 ps after that.
-   - The capillary time-step limit on this mesh is about 4.4 ps.
-2. **Laser:** the source Q is updated.
-3. **PIMPLE outer loop:**
-   1. mixture properties and phase-change sources are updated;
-   2. **α transport** (2 sub-cycles). In each sub-cycle the recoil and trapped-vapour state is refreshed, then α is advected with interface compression and bounded to [0, 1]. The density is updated **once, after** the sub-cycles. Updating it inside them gave a moving interface a false pressure of −ρU²; this was found by the Galilean test and corrected;
-   3. **temperatures:** T_e and T_l (two-temperature model with electron sub-steps);
-   4. **recoil and trapped-vapour pressure** (§4–5);
-   5. **momentum predictor**, with the recoil force and surface tension;
-   6. **pressure correctors**, re-evaluating the recoil in each one. The optional pressure clamp must be off (`pressureClamp false`): it overwrote the pressure after the solve, so the velocity no longer satisfied continuity.
-4. **Diagnostics and output:**
-   - energy audit, and the force budget on the metal when `momentumBudget` is on;
-   - a droplet-breakup indicator, for information only (it changes α only if `applyAlphaRedistribution` is set, which no case does);
-   - writing of the fields.
+| Quantity | Definition | Value | Meaning |
+|---|---|---|---|
+| Absorption depth | $1/a$ | 9.66 nm | the laser heats a layer one seventh of the film thickness |
+| Optical thickness | $a h$ | 7.4 | the film is optically thick |
+| Electron–lattice equilibration | $[G(1/C_e+1/C_l)]^{-1}$ | 0.03–0.17 ps | as fast as the pulse |
+| Lattice heat diffusion across the film | $h^2 C_l / k_l$ | 2.8 ns | lattice conduction alone is slow |
+| Electron diffusion across the film, hot lattice | $h^2 \gamma T_l / k_{e0}$ at 10,000 K | 1.7 ns | heat stays near the glass side |
+| Acoustic time across the film | $h / c_s$, $c_s$ ≈ 4–6 km/s | ≈ 12–18 ps [UNCERTAIN: sound speed of hot liquid titanium] | ≫ heating time: the real film is stress-confined (A3) |
+| Peak trapped-vapour pressure | from the run | 524 MPa at 26 ps | the main driving force |
+| Weber number | $\rho_m v^2 h / \sigma$ | 7.2 | inertia dominates surface tension at the launch |
+| Speed at which $We$ = 1 | $\sqrt{\sigma/(\rho_m h)}$ | 71 m/s | below this, surface tension wins |
+| Kinetic / surface energy | $\tfrac12\rho_m h v^2 \,/\, 2\sigma$ | 5.92 / 3.28 = 1.81 | enough energy for two new surfaces |
+| Reynolds number | $\rho_m v h / \mu_m$ | 26 | viscous effects moderate on the film scale |
+| Ohnesorge number | $\mu_m / \sqrt{\rho_m \sigma h}$ | 0.10 | low-viscosity capillary dynamics |
+| Taylor–Culick speed | $\sqrt{2\sigma/(\rho_m h)}$ | 101 m/s | speed at which a torn 71 nm sheet retracts |
+| Bond number | $\rho_m g h^2/\sigma$ | 1.4×10⁻¹⁰ | gravity irrelevant |
+| Capillary time-step limit | $\sqrt{\bar\rho\,\Delta x^3/(2\pi\sigma)}$, $\bar\rho = (\rho_m+\rho_g)/2$, $\Delta x$ = 4.46 nm | 4.4 ps | the largest stable time step for surface tension on the film cells |
 
 ---
 
-## 8. Sub-models that are present but switched off
+## 9. Numerical method
 
-The source also contains a phase-explosion model, a plasma model and a breakup model (`enhancedLIFTPhysics.C`). They have not been verified. With the physical laser inputs, the mass source of the phase-explosion model caused a numerical runaway within a few picoseconds. They are switched off in every provided case (`enablePhaseExplosion false`, `enablePlasmaModel false`); the trapped-vapour model represents the vaporisation instead.
+### 9.1 Domain and mesh
+
+The domain is a 5° wedge of a cylinder of radius 8 µm and height 32.07 µm. Its boundaries:
+- the axis (`empty`);
+- the two wedge planes (`wedge`);
+- the receiver bottom and the glass top (walls);
+- the outer radius (open to the ambient: total pressure 10⁵ Pa, inlet–outlet velocity, zero gradient for α).
+
+A zero-gradient condition for α at the outer radius lets the film continue through the boundary, as the real film continues for millimetres. An inflow condition with α = 0 cut the film open there, and the surface tension of that false edge pushed on the film.
+
+| Block | y range | Cells along y | Cell height |
+|---|---|---|---|
+| Receiver | 0–8 µm | 24 | graded, ≈ 1 µm at the bottom to 50 nm at the top |
+| Gap | 8–20 µm | 694 | 50 nm, graded to 6 nm over 0.5 µm, then 6 nm for the last 3 µm below the film |
+| Film | 20–20.0714 µm | 16 | 4.46 nm |
+| Glass (gas) | 20.0714–32.07 µm | 94 | 4.8 nm at the film, graded to ≈ 400 nm |
+
+Radially there are 160 cells of 50 nm, for 132,480 cells in all. The mesh is orthogonal.
+
+![Cell height along the beam axis](../figures/model/mesh_cell_height.png)
+
+*Cell height along the beam axis. The gap is refined to 6 nm over the first 3 µm below the film so the moving dome tip stays sharp; on coarser cells the tip smeared to α ≈ 0.5. The radial cell size (50 nm) is not refined. It is the limit on how thin a wall of the dome can become before it is spread over a single cell (see [RESULTS.md](RESULTS.md#limitations)).*
+
+### 9.2 Discretisation
+
+| Term | Scheme |
+|---|---|
+| Time derivatives | first-order implicit Euler |
+| Gradients | linear (Gauss), with cell limiting for velocity, α and the temperatures |
+| Convection of α | van Leer, with MULES limiting; compression flux with the `interfaceCompression` scheme |
+| Convection of momentum | linear-upwind |
+| Convection of the temperatures | limited linear |
+| Diffusion (viscous and thermal) | linear, with non-orthogonal correction (inactive on this orthogonal mesh) |
+| Interpolation | linear |
+
+The pressure equation is solved with OpenFOAM's geometric-agglomerated algebraic multigrid solver (GAMG); the temperatures with tight absolute tolerances (10⁻¹⁴). A looser tolerance (10⁻⁶ to 10⁻⁸) once let the temperature solver skip the steps after the pulse with zero iterations, freezing the temperature.
+
+### 9.3 Time step
+
+The time step is the smallest of:
+- the flow Courant limit (`maxCo 0.2`);
+- the interface Courant limit (`maxAlphaCo 0.5`);
+- the thermal Courant limit (`maxThermalCourant 0.5`);
+- the user limit `maxDeltaT`, which `tools/run_case.sh` sets in three stages:
+
+| Stage | Time | `maxDeltaT` | Reason |
+|---|---|---|---|
+| 1 | 0–2 ps | 10 fs | resolve the pulse (FWHM 214 fs) and the electron–lattice coupling |
+| 2 | 2 ps – 1 ns | 1 ps | launch of the film; large vapour pressures |
+| 3 | 1 ns – end | 2.5 ps | flight; kept below the capillary limit of 4.4 ps (§8) |
+
+The electron equation is additionally sub-stepped (§4.4).
+
+### 9.4 Order of operations in one time step
+
+1. Set the time step (§9.3).
+2. Update the laser source $Q$ for the interval $[t, t+\Delta t]$ (§3.2).
+3. PIMPLE outer loop (3 iterations):
+   1. update mixture properties and the evaporation sources (§5);
+   2. **α transport** in 2 sub-cycles: in each, refresh the recoil and trapped-vapour state, advect α with interface compression and bound it to [0, 1]; afterwards update the density once (§7.1–7.2);
+   3. **temperatures**: $T_e$ and $T_l$ with electron sub-steps and coupling sweeps (§4.4);
+   4. **recoil and trapped-vapour pressure** (§5.3, §6);
+   5. **momentum predictor** with the surface-tension and recoil face forces;
+   6. **pressure correctors** (3), with the recoil re-evaluated in each.
+4. Diagnostics: energy audit; the force budget on the metal when `momentumBudget` is on; a droplet-breakup indicator for information (it changes α only if `applyAlphaRedistribution` is set, which no case does).
+5. Write the fields at the write times.
+
+---
+
+## 10. Sub-models present but switched off
+
+`enhancedLIFTPhysics.C` also contains a phase-explosion model (enhanced evaporation near the spinodal), a plasma model (ionisation and shielding of the laser) and a breakup model (Weber-number criterion for jets). They have **not been verified**. With the physical laser inputs, the mass source of the phase-explosion model caused a numerical runaway within 2–6 ps. In every provided case `enablePhaseExplosion` and `enablePlasmaModel` are `false`, and the trapped-vapour model (§6) represents the vaporisation at the glass-side surface instead. The breakup model runs as a diagnostic only.
+
+---
+
+## 11. Input parameters
+
+All values are those of `cases/fsLIFT_332mJ_axisymmetric`. "Case input" means the value is set in the case files and has not been re-derived here. "Derived" means it is computed from other inputs as stated.
+
+| Group | Parameter | Value | Origin |
+|---|---|---|---|
+| Laser | wavelength | 343 nm | case input |
+| | pulse duration (FWHM) | 214 fs | case input |
+| | beam radius $w_0$ (1/e²) | 3 µm | case input |
+| | energy reaching the film | 4.109×10⁻⁸ J | derived (§3.3) |
+| | reflectivity, glass–titanium | 0.428 | derived from $n$, $k$, $n_g$ |
+| | absorption coefficient | 1.0347×10⁸ 1/m | derived, $4\pi k/\lambda$ |
+| Titanium, liquid | density | 4515 kg/m³ | case input |
+| | dynamic viscosity | 2.35×10⁻³ Pa s | case input |
+| | surface tension | 1.64 N/m | case input |
+| | melting (solidus = liquidus) temperature | 1941 K | case input |
+| | boiling temperature at 1 atm | 3560 K | case input |
+| | latent heat of vaporisation | 9.1×10⁶ J/kg | case input |
+| | gas constant of the vapour | 174 J/(kg K) | derived, $R/M$ |
+| | critical temperature (used only by the switched-off phase-explosion model) | 9500 K | case input [UNCERTAIN: published estimates for titanium vary] |
+| Two-temperature model | $\gamma$ ($C_e = \gamma T_e$) | 630 J/(m³ K²) | case input |
+| | $G(T_e)$ | table, 10¹⁸–10²⁰ W/(m³ K) | case input, labelled in the case as following Lin, Zhigilei & Celli (2008); not re-checked against that paper here |
+| | $C_l$ | 2.5×10⁶ J/(m³ K) | case input |
+| | $k_l$ | 4.5 W/(m K) | case input |
+| | $k_{e0}$ | 18.9 W/(m K) | derived, $\gamma \cdot 300\ \text{K} \cdot D_e$ with $D_e$ = 10⁻⁴ m²/s |
+| Evaporation and recoil | evaporation coefficient β | 0.18 | case input |
+| | recoil coefficient | 0.54 | Anisimov (1968) |
+| | momentum accommodation $c_m$ | 1 | physical value; 0.54 $p_{sat}$ already includes the back-flux |
+| | temperature cap in $p_{sat}$ and $j$ | 10,000 K | case input |
+| Trapped vapour | ring width, initial gap | 100 nm, 1 nm | case input; initial gap assumed |
+| Gas | density, viscosity | 1.16 kg/m³, 1.8×10⁻⁵ Pa s | case input |
+| Interface | `cAlpha`, `compressionLimiter` | 2, 0.5 (effective compression 0.5) | case input |
+| | surface-tension band | 3 cells | case input |
+
+---
+
+## 12. References
+
+- S. I. Anisimov, "Vaporization of metal absorbing laser radiation", *Soviet Physics JETP* **27**, 182 (1968). Recoil pressure of about 0.54 $p_{sat}$ for strong evaporation.
+- J. U. Brackbill, D. B. Kothe, C. Zemach, "A continuum method for modeling surface tension", *Journal of Computational Physics* **100**, 335–354 (1992). Continuum surface force.
+- S. Hardt, F. Wondra, "Evaporation model for interfacial flows based on a continuum-field representation of the source terms", *Journal of Computational Physics* **227**, 5871–5895 (2008). Volumetric representation of interface sources with $|\nabla\alpha|$.
+- Z. Lin, L. V. Zhigilei, V. Celli, "Electron-phonon coupling and electron heat capacity of metals under conditions of strong electron-phonon nonequilibrium", *Physical Review B* **77**, 075133 (2008). Temperature-dependent electron–lattice coupling.
+- H. Lamb, *Hydrodynamics*, 6th ed., Cambridge University Press (1932). Oscillation of a liquid drop, used in the verification.

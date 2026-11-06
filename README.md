@@ -62,10 +62,10 @@ The solver is built on OpenFOAM's `compressibleInterFoam`, which computes the fl
 
 | Added model | What it represents | Details |
 |---|---|---|
-| **Laser heat source** | A pulse that is Gaussian in time and in radius, absorbed exponentially with depth below the glass-side surface of the film | [MODEL.md §2](docs/MODEL.md#2-laser-heat-source-femtosecondlasermodelc) |
-| **Two-temperature model** | Separate temperatures for the electrons, which absorb the laser energy first, and for the atoms (the *lattice*), which the electrons heat within about a picosecond | [MODEL.md §3](docs/MODEL.md#3-two-temperature-model-twotemperaturemodelc-teqnh) |
-| **Evaporation and recoil** | Hot metal evaporates (Hertz–Knudsen flux with a Clausius–Clapeyron saturation pressure); on a free surface the departing vapour pushes back on the metal with 0.54 times the saturation pressure | [MODEL.md §4](docs/MODEL.md#4-evaporation-and-recoil-twophasemixturethermoc-advancedinterfacecapturingc) |
-| **Trapped-vapour model** | Vapour formed between the glass and the film cannot escape. Its mass, volume and pressure are tracked in rings around the beam axis, and its pressure pushes the film away from the glass | [MODEL.md §5](docs/MODEL.md#5-vapour-trapped-between-the-glass-and-the-film) |
+| **Laser heat source** | A pulse that is Gaussian in time and in radius, absorbed exponentially with depth below the glass-side surface of the film | [MODEL.md §3](docs/MODEL.md#3-laser-energy-deposition) |
+| **Two-temperature model** | Separate temperatures for the electrons, which absorb the laser energy first, and for the atoms (the *lattice*), which the electrons heat within about a picosecond | [MODEL.md §4](docs/MODEL.md#4-two-temperature-model) |
+| **Evaporation and recoil** | Hot metal evaporates (Hertz–Knudsen flux with a Clausius–Clapeyron saturation pressure); on a free surface the departing vapour pushes back on the metal with 0.54 times the saturation pressure | [MODEL.md §5](docs/MODEL.md#5-evaporation-and-recoil-pressure) |
+| **Trapped-vapour model** | Vapour formed between the glass and the film cannot escape. Its mass, volume and pressure are tracked in rings around the beam axis, and its pressure pushes the film away from the glass | [MODEL.md §6](docs/MODEL.md#6-vapour-trapped-between-the-glass-and-the-film) |
 
 The interface transport, surface tension and pressure coupling were also corrected and tested during development ([VERIFICATION.md §4](docs/VERIFICATION.md#4-defects-found-and-corrected)).
 
@@ -377,15 +377,16 @@ Every setting of the case, every tool, and how to set up a new case (another flu
 | `cases/fsLIFT_332mJ_axisymmetric/` | reference case: input dictionaries and initial fields (`0.orig`) |
 | `cases/column1D_laser_TTM/` | 1-D column: laser heating and the two-temperature model |
 | `cases/column1D_galilean_test/` | 1-D column moving as a whole at −170 m/s: velocity and pressure must not change |
-| `tools/` | run script, analysis and plotting scripts, independent finite-difference two-temperature code |
+| `tools/` | run script, analysis and plotting scripts (including `plot_model_inputs.py` for the model figures), independent finite-difference two-temperature code |
 | `tools/benchmarks/` | drop benchmarks: surface tension, drop oscillation, viscosity |
 | `figures/fsLIFT_332mJ_axisymmetric/` | results of the reference case: histories, results table, image gallery, data |
 | `figures/verification/` | verification figures |
+| `figures/model/` | figures of the model inputs (laser profiles, two-temperature properties, evaporation, mesh), used in docs/MODEL.md |
 | `docs/` | documentation |
 
 | Document | Read it for |
 |---|---|
-| [docs/MODEL.md](docs/MODEL.md) | the physics and equations, the inputs, and what the solver does in each time step |
+| [docs/MODEL.md](docs/MODEL.md) | the assumptions and governing equations as implemented, the closures and inputs with their origin, characteristic scales and dimensionless numbers, and the numerical method, with figures |
 | [docs/USER_GUIDE.md](docs/USER_GUIDE.md) | building, running and restarting, every case setting explained, the analysis tools, setting up a new case |
 | [docs/VERIFICATION.md](docs/VERIFICATION.md) | every test with its result and how to repeat it, the defects found and corrected, the open points |
 | [docs/RESULTS.md](docs/RESULTS.md) | the reference result in detail, and the limitations of the model |
