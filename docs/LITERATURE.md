@@ -57,7 +57,7 @@ Only numbers that were read in a source are used below. Where a comparison could
 | Stress confinement | incompressible metal: no stress waves | liquid Ti sound speed 4.4 km/s; stress confinement when the heating is faster than the acoustic time (Hobmaier et al. 2026) | **the real film is stress-confined**; spallation is physically expected and absent from the model (§6) |
 | Surface tension: static drop | pressure-jump error settles near −4 % | interFoam curvature converges to a value ≈ 10 % off (Deshpande et al. 2012) | **consistent**; the model does better than standard interFoam (§7) |
 | Surface tension: spurious currents | do not vanish under refinement; oscillation damping too weak | interFoam parasitic currents reach a plateau; OpenFOAM surface-tension approximation needs "significant improvements" (Lippert et al. 2022) | **consistent**: a known limitation of the method (§7) |
-| LIFT experiments (ejection speed, droplet size, regimes) | dome 192 m/s; droplet at 70–90 m/s, 0.25 µm³ | could not be read here | **not compared** (§8) |
+| LIFT experiments (ejection speed, droplet size, regimes) | dome 192 m/s; droplet at about 100 m/s (centre of mass), 0.25 µm³ | could not be read here | **not compared** (§8) |
 
 ---
 

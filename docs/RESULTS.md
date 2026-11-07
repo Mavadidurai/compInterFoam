@@ -5,7 +5,7 @@ Case `cases/fsLIFT_332mJ_axisymmetric`, run to 20 ns on 4 processes with `tools/
 **Read the [limitations](#limitations) before using any number.** In short:
 - the launch of the film (up to about 1 ns) is the best-resolved part of the result;
 - the separation of a droplet at about 13 ns happens where the film is thinner than one cell, so its time and volume depend on the mesh;
-- after about 10 ns a model artefact (gas flowing in behind the film) affects the speed of the separated metal.
+- after about 10 ns the gas standing in for the glass flows in behind the film. It does not change the droplet's speed, but the velocity sampled on the axis then reflects the droplet's internal flow, not its motion; quote the centre-of-mass speed (§2.6).
 
 ---
 
@@ -49,7 +49,7 @@ Case `cases/fsLIFT_332mJ_axisymmetric`, run to 20 ns on 4 processes with `tools/
 ### 2.4 Separation: about 13 ns
 
 - At about 13 ns the side walls tear, away from the axis, and the bottom of the cup is free.
-- At 13.4 ns the free part holds 0.48 µm³ (the volume of a 0.97 µm sphere) and moves at about 130 m/s on average.
+- At 13.4 ns all the metal below the torn walls holds 0.48 µm³ (the volume of a 0.97 µm sphere: the main body plus the ring that later breaks off it) and moves at about 130 m/s on average. The main body's centre of mass moves at about 100 m/s.
 - The torn walls retract into rims on the film that stays on the glass.
 
 ### 2.5 Flight: 13–20 ns
@@ -58,7 +58,7 @@ At 19.8 ns, counted with `tools/count_metal_pieces.py` (cells with α > 0.5):
 
 | Piece | Volume | Sphere of equal volume | Mean vertical speed |
 |---|---|---|---|
-| Main droplet (the former cup bottom) | 0.254 µm³ | 0.79 µm diameter | 98 m/s towards the receiver |
+| Main droplet (the former cup bottom) | 0.254 µm³ | 0.79 µm diameter | about 100 m/s towards the receiver (centre of mass, constant from 13.4 to 19.8 ns) |
 | Ring fragments around it | 0.105 µm³ in total, a few cells each | – | 170–217 m/s |
 | Metal smeared below α = 0.5 | about 0.22 µm³ | – | – |
 
@@ -74,19 +74,13 @@ At 19.8 ns, counted with `tools/count_metal_pieces.py` (cells with α > 0.5):
 
 ### 2.6 Which speed to quote for the separated metal
 
-From about 10 ns on, the gas above the film moves faster than the metal on the axis:
+The speed of the droplet as a body is the velocity of its centre of mass. It is **about 100 m/s and constant** after separation: 102 m/s at 13.4 ns and 98 m/s at 19.8 ns, and a linear fit of the centre-of-mass position gives 100 m/s. The velocity sampled on the beam axis is a different quantity: the local velocity of the liquid there. A droplet that has just torn free is still changing shape, so its internal flow makes the axis sample differ from the body speed. It is about 70 m/s around the tear and rises to 126 m/s at 20 ns, while the droplet as a whole does not speed up.
 
-| Time | Metal on the axis | Gas just above it |
-|---|---|---|
-| 6.0 ns | 153 m/s | 124 m/s |
-| 10.0 ns | 66 m/s | 120 m/s |
-| 13.4 ns | 70 m/s | 140 m/s |
-| 16.0 ns | 69 m/s | 173 m/s |
-| 19.8 ns | 121 m/s | 190 m/s |
+After about 10 ns the gas that stands in for the glass flows in behind the film and through the opening, faster than the metal (190 m/s on the axis at 19.8 ns). This flow is not physical, since real glass cannot follow the film, but it does not change the droplet's speed: the gas is about 4,000 times less dense than the metal, and a 190 m/s gas jet would change the droplet's speed by only about 0.01 m/s over 1.5 ns.
 
-(speeds towards the receiver)
+![Speed of the detached droplet as a body against the speed sampled on the axis](../figures/fsLIFT_332mJ_axisymmetric/droplet_motion.png)
 
-After the tear this gas streams through the opening and pushes the free piece (see the speed sections above). It is a model artefact (limitation 2 below). The late speed-up of the main droplet, and part of its bell shape, are therefore not reliable. **The speed at separation, about 70–90 m/s at about 13 ns, is the more defensible number**, although the gas is already faster than the metal from about 10 ns on.
+*Left: centre-of-mass velocity of the detached droplet (red), mean velocity of all metal below the film (blue), and the local liquid velocity sampled on the beam axis (grey). Right: height of the droplet's centre of mass and of its lowest point on the axis. Computed with `tools/droplet_motion.py`; data in `figures/fsLIFT_332mJ_axisymmetric/data/droplet_motion.csv`.*
 
 ### 2.7 Further figures
 
@@ -104,7 +98,7 @@ The pressure sections show a cell-to-cell checkerboard inside the metal. It is a
 Ordered by how much each could change the answer to "does the film eject, and how?".
 
 1. **The metal is incompressible.** Titanium has a constant density, so the model has no stress waves and no spallation (the tearing of a solid or liquid by a tensile stress wave). In femtosecond LIFT these can drive part of the ejection. How large a part for this film is not known.
-2. **The glass is modelled as an incompressible gas.** The region above the film is a gas of constant density. As the film moves away, this gas must follow it: it pulls on the departing film (a few percent of the trapped-vapour force during the launch) and, after about 10 ns, it streams through the torn film and pushes the free piece (§2.6). A real solid glass with a vapour-filled gap behind the film cannot do this.
+2. **The glass is modelled as an incompressible gas.** The region above the film is a gas of constant density. As the film moves away, this gas must follow it: it pulls on the departing film (a few percent of the trapped-vapour force during the launch) and, after about 10 ns, it streams through the torn film. It is too light to change the droplet's speed (§2.6), but the flow behind the film is not physical; a real solid glass with a vapour-filled gap behind the film cannot do this.
 3. **The separation is limited by the mesh.** The gap mesh is refined to 6 nm along the axis but has 50 nm cells radially. The steep walls of the cup become thinner than one radial cell well before they tear. The time of separation and the volumes of the pieces are therefore set by the radial cell size, and the result is not mesh-converged. A run from about 6 ns on a mesh refined radially (about 10 nm for r < 2.5 µm) is needed to settle it.
 4. **Temperatures above the critical point.** The lattice reaches about 16,400 K, above the critical temperature of titanium (8,980 K as cited by Hobmaier et al. 2026; the case file uses 9,500 K) and about twice the usual onset of phase explosion, 0.9 times the critical temperature ([LITERATURE.md §5](LITERATURE.md#5-critical-temperature-and-phase-explosion)). There the distinction between liquid and vapour, on which the model rests, no longer strictly holds. The saturation pressure and evaporation flux are evaluated with the temperature capped at 10,000 K.
 5. **Trapped-vapour model simplifications.** No sideways vapour flow between the radial rings, no cooling of the vapour by the glass, and an unknown initial gap (1 nm assumed). None of these has been varied yet.

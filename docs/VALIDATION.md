@@ -210,7 +210,7 @@ The sub-models are checked against what is known for titanium and for femtosecon
 | Film displacement on the axis at 1 / 5 / 20 ns | 0.18 / 0.90 / 2.16 µm | launch well resolved; inputs to be corrected |
 | Highest speed on the axis | 191.7 m/s at 0.54 ns | probably an underestimate (§5.2); no mesh error bar |
 | Time of separation | about 13 ns | mesh-limited |
-| Droplet | 0.254 µm³, equal-volume sphere 0.79 µm, 70–90 m/s at separation | mesh-limited; gas artefact after about 10 ns |
+| Droplet | 0.254 µm³, equal-volume sphere 0.79 µm, centre of mass at a constant ~100 m/s | separation time and volume mesh-limited |
 | Transfer regime | one main droplet with ring fragments; no splash within 20 ns | qualitative |
 
 ![Histories on the beam axis](../figures/fsLIFT_332mJ_axisymmetric/results_timeseries.png)
