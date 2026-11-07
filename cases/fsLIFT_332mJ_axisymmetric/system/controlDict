@@ -150,7 +150,9 @@ twoTemperatureProperties
         );
     }
 
-    // Temperature-dependent coupling (Lin & Zhigilei, Phys. Rev. B 77, 2008)
+    // Temperature-dependent electron-lattice coupling. From about 2000 K up these values
+    // exceed the titanium coupling of Lin, Zhigilei & Celli (Phys. Rev. B 77, 075133, 2008)
+    // and of first-principles work (peak about 2.5e18-3.7e18 W/(m3 K)); see docs/LITERATURE.md
 G
 {
     type table;

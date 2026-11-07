@@ -157,6 +157,8 @@ where $S_{evap} = j\,h_v\,|\nabla\alpha|$ is the latent heat removed by evaporat
 | Electron conductivity | Drude-type, valid for $T_e \ll T_F$ | $k_e = k_{e0}\, T_e/T_l$, $k_{e0}$ = 18.9 W/(m K) |
 | Lattice conductivity | constant | $k_l$ = 4.5 W/(m K) |
 
+> **Literature check.** The coupling table and γ of the reference case are higher than published values for titanium: G by 5–27 times above 5,000 K, and γ by about 2 times. A sensitivity study shows that this changes mainly the electron–lattice equilibration time (0.25 ps instead of about 2 ps), and the peak surface temperature by only −11 % to +9 % ([LITERATURE.md §3](LITERATURE.md#3-two-temperature-parameters-of-titanium)).
+
 ![Two-temperature model: heat capacities, coupling factor and coupling times](../figures/model/two_temperature_properties.png)
 
 *(a) Electron and lattice heat capacities. Above about 4,000 K the electron heat capacity exceeds that of the lattice. (b) The coupling factor $G(T_e)$ and its table points. (c) The characteristic times $C_e/G$ (electron cooling), $C_l/G$ (lattice heating) and the equilibration time $\tau_{eq} = [G(1/C_e + 1/C_l)]^{-1}$ of the linearised system.*
@@ -390,7 +392,7 @@ Evaluated with the inputs of §11 and, where a speed is needed, the peak speed o
 | Electron–lattice equilibration | $[G(1/C_e+1/C_l)]^{-1}$ | 0.03–0.17 ps | as fast as the pulse |
 | Lattice heat diffusion across the film | $h^2 C_l / k_l$ | 2.8 ns | lattice conduction alone is slow |
 | Electron diffusion across the film, hot lattice | $h^2 \gamma T_l / k_{e0}$ at 10,000 K | 1.7 ns | heat stays near the glass side |
-| Acoustic time across the film | $h / c_s$, $c_s$ ≈ 4–6 km/s | ≈ 12–18 ps [UNCERTAIN: sound speed of hot liquid titanium] | ≫ heating time: the real film is stress-confined (A3) |
+| Acoustic time across the film | $h / c_l$, $c_l$ = 4.4 km/s (liquid titanium, as used by Hobmaier et al. 2026) | 16 ps | ≫ heating time: the real film is stress-confined (A3; [LITERATURE.md §6](LITERATURE.md#6-stress-confinement)) |
 | Peak trapped-vapour pressure | from the run | 524 MPa at 26 ps | the main driving force |
 | Weber number | $\rho_m v^2 h / \sigma$ | 7.2 | inertia dominates surface tension at the launch |
 | Speed at which $We$ = 1 | $\sqrt{\sigma/(\rho_m h)}$ | 71 m/s | below this, surface tension wins |
@@ -499,9 +501,9 @@ All values are those of `cases/fsLIFT_332mJ_axisymmetric`. "Case input" means th
 | | boiling temperature at 1 atm | 3560 K | case input |
 | | latent heat of vaporisation | 9.1×10⁶ J/kg | case input |
 | | gas constant of the vapour | 174 J/(kg K) | derived, $R/M$ |
-| | critical temperature (used only by the switched-off phase-explosion model) | 9500 K | case input [UNCERTAIN: published estimates for titanium vary] |
-| Two-temperature model | $\gamma$ ($C_e = \gamma T_e$) | 630 J/(m³ K²) | case input |
-| | $G(T_e)$ | table, 10¹⁸–10²⁰ W/(m³ K) | case input, labelled in the case as following Lin, Zhigilei & Celli (2008); not re-checked against that paper here |
+| | critical temperature (used only by the switched-off phase-explosion model) | 9500 K | case input; Hobmaier et al. (2026) use 8,980 K |
+| Two-temperature model | $\gamma$ ($C_e = \gamma T_e$) | 630 J/(m³ K²) | case input; first-principles value for titanium 318 J/(m³ K²) ([LITERATURE.md §3](LITERATURE.md#3-two-temperature-parameters-of-titanium)) |
+| | $G(T_e)$ | table, 10¹⁸–10²⁰ W/(m³ K) | case input of undocumented origin. **5–27 times higher than published titanium values above 5,000 K** (peak about 2.5–3.7×10¹⁸; [LITERATURE.md §3](LITERATURE.md#3-two-temperature-parameters-of-titanium)) |
 | | $C_l$ | 2.5×10⁶ J/(m³ K) | case input |
 | | $k_l$ | 4.5 W/(m K) | case input |
 | | $k_{e0}$ | 18.9 W/(m K) | derived, $\gamma \cdot 300\ \text{K} \cdot D_e$ with $D_e$ = 10⁻⁴ m²/s |
@@ -521,5 +523,6 @@ All values are those of `cases/fsLIFT_332mJ_axisymmetric`. "Case input" means th
 - S. I. Anisimov, "Vaporization of metal absorbing laser radiation", *Soviet Physics JETP* **27**, 182 (1968). Recoil pressure of about 0.54 $p_{sat}$ for strong evaporation.
 - J. U. Brackbill, D. B. Kothe, C. Zemach, "A continuum method for modeling surface tension", *Journal of Computational Physics* **100**, 335–354 (1992). Continuum surface force.
 - S. Hardt, F. Wondra, "Evaporation model for interfacial flows based on a continuum-field representation of the source terms", *Journal of Computational Physics* **227**, 5871–5895 (2008). Volumetric representation of interface sources with $|\nabla\alpha|$.
+- K. Hobmaier, G. E. Allemand, A. Marmodoro, M. J. Verstraete, J. Minár, H. P. Huber, D. Redka, "First-principles electronic transport properties of Ti and Ti-6Al-4V for modeling ultrashort-pulse laser ablation", *Physical Review Materials* (2026), DOI 10.1103/6sn3-ltl4. Titanium values of $C_e$, $G$ and $k_e$ used in the comparison of [LITERATURE.md](LITERATURE.md).
 - Z. Lin, L. V. Zhigilei, V. Celli, "Electron-phonon coupling and electron heat capacity of metals under conditions of strong electron-phonon nonequilibrium", *Physical Review B* **77**, 075133 (2008). Temperature-dependent electron–lattice coupling.
 - H. Lamb, *Hydrodynamics*, 6th ed., Cambridge University Press (1932). Oscillation of a liquid drop, used in the verification.
