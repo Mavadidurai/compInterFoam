@@ -426,7 +426,7 @@ while (pimple.correctNonOrthogonal())
 
         const Foam::Switch pressureClamp
         (
-            solverCoeffs.lookupOrDefault<Foam::Switch>("pressureClamp", true)
+            solverCoeffs.lookupOrDefault<Foam::Switch>("pressureClamp", false)
         );
 
         if (pressureClamp)
@@ -645,7 +645,7 @@ if (tRecoilForce.valid())
 }
 */
 const Foam::Switch pressureClamp =
-    solverCoeffs.lookupOrDefault<Foam::Switch>("pressureClamp", true);
+    solverCoeffs.lookupOrDefault<Foam::Switch>("pressureClamp", false);
 
 Foam::dimensionedScalar minPressure
 (
@@ -737,20 +737,6 @@ maxPressure = Foam::dimensionedScalar
     Foam::dimPressure,
     fallbackMaxValue
 );
-const Foam::dimensionedScalar fallbackMinPressure
-(
-    "fallbackMinPressure",
-    Foam::dimPressure,
-    fallbackMinValue
-);
-
-const Foam::dimensionedScalar fallbackMaxPressure
-(
-    "fallbackMaxPressure",
-    Foam::dimPressure,
-    fallbackMaxValue
-);
-
 const Foam::dimensionedScalar observedMinP = Foam::gMin(p);
 const Foam::dimensionedScalar observedMaxP = Foam::gMax(p);
 
@@ -804,58 +790,33 @@ if (pressureClamp && (pressureNonFinite || pressureOutOfBounds))
     p_rgh.correctBoundaryConditions();
     p.correctBoundaryConditions();
 }
-else if (!pressureClamp && (pressureNonFinite || pressureOutOfBounds))
+else if (!pressureClamp && pressureNonFinite)
 {
-    WarningInFunction
-        << "Pressure field exceeded physical range while pressureClamp=false"
-        << Foam::nl
-        << "    min(p) = " << observedMinP.value() << " Pa, max(p) = "
-        << observedMaxP.value() << " Pa" << Foam::nl
-        << "    Applying emergency clamp to [" << fallbackMinPressure.value() << ", "
-        << fallbackMaxPressure.value() << "] Pa" << Foam::endl;
-
-    Foam::scalarField& pInternal = p.primitiveFieldRef();
-
-    forAll(pInternal, celli)
+    // With the clamp off, a non-finite pressure is a diverged solution. It
+    // used to be silently reset to 0 and clamped ("emergency clamp"), so
+    // pressureClamp false did not switch clamping off.
+    FatalErrorInFunction
+        << "Non-finite pressure at t = " << runTime.timeName()
+        << " (min(p) = " << observedMinP.value() << ", max(p) = "
+        << observedMaxP.value() << " Pa) with pressureClamp false."
+        << " The solution has diverged." << Foam::exit(FatalError);
+}
+else if (!pressureClamp && pressureOutOfBounds)
+{
+    // Report only: the clamp is off, so the pressure is left as solved
+    // (changing p_rgh here would break the consistency with phi and U).
+    static label nPressureBoundWarnings = 0;
+    if (nPressureBoundWarnings < 10)
     {
-        Foam::scalar& val = pInternal[celli];
-
-        if (!std::isfinite(val))
-        {
-            val = 0.0;
-        }
-
-        val = Foam::max
-        (
-            fallbackMinPressure.value(),
-            Foam::min(val, fallbackMaxPressure.value())
-        );
+        ++nPressureBoundWarnings;
+        WarningInFunction
+            << "Pressure outside [" << minPressure.value() << ", "
+            << maxPressure.value() << "] Pa with pressureClamp false"
+            << " (min(p) = " << observedMinP.value() << ", max(p) = "
+            << observedMaxP.value() << " Pa); not clamped."
+            << (nPressureBoundWarnings == 10 ? " Further warnings suppressed." : "")
+            << Foam::endl;
     }
-
-    forAll(p.boundaryField(), patchi)
-    {
-        Foam::scalarField& patchField = p.boundaryFieldRef()[patchi];
-
-        forAll(patchField, facei)
-        {
-            Foam::scalar& val = patchField[facei];
-
-            if (!std::isfinite(val))
-            {
-                val = 0.0;
-            }
-
-            val = Foam::max
-            (
-                fallbackMinPressure.value(),
-                Foam::min(val, fallbackMaxPressure.value())
-            );
-        }
-    }
-
-    p_rgh = p - rho*gh;
-    p_rgh.correctBoundaryConditions();
-    p.correctBoundaryConditions();
 }
 
 const Foam::scalar maxPhysicalVelocity = solverCoeffs.lookupOrDefault<Foam::scalar>

@@ -454,14 +454,13 @@ if (maxUEqnVelocity < Foam::GREAT)
     }
 }
 
-phi = fvc::flux(U);
-rhoPhi = fvc::interpolate(rho)*phi;
-fvc::makeRelative(rhoPhi, U);
-
-// Limit vapor velocities to physical sound speed
-// Sound speed in hot metal vapor is ~1000-2000 m/s
-// Supersonic expansion without shock physics leads to numerical instability
-const scalar maxVaporVelocity = solverCoeffs.lookupOrDefault<scalar>("maxVaporVelocity", 2000.0);
+// Optional limit on the gas-phase speed (compInterFoamCoeffs.maxVaporVelocity).
+// It rescales U in every cell with alpha.metal < 0.1, which includes the plain
+// gas, and it does not conserve momentum. It is therefore OFF by default (it
+// used to default to 2000 m/s without being set by any case), and when it is
+// used it acts BEFORE the flux is built, so that phi and U stay consistent.
+const scalar maxVaporVelocity =
+    solverCoeffs.lookupOrDefault<scalar>("maxVaporVelocity", Foam::GREAT);
 
 if (maxVaporVelocity < Foam::GREAT)
 {
@@ -511,9 +510,13 @@ if (maxVaporVelocity < Foam::GREAT)
     if (vaporVelocityLimited && verbose && isMaster)
     {
         Info<< "    Vapor-phase velocity limited to " << maxVaporVelocity
-            << " m/s (sound speed in hot metal vapor)" << endl;
+            << " m/s (compInterFoamCoeffs.maxVaporVelocity)" << endl;
     }
 }
 
 U.correctBoundaryConditions();
 fvOptions.correct(U);
+
+phi = fvc::flux(U);
+rhoPhi = fvc::interpolate(rho)*phi;
+fvc::makeRelative(rhoPhi, U);

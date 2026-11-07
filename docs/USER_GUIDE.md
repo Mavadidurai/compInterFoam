@@ -73,7 +73,10 @@ Set `endTime`, `maxDeltaT` and `writeInterval` in `system/controlDict` yourself,
 
 ### 2.4 Mesh study with titanium inputs from the literature
 
-`cases/fsLIFT_332mJ_Ti_meshStudy` is the reference case with literature inputs for titanium and a mesh family for a grid-convergence study:
+`cases/fsLIFT_332mJ_Ti_meshStudy` is a copy of the reference case with literature inputs for titanium and a mesh family for a grid-convergence study:
+
+> **What this study can and cannot show.** The case differs from `cases/fsLIFT_332mJ_axisymmetric` in its inputs (table below) **and** in its mesh: even level 2 has 35 nm radial cells for r < 3.5 µm, against 50 nm everywhere in the reference case. Its grid-convergence index therefore applies to this literature-input case only. It is **not** an error bar for the published reference result. For that, the reference inputs would have to be run on a mesh family whose middle level is the reference mesh.
+
 
 | Input | Reference case | Mesh-study case | Source |
 |---|---|---|---|
@@ -207,7 +210,8 @@ In `compInterFoamCoeffs`:
 | `surfaceTensionInterfaceBand` | `true` (default) | Apply surface tension only near the interface |
 | `surfaceTensionBandLayers` | 3 (default) | Width of that band in cells; 1 layer missed about 17 % of the force |
 | `recoilFaceInterpolation` | `localMax` (default) | Face value of the recoil pressure from the larger neighbour. `linear` applied only half the recoil |
-| `pressureClamp` | `false` (default `true`) | **Keep `false`.** The clamp overwrote the pressure after the solve, so the velocity no longer satisfied continuity |
+| `pressureClamp` | `false` (default `false`) | **Keep `false`.** The clamp overwrote the pressure after the solve, so the velocity no longer satisfied continuity. With `false` the pressure is never modified: a pressure outside [`minPressure`, `maxPressure`] is only reported, and a non-finite pressure stops the run |
+| `maxVaporVelocity` | not set (default: off) | Optional cap on the speed in cells with α < 0.1, gas included. It does not conserve momentum. Before this correction it defaulted to 2000 m/s |
 | `maxPressureGradient` | 1e300 | Limiter on the pressure gradient, switched off |
 | `maxVelocity` | 0 | Speed of the metal above which the run stops with an error (default 500 m/s); 0 switches the check off |
 | `momentumBudget` | `true` (default `false`) | Log the forces on the metal and the change of its momentum every time step |

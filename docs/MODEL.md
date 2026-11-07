@@ -119,11 +119,11 @@ where $\bar I$ is the intensity **averaged over the time step** (the Gaussian in
 | Nominal peak fluence before the glass | $F_0 = 2E_0/(\pi w_0^2)$ = 332 mJ/cm², so $E_0$ = 4.694e-8 J | case definition |
 | Transmission to the film | (1 − 0.0460) × 0.9177 = 0.87545: Fresnel reflection at the air–glass surface and internal transmission of the glass | case input |
 | Energy reaching the film | $E$ = 0.87545 $E_0$ = 4.109e-8 J; peak fluence on the film 290.6 mJ/cm² | derived |
-| Absorbed fraction | $(1-R)(1-e^{-ah}) = 0.572 \times 0.99938 = 0.5717$; only $e^{-ah} = 6\times10^{-4}$ of the light leaves the film on the gap side | derived |
-| Peak absorbed fluence on the axis | 0.5717 × 290.6 = 166 mJ/cm² | derived |
+| Absorbed fraction | $(1-R)(1-e^{-ah}) = 0.5717 \times 0.99938 = 0.5713$; only $e^{-ah} = 6\times10^{-4}$ of the light leaves the film on the gap side | derived |
+| Peak absorbed fluence on the axis | 0.5713 × 290.6 = 166 mJ/cm² | derived |
 | Peak absorbed power density | $Q_0 = (1-R) I_0 a = 7.55\times10^{23}$ W/m³ | derived |
 
-**Energy estimate.** The energy absorbed per unit volume right at the glass-side surface on the axis is $a \times 1661\ \text{J/m}^2 = 1.7\times10^{11}$ J/m³. If it stayed where it was absorbed, electrons and lattice in equilibrium would reach the temperature $T$ that solves $\tfrac12\gamma T^2 + C_l T = 1.7\times10^{11}$ J/m³, i.e. about 19,700 K. The simulation reaches about 16,400 K, slightly lower because the electrons carry part of the energy deeper into the film during the pulse (§4.3).
+**Energy estimate.** The energy absorbed per unit volume right at the glass-side surface on the axis is $a \times 1661\ \text{J/m}^2 = 1.7\times10^{11}$ J/m³. If it stayed where it was absorbed, electrons and lattice in equilibrium would reach the temperature $T$ that solves $\tfrac12\gamma T^2 + C_l T = 1.7\times10^{11}$ J/m³, i.e. about 19,700 K. The simulation reaches about 16,400 K. Two effects lower it: the solver holds the average over the first 4.46 nm cell, which is 0.79 of the surface value for a 9.66 nm absorption depth (about 17,200 K by the same estimate), and the electrons diffuse about $\sqrt{D_e t} \approx 5$ nm during the 0.3 ps of the pulse while the lattice is still cold (§4.3) [UNCERTAIN: the split between the two effects has not been computed].
 
 ![Simulated laser source in the film at 0.5 ps](../figures/fsLIFT_332mJ_axisymmetric/gallery/heat_Q_laser_0000500fs.png)
 
@@ -177,7 +177,7 @@ From the closures (figure above, panel c, and §8):
 |---|---|---|
 | Pulse | $\tau_{FWHM}$ | 0.21 ps |
 | Electron–lattice equilibration | $\tau_{eq} = [G(1/C_e+1/C_l)]^{-1}$ | 0.17 ps at 1,000 K; 0.07 ps at 5,000 K; 0.03 ps at 16,000 K |
-| Electron diffusion across the film while the lattice is cold ($T_l$ = 300 K) | $h^2/D_e$, $D_e = k_e/C_e = k_{e0}/(\gamma T_l) = 10^{-4}$ m²/s | 0.05 ps |
+| Electron diffusion across the film while the lattice is cold ($T_l$ = 300 K) | $h^2/D_e$, $D_e = k_e/C_e = k_{e0}/(\gamma T_l) = 10^{-4}$ m²/s | 51 ps; in 0.3 ps the electrons diffuse only $\sqrt{D_e t} \approx$ 5 nm |
 | Electron diffusion across the film once the lattice is hot ($T_l$ = 10,000 K) | $h^2/D_e$, $D_e = 3\times10^{-6}$ m²/s | 1.7 ns |
 
 Because equilibration is as fast as the pulse, electrons and lattice reach nearly the same temperature within a few hundred femtoseconds. Once the lattice is hot, the electron conductivity drops ($k_e \propto 1/T_l$) and the heat stays near the glass-side surface for nanoseconds. This is what the simulation shows:
@@ -189,7 +189,7 @@ Because equilibration is as fast as the pulse, electrons and lattice reach nearl
 ### 4.4 Implementation
 
 - Both equations are discretised implicitly (Euler) with the coupling term $G(T_e-T_l)$ treated in coupled sweeps (`nInnerCouplingSweeps 3`, tolerance 1e-4).
-- The electron equation is sub-stepped within each flow time step (`electronSubCycles 4`, electron sub-step at most 1 fs).
+- The electron equation is sub-stepped within each flow time step: at least `electronSubCycles 4` and enough to keep the sub-step at `maxElectronDeltaT` = 1 fs, but at most `maxElectronSubCycles 20`. The sub-step is therefore 1 fs or less during stage 1 (Δt ≤ 10 fs), but Δt/20 later: 50 fs at Δt = 1 ps and 125 fs at 2.5 ps.
 - The temperatures are bounded by safety limits (`maxTe`, `maxTl`, `maxT` = 50,000 K) that are never reached in the reference case. Limits of 10,000 K, used in early development, were reached and removed energy.
 - The implementation is checked against an independent finite-difference solution of the same equations ([VERIFICATION.md](VERIFICATION.md#21-laser-heating-and-two-temperature-model)): peak electron temperature −0.5 %, time at which electrons and lattice meet +0.8 %.
 
@@ -269,8 +269,8 @@ On the glass-side surface the vapour cannot escape: it is confined between the g
 The glass-side surface is divided into rings $b$ of width $\Delta r$ = 100 nm (`binWidth`), out to $r_{max}$ = 10 µm. Each ring is an independent vapour column. Over a time step $\Delta t$:
 
 $$
-m_b \;\leftarrow\; m_b + \Delta t \sum_{c\,\in\,b} j_c\,|\nabla\alpha|_c\,V_c
-\qquad\text{(evaporated mass from the glass-side interface cells of the ring)}
+m_b \;\leftarrow\; m_b + \Delta t \sum_{c\,\in\,b} \rho_m\,\dot\alpha_{evap,c}\,V_c
+\qquad\text{(the metal mass the } \alpha \text{ equation removes from the glass-side interface cells of the ring)}
 $$
 
 $$
@@ -289,6 +289,7 @@ p_b = \min\!\left(\langle p_{sat}\rangle_b,\; \frac{m_b R_v \langle T\rangle_b}{
 $$
 
 - $A_b$ is the ring area in the wedge and $\mathbf{n}_g$ the normal pointing into the glass.
+- $\dot\alpha_{evap} = j\,|\nabla\alpha|/\rho_m$ is the evaporation sink of §5.2 (the field `dgdt`), so the pocket gains exactly the mass the film loses. $A_b$ is the sum of $|\nabla\alpha|V$ over the metal- and gas-side cells of the surface.
 - $\langle\cdot\rangle_b$ are averages over the evaporating cells of the ring, weighted by the evaporation flux, so the hottest surface dominates.
 - The vapour behaves as an ideal gas but cannot exceed the saturation pressure. Vapour in excess of saturation condenses back (it is removed from $m_b$).
 - When no cell of the ring evaporates any more, the stored vapour keeps its ideal-gas pressure without the saturation cap.
@@ -446,10 +447,8 @@ The pressure equation is solved with OpenFOAM's geometric-agglomerated algebraic
 
 ### 9.3 Time step
 
-The time step is the smallest of:
-- the flow Courant limit (`maxCo 0.2`);
-- the interface Courant limit (`maxAlphaCo 0.5`);
-- the thermal Courant limit (`maxThermalCourant 0.5`);
+The time step is the smaller of:
+- the flow Courant limit (`maxCo 0.2`; OpenFOAM's standard `setDeltaT.H`, which also limits the growth to 20 % per step);
 - the user limit `maxDeltaT`, which `tools/run_case.sh` sets in three stages:
 
 | Stage | Time | `maxDeltaT` | Reason |
@@ -457,6 +456,8 @@ The time step is the smallest of:
 | 1 | 0–2 ps | 10 fs | resolve the pulse (FWHM 214 fs) and the electron–lattice coupling |
 | 2 | 2 ps – 1 ns | 1 ps | launch of the film; large vapour pressures |
 | 3 | 1 ns – end | 2.5 ps | flight; kept below the capillary limit of 4.4 ps (§8) |
+
+`maxAlphaCo` and `maxThermalCourant` do **not** limit the time step in this solver. The interface Courant number is computed and only logged, and `maxThermalCourant` only bounds the gas–metal exchange coefficient in the gas temperature equation. The capillary limit is respected only through the `maxDeltaT` values above.
 
 The electron equation is additionally sub-stepped (§4.4).
 
@@ -494,7 +495,7 @@ All values are those of `cases/fsLIFT_332mJ_axisymmetric`. "Case input" means th
 | | energy reaching the film | 4.109×10⁻⁸ J | derived (§3.3) |
 | | reflectivity, glass–titanium | 0.428 | derived from $n$, $k$, $n_g$ |
 | | absorption coefficient | 1.0347×10⁸ 1/m | derived, $4\pi k/\lambda$ |
-| Titanium, liquid | density | 4515 kg/m³ | case input: solid titanium at room temperature, which with the deposited 71.4 nm gives the right film mass; the liquid is **7.7 % less dense at the melting point**, so the real liquid film is thicker (Ozawa et al. 2017; [VALIDATION.md §5](VALIDATION.md#5-level-3-input-validation)) |
+| Titanium, liquid | density | 4515 kg/m³ | case input: within 0.2 % of solid titanium at room temperature (4,506 kg/m³), which with the deposited 71.4 nm gives the right film mass; the liquid is **7.1 % less dense at the melting point** (4,193 kg/m³; the film expands by 7.7 %), so the real liquid film is thicker (Ozawa et al. 2017; [VALIDATION.md §5](VALIDATION.md#5-level-3-input-validation)) |
 | | dynamic viscosity | 2.35×10⁻³ Pa s | case input |
 | | surface tension | 1.64 N/m | case input; matches the measured value at the melting point (1.613 N/m) but is constant, while the measured value falls by 0.2 mN/m per K (Seimiya et al. 2022; [VALIDATION.md §5](VALIDATION.md#5-level-3-input-validation)) |
 | | melting (solidus = liquidus) temperature | 1941 K | case input |

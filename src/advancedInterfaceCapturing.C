@@ -431,23 +431,44 @@ advancedInterfaceCapturing::advancedInterfaceCapturing
 
         alphaMin_ = mixtureAlphaMin;
     }
+    // Femtosecond defaults. They used to overwrite the dictionary values
+    // silently (e.g. a user alphaMin 0.01 became 0). They now replace only
+    // entries that are NOT given in advancedInterfaceCapturing, and the
+    // replaced entries are reported.
+    wordList femtosecondDefaultsApplied;
     if (femtosecondCase_)
     {
         // Keep the interface window wide open for femtosecond vaporization.
-        alphaMin_ = 0.0;
-        alphaMax_ = 1.0;
-        phaseChangeTempOffset_ = dimensionedScalar
-        (
-            "phaseChangeTempOffset",
-            dimTemperature,
-            0.0
-        );
-        recoilTempOffset_ = dimensionedScalar
-        (
-            "recoilTempOffset",
-            dimTemperature,
-            0.0
-        );
+        if (!aicDict.found("alphaMin"))
+        {
+            alphaMin_ = 0.0;
+            femtosecondDefaultsApplied.append(word("alphaMin"));
+        }
+        if (!aicDict.found("alphaMax"))
+        {
+            alphaMax_ = 1.0;
+            femtosecondDefaultsApplied.append(word("alphaMax"));
+        }
+        if (!aicDict.found("phaseChangeTempOffset"))
+        {
+            phaseChangeTempOffset_ = dimensionedScalar
+            (
+                "phaseChangeTempOffset",
+                dimTemperature,
+                0.0
+            );
+            femtosecondDefaultsApplied.append(word("phaseChangeTempOffset"));
+        }
+        if (!aicDict.found("recoilTempOffset"))
+        {
+            recoilTempOffset_ = dimensionedScalar
+            (
+                "recoilTempOffset",
+                dimTemperature,
+                0.0
+            );
+            femtosecondDefaultsApplied.append(word("recoilTempOffset"));
+        }
     }
     metalAlphaCutoff_ = aicDict.lookupOrDefault<scalar>
     (
@@ -479,13 +500,39 @@ advancedInterfaceCapturing::advancedInterfaceCapturing
     );
     if (femtosecondCase_)
     {
-        // Avoid damping impulses that occur within a few femtoseconds of pulse start.
-        rampProgress_ = 1.0;
-        rampIncrement_ = 1.0;
-        recoilMaxDelta_ = 0.0;
-        recoilSmoothCoeff_ = 0.0;
-        recoilSmoothIters_ = 0;
+        // Avoid damping impulses that occur within a few femtoseconds of
+        // pulse start, unless the user asked for it explicitly.
+        if (!aicDict.found("recoilRampSteps"))
+        {
+            rampProgress_ = 1.0;
+            rampIncrement_ = 1.0;
+            femtosecondDefaultsApplied.append(word("recoilRampSteps"));
+        }
+        if (!aicDict.found("recoilMaxDelta"))
+        {
+            recoilMaxDelta_ = 0.0;
+            femtosecondDefaultsApplied.append(word("recoilMaxDelta"));
+        }
+        if (!aicDict.found("recoilSmoothCoeff"))
+        {
+            recoilSmoothCoeff_ = 0.0;
+            femtosecondDefaultsApplied.append(word("recoilSmoothCoeff"));
+        }
+        if (!aicDict.found("recoilSmoothIters"))
+        {
+            recoilSmoothIters_ = 0;
+            femtosecondDefaultsApplied.append(word("recoilSmoothIters"));
+        }
         recoilMax_ = (recoilMax_ > SMALL) ? recoilMax_ : scalar(GREAT);
+
+        if (femtosecondDefaultsApplied.size() && master)
+        {
+            Info<< "advancedInterfaceCapturing: femtosecond case (initial"
+                << " deltaT <= 5e-12 s or femtosecondCase true); femtosecond"
+                << " defaults (alpha window 0-1, offsets 0, no ramp/smoothing)"
+                << " used for entries not given in the dictionary: "
+                << femtosecondDefaultsApplied << endl;
+        }
     }
     const dimensionedScalar defaultBoltzmann(boltzmannConstant_);
     const dimensionedScalar rawBoltzmann =
@@ -649,26 +696,17 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
         relaxTimeIndex_ = currentTimeIndex;
     }
 
-    if (!femtosecondCase_)
+    // Femtosecond cases without an explicit recoilRampSteps get a one-step
+    // ramp (rampIncrement_ = 1, set in the constructor), i.e. no ramp; an
+    // explicit recoilRampSteps is honoured in every case.
+    if (rampProgress_ < scalar(1))
     {
-        if (rampProgress_ < scalar(1))
-        {
-            // Progressively enable recoil according to the configured ramp steps.
-            rampProgress_ = Foam::min(rampProgress_ + rampIncrement_, scalar(1));
-        }
-        else
-        {
-            rampProgress_ = scalar(1);
-        }
-    }
-    else
-    {
-        rampProgress_ = scalar(1);
+        // Progressively enable recoil according to the configured ramp steps.
+        rampProgress_ = Foam::min(rampProgress_ + rampIncrement_, scalar(1));
     }
 
     const scalar rampFactor = rampProgress_;
-    const bool applyRamp = (!femtosecondCase_)
-        && rampFactor < (scalar(1) - Foam::SMALL);
+    const bool applyRamp = rampFactor < (scalar(1) - Foam::SMALL);
 
     recoilPressure_ = dimensionedScalar("zero", dimPressure, 0.0);
     scalarField& recoilField = recoilPressure_.primitiveFieldRef();
@@ -1158,6 +1196,21 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
             const vectorField& Ui = Uf.primitiveField();
             const vectorField& Cc = mesh_.C().primitiveField();
             const scalarField& Vc = mesh_.V().field();
+            // Evaporated mass leaving the film per cell [kg/s]: the rate dgdt
+            // with which the alpha equation removes metal, times the metal
+            // density. The pocket inflow used j*|grad(alpha)|*V before; with the
+            // Gauss gradient that is only half of the geometric interface area
+            // the phase-change model uses for the film sink (1/4 to 1/2 for a
+            // smeared interface), so the pocket received 25-50 % of the mass
+            // the film lost. |grad(alpha)|*V is still used for the pocket AREA,
+            // where the metal- and gas-side cells together give the full area.
+            const scalarField& dgdtF = mixture_.dgdt().primitiveField();
+            const tmp<volScalarField> tRhoMetalField(mixture_.thermo1().rho());
+            const scalarField& rhoMetalF = tRhoMetalField().primitiveField();
+            auto evaporatedMassRate = [&](label i) -> scalar
+            {
+                return Foam::max(dgdtF[i], scalar(0))*rhoMetalF[i]*Vc[i];
+            };
             // unmodified p_sat(T) published by the phase-change model; the
             // stored mass flux may be scaled or capped
             const volScalarField* pSatPub =
@@ -1168,8 +1221,15 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
             };
             auto glassSide = [&](label i)
             {
-                return alpha1Field[i] >= alphaMin_ && alpha1Field[i] <= alphaMax_
-                    && (gA[i] & confinedDir) < 0;
+                // Glass-side surface cells: metal below, gas above. The
+                // pocket AREA needs the metal- and the gas-side cell of the
+                // surface (each carries about half of |grad alpha|*V), so
+                // this test must not depend on the recoil alpha window
+                // alphaMin_/alphaMax_ (which femtosecond cases used to force
+                // to 0/1). The pressure is applied only to cells with
+                // alpha >= metalAlphaCutoff_, and mass enters only from
+                // evaporating cells.
+                return (gA[i] & confinedDir) < 0;
             };
 
             const word pocketMode =
@@ -1248,22 +1308,23 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
                 const scalar dA = Foam::mag(gA[i])*Vc[i];
                 const scalar T = Foam::max(temperatureField[i], scalar(1));
                 const scalar j = Foam::max(massFluxField[i], scalar(0));
+                const scalar mdotCell = evaporatedMassRate(i);
                 areaB[b] += dA;
-                mdotB[b] += j*dA;
-                TAB[b] += T*j*dA;
-                TjAB[b] += j*dA;
-                // weighted by the evaporation flux j*dA (as T_v):
+                mdotB[b] += mdotCell;
+                TAB[b] += T*mdotCell;
+                TjAB[b] += mdotCell;
+                // weighted by the evaporated mass rate (as T_v):
                 // area weighting let cool partial cells pull the bin's p_sat
                 // far below the hot surface's value
                 if (pSatPub)
                 {
-                    pSatAB[b] += (*pSatPub)[i]*j*dA;
+                    pSatAB[b] += (*pSatPub)[i]*mdotCell;
                 }
                 else if (validEvaporationCoeff)
                 {
                     pSatAB[b] +=
                         j*Foam::sqrt(constant::mathematical::twoPi*R_specific*T)
-                       /Foam::max(Foam::mag(evaporationCoeff), SMALL)*j*dA;
+                       /Foam::max(Foam::mag(evaporationCoeff), SMALL)*mdotCell;
                 }
             }
             Pstream::listCombineReduce(mdotB, plusEqOp<scalar>());
@@ -1405,7 +1466,7 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
                 const scalar j = massFluxField[i];
                 if (j > massRateEps_)
                 {
-                    mdot += j*Foam::mag(gA[i])*Vc[i];
+                    mdot += evaporatedMassRate(i);   // mass the film loses
                     rEvap = Foam::max(rEvap, radial(Cc[i]));
                 }
             }
@@ -1435,10 +1496,10 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
                 const scalar j = massFluxField[i];
                 if (j > massRateEps_ && (pSatPub || validEvaporationCoeff))
                 {
-                    // vapour temperature: evaporation-flux weighted (the
+                    // vapour temperature: evaporated-mass weighted (the
                     // vapour is produced mostly at the hot centre)
-                    TA += T*j*dA;
-                    TjA += j*dA;
+                    TA += T*evaporatedMassRate(i);
+                    TjA += evaporatedMassRate(i);
                     const scalar pSat =
                         pSatPub
                       ? (*pSatPub)[i]

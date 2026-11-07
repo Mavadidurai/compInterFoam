@@ -152,8 +152,6 @@ compInterFoamCoeffs
 {
     maxReasonableVelocity  1000;
     maxVelocity            0;
-    defaultMetalDensity    4500;
-    defaultAirDensity      1.2;
     maxInitialResidual     10;
     maxPressureGradient    1e16;
     // Interface clamp settings

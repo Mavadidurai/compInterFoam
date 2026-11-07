@@ -1466,6 +1466,10 @@ void Foam::twoPhaseMixtureThermo::computePhaseChange()
         // Store the volumetric temperature rate with a sign convention where
         // evaporation yields a negative contribution and condensation positive.
         const scalar rate = volumetricHeat/Cl;
+        // NOTE: phaseChangeRelaxCoeff is still computed and written for
+        // diagnostics, but twoTemperatureModel no longer applies it (it added
+        // an artificial, time-step-dependent damping of Tl; see
+        // twoTemperatureModel::solveLatticeEquation).
         // dtFloor clamps the implicit relaxation coefficient to 1/dtFloor
         // (i.e. the effective relaxation time is never allowed below
         // dtFloor), preventing a very short evapRelaxationTime from
