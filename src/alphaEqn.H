@@ -110,11 +110,18 @@ extern Foam::Switch verbose;
                 << "compressionLimiter=" << compressionLimiter << endl;
         }
     }
+    // Per-call copies of the alpha controls. icAlpha, scAlpha and MULESCorr are
+    // created once in createFields.H and live for the whole run; overwriting
+    // them here made a single femtosecond step switch them off for every later
+    // step (and a restart switch them on again).
+    scalar icAlphaStep = icAlpha;
+    scalar scAlphaStep = scAlpha;
+
     if (femtosecondDeltaT)
     {
         compressionLimiter = 1.0;
-        icAlpha = 0.0;
-        scAlpha = 0.0;
+        icAlphaStep = 0.0;
+        scAlphaStep = 0.0;
         limitCompression = false;
 
         if (verbose && Foam::Pstream::master())
@@ -124,15 +131,15 @@ extern Foam::Switch verbose;
                 << "); disabling secondary compression terms" << endl;
         }
     }
-    if (icAlpha > 0)
+    if (icAlphaStep > 0)
     {
-        phic *= (1.0 - icAlpha);
-        phic += (mixture.cAlpha()*icAlpha)*fvc::interpolate(mag(U));
+        phic *= (1.0 - icAlphaStep);
+        phic += (mixture.cAlpha()*icAlphaStep)*fvc::interpolate(mag(U));
     }
 
-    if (scAlpha > 0)
+    if (scAlphaStep > 0)
     {
-        phic += scAlpha*mag(mesh.delta() & fvc::interpolate(symm(fvc::grad(U))));
+        phic += scAlphaStep*mag(mesh.delta() & fvc::interpolate(symm(fvc::grad(U))));
     }
 
     const word sharpeningScheme
@@ -272,13 +279,19 @@ extern Foam::Switch verbose;
 
     #include "alphaSuSp.H"
 
-    // MULESCorr may be dynamically disabled below for femtosecond steps;
-    // capture the value actually used to decide whether talphaPhi1Corr0
-    // gets cached this call, so the end-of-step delta conversion stays
-    // consistent with whether it was populated.
-    const bool usedMULESCorrThisStep = MULESCorr;
+    // The MULES correction is skipped on femtosecond steps. The decision is
+    // made per call and does not modify MULESCorr (see icAlphaStep above).
+    const bool useMULESCorr = MULESCorr && !femtosecondDeltaT;
+    const bool usedMULESCorrThisStep = useMULESCorr;
 
-    if (MULESCorr)
+    if (!useMULESCorr)
+    {
+        // a cached correction from an earlier MULESCorr step must not be
+        // re-applied after explicit steps in between
+        talphaPhi1Corr0.clear();
+    }
+
+    if (useMULESCorr)
     {
         fvScalarMatrix alpha1Eqn
         (
@@ -357,7 +370,10 @@ extern Foam::Switch verbose;
                     talphaPhi1UD(),
                     talphaPhi1Corr0.ref(),
                     Sp(),
-                    Su(),
+                    // The sources are already in the predictor; Su = -Sp*alpha1
+                    // keeps them out of the correction (stock form). Passing Su()
+                    // applied them again in every correction pass.
+                    (-Sp()*alpha1())(),
                     oneField(),
                     zeroField()
                 );
@@ -393,14 +409,10 @@ extern Foam::Switch verbose;
     if (femtosecondDeltaT)
     {
         effectiveAlphaCorr = Foam::min(nAlphaCorr, label(1));
-        if (MULESCorr)
+        if (MULESCorr && verbose && Foam::Pstream::master())
         {
-            if (verbose && Foam::Pstream::master())
-            {
-                Info<< "alphaEqn: disabling MULES correction for femtosecond"
-                    " timestep to reduce artificial compression" << endl;
-            }
-            MULESCorr = false;
+            Info<< "alphaEqn: MULES correction skipped for this femtosecond"
+                " timestep to reduce artificial compression" << endl;
         }
     }
 
@@ -431,7 +443,7 @@ extern Foam::Switch verbose;
             )
         );
 
-        if (MULESCorr)
+        if (useMULESCorr)
         {
             tmp<surfaceScalarField> talphaPhi1Corr(talphaPhi1Un() - alphaPhi10);
             volScalarField alpha10("alpha10", alpha1);
@@ -445,7 +457,7 @@ extern Foam::Switch verbose;
                     talphaPhi1Un(),
                     talphaPhi1Corr.ref(),
                     Sp(),
-                    Su(),
+                    (-Sp()*alpha1())(),   // sources already in the predictor
                     oneField(),
                     zeroField()
                 );

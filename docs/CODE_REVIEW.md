@@ -2,6 +2,14 @@
 
 Review date: 2026-11-07. Commit reviewed: `5844a69`.
 
+**Status of the fixes (same branch).** A1, A2, A3 and A4 have been corrected in `src/`:
+- A1: the relaxation pair was removed from `solveLatticeEquation`;
+- A2: the pocket inflow now uses ρ_m·dgdt·V, the mass the α equation removes;
+- A3: `MULES::correct` now gets `Su = −Sp·α`;
+- A4: per-call copies of `MULESCorr`, `icAlpha` and `scAlpha`.
+
+The fixes have **not been compiled or run** (no OpenFOAM in the review environment). The reference results in `figures/` and the docs were produced with the old code; they will change once the case is rerun with the fixed solver.
+
 ## 0. Scope, method and what this review could *not* do
 
 | Part | Lines | Read |

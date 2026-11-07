@@ -1158,6 +1158,21 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
             const vectorField& Ui = Uf.primitiveField();
             const vectorField& Cc = mesh_.C().primitiveField();
             const scalarField& Vc = mesh_.V().field();
+            // Evaporated mass leaving the film per cell [kg/s]: the rate dgdt
+            // with which the alpha equation removes metal, times the metal
+            // density. The pocket inflow used j*|grad(alpha)|*V before; with the
+            // Gauss gradient that is only half of the geometric interface area
+            // the phase-change model uses for the film sink (1/4 to 1/2 for a
+            // smeared interface), so the pocket received 25-50 % of the mass
+            // the film lost. |grad(alpha)|*V is still used for the pocket AREA,
+            // where the metal- and gas-side cells together give the full area.
+            const scalarField& dgdtF = mixture_.dgdt().primitiveField();
+            const tmp<volScalarField> tRhoMetalField(mixture_.thermo1().rho());
+            const scalarField& rhoMetalF = tRhoMetalField().primitiveField();
+            auto evaporatedMassRate = [&](label i) -> scalar
+            {
+                return Foam::max(dgdtF[i], scalar(0))*rhoMetalF[i]*Vc[i];
+            };
             // unmodified p_sat(T) published by the phase-change model; the
             // stored mass flux may be scaled or capped
             const volScalarField* pSatPub =
@@ -1248,22 +1263,23 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
                 const scalar dA = Foam::mag(gA[i])*Vc[i];
                 const scalar T = Foam::max(temperatureField[i], scalar(1));
                 const scalar j = Foam::max(massFluxField[i], scalar(0));
+                const scalar mdotCell = evaporatedMassRate(i);
                 areaB[b] += dA;
-                mdotB[b] += j*dA;
-                TAB[b] += T*j*dA;
-                TjAB[b] += j*dA;
-                // weighted by the evaporation flux j*dA (as T_v):
+                mdotB[b] += mdotCell;
+                TAB[b] += T*mdotCell;
+                TjAB[b] += mdotCell;
+                // weighted by the evaporated mass rate (as T_v):
                 // area weighting let cool partial cells pull the bin's p_sat
                 // far below the hot surface's value
                 if (pSatPub)
                 {
-                    pSatAB[b] += (*pSatPub)[i]*j*dA;
+                    pSatAB[b] += (*pSatPub)[i]*mdotCell;
                 }
                 else if (validEvaporationCoeff)
                 {
                     pSatAB[b] +=
                         j*Foam::sqrt(constant::mathematical::twoPi*R_specific*T)
-                       /Foam::max(Foam::mag(evaporationCoeff), SMALL)*j*dA;
+                       /Foam::max(Foam::mag(evaporationCoeff), SMALL)*mdotCell;
                 }
             }
             Pstream::listCombineReduce(mdotB, plusEqOp<scalar>());
@@ -1405,7 +1421,7 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
                 const scalar j = massFluxField[i];
                 if (j > massRateEps_)
                 {
-                    mdot += j*Foam::mag(gA[i])*Vc[i];
+                    mdot += evaporatedMassRate(i);   // mass the film loses
                     rEvap = Foam::max(rEvap, radial(Cc[i]));
                 }
             }
@@ -1435,10 +1451,10 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
                 const scalar j = massFluxField[i];
                 if (j > massRateEps_ && (pSatPub || validEvaporationCoeff))
                 {
-                    // vapour temperature: evaporation-flux weighted (the
+                    // vapour temperature: evaporated-mass weighted (the
                     // vapour is produced mostly at the hot centre)
-                    TA += T*j*dA;
-                    TjA += j*dA;
+                    TA += T*evaporatedMassRate(i);
+                    TjA += evaporatedMassRate(i);
                     const scalar pSat =
                         pSatPub
                       ? (*pSatPub)[i]

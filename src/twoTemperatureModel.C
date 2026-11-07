@@ -781,15 +781,25 @@ void twoTemperatureModel::solveLatticeEquation
         fvm::Sp(capacity/dtSub, Tl_)
       - fvm::laplacian(fvc::interpolate(klField)*localMin<scalar>(mesh_).interpolate(metalEffDiffusion), Tl_)
        + fvm::Sp(metalEffActive*G, Tl_)
-       + fvm::Sp(metalEffActive*Cl_*phaseChangeRelaxCoeff, Tl_)
      ==
          (capacity/dtSub)*TlPrev
        + metalPhysicalActive*G*Te_
         // Signed so evaporation (j_net > 0) is negative and cools the lattice.
        + metalPhysicalActive*Cl_*phaseChangeSource
-       + metalPhysicalActive*Cl_*phaseChangeRelaxCoeff*TlOld
        - metalPhysicalActive*gasMetalHeatFlux
      );
+
+     // The former pair Sp(Cl*relax, Tl) and Cl*relax*TlOld (relax = 1/tau,
+     // tau = max(evapRelaxationTime, dtFloor), default 1e-12 s) added
+     // Cl*(TlOld - Tl)/tau in every evaporating cell. That is not a
+     // linearisation of the evaporation sink (it pulls towards the old-time
+     // value at a fixed rate, also against heating); it multiplied the heat
+     // capacity of those cells by (1 + dt/tau), i.e. by 2 at dt = 1 ps, and
+     // its energy was not counted by the audit. The evaporation sink is now
+     // explicit (evaluated with the latest Tl in each PIMPLE iteration); at
+     // the 10 kK cap it changes Tl by about 60 K per picosecond step.
+     (void)phaseChangeRelaxCoeff;
+     (void)TlOld;
 
      if
      (

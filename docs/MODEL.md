@@ -269,8 +269,8 @@ On the glass-side surface the vapour cannot escape: it is confined between the g
 The glass-side surface is divided into rings $b$ of width $\Delta r$ = 100 nm (`binWidth`), out to $r_{max}$ = 10 µm. Each ring is an independent vapour column. Over a time step $\Delta t$:
 
 $$
-m_b \;\leftarrow\; m_b + \Delta t \sum_{c\,\in\,b} j_c\,|\nabla\alpha|_c\,V_c
-\qquad\text{(evaporated mass from the glass-side interface cells of the ring)}
+m_b \;\leftarrow\; m_b + \Delta t \sum_{c\,\in\,b} \rho_m\,\dot\alpha_{evap,c}\,V_c
+\qquad\text{(the metal mass the } \alpha \text{ equation removes from the glass-side interface cells of the ring)}
 $$
 
 $$
@@ -289,6 +289,7 @@ p_b = \min\!\left(\langle p_{sat}\rangle_b,\; \frac{m_b R_v \langle T\rangle_b}{
 $$
 
 - $A_b$ is the ring area in the wedge and $\mathbf{n}_g$ the normal pointing into the glass.
+- $\dot\alpha_{evap} = j\,|\nabla\alpha|/\rho_m$ is the evaporation sink of §5.2 (the field `dgdt`), so the pocket gains exactly the mass the film loses. $A_b$ is the sum of $|\nabla\alpha|V$ over the metal- and gas-side cells of the surface.
 - $\langle\cdot\rangle_b$ are averages over the evaporating cells of the ring, weighted by the evaporation flux, so the hottest surface dominates.
 - The vapour behaves as an ideal gas but cannot exceed the saturation pressure. Vapour in excess of saturation condenses back (it is removed from $m_b$).
 - When no cell of the ring evaporates any more, the stored vapour keeps its ideal-gas pressure without the saturation cap.
