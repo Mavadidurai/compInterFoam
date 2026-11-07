@@ -27,10 +27,14 @@ This document compares the model inputs and results of the reference case with p
 
 | Access in this check | Entries |
 |---|---|
-| Full text read (arXiv preprints) | Hobmaier et al. 2026; Bévillon et al. 2014; Lippert et al. 2022 |
+| Full text read (author copies on arXiv or the HAL open archive) | Hobmaier et al. 2026; Bévillon et al. 2014; Lippert et al. 2022; Murali et al. 2022; Li et al. 2019; Li et al. 2017 (Optics Express); Long et al. 2023; Bibal et al. 2024; Zhang et al. 2023; Boyd & Ling 2022; Boniou 2021 (thesis) |
 | Abstract read | Ye & Grigoropoulos 2001; Grojo et al. 2005; Deshpande et al. 2012 (abstract and method section) |
-| Publisher refused automated access | Kuznetsov et al. 2012; Pohl et al. 2015; Klini et al. 2008; Banks et al. 2006; Lin et al. 2008; Parris et al. 2026; Vachaparambil & Einarsrud 2019 |
-| Not attempted | the remaining entries |
+| Open access at the publisher, but the publisher refused automated access from this environment | 13 entries (column `publisher_open_access` of the register) |
+| Behind a subscription; publisher refused automated access | among others Kuznetsov et al. 2012; Pohl et al. 2015; Banks et al. 2006; Lin et al. 2008 |
+
+The register lists, for each paper, any legal open copy (column `legal_open_copy`: the HAL open archive or arXiv) and whether the publisher's version is open access. 25 of the 62 papers can be obtained freely and legally; the rest need a library subscription.
+
+The three copper jetting studies read in full (Murali et al. 2022; Li et al. 2019; Li et al. 2017) use a double-pulse scheme on 1 µm copper films: a long pulse melts the film and a femtosecond pulse drives the jet. That is a different regime from a single femtosecond pulse on a 71.4 nm titanium film, so they are not used for any quantitative comparison here.
 
 Only numbers that were read in a source are used below. Where a comparison could not be made, it says so.
 
