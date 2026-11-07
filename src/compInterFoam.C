@@ -1862,12 +1862,22 @@ if (liftPhysics.valid() && liftPhysics->breakupEnabled())
         dimensionedScalar Ee = fvc::domainIntegrate(alpha1*tEe());
         tEe.clear();
         dimensionedScalar Elattice = fvc::domainIntegrate(alpha1*Cl_*TlField);
-        const dimensionedScalar El = ttm.cumulativePhaseChangeEnergy();
+        // Energy that entered (laser) or left (latent heat of evaporation)
+        // the metal during this step, with the same alpha weighting as the
+        // two-temperature model. The check below used to compare the change of
+        // Etot without these sources, and added ttm.cumulativePhaseChangeEnergy()
+        // to Etot, which is only accumulated when energyDiagnostics is on (0
+        // otherwise), so its warning fired during every heating step.
+        const dimensionedScalar sourceEnergyThisStep =
+            fvc::domainIntegrate
+            (
+                alpha1*QLaser + alpha1*Cl_*phaseChangeSource
+            )*runTime.deltaT();
         const volScalarField& he2 = mixture.thermo2().he();
         dimensionedScalar Egas =
             fvc::domainIntegrate(alpha2*rho2*he2 - alpha2*p);
 
-        dimensionedScalar Etot = Ek + Ee + Elattice + El + Egas;
+        dimensionedScalar Etot = Ek + Ee + Elattice + Egas;
 
         // Track cumulative boundary energy flux to account for energy leaving domain
         static dimensionedScalar cumulativeBoundaryFlux
@@ -1930,7 +1940,11 @@ if (liftPhysics.valid() && liftPhysics->breakupEnabled())
             boundaryEnergyThisStep.value()*runTime.deltaTValue();
 
         const scalar energyChangeWithFlux =
-            mag(Etot.value() - prevEtot + boundaryLossThisStep);
+            mag
+            (
+                Etot.value() - prevEtot + boundaryLossThisStep
+              - sourceEnergyThisStep.value()
+            );
 
         const scalar relChange = energyChangeWithFlux/denom;
         const bool accountForBoundaryFlux =
@@ -1959,12 +1973,14 @@ if (liftPhysics.valid() && liftPhysics->breakupEnabled())
         else if
         (
             prevEtotMag > minEnergyForCheck
-         && mag(Etot.value() - prevEtot)/denom > energyTolerance.value()
+         && mag(Etot.value() - prevEtot - sourceEnergyThisStep.value())/denom
+          > energyTolerance.value()
          && !accountForBoundaryFlux
         )
         {
             WarningInFunction
-                << "Relative energy change " << mag(Etot.value() - prevEtot)/denom
+                << "Relative energy change "
+                << mag(Etot.value() - prevEtot - sourceEnergyThisStep.value())/denom
                 << " exceeds energyTolerance (" << energyTolerance.value() << ")" << nl
                 << "(Boundary flux accounting disabled)" << endl;
         }
@@ -1973,7 +1989,8 @@ if (liftPhysics.valid() && liftPhysics->breakupEnabled())
             Info<< "Energy totals [J]: Ek=" << Ek.value()
                 << " Ee=" << Ee.value()
                 << " Elattice=" << Elattice.value()
-                << " Elatent=" << El.value()
+                << " sources(laser+latent, this step)="
+                << sourceEnergyThisStep.value()
                 << " Egas=" << Egas.value()
                 << " Etot=" << Etot.value() << nl
                 << " Boundary flux [J]: This step=" << boundaryEnergyThisStep.value()

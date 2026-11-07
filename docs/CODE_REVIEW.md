@@ -8,6 +8,18 @@ Review date: 2026-11-07. Commit reviewed: `5844a69`.
 - A3: `MULES::correct` now gets `Su = −Sp·α`;
 - A4: per-call copies of `MULESCorr`, `icAlpha` and `scAlpha`.
 
+The medium-severity items have also been corrected:
+- A5: the ineffective override was removed, so the code matches the documented effective compression of 0.5;
+- A6: `maxVaporVelocity` is off by default and acts before the flux is built;
+- A7: femtosecond defaults apply only to entries not in the dictionary and are reported, and the pocket's glass-side test no longer depends on the recoil α window;
+- A8: `pressureClamp false` never modifies p (warning only; a non-finite p is fatal), and the default is now `false`;
+- A9: the energy check includes the laser and latent-heat sources of the step;
+- B2, B3: MODEL.md numbers, sub-step and time-step text corrected; density statements corrected;
+- B4: USER_GUIDE and VALIDATION state that the mesh-study case is not an error bar for the reference result;
+- C1: the unread `metal{}`/`air{}` blocks were removed from `constant/thermophysicalProperties`, `rho_metal` was set to 4515 in the reference and column cases, and the unread `defaultMetalDensity`/`defaultAirDensity` were removed.
+
+A10 (Kapitza gradient, low–medium) is not changed: fixing it would switch on a gas–metal exchange that has never been active in any run.
+
 The fixes have **not been compiled or run** (no OpenFOAM in the review environment). The reference results in `figures/` and the docs were produced with the old code; they will change once the case is rerun with the fixed solver.
 
 ## 0. Scope, method and what this review could *not* do

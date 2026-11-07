@@ -431,23 +431,44 @@ advancedInterfaceCapturing::advancedInterfaceCapturing
 
         alphaMin_ = mixtureAlphaMin;
     }
+    // Femtosecond defaults. They used to overwrite the dictionary values
+    // silently (e.g. a user alphaMin 0.01 became 0). They now replace only
+    // entries that are NOT given in advancedInterfaceCapturing, and the
+    // replaced entries are reported.
+    wordList femtosecondDefaultsApplied;
     if (femtosecondCase_)
     {
         // Keep the interface window wide open for femtosecond vaporization.
-        alphaMin_ = 0.0;
-        alphaMax_ = 1.0;
-        phaseChangeTempOffset_ = dimensionedScalar
-        (
-            "phaseChangeTempOffset",
-            dimTemperature,
-            0.0
-        );
-        recoilTempOffset_ = dimensionedScalar
-        (
-            "recoilTempOffset",
-            dimTemperature,
-            0.0
-        );
+        if (!aicDict.found("alphaMin"))
+        {
+            alphaMin_ = 0.0;
+            femtosecondDefaultsApplied.append(word("alphaMin"));
+        }
+        if (!aicDict.found("alphaMax"))
+        {
+            alphaMax_ = 1.0;
+            femtosecondDefaultsApplied.append(word("alphaMax"));
+        }
+        if (!aicDict.found("phaseChangeTempOffset"))
+        {
+            phaseChangeTempOffset_ = dimensionedScalar
+            (
+                "phaseChangeTempOffset",
+                dimTemperature,
+                0.0
+            );
+            femtosecondDefaultsApplied.append(word("phaseChangeTempOffset"));
+        }
+        if (!aicDict.found("recoilTempOffset"))
+        {
+            recoilTempOffset_ = dimensionedScalar
+            (
+                "recoilTempOffset",
+                dimTemperature,
+                0.0
+            );
+            femtosecondDefaultsApplied.append(word("recoilTempOffset"));
+        }
     }
     metalAlphaCutoff_ = aicDict.lookupOrDefault<scalar>
     (
@@ -479,13 +500,39 @@ advancedInterfaceCapturing::advancedInterfaceCapturing
     );
     if (femtosecondCase_)
     {
-        // Avoid damping impulses that occur within a few femtoseconds of pulse start.
-        rampProgress_ = 1.0;
-        rampIncrement_ = 1.0;
-        recoilMaxDelta_ = 0.0;
-        recoilSmoothCoeff_ = 0.0;
-        recoilSmoothIters_ = 0;
+        // Avoid damping impulses that occur within a few femtoseconds of
+        // pulse start, unless the user asked for it explicitly.
+        if (!aicDict.found("recoilRampSteps"))
+        {
+            rampProgress_ = 1.0;
+            rampIncrement_ = 1.0;
+            femtosecondDefaultsApplied.append(word("recoilRampSteps"));
+        }
+        if (!aicDict.found("recoilMaxDelta"))
+        {
+            recoilMaxDelta_ = 0.0;
+            femtosecondDefaultsApplied.append(word("recoilMaxDelta"));
+        }
+        if (!aicDict.found("recoilSmoothCoeff"))
+        {
+            recoilSmoothCoeff_ = 0.0;
+            femtosecondDefaultsApplied.append(word("recoilSmoothCoeff"));
+        }
+        if (!aicDict.found("recoilSmoothIters"))
+        {
+            recoilSmoothIters_ = 0;
+            femtosecondDefaultsApplied.append(word("recoilSmoothIters"));
+        }
         recoilMax_ = (recoilMax_ > SMALL) ? recoilMax_ : scalar(GREAT);
+
+        if (femtosecondDefaultsApplied.size() && master)
+        {
+            Info<< "advancedInterfaceCapturing: femtosecond case (initial"
+                << " deltaT <= 5e-12 s or femtosecondCase true); femtosecond"
+                << " defaults (alpha window 0-1, offsets 0, no ramp/smoothing)"
+                << " used for entries not given in the dictionary: "
+                << femtosecondDefaultsApplied << endl;
+        }
     }
     const dimensionedScalar defaultBoltzmann(boltzmannConstant_);
     const dimensionedScalar rawBoltzmann =
@@ -649,26 +696,17 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
         relaxTimeIndex_ = currentTimeIndex;
     }
 
-    if (!femtosecondCase_)
+    // Femtosecond cases without an explicit recoilRampSteps get a one-step
+    // ramp (rampIncrement_ = 1, set in the constructor), i.e. no ramp; an
+    // explicit recoilRampSteps is honoured in every case.
+    if (rampProgress_ < scalar(1))
     {
-        if (rampProgress_ < scalar(1))
-        {
-            // Progressively enable recoil according to the configured ramp steps.
-            rampProgress_ = Foam::min(rampProgress_ + rampIncrement_, scalar(1));
-        }
-        else
-        {
-            rampProgress_ = scalar(1);
-        }
-    }
-    else
-    {
-        rampProgress_ = scalar(1);
+        // Progressively enable recoil according to the configured ramp steps.
+        rampProgress_ = Foam::min(rampProgress_ + rampIncrement_, scalar(1));
     }
 
     const scalar rampFactor = rampProgress_;
-    const bool applyRamp = (!femtosecondCase_)
-        && rampFactor < (scalar(1) - Foam::SMALL);
+    const bool applyRamp = rampFactor < (scalar(1) - Foam::SMALL);
 
     recoilPressure_ = dimensionedScalar("zero", dimPressure, 0.0);
     scalarField& recoilField = recoilPressure_.primitiveFieldRef();
@@ -1183,8 +1221,15 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
             };
             auto glassSide = [&](label i)
             {
-                return alpha1Field[i] >= alphaMin_ && alpha1Field[i] <= alphaMax_
-                    && (gA[i] & confinedDir) < 0;
+                // Glass-side surface cells: metal below, gas above. The
+                // pocket AREA needs the metal- and the gas-side cell of the
+                // surface (each carries about half of |grad alpha|*V), so
+                // this test must not depend on the recoil alpha window
+                // alphaMin_/alphaMax_ (which femtosecond cases used to force
+                // to 0/1). The pressure is applied only to cells with
+                // alpha >= metalAlphaCutoff_, and mass enters only from
+                // evaporating cells.
+                return (gA[i] & confinedDir) < 0;
             };
 
             const word pocketMode =

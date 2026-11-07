@@ -108,7 +108,7 @@ Each equation added to OpenFOAM was tested on its own, against an exact solution
 - **Resolution from scale analysis** ([MODEL.md §8–9](MODEL.md#8-characteristic-scales-and-dimensionless-numbers)):
   - 16 cells across the 71.4 nm film (4.46 nm), resolving the 9.7 nm absorption depth with about two cells per depth (the deposition is exact per cell, [MODEL.md §3.2](MODEL.md#32-implementation));
   - 6 nm cells for the first 3 µm below the film, so the dome tip stays sharp; on coarser cells it smeared to α ≈ 0.5.
-- **Time step** below every stability limit: flow and interface Courant numbers, a thermal limit, and the capillary limit of about 4.4 ps on the film cells.
+- **Time step** set by the flow Courant number (`maxCo`) and the staged `maxDeltaT`, which keeps it below the capillary limit of about 4.4 ps on the film cells. The interface Courant number and `maxThermalCourant` are not time-step limits in this solver (only logged, and a bound on the gas–metal exchange respectively).
 - **Conservation:** the metal volume changed by −0.0135 % over 20 ns, a change that includes the evaporated metal.
 
 **What has not been done.**
@@ -134,7 +134,7 @@ Every titanium input was compared with measured or first-principles values where
 
 | Input | Model | Published | Source | Difference | Verdict |
 |---|---|---|---|---|---|
-| Liquid density | 4515 kg/m³, constant (the room-temperature solid value) | ρ = 4193 − 0.2376 (T − 1941 K) kg/m³ for pure liquid Ti, 1640–2090 K, expanded uncertainty ±1.4 % | Ozawa et al. 2017 (read in the open PDF) | 7.7 % above the liquid at the melting point. With the deposited 71.4 nm the mass per area ρh is right (solid Ti at 300 K: 4,506 kg/m³, +0.2 %); what is missing is the expansion of the liquid film (7.5 % thicker at the melting point) | ⚠️ |
+| Liquid density | 4515 kg/m³, constant (within 0.2 % of the room-temperature solid value, 4,506 kg/m³) | ρ = 4193 − 0.2376 (T − 1941 K) kg/m³ for pure liquid Ti, 1640–2090 K, expanded uncertainty ±1.4 % | Ozawa et al. 2017 (read in the open PDF) | 7.7 % above the liquid at the melting point. With the deposited 71.4 nm the mass per area ρh is right (solid Ti at 300 K: 4,506 kg/m³, +0.2 %); what is missing is the expansion of the liquid film (7.5 % thicker at the melting point) | ⚠️ |
 | Liquid density (alloy, for comparison) | – | ρ = 4123 − 0.254 (T − 1943 K) kg/m³ for Ti-6Al-4V | Li et al. 2006 (abstract) | supports the pure-Ti value | – |
 | Surface tension | 1.64 N/m, constant | σ = 1.613 − 0.000205 (T − 1941 K) N/m for 99.98 % pure liquid Ti, free of oxygen contamination | Seimiya et al. 2022 (abstract) | +1.7 % at the melting point; +9 % at 2,500 K; +17 % at 3,000 K. No temperature dependence in the model, so no Marangoni flow | ❌ |
 | Electron–lattice coupling G | table from 10¹⁸ (300 K) to 10²⁰ W/(m³ K) (20,000 K) | peak ≈ 2.5×10¹⁸ W/(m³ K) (first principles); Lin et al. about 1.5 times higher | Hobmaier et al. 2026 (full text) | 5–8 times at 5,000 K; 14–20 times at 10,000 K; 27–40 times at 20,000 K | ❌ |
@@ -171,7 +171,7 @@ So neither input error changes the launch speed to first order. Both matter for 
 
 The coupling error mainly changes how fast the lattice heats (0.25 ps instead of about 2 ps). The peak surface temperature changes by only −11 % to +9 %. Because the model evaluates the vapour pressure with the temperature capped at 10,000 K, and the surface stays above that cap for the first 20 ps in all three cases, the early vapour drive is nearly unchanged. With first-principles values, the surface stays hotter for longer, so the vapour drive would probably last longer.
 
-**Combined.** The density does not bias the launch speed. With first-principles two-temperature parameters the surface stays hotter for longer, so the vapour drive would probably last longer and the launch speed of the reference run is more likely an underestimate than an overestimate [UNCERTAIN: the size is not known; it needs the 2-D rerun with corrected inputs, case `cases/fsLIFT_332mJ_Ti_meshStudy`].
+**Combined.** The density does not bias the launch speed. With first-principles two-temperature parameters the surface stays hotter for longer, so the vapour drive would probably last longer and the launch speed of the reference run is more likely an underestimate than an overestimate [UNCERTAIN: the size is not known; it needs the 2-D rerun with corrected inputs, case `cases/fsLIFT_332mJ_Ti_meshStudy`; that case also changes the radial mesh, so it is not a mesh study of the reference result].
 
 **Verdict, level 3: failed for three inputs** (temperature dependence of the surface tension, electron–lattice coupling, electron heat capacity); the density gives the right film mass but no expansion. The corrections are known and should be applied before any comparison with experiment.
 

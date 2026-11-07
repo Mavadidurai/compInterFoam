@@ -166,7 +166,7 @@ G
         type        kapitza;    // Use acoustic mismatch model
         Z_metal     2.3e7;      // Ti acoustic impedance [Pa·s/m]
         Z_gas       383;        // acoustic impedance of the gas [Pa·s/m] (argon value)
-        rho_metal   4500;       // Ti density [kg/m^3]
+        rho_metal   4515;       // Ti density [kg/m^3], as in thermophysicalProperties.metal
         rho_gas     1.7;        // gas density in this exchange model [kg/m^3] (argon value)
         maxTemperature 0;      // Optional cap [K] (0 => no cap)
     }

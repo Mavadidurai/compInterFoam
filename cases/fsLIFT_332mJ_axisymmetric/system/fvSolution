@@ -156,8 +156,6 @@ compInterFoamCoeffs
     momentumBudget true;
     maxReasonableVelocity  1000;
     maxVelocity            0;
-    defaultMetalDensity    4500;
-    defaultAirDensity      1.2;
     maxInitialResidual     10;
     maxPressureGradient    1e300;  // limiter switched off (it is also non-conservative)
     // Interface clamp settings

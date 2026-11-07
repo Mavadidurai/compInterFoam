@@ -117,12 +117,16 @@ extern Foam::Switch verbose;
     scalar icAlphaStep = icAlpha;
     scalar scAlphaStep = scAlpha;
 
+    // The femtosecond branch used to also set compressionLimiter = 1 and
+    // limitCompression = false. That came after the limiter had already been
+    // applied above, so it never lifted the limit; it only skipped the second
+    // (identical) application below. It is removed so the code does what the
+    // documented and benchmarked settings say: effective compression
+    // coefficient min(cAlpha, compressionLimiter) on every step.
     if (femtosecondDeltaT)
     {
-        compressionLimiter = 1.0;
         icAlphaStep = 0.0;
         scAlphaStep = 0.0;
-        limitCompression = false;
 
         if (verbose && Foam::Pstream::master())
         {
