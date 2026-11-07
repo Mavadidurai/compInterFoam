@@ -1,0 +1,57 @@
+status,first_author,year,title,doi_or_id,level,role,why_kept_or_note
+abstract checked,Willis,2005,Microdroplet deposition by laser-induced forward transfer,10.1063/1.1944895,5,corroboration,Al and Ni droplets much smaller than the spot; donor film bulges outward first (ns)
+abstract checked,Röder,2012,Physical model for the laser induced forward transfer process,10.1063/1.3685469,5,model comparison,numerical LIFT model; threshold energy and blow-off time agree with measurements on Ni films
+abstract checked,Muniyallappa,2023,Numerical modeling to predict threshold fluence for material ejection in LIFT of metals,10.1088/1402-4896/acf16b,5,model comparison,"finite-volume LIFT model of gold films, two ejection modes, threshold fluence (ns)"
+abstract checked,Nakata,2021,Laser-induced transfer of noble metal nanodots with femtosecond laser-interference processing,10.3390/nano11020305,5,corroboration,"fs transfer of Au nanodots, several hundred nm, solid-liquid-solid mechanism"
+abstract checked,Zhao,2018,LIFT: topography dependence of laser fluence and thickness for titanium film,10.1115/msec2018-6587,5,corroboration (Ti),"Ti films in LIFT, topography types vs fluence and thickness (UV ns)"
+abstract checked,Zhao (with Hu),2019,Surface morphology formation of Ti films in laser-induced forward transfer,10.1088/2051-672x/ab295e,5,corroboration (Ti),"Ti films 435-1250 nm, five topography types, UV ns pulses"
+abstract checked,Wu,2023,Printing regime for single metal microdroplet deposition in LIFT,10.2139/ssrn.4317722,5,corroboration,"single-droplet regime vs fluence and spot size, experiments and thermal simulation (preprint)"
+abstract checked,Wu,2022,Effects of flight distance on metal microdroplet depositing behaviors in LIFT,10.1115/msec2022-85508,5,corroboration,effect of donor-receiver distance on droplet deposition
+abstract checked,Zhao,2026,Optimizing the microstructure of fs-LIFT tungsten by artificial neural network,10.1088/1361-651x/ae378b,5,corroboration,fs-LIFT of a refractory metal: no transfer -> transfer -> substrate ablation with energy
+abstract checked,Adrian,1987,A study of the mechanism of metal deposition by the LIFT process,10.1116/1.583661,5,mechanism,back of film reaches boiling before melt-through: vapour-driven transfer
+abstract checked,Tseng,2012,Fabrication of plasmonic devices using femtosecond LIFT,10.1088/0957-4484/23/44/444013,5,corroboration,fs-LIFT gold dots/nanoparticles and nanobumps vs fluence and film thickness
+abstract checked,Han,2022,Microparticles of high entropy alloys made by LIFT,10.3390/ma15228063,5,corroboration,"230 fs, 515 nm, ~50 nm films: particle morphology vs fluence"
+abstract checked,Grant-Jacob,2013,Micron-scale copper wires printed using femtosecond LIFT,10.1364/ome.3.000747,5,corroboration,"150 fs, 800 nm, 120 nm Cu donor, 0.16-0.21 J/cm2"
+abstract checked,Visser,2015,Toward 3D printing of pure metals by LIFT,10.1002/adma.201501058,5,corroboration,"liquid Cu and Au droplets ejected by LIFT, droplet shape vs laser"
+abstract checked,Serra,2018,LIFT: fundamentals and applications,10.1002/admt.201800099,5,review,review of LIFT mechanisms
+abstract checked,Piqué,2020,LIFT processes in additive manufacturing,10.31399/asm.hb.v24.a0006565,5,review,handbook review
+abstract checked,Kuzmin,2022,Features of structuring and ablation of thin titanium films by femtosecond laser pulses,10.21883/eos.2022.04.53727.66-21,4,validation candidate (Ti film),"thin Ti films, 515/1030 nm fs, selective film removal regimes"
+abstract checked,Wang,2021,Simulation of fs laser ablation and spallation of titanium film (TTM-MD),10.2351/7.0000264,4,model comparison (Ti film),"TTM-MD of Ti film, spallation by stress waves, 800 nm 300 fs; Scite lists an erratum and a correction"
+abstract checked,Temnov,2020,Nondestructive fs laser lithography of Ni nanocavities by thermo-mechanical spallation,arXiv:2006.11661,4,corroboration,300 nm Ni films irradiated through the glass substrate; spallation and flakes
+abstract checked,Zhou,2026,Deformation behavior of gold film induced by ultrafast laser with different fluences,10.2351/7.0002052,4,corroboration,"40 nm Au film, single ultrafast pulse: bump, bump rupture, ablation"
+abstract checked,Goodfriend,2024,Laser-induced gas-phase transfer and direct stamping of nanomaterials: ns vs fs,arXiv:2412.09725,4,corroboration (Ti film),"blister of a Ti donor film on glass, fs and ns, ~16 um gap"
+abstract checked,Naghilou,2019,Femtosecond laser generation of microbumps and nanojets on single and bilayer Cu/Ag thin films,10.1039/c9cp02174d,4,corroboration,fs microbumps and nanojets; shapes set by electron-phonon nonequilibrium
+abstract checked,"Wang (with Kuchmizhak, Juodkazis)",2017,Laser-induced translative hydrodynamic mass snapshots,10.1103/physrevapplied.8.044016,4,model comparison,predictive modelling of laser-induced melt hydrodynamics in noble-metal films
+abstract checked,Kuchmizhak,2015,Laser ablative fabrication of nanocrowns and nanojets on Cu supported film,10.1016/j.apsusc.2015.09.255,4,corroboration,"nanojets and nanocrowns vs Cu film thickness, fs"
+abstract checked,Bezhanov,2017,Femtosecond laser induced nanostructuring of aluminum films of variable thickness,10.1088/1612-202x/aa9157,4,model comparison,threshold vs film thickness with a two-temperature model
+abstract checked,Hazarika,2023,TTM-MD of copper thin film irradiation with fs and ps pulses,10.2351/7.0000948,4,mechanism,void formation in Cu film at low fluence
+abstract checked,Xie,2020,Atomic simulation of Cu film with fs laser of different pulse durations,10.2351/1.5144512,4,mechanism,"TTM-MD, melting and disintegration vs pulse duration"
+abstract checked,Ruffino,2019,Nanostructuration of thin metal films by pulsed laser irradiations: a review,10.3390/nano9081133,4,review,review of laser nanostructuring of thin metal films
+abstract checked,Ye,2000,Femtosecond laser ablation of titanium and silicon,10.1115/imece2000-1474,4,corroboration (Ti),"fs ablation of Ti, ion time-of-flight velocity distributions"
+abstract checked,Lin,2022,Effects of ablation regimes on the formation and evolution of femtosecond laser-induced periodic structures on titanium,10.3389/fphy.2022.861098,4,corroboration (Ti),fs ablation regimes of Ti vs fluence
+abstract checked,Seimiya,2022,"Round-robin measurement of surface tension for liquid titanium (EML, ESL)",10.3390/met12071129,3,input data (Ti),sigma = 1613 - 0.2049(T-1941) mN/m for pure liquid Ti
+abstract checked,Reiplinger,2022,"Surface tension of liquid Ti, V and their binary alloys (EML)",10.1007/s10853-022-07995-y,3,input data (Ti),"surface tension of pure liquid Ti, linear in T"
+abstract checked,Reiplinger,2023,"Density, molar volume and surface tension of the liquid Ti-V system (EML)",10.32908/hthp.v52.1355,3,input data (Ti),"density and surface tension, liquid Ti-V incl. pure Ti"
+abstract checked,Ozawa,2017,Precise density measurement of liquid titanium by electrostatic levitator,10.2320/matertrans.l-m2017835,3,input data (Ti),"rho = 4193 - 0.23762(T-1941) kg/m3, 1640-2090 K (read in the open PDF)"
+abstract checked,Ishikawa,2012,Viscosity measurements of molten refractory metals using an electrostatic levitator,10.1088/0957-0233/23/2/025305,3,input data (Ti),viscosity of molten Ti by oscillating drop
+abstract checked,Li,2006,Thermal expansion of liquid Ti-6Al-4V measured by electrostatic levitation,10.1063/1.2349840,3,input data (alloy),rho = 4123 - 0.254(T-Tm) kg/m3 for the alloy
+abstract checked,Zhao,2012,A two-dimensional comprehensive hydrodynamic model for fs laser pulse interaction with metals,10.1088/0022-3727/45/10/105201,N,method,"TTM + compressible hydrodynamics + equation of state, 2-D"
+abstract checked,Huang,2010,Modeling of ultrafast phase change processes in a thin metal film (fs pulse trains),10.1115/1.4002444,N,method,"TTM with interface tracking: melting, vaporization of Au film"
+abstract checked,Hirano,2012,Temperature dependence of recoil pressure near the boiling temperature,10.2351/1.5062526,N,method (recoil),recoil pressure model near boiling
+abstract checked,Knight,1979,Theoretical modeling of rapid surface vaporization with back pressure,10.2514/3.61164,N,method (recoil),Knudsen-layer jump conditions for metal vaporization
+abstract checked,Gusarov,2002,Gas-dynamic boundary conditions of evaporation and condensation: Knudsen layer,10.1063/1.1516211,N,method (recoil),boundary conditions of strong evaporation
+abstract checked,Meland,2003,Evaporation and condensation Knudsen layers for nonunity condensation coefficient,10.1063/1.1564097,N,method (recoil),Knudsen layer with non-unity coefficient (your beta = 0.18)
+abstract checked,Ytrehus,1983,Asymmetries in evaporation and condensation Knudsen layer problems,10.1063/1.864244,N,method (recoil),Knudsen-layer theory
+abstract checked,Benilov,2025,Probability of evaporation for a molecule passing through the Knudsen layer,10.1103/physreve.111.044116,N,method (recoil),Knudsen-layer temperature jump and escape probability
+abstract checked,Morozov,2024,Evaporation into half-space: kinetic simulation of Knudsen layer,10.1063/5.0211993,N,method (recoil),DSMC/kinetic validation of Knudsen-layer models
+abstract checked,Akhmetov,2022,Effect of atomic-temperature dependence of the electron-phonon coupling in TTM,10.3390/ma15155193,N,input/method (G),G depends on atomic temperature too
+abstract checked,Arefev,2022,Kinetics of laser-induced melting of thin gold film,10.1126/sciadv.abo2621,N,mechanism,"slow melting of fs-irradiated thin Au films, atomistic"
+abstract checked,Amouye Foumani,2018,Atomistic simulation of fs laser interactions with a copper film,10.1063/1.5009501,N,mechanism,TTM-MD with temperature-dependent optics and G
+pending: abstract not available,Meshcheryakov,2005,Thermoelastic modeling of microbump and nanojet formation on nanosize gold films under fs irradiation,10.1007/s00339-005-3319-9,4,model comparison,no abstract available in Scite or Crossref
+pending: abstract not available,Shugaev,2010,Thermodynamic and stress analysis of laser-induced forward transfer of metals,10.1007/s00339-010-5767-0,5,model comparison,no abstract available
+pending: abstract not available,Pohl,,"Laser-induced forward transfer of pure metals (PhD thesis, Twente)",10.3990/1.9789036538695,5,corroboration,open access; no abstract indexed
+pending: abstract not available,Johnson,1974,"Optical constants of transition metals: Ti, V, Cr, Mn, Fe, Co, Ni, and Pd",10.1103/physrevb.9.5056,3,input data (Ti optics),no abstract available
+pending: abstract not available,Alcock,1984,Vapour pressure equations for the metallic elements: 298-2500 K,10.1179/cmq.1984.23.3.309,3,input data (vapour pressure),no abstract available
+pending: abstract not available,Brackbill,1992,A continuum method for modeling surface tension,10.1016/0021-9991(92)90240-y,N,method,no abstract available
+pending: abstract not available,Hirt,1981,Volume of fluid (VOF) method for the dynamics of free boundaries,10.1016/0021-9991(81)90145-5,N,method,no abstract available
+pending: abstract not available,Anisimov,1968,Vaporization of metal absorbing laser radiation,"(Sov. Phys. JETP 27, 182; reprint 10.1142/9789814317344_0002)",N,method (recoil),no abstract available

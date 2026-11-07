@@ -332,7 +332,7 @@ Ordered by how much each could change the answer to "does the film eject, and ho
 7. **Damping of interface oscillations is too weak** (§7).
 8. **Axisymmetric only.** Rings cannot break into separate droplets around their circumference, and an off-centre beam or film defects cannot be represented.
 9. **Not validated** against measurements; the LIFT experiments in the literature register could not be read for this work.
-10. **Two-temperature parameters of titanium.** The electron–lattice coupling (5–27 times above 5,000 K) and the electron heat capacity (about 2 times) are higher than published values. This mainly speeds up the heating of the atoms (0.25 ps instead of about 2 ps); the peak surface temperature changes by −11 % to +9 % ([LITERATURE.md §3](docs/LITERATURE.md#3-two-temperature-parameters-of-titanium)).
+10. **Titanium inputs.** The liquid density is 7.7–15 % too high and the surface tension is constant ([VALIDATION.md §5](docs/VALIDATION.md#5-level-3-input-validation)). **Two-temperature parameters of titanium.** The electron–lattice coupling (5–27 times above 5,000 K) and the electron heat capacity (about 2 times) are higher than published values. This mainly speeds up the heating of the atoms (0.25 ps instead of about 2 ps); the peak surface temperature changes by −11 % to +9 % ([LITERATURE.md §3](docs/LITERATURE.md#3-two-temperature-parameters-of-titanium)).
 
 ---
 
@@ -384,6 +384,8 @@ Every setting of the case, every tool, and how to set up a new case (another flu
 | `figures/verification/` | verification figures |
 | `figures/model/` | figures of the model inputs (laser profiles, two-temperature properties, evaporation, mesh), used in docs/MODEL.md |
 | `figures/literature/` | the sensitivity study of the two-temperature parameters, used in docs/LITERATURE.md |
+| `literature/screened_candidates.csv` | 56 further papers found for the validation report: 48 with the abstract read and the reason for inclusion, 8 pending |
+| `figures/validation/` | figures of the verification and validation report |
 | `literature/register.csv` | register of 62 related papers with metadata checked against their DOIs, links, relevance, and corrections to the original list; the papers themselves are not included (copyright) |
 | `docs/` | documentation |
 
@@ -393,6 +395,7 @@ Every setting of the case, every tool, and how to set up a new case (another flu
 | [docs/USER_GUIDE.md](docs/USER_GUIDE.md) | building, running and restarting, every case setting explained, the analysis tools, setting up a new case |
 | [docs/VERIFICATION.md](docs/VERIFICATION.md) | every test with its result and how to repeat it, the defects found and corrected, the open points |
 | [docs/RESULTS.md](docs/RESULTS.md) | the reference result in detail, and the limitations of the model |
+| [docs/VALIDATION.md](docs/VALIDATION.md) | the verification and validation report: status of the five levels, every test, the titanium inputs against measured values, sub-model and mechanism comparisons, what can and cannot be claimed, and the validation plan, with figures |
 | [docs/LITERATURE.md](docs/LITERATURE.md) | comparison of the inputs and results with published work: titanium two-temperature parameters, conductivity, critical temperature, stress confinement, surface-tension numerics; what could not yet be compared |
 
 ---
