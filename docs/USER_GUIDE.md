@@ -94,10 +94,10 @@ It runs levels 1, 2 and 3 to 1 ns, then continues levels 2 and 1 to 20 ns. On 4 
 
 ```bash
 for L in 1 2 3; do xvfb-run -a pvpython tools/mesh_study_fields.py <work dir>/L$L; done
-python3 tools/mesh_study_gci.py <work dir> 1e-9
+python3 tools/mesh_study_gci.py <work dir> 8.02e-10
 ```
 
-`mesh_study_gci.py` computes the apparent order of convergence, the extrapolated value and the grid convergence index of each quantity by the procedure of Celik et al. (2008).
+The fields are written every 0.2 ns counted from the start of stage 2 (2 ps), so the last written time before 1 ns is 0.802 ns, the same on every level. `mesh_study_gci.py` computes the apparent order of convergence, the extrapolated value and the grid convergence index of each quantity by the procedure of Celik et al. (2008).
 
 The run script needs `mpirun`; in a container that runs as root, set `OMPI_ALLOW_RUN_AS_ROOT=1` and `OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1`.
 

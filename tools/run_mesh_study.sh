@@ -28,7 +28,7 @@ setup() {  # setup <level>
 }
 for L in 1 2 3; do
   setup $L; disk_ok
-  if [ -f "$WORK/L$L/processor0/1e-09/U" ]; then say "L$L already at 1 ns"; continue; fi
+  if grep -q "^End" "$WORK/L$L/log.stage2" 2>/dev/null; then say "L$L already at 1 ns"; continue; fi
   source "$WORK/L$L/maxdt.env"
   say "L$L part 1 start (MAXDT2=$MAXDT2)"
   MAXDT2=$MAXDT2 WRITE1=1e-12 WRITE2=2e-10 bash "$TOOLS/run_case.sh" "$WORK/L$L" "$NP" 1e-9

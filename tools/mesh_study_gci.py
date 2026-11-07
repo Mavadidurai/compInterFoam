@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Grid-convergence analysis of the mesh study (tools/run_mesh_study.sh).
 
-    python3 tools/mesh_study_gci.py <work dir> [time in s, default 1e-9]
+    python3 tools/mesh_study_gci.py <work dir> [time in s, default 8.02e-10]
 
 Needs <work dir>/L1, L2, L3, each with its logs and mesh_study_fields.csv
 (xvfb-run -a pvpython tools/mesh_study_fields.py <work dir>/L<n>).
@@ -22,7 +22,7 @@ import numpy as np
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.join(HERE, "..", "figures", "fsLIFT_332mJ_Ti_meshStudy"); os.makedirs(os.path.join(OUT, "data"), exist_ok=True)
-work = sys.argv[1]; T = float(sys.argv[2]) if len(sys.argv) > 2 else 1e-9
+work = sys.argv[1]; T = float(sys.argv[2]) if len(sys.argv) > 2 else 8.02e-10
 LEVELS = (3, 2, 1)  # finest first
 
 
