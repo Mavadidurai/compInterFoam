@@ -494,7 +494,7 @@ All values are those of `cases/fsLIFT_332mJ_axisymmetric`. "Case input" means th
 | | energy reaching the film | 4.109×10⁻⁸ J | derived (§3.3) |
 | | reflectivity, glass–titanium | 0.428 | derived from $n$, $k$, $n_g$ |
 | | absorption coefficient | 1.0347×10⁸ 1/m | derived, $4\pi k/\lambda$ |
-| Titanium, liquid | density | 4515 kg/m³ | case input; **7.7 % above the measured liquid density at the melting point**, more at higher temperature (Ozawa et al. 2017; [VALIDATION.md §5](VALIDATION.md#5-level-3-input-validation)) |
+| Titanium, liquid | density | 4515 kg/m³ | case input: solid titanium at room temperature, which with the deposited 71.4 nm gives the right film mass; the liquid is **7.7 % less dense at the melting point**, so the real liquid film is thicker (Ozawa et al. 2017; [VALIDATION.md §5](VALIDATION.md#5-level-3-input-validation)) |
 | | dynamic viscosity | 2.35×10⁻³ Pa s | case input |
 | | surface tension | 1.64 N/m | case input; matches the measured value at the melting point (1.613 N/m) but is constant, while the measured value falls by 0.2 mN/m per K (Seimiya et al. 2022; [VALIDATION.md §5](VALIDATION.md#5-level-3-input-validation)) |
 | | melting (solidus = liquidus) temperature | 1941 K | case input |

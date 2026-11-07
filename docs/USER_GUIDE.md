@@ -71,6 +71,36 @@ mpirun -np 4 compInterFoam -parallel > log.run 2>&1
 
 Set `endTime`, `maxDeltaT` and `writeInterval` in `system/controlDict` yourself, following the stage table above. `numberOfSubdomains` in `system/decomposeParDict` must match the number of processes.
 
+### 2.4 Mesh study with titanium inputs from the literature
+
+`cases/fsLIFT_332mJ_Ti_meshStudy` is the reference case with literature inputs for titanium and a mesh family for a grid-convergence study:
+
+| Input | Reference case | Mesh-study case | Source |
+|---|---|---|---|
+| Density | 4515 kg/m³ | 4506 kg/m³: solid Ti at 300 K, so that with the deposited 71.4 nm the mass per area of the film is right | room-temperature value; the liquid (4193 kg/m³ at the melting point, Ozawa et al. 2017) would need a thicker film |
+| Surface tension | 1.64 N/m | 1.613 N/m, the measured value at the melting point | Seimiya et al. 2022 |
+| Electron heat capacity | 630 T_e J/(m³ K) | 318 T_e J/(m³ K) | Hobmaier et al. 2026 (Sommerfeld fit) |
+| Electron–lattice coupling | table to 1e20 W/(m³ K) | the same table capped at 2.5e18 W/(m³ K) | Hobmaier et al. 2026 (first-principles peak) |
+
+The two-temperature inputs are those of case C of `tools/ttm_parameter_sensitivity.py`, so its 1-D solution can be compared with the early heating. The surface tension is constant: the measured temperature dependence holds near the melting point, and the linear fit reaches zero near 9,800 K, far outside the measured range. The viscosity (2.35 mPa s) is unchanged and not yet checked against a measurement.
+
+`tools/make_mesh_level.py <case> <1|2|3>` writes the mesh of one level. Level 2 has the axial cells of the reference case and 35 nm radial cells for r < 3.5 µm, graded by 4 to the edge; levels 1 and 3 have √2 fewer and √2 more cells in each direction (62,010, 124,200 and 248,252 cells). The largest time steps are scaled with (cell size)^1.5, the scaling of the capillary time-step limit. The whole study runs with
+
+```bash
+tools/run_mesh_study.sh <work dir> [number of processes]
+```
+
+It runs levels 1, 2 and 3 to 1 ns, then continues levels 2 and 1 to 20 ns. On 4 processes, level 3 takes about 6 hours to 1 ns and would need about 45 hours more to reach 20 ns, so it is not continued. To analyse the results:
+
+```bash
+for L in 1 2 3; do xvfb-run -a pvpython tools/mesh_study_fields.py <work dir>/L$L; done
+python3 tools/mesh_study_gci.py <work dir> 1e-9
+```
+
+`mesh_study_gci.py` computes the apparent order of convergence, the extrapolated value and the grid convergence index of each quantity by the procedure of Celik et al. (2008).
+
+The run script needs `mpirun`; in a container that runs as root, set `OMPI_ALLOW_RUN_AS_ROOT=1` and `OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1`.
+
 ---
 
 ## 3. The one-dimensional test cases

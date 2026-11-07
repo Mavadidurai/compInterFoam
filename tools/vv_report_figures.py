@@ -21,7 +21,7 @@ GREEN, AMBER, RED, GREY = "#2E7D32", "#F9A825", "#C62828", "#9E9E9E"
 # ------------------------------------------------------------------ 1. status of the five levels
 levels = [("1  Code verification", "15 checks: 12 within 5 %, force balance 6 %, drop frequency 10.5 % and converging, damping open", GREEN),
           ("2  Solution verification", "no mesh-refinement study of the reference case; separation mesh-limited", AMBER),
-          ("3  Input validation", "4 titanium inputs differ from measured or first-principles values", RED),
+          ("3  Input validation", "3 titanium inputs differ from measured or first-principles values; density gives the right film mass", RED),
           ("4  Sub-model validation", "mechanisms consistent with titanium and thin-film literature; no matched numbers", AMBER),
           ("5  System validation", "no public measurement under matching conditions", RED)]
 fig, ax = plt.subplots(figsize=(10, 4.6)); ax.set_xlim(0, 10); ax.set_ylim(0, 5.2); ax.axis("off")
@@ -96,23 +96,25 @@ fig.suptitle("Model inputs of the reference case against measured or first-princ
 fig.tight_layout(); fig.savefig(os.path.join(OUT, "input_validation.png"), dpi=150); plt.close(fig)
 
 # ------------------------------------------------------------------ 4. first-order effect of the measured rho and sigma
-h = 71.4e-9
+# The mass per area of the film is set by the deposited film: 71.4 nm of solid Ti at 4506 kg/m3. The
+# liquid keeps that mass and expands, h_liq = h * 4506 / rho_liq(T). The model keeps rho = 4515 and h.
+h, RHO_S = 71.4e-9, 4506.0
 def lit(Tk): return 4193 - 0.23762 * (Tk - 1941), 1.613 - 0.2049e-3 * (Tk - 1941)
 rows = []
 for Tk in (2000, 2500, 3000):
-    r, s = lit(Tk); r0, s0 = 4515.0, 1.64
-    rows.append((Tk, [100 * (r0 / r - 1),                       # acceleration p/(rho h): same pressure, lighter film
-                      100 * ((r / s) / (r0 / s0) - 1),          # Weber number at the same speed
-                      100 * (np.sqrt(s / r) / np.sqrt(s0 / r0) - 1),   # Taylor-Culick retraction speed
-                      100 * (np.sqrt(r / s) / np.sqrt(r0 / s0) - 1)]))  # capillary time sqrt(rho h^3 / sigma)
+    r, s = lit(Tk); r0, s0 = 4515.0, 1.64; hl = h * RHO_S / r
+    rows.append((Tk, [100 * (r0 / RHO_S - 1),                                   # acceleration p/(rho h)
+                      100 * ((r * hl / s) / (r0 * h / s0) - 1),                 # Weber number rho v^2 h / sigma
+                      100 * (np.sqrt(s / (r * hl)) / np.sqrt(s0 / (r0 * h)) - 1),   # Taylor-Culick speed
+                      100 * (np.sqrt(r * hl ** 3 / s) / np.sqrt(r0 * h ** 3 / s0) - 1)]))  # capillary time
 labels = ["launch acceleration p/(ρh)\n(same pressure)", "Weber number ρv²h/σ\n(same speed)", "sheet retraction speed\n√(2σ/(ρh))", "capillary time\n√(ρh³/σ)"]
 fig, ax = plt.subplots(figsize=(9, 4.2)); x = np.arange(len(labels)); wdt = 0.26
 for k, (Tk, v) in enumerate(rows):
     b = ax.bar(x + (k - 1) * wdt, v, wdt, label="metal at %d K" % Tk, color=["#90CAF9", "#42A5F5", "#1565C0"][k])
-    for xi, vi in zip(x + (k - 1) * wdt, v): ax.text(xi, vi + (0.4 if vi >= 0 else -1.2), "%+.0f%%" % vi, ha="center", fontsize=7)
+    for xi, vi in zip(x + (k - 1) * wdt, v): ax.text(xi, vi + (0.4 if vi >= 0 else -1.6), "%+.0f%%" % vi, ha="center", fontsize=7)
 ax.axhline(0, color="k", lw=0.7); ax.set_xticks(x); ax.set_xticklabels(labels, fontsize=8)
-ax.set_ylabel("change if the measured ρ(T), σ(T) were used [%]")
-ax.set_title("First-order effect of the measured liquid density and surface tension of titanium\n(scaling estimates, not a rerun; values above 2,090 K extrapolate the density fit)", fontsize=9.5)
+ax.set_ylabel("change with the measured ρ(T), σ(T) [%]")
+ax.set_title("First-order effect of the measured liquid density and surface tension of titanium, film mass fixed\n(the liquid film expands to keep the deposited mass; scaling estimates, not a rerun; density fit extrapolated above 2,090 K)", fontsize=9)
 ax.legend(fontsize=8); fig.tight_layout(); fig.savefig(os.path.join(OUT, "input_effect_estimate.png"), dpi=150); plt.close(fig)
 for Tk, v in rows: print(Tk, ["%+.1f" % x for x in v], "rho=%.0f sigma=%.3f" % lit(Tk))
 print("figures in", os.path.abspath(OUT))

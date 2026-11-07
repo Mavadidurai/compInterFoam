@@ -328,7 +328,7 @@ Ordered by how much each could change the answer to "does the film eject, and ho
 7. **Damping of interface oscillations is too weak** (§7).
 8. **Axisymmetric only.** Rings cannot break into separate droplets around their circumference, and an off-centre beam or film defects cannot be represented.
 9. **Not validated** against measurements; the LIFT experiments in the literature register could not be read for this work.
-10. **Titanium inputs.** The liquid density is 7.7–15 % too high and the surface tension is constant ([VALIDATION.md §5](docs/VALIDATION.md#5-level-3-input-validation)). **Two-temperature parameters of titanium.** The electron–lattice coupling (5–27 times above 5,000 K) and the electron heat capacity (about 2 times) are higher than published values. This mainly speeds up the heating of the atoms (0.25 ps instead of about 2 ps); the peak surface temperature changes by −11 % to +9 % ([LITERATURE.md §3](docs/LITERATURE.md#3-two-temperature-parameters-of-titanium)).
+10. **Titanium inputs.** The density gives the right film mass but not the expansion of the liquid (7.7 % at the melting point), and the surface tension is constant ([VALIDATION.md §5](docs/VALIDATION.md#5-level-3-input-validation)). **Two-temperature parameters of titanium.** The electron–lattice coupling (5–27 times above 5,000 K) and the electron heat capacity (about 2 times) are higher than published values. This mainly speeds up the heating of the atoms (0.25 ps instead of about 2 ps); the peak surface temperature changes by −11 % to +9 % ([LITERATURE.md §3](docs/LITERATURE.md#3-two-temperature-parameters-of-titanium)).
 
 ---
 

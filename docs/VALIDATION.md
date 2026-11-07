@@ -28,7 +28,7 @@ The detailed test descriptions are in [VERIFICATION.md](VERIFICATION.md), the li
 |---|---|---|---|
 | 1. Code verification | Does the code solve its equations correctly? | **done** | 15 checks against exact solutions, an independent code and hand calculations: 12 within 5 %, force balance within 6 %, drop-oscillation frequency within 10.5 % and converging; oscillation damping too weak (open) |
 | 2. Solution verification | How large is the numerical error of the reference run? | **partial** | resolution chosen from scale analysis; no mesh-refinement study; the droplet separation is limited by the radial cell size |
-| 3. Input validation | Are the material and laser inputs right for titanium? | **failed for 4 inputs** | liquid density 8–15 % high; surface tension 2–18 % high and constant; electron–lattice coupling 5–27 times high above 5,000 K; electron heat capacity about 2 times high |
+| 3. Input validation | Are the material and laser inputs right for titanium? | **failed for 3 inputs** | surface tension right at the melting point but constant (9 % high at 2,500 K); electron–lattice coupling 5–27 times high above 5,000 K; electron heat capacity about 2 times high; the density gives the right film mass but no thermal expansion |
 | 4. Sub-model validation | Do the physics sub-models behave as titanium and thin films do? | **partial** | heating, phase explosion, stress confinement and thin-film bulging compared with the literature: mechanisms consistent; two missing mechanisms identified (stress waves, phase explosion); no matched numbers |
 | 5. System validation | Does the whole simulated LIFT event match an experiment? | **not done** | no public measurement under matching conditions; the predicted sequence (bulge, cup, rupture, droplet smaller than the spot) is reported in several experiments on other metals |
 
@@ -134,7 +134,7 @@ Every titanium input was compared with measured or first-principles values where
 
 | Input | Model | Published | Source | Difference | Verdict |
 |---|---|---|---|---|---|
-| Liquid density | 4515 kg/m³, constant (the room-temperature solid value) | ρ = 4193 − 0.2376 (T − 1941 K) kg/m³ for pure liquid Ti, 1640–2090 K, expanded uncertainty ±1.4 % | Ozawa et al. 2017 (read in the open PDF) | +7.7 % at the melting point; +11 % at 2,500 K and +15 % at 3,000 K (fit extrapolated) | ❌ |
+| Liquid density | 4515 kg/m³, constant (the room-temperature solid value) | ρ = 4193 − 0.2376 (T − 1941 K) kg/m³ for pure liquid Ti, 1640–2090 K, expanded uncertainty ±1.4 % | Ozawa et al. 2017 (read in the open PDF) | 7.7 % above the liquid at the melting point. With the deposited 71.4 nm the mass per area ρh is right (solid Ti at 300 K: 4,506 kg/m³, +0.2 %); what is missing is the expansion of the liquid film (7.5 % thicker at the melting point) | ⚠️ |
 | Liquid density (alloy, for comparison) | – | ρ = 4123 − 0.254 (T − 1943 K) kg/m³ for Ti-6Al-4V | Li et al. 2006 (abstract) | supports the pure-Ti value | – |
 | Surface tension | 1.64 N/m, constant | σ = 1.613 − 0.000205 (T − 1941 K) N/m for 99.98 % pure liquid Ti, free of oxygen contamination | Seimiya et al. 2022 (abstract) | +1.7 % at the melting point; +9 % at 2,500 K; +17 % at 3,000 K. No temperature dependence in the model, so no Marangoni flow | ❌ |
 | Electron–lattice coupling G | table from 10¹⁸ (300 K) to 10²⁰ W/(m³ K) (20,000 K) | peak ≈ 2.5×10¹⁸ W/(m³ K) (first principles); Lin et al. about 1.5 times higher | Hobmaier et al. 2026 (full text) | 5–8 times at 5,000 K; 14–20 times at 10,000 K; 27–40 times at 20,000 K | ❌ |
@@ -149,13 +149,13 @@ Every titanium input was compared with measured or first-principles values where
 
 ### 5.2 How much do the input errors matter?
 
-**Density and surface tension.** A first-order scaling estimate, not a rerun:
+**Density and surface tension.** In an incompressible model the density enters the launch through the mass per area ρh of the film. That mass is set by the deposited film, 71.4 nm of solid titanium at 4,506 kg/m³ at room temperature, and the case's 4,515 kg/m³ reproduces it to 0.2 %. Using the measured liquid density with the same thickness would remove 7 % of the metal, so it is not a correction. What the model misses is that the liquid expands: with the same mass, the film at the melting point is 7.5 % thicker (4,506 / 4,193), and more at higher temperature. A first-order scaling estimate with the mass held fixed, not a rerun:
 
 ![First-order effect of the measured density and surface tension](../figures/validation/input_effect_estimate.png)
 
-*Change of four quantities if the measured ρ(T) and σ(T) of titanium were used, at three metal temperatures. The launch acceleration a = p/(ρh) for the same vapour pressure rises by 8–15 % because the liquid is lighter. The Weber number at the same speed, the speed at which a torn sheet retracts, and the capillary time change by less than about 5 %.*
+*Change of four quantities if the film expanded as the measured liquid density requires (mass per area fixed) and the surface tension followed the measured σ(T), at three metal temperatures. The launch acceleration p/(ρh) for the same vapour pressure does not change (+0.2 %, the difference between 4,515 and 4,506 kg/m³). The Weber number rises by 2–17 % and the speed at which a torn sheet retracts falls by 1–8 %, both through the lower surface tension. The capillary time grows by 9–24 %, mostly because the expanded film is thicker.*
 
-So the density error mainly lowers the launch speed: with the measured density, the same trapped-vapour pressure would accelerate the film 8–15 % more. The surface-tension error partly cancels the density error in the capillary quantities.
+So neither input error changes the launch speed to first order. Both matter for the capillary stage (rupture and droplet formation): the hot liquid has a lower surface tension and a thicker film than the model. An earlier version of this section stated that the measured density would raise the launch acceleration by 8–15 %; that estimate wrongly changed the density at a fixed thickness, which removes metal.
 
 **Coupling and electron heat capacity.** A 1-D sensitivity study with the solver's own two-temperature equations ([LITERATURE.md §3.3](LITERATURE.md#33-does-it-matter-a-sensitivity-study)):
 
@@ -171,9 +171,9 @@ So the density error mainly lowers the launch speed: with the measured density, 
 
 The coupling error mainly changes how fast the lattice heats (0.25 ps instead of about 2 ps). The peak surface temperature changes by only −11 % to +9 %. Because the model evaluates the vapour pressure with the temperature capped at 10,000 K, and the surface stays above that cap for the first 20 ps in all three cases, the early vapour drive is nearly unchanged. With first-principles values, the surface stays hotter for longer, so the vapour drive would probably last longer.
 
-**Combined.** Both the density correction and the two-temperature correction point the same way: the launch speed of the reference run is probably an **underestimate**, by of the order of 10–20 % [UNCERTAIN: estimated from scaling and a 1-D study; needs a 2-D rerun with corrected inputs].
+**Combined.** The density does not bias the launch speed. With first-principles two-temperature parameters the surface stays hotter for longer, so the vapour drive would probably last longer and the launch speed of the reference run is more likely an underestimate than an overestimate [UNCERTAIN: the size is not known; it needs the 2-D rerun with corrected inputs, case `cases/fsLIFT_332mJ_Ti_meshStudy`].
 
-**Verdict, level 3: failed for four inputs.** The corrections are known and should be applied before any comparison with experiment.
+**Verdict, level 3: failed for three inputs** (temperature dependence of the surface tension, electron–lattice coupling, electron heat capacity); the density gives the right film mass but no expansion. The corrections are known and should be applied before any comparison with experiment.
 
 ---
 

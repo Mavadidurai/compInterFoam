@@ -9,11 +9,17 @@
 #         RESUME=1 tools/run_case.sh cases/<case> ...   continue from the latest saved time
 # Droplet detection on the beam axis is only reported (run_status.txt, droplet_detections.txt);
 # it never stops the run. Confirm any detection in ParaView.
+# Optional environment variables (defaults are the reference values above):
+#   MAXDT2, MAXDT3    largest time step of stages 2 and 3 [s] (a finer mesh needs smaller ones,
+#                     see tools/make_mesh_level.py)
+#   WRITE1, WRITE2, WRITE3   write interval of stages 1, 2 and 3 [s]
 set -e
 TOOLS="$(cd "$(dirname "$0")" && pwd)"
 CASE="$(cd "${1:?usage: tools/run_case.sh cases/<case> [NP] [END]}" && pwd)"
 NP=${2:-4}
 END=${3:-2e-8}
+MAXDT2=${MAXDT2:-1e-12}; MAXDT3=${MAXDT3:-2.5e-12}
+WRITE2=${WRITE2:-2e-11}; WRITE3=${WRITE3:-2e-10}
 cd "$CASE"
 : "${FOAM_BASHRC:=/usr/lib/openfoam/openfoam2406/etc/bashrc}"
 [ -n "$WM_PROJECT" ] || source "$FOAM_BASHRC"
@@ -53,13 +59,14 @@ if [ -z "${RESUME:-}" ]; then
     sed -i -E "s/^(numberOfSubdomains[[:space:]]+)[0-9]+;/\1$NP;/" system/decomposeParDict
     decomposePar -force > log.decomposePar 2>&1
   fi
-  set_ctrl 2e-12 1e-14 5e-13;  run_stage stage1
-  set_ctrl 1e-9  1e-12 2e-11;  run_stage stage2
-  set_ctrl "$END" 2.5e-12 2e-10; run_stage stage3
+  set_ctrl 2e-12 1e-14 "${WRITE1:-5e-13}";  run_stage stage1
+  set_ctrl 1e-9  "$MAXDT2" "$WRITE2";  run_stage stage2
 else
   t=$(latest); echo "resume from $t $(date -u +%T)" >> run_status.txt
   if python3 -c "import sys; sys.exit(0 if float('$t') < 1e-9 else 1)"; then
-    set_ctrl 1e-9 1e-12 2e-11; run_stage stage2
+    set_ctrl 1e-9 "$MAXDT2" "$WRITE2"; run_stage stage2
   fi
-  set_ctrl "$END" 2.5e-12 2e-10; run_stage stage3
+fi
+if python3 -c "import sys; sys.exit(0 if float('$END') > 1.0001e-9 else 1)"; then
+  set_ctrl "$END" "$MAXDT3" "$WRITE3"; run_stage stage3
 fi
