@@ -167,7 +167,7 @@ twoTemperatureModel::twoTemperatureModel
             CeFunction_.reset(Function1<scalar>::New("Ce", dict_).ptr());
 
             const scalar minTe = dict_.lookupOrDefault<scalar>("minTe", 300.0);
-            const scalar maxTe = dict_.lookupOrDefault<scalar>("maxTe", 4000.0);
+            const scalar maxTe = dict_.lookupOrDefault<scalar>("maxTe", 50000.0);
             scalar refTe = CeDict.lookupOrDefault<scalar>
             (
                 "referenceTemperature",
@@ -424,10 +424,14 @@ twoTemperatureModel::twoTemperatureModel
             {
                 gasMetalExchangeFunction_.reset
                 (
+                    // The entry is dict_.gasMetalExchangeCoeff itself (a
+                    // Function1 specification), so it is looked up in dict_,
+                    // as Ce and G are; looking it up inside its own
+                    // sub-dictionary could not find it.
                     Function1<scalar>::New
                     (
                         "gasMetalExchangeCoeff",
-                        gasMetalDict
+                        dict_
                     ).ptr()
                 );
             }
@@ -1385,7 +1389,7 @@ void twoTemperatureModel::solve
     (
         "maxTe",
         dimTemperature,
-        dict_.lookupOrDefault<scalar>("maxTe", 3500.0)
+        dict_.lookupOrDefault<scalar>("maxTe", 50000.0)
     );
     const dimensionedScalar minTl
     (
@@ -1974,8 +1978,8 @@ tmp<volScalarField> twoTemperatureModel::electronPhononCoupling() const
 
             // Respect the magnitude prescribed by the material model.
             // Earlier revisions clamped G to 1e19 W/m^3/K, which silently
-            // truncated tabulated couplings (e.g. the Ti data in
-            // RealisticLIFT/system/controlDict reaches 5e19).  The clamp was
+            // truncated tabulated couplings (e.g. the G table of the reference
+            // case reaches 1e20).  The clamp was
             // intended as a safety net but ends up suppressing the very
             // strong couplings required in fs-regime LIFT simulations and
             // misleads diagnostics like the energy balance shown in the user
@@ -2040,9 +2044,9 @@ tmp<volScalarField> twoTemperatureModel::gasMetalExchangeCoeffField() const
         const scalar zRatio = zAr/(zTi + VSMALL);
         const scalar tau = 4.0*zRatio/sqr(1.0 + zRatio);
 
-        const scalar kB = 1.38e-23;
+        const scalar kB = 1.380649e-23;
         const scalar hBar = 1.055e-34;
-        const scalar pi = 3.141592653589793;
+        const scalar pi = constant::mathematical::pi;
         const scalar cEff = Foam::max(kapitzaCEff_, SMALL);
         const scalar prefactor =
             ((pi*pi)/30.0)*Foam::pow4(kB)/(Foam::pow3(hBar)*cEff*cEff);

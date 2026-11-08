@@ -25,7 +25,9 @@ CASEDIR = os.path.abspath(sys.argv[1])
 REF = os.path.basename(os.path.normpath(sys.argv[2])) if len(sys.argv) > 2 else None
 OUT = os.path.join(HERE, "..", "figures", CASE)
 os.makedirs(OUT, exist_ok=True)
-RHO, SIGMA, H = 4515.0, 1.64, 71.4e-9
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from case_props import metal_density, surface_tension
+RHO, SIGMA, H = metal_density(CASEDIR, 4515.0), surface_tension(CASEDIR, 1.64), 71.4e-9
 
 
 def axis(case):

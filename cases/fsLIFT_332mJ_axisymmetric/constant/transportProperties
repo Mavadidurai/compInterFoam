@@ -28,9 +28,9 @@ metal
 air
 {
     transportModel  Newtonian;
-    // nu = mu/rho = 1.8e-5 / 1.2 = 1.5e-5 (consistent with thermophysicalProperties)
-    nu              nu [ 0 2 -1 0 0 0 0 ] 1.5e-5;
-    rho             rho [ 1 -3 0 0 0 0 0 ] 1.2;
+    // nu = mu/rho = 1.8e-5 / 1.1614 = 1.55e-5 (same density as thermophysicalProperties.air)
+    nu              nu [ 0 2 -1 0 0 0 0 ] 1.55e-5;
+    rho             rho [ 1 -3 0 0 0 0 0 ] 1.1614;
 }
 
 sigma           sigma [1 0 -2 0 0 0 0] 1.64;

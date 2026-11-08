@@ -24,8 +24,8 @@ volVectorField HbyA
     constrainHbyA(rAU*UEqn.H(), U, p_rgh)
 );
 // HbyA recoil addition disabled - recoil is now included via phig (surface gradient)
-// The momentum predictor (UEqn.H) uses grad(p_rgh + recoilPressure), so pEqn must
-// include snGrad(recoilPressure) in phig for consistent PIMPLE coupling.
+// The recoil and trapped-vapour pressure act as an interface traction in the
+// predictor (UEqn.H, gradTotalP) and as a face force in phig here.
 /*
 if (recoilForceReady && tRecoilForce.valid())
 {
@@ -277,7 +277,7 @@ while (pimple.correctNonOrthogonal())
     // and "phi = phiHbyA + pEqn.flux()" restores discrete continuity.
     // With the previous (laplacian == div) arrangement the flux entered
     // with the WRONG SIGN, driving flow up pressure gradients and causing
-    // the GAMG stall documented in CONVERGENCE_ISSUE_DIAGNOSIS.md.
+    // a stalled GAMG pressure solve.
     // fvc::ddt(rho)/rho feeds back density changes not captured by
     // psiByRho's pressure-only acoustic compliance -- in particular the
     // two-temperature model's large T swings driving thermal expansion of
@@ -916,7 +916,7 @@ if (Foam::Pstream::master() && recoilVelocityScale > Foam::SMALL)
     const scalar velocityRatio = maxULiquid/recoilScaleSafe;
 
     Info<< "    Velocity diagnostic: |U|_metal_max = " << maxULiquid << " m/s ("
-        << velocityRatio << " Ã— recoil-limited " << recoilScaleSafe << " m/s)"
+        << velocityRatio << " x recoil-limited " << recoilScaleSafe << " m/s)"
         << Foam::nl;
 
     if (maxU > maxULiquid*(1.0 + 1e-6))

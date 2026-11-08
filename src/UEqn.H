@@ -35,89 +35,10 @@ const Foam::dictionary& controlDict = mesh.time().controlDict();
 const Foam::dictionary& aicDict =
     controlDict.subOrEmptyDict("advancedInterfaceCapturing"); 
 
-bool recoilClampActive = true;
-scalar recoilClampMax = 5e10;  // Default: 50 GPa (realistic for fs-LIFT)
-
-if (!aicDict.empty())
-{
-
-    recoilClampActive = aicDict.lookupOrDefault<Foam::Switch>("clampRecoil", true);
-    // Try maxRecoilPressure first, then recoilMax (legacy)
-    scalar maxRecoil = aicDict.lookupOrDefault<scalar>("maxRecoilPressure", 0.0);
-    if (maxRecoil <= SMALL)
-    {
-        maxRecoil = aicDict.lookupOrDefault<scalar>("recoilMax", recoilClampMax);
-    }
-    if (std::isfinite(maxRecoil) && maxRecoil > SMALL)
-    {
-        recoilClampMax = Foam::mag(maxRecoil);
-    }
-}
-// Fallback to solver coeffs if not in aicDict
-if (recoilClampMax <= SMALL || recoilClampMax >= 0.99*Foam::GREAT)
-{
-    recoilClampMax = solverCoeffs.lookupOrDefault<scalar>("maxRecoilPressure", 1e8);
-}
-
-const bool clampRecoilContribution =
-    recoilClampActive
- && recoilClampMax > SMALL
- && recoilClampMax < 0.99*Foam::GREAT;
-
-if (recoilPressurePtr)
-{
-    const volScalarField& recoilP = *recoilPressurePtr;
-    const volScalarField* recoilContribution = &recoilP;
-    tmp<volScalarField> tRecoilClamped;
-
-    if (clampRecoilContribution)
-    {
-        const dimensionedScalar maxRecoil
-        (
-            "maxRecoilPressure",
-            dimPressure,
-            recoilClampMax
-        );
-        const dimensionedScalar minRecoil
-        (
-            "minRecoilPressure",
-            dimPressure,
-            -recoilClampMax
-        );
-
-        const scalar observedMaxRecoil = gMax(recoilP);
-        const scalar observedMinRecoil = gMin(recoilP);
-
-        tRecoilClamped = Foam::min
-        (
-            Foam::max(recoilP, minRecoil),
-            maxRecoil
-        );
-        recoilContribution = &tRecoilClamped();
-
-        if
-        (
-            verbose
-         && isMaster
-         && (observedMaxRecoil > recoilClampMax
-          || observedMinRecoil < -recoilClampMax)
-        )
-        {
-            Info<< "    recoilPressureClamp: limiting recoil contribution to ±"
-                << recoilClampMax/1e6 << " MPa" << endl;
-        }
-    }
-
-// Fix: recoil is applied as an interface traction p_r*grad(alpha)
-// (CSF form, like surface tension), below via gradTotalP. It is no longer
-// added as alpha1*p_r to the pressure: -grad(alpha1*p_r) pulled the surface
-// towards the vapour side and its alpha1*grad(p_r) part shoved the
-// adjacent low-density gas cell (km/s gas, GPa p_rgh in the film).
-// totalPressure += alpha1 * (*recoilContribution);
-// NOTE: no field relaxation here.  Temporal smoothing of the recoil load
-// is handled inside advancedInterfaceCapturing (recoilRelax), and calling
-// relax() on the shared const field was ill-formed anyway.
-}
+// The recoil is applied as an interface traction p_r*grad(alpha) below (via
+// gradTotalP), like the surface tension. Its bound is maxRecoilPressure in
+// advancedInterfaceCapturing. A second, optional clamp used to be computed
+// and logged here, but its result was never used (dead code, removed).
 
 // Under-relaxation of the momentum equation (URelaxationFactor), applied on
 // all but the final PIMPLE iteration. Must be after the solverCoeffs declaration.
@@ -196,18 +117,13 @@ if (kineticEnergyCeiling > 0 && kineticEnergyCeiling < Foam::GREAT)
 
 if (pimple.momentumPredictor())
 {
-    // The capillary force already appears in phig within pEqn.H via
-    // mixture.surfaceTensionForce().  Including it here as well was
-    // double-counting the surface-tension contribution, which the run
-    // logs revealed as steadily increasing velocities even when the
-    // recoil pressure field remained identically zero.  Only assemble
-    // the forces that are not already handled through the pressure
-    // correction stage.
-
-    // Start with the forces that are *not* treated in phig.  Gravity is
-    // already accounted for through the -ghf*fvc::snGrad(rho) contribution
-    // inside phig in pEqn.H, so including rho*g here would double-count it
-    // and steadily accelerate the flow even in the absence of recoil.
+    // Surface tension and gravity enter through phig in pEqn.H. The stock
+    // compressibleInterFoam also puts them on the right-hand side of the
+    // momentum predictor; that is not a double count, because HbyA =
+    // rAU*UEqn.H() does not contain the predictor's right-hand side. Leaving
+    // them out of the predictor here is a choice that only affects the
+    // predicted velocity, not the converged PIMPLE solution, which the
+    // pressure correctors determine.
     tmp<volVectorField> tGradTotalP = fvc::grad(totalPressure);
     volVectorField gradTotalP
     (

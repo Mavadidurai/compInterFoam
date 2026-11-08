@@ -31,8 +31,8 @@ FoamFile
 //   continuousLaser     [bool]
 //   pulseCenterTime     [s, optional]
 //   gasAbsorptionCoeff  [1/m, optional, default 0]
-// Parameter checks enforce pulseWidth 10fs–10ps, wavelength 100nm–2µm
-// and peakIntensity ≤6e16 W/m^2.
+// Parameter checks only WARN (they do not stop the run): pulse width outside
+// 0.1 fs-10 ps, wavelength outside 100 nm-2 um, peak intensity above 1e17 W/m^2.
 // Gaussian pulse focused in the 71.4 nm donor film (y=20.0000–20.0714 µm)
 // Domain: x∈[0,50e-6], y∈[0,32.0714e-6], z∈[0,10e-6]
 // Specify exact film thickness to match blockMeshDict geometry
@@ -64,8 +64,6 @@ absorptionCoeff          1.07e7;       // [1/m] absorption depth 1/1.07e7 = 93 n
 // Reflectivity / profile
 reflectivity        0.35;
 
-temporalShape       gaussian;
-spatialShape        gaussian;
 
 gaussianProfile     true;
 
@@ -81,6 +79,7 @@ pulseDutyCycle      0;   // [-] only used for a pulse train
 pulseEnergyToleranceRel 0.05; // 5% relative tolerance
 pulseEnergyToleranceAbs 5e-10; // [J] 0.5 nJ absolute tolerance
 
-// NOTE: If peakIntensity is specified, it must match the derived value within 5% or
-// the solver now aborts, so omit it to accept the computed value when iterating setups.
+// NOTE: if peakIntensity is given and differs from the value derived from
+// pulseEnergy, the solver rewrites pulseEnergy to match it and prints a warning.
+// Omit peakIntensity to use pulseEnergy as given.
 // ************************************************************************* //

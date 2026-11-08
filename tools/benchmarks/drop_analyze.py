@@ -18,7 +18,7 @@ def crossing(s,a):
 for t in r.TimestepValues:
     cc.UpdatePipeline(t); d=servermanager.Fetch(cc); X=v2n(d.GetPoints().GetData()); P=d.GetPointData()
     a=v2n(P.GetArray('alpha.metal')); p=v2n(P.GetArray('p_rgh')); U=v2n(P.GetArray('U')); V=v2n(P.GetArray('Volume'))
-    rad=np.hypot(X[:,0],X[:,1]); dx=np.sqrt(np.median(V)/ (X[:,0].max()*0+1)) if False else None
+    rad=np.hypot(X[:,0],X[:,1])
     inside=(rad<0.5*R)&(a>0.99); outside=(rad>2*R)&(a<0.01)
     dp=p[inside].mean()-p[outside].mean() if inside.any() and outside.any() else np.nan
     # axis column: smallest x; equator row: |y| smallest

@@ -13,6 +13,9 @@ import matplotlib.pyplot as plt
 HERE = os.path.dirname(os.path.abspath(__file__))
 case = sys.argv[1] if len(sys.argv) > 1 else "fsLIFT_332mJ_axisymmetric"
 D = os.path.join(HERE, "..", "figures", case, "data")
+sys.path.insert(0, HERE)
+from case_props import metal_density
+RHO = metal_density(os.path.join(HERE, "..", "cases", case), 4515.0)
 M = np.loadtxt(os.path.join(D, "droplet_motion.csv"), delimiter=",", skiprows=1)
 A = np.loadtxt(os.path.join(D, "axis_timeseries.csv"), delimiter=",")
 w = (A[:, 0] > 9e-9)
@@ -29,4 +32,4 @@ fit = np.polyfit(M[:, 0] * 1e-9, M[:, 2] * 1e-6, 1)
 ax[1].set_xlabel("time [ns]"); ax[1].set_ylabel("height y [µm]")
 ax[1].set_title("Position: centre of mass moves at %.0f m/s (linear fit)" % (-fit[0]), fontsize=9.5); ax[1].legend(fontsize=8)
 fig.tight_layout(); fig.savefig(os.path.join(HERE, "..", "figures", case, "droplet_motion.png"), dpi=150)
-print("centre-of-mass speed from a linear fit of position: %.1f m/s; mass (full circle) %.3e kg = %.3f um3" % (-fit[0], M[-1, 1] * 72, M[-1, 1] * 72 / 4515 * 1e18))
+print("centre-of-mass speed from a linear fit of position: %.1f m/s; mass (full circle) %.3e kg = %.3f um3" % (-fit[0], M[-1, 1] * 72, M[-1, 1] * 72 / RHO * 1e18))

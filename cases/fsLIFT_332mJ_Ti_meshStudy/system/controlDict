@@ -67,10 +67,8 @@ evaporationCoeff       0.18;     // evaporation coefficient beta in the Hertz-Kn
 
     //windowWidth         100;
     dtFloor             1e-15;
-    relaxationTime      5e-11;        // read and logged only
     // NOTE: The solver expects maxSource in volumetric units [W/m^3].
-    // A 71 nm film would limit the surface heat flux to ~70 W/m^2 if this were large.
-    // Set to zero so the volumetric cap is fully disabled and phase change is unconstrained.
+    // 1e25 W/m^3 is far above the largest source of this case, so the cap does not act.
     maxSource           [1 -1 -3 0 0 0 0]   1e25;
     minCoefficient      [1 -1 -3 0 0 0 0] 1e6;          // ignored when maxSource is given
     onlyAboveVapor      false;
@@ -127,7 +125,6 @@ advancedInterfaceCapturing
         // Physical limits
     maxRecoilPressure   5.0e9;    // [Pa] bound on the recoil pressure (5 GPa)
 }
-logRecoilSuppression true;
 
 // Temperature bounds
 enableTClamp    false;

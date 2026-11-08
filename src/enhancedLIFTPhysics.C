@@ -70,7 +70,7 @@ Foam::enhancedLIFTPhysics::PhaseExplosionData::PhaseExplosionData
     ),
     enabled_
     (
-        dict.lookupOrDefault<Switch>("enablePhaseExplosion", true)
+        dict.lookupOrDefault<Switch>("enablePhaseExplosion", false)
     ),
     explosiveMassSource_
     (
@@ -175,7 +175,7 @@ Foam::enhancedLIFTPhysics::PlasmaData::PlasmaData
     ),
     enabled_
     (
-        dict.lookupOrDefault<Switch>("enablePlasmaModel", true)
+        dict.lookupOrDefault<Switch>("enablePlasmaModel", false)
     ),
     ionizationDegree_
     (
@@ -442,7 +442,10 @@ Foam::scalar Foam::enhancedLIFTPhysics::sahaIonization
     const scalar lambda_dB_sq = sqr(h) / (2.0 * pi * m_e * k_B * T);
     const scalar g_ratio = 2.0;
 
-    const scalar K_saha = g_ratio * pow(2.0 / lambda_dB_sq, 1.5)
+    // Saha: n_e n_i / n_0 = 2 (g_i/g_0) lambda^-3 exp(-E_ion/kT). The factor 2
+    // is g_ratio; lambda^-3 = (1/lambda^2)^1.5. The former (2/lambda^2)^1.5 was
+    // 2^1.5 too large.
+    const scalar K_saha = g_ratio * pow(1.0 / lambda_dB_sq, 1.5)
                         * exp(-E_ion / (k_B * T)) / n_atoms;
 
     const scalar discriminant = sqr(K_saha) + 4.0 * K_saha;
@@ -534,27 +537,6 @@ void Foam::enhancedLIFTPhysics::calculateWeberNumber
 
 // * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * * //
 
-Foam::scalar Foam::enhancedLIFTPhysics::explosionFluxMultiplier
-(
-    const scalar T
-) const
-{
-    if (!phaseExplosion_.valid() || !phaseExplosion_->enabled_ || T < phaseExplosion_->T_spinodal_.value())
-    {
-        return 1.0;
-    }
-
-    const scalar T_spin = phaseExplosion_->T_spinodal_.value();
-    const scalar T_crit = phaseExplosion_->T_critical_.value();
-
-    const scalar xi = min
-    (
-        (T - T_spin) / max(T_crit - T_spin, SMALL),
-        1.0
-    );
-
-    return 1.0 + (phaseExplosion_->explosionMultiplier_ - 1.0) * sqr(xi);
-}
 
 
 void Foam::enhancedLIFTPhysics::updatePhaseExplosion
@@ -693,7 +675,11 @@ void Foam::enhancedLIFTPhysics::updatePlasma
             const scalar p_plasma = 2.0 * n_e * k_B * T_local;
             p_plasma_Field[cellI] = p_plasma;
 
-            const scalar n_crit = 1.1e27;
+            // critical electron density n_c = eps0 m_e omega^2/e^2
+            // = 1.115e27 m^-3 / (lambda/1 um)^2; 9.5e27 m^-3 at 343 nm.
+            // The former 1.1e27 is the value for about 1 um light.
+            const scalar lambdaLaser = 343e-9;
+            const scalar n_crit = 1.115e27/sqr(lambdaLaser/1e-6);
             const scalar shield = 1.0 - exp(-n_e / n_crit);
             shieldField[cellI] = shield;
 

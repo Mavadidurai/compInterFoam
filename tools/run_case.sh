@@ -13,6 +13,7 @@
 #   MAXDT2, MAXDT3    largest time step of stages 2 and 3 [s] (a finer mesh needs smaller ones,
 #                     see tools/make_mesh_level.py)
 #   WRITE1, WRITE2, WRITE3   write interval of stages 1, 2 and 3 [s]
+#   SOLVER            solver executable (default compInterFoam)
 set -e
 TOOLS="$(cd "$(dirname "$0")" && pwd)"
 CASE="$(cd "${1:?usage: tools/run_case.sh cases/<case> [NP] [END]}" && pwd)"
@@ -23,7 +24,8 @@ WRITE2=${WRITE2:-2e-11}; WRITE3=${WRITE3:-2e-10}
 cd "$CASE"
 : "${FOAM_BASHRC:=/usr/lib/openfoam/openfoam2406/etc/bashrc}"
 [ -n "$WM_PROJECT" ] || source "$FOAM_BASHRC"
-if [ "$NP" = 1 ]; then RUN="compInterFoam"; else RUN="mpirun -np $NP compInterFoam -parallel"; fi
+SOLVER=${SOLVER:-compInterFoam}   # another build of the solver, e.g. a frozen copy for a long run
+if [ "$NP" = 1 ]; then RUN="$SOLVER"; else RUN="mpirun -np $NP $SOLVER -parallel"; fi
 touch droplet_report_only
 
 set_ctrl() {  # set_ctrl <endTime> <maxDeltaT> <writeInterval>

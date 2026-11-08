@@ -272,7 +272,8 @@ extern Foam::Switch verbose;
     // alpha overshoots 1 (to 1.5-2.7 in the oscillating-drop benchmark) and the
     // hard clips then delete metal (-9 % mass in 12 ns).  The stock form
     // transports alpha with phiCN only and adds the bounded alpha*(1 - alpha)
-    // compression term to the high-order flux.  Opt-in until re-verified.
+    // compression term to the high-order flux. Default on since it passed the
+    // drop benchmarks (docs/VERIFICATION.md).
     const bool stockCompressionFlux =
         alphaControls.lookupOrDefault<Switch>("stockCompressionFlux", true);   // default on (bounded alpha transport)
     tmp<surfaceScalarField> phiAlpha

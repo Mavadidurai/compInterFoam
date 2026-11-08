@@ -242,8 +242,6 @@ public:
                 return phaseExplosion_->explosionIndicator_;
             }
 
-            //- Calculate enhanced mass flux multiplier
-            scalar explosionFluxMultiplier(const scalar T) const;
 
 
         // Access - Plasma Ionization

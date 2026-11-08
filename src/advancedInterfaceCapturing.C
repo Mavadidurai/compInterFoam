@@ -141,7 +141,7 @@ advancedInterfaceCapturing::advancedInterfaceCapturing
         (
             "boltzmannConstant",
             dimensionSet(1, 2, -2, -1, 0, 0, 0),
-            1.38e-23
+            1.380649e-23
         )
     ),
     vaporParticleMass_
@@ -724,7 +724,13 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
 
     const scalar evaporationCoeff = mixture_.evaporationCoeff();
     const scalar safeParticleMass = Foam::max(Foam::mag(particleMass), VSMALL);
-    const scalar R_specific = k_B/safeParticleMass;
+    // Same specific gas constant as the evaporation flux (phaseChangeCoeffs
+    // gasConstant), so recoil and pocket pressure are consistent with j. The
+    // former k_B/m_particle gave 173.6 against 174 J/(kg K).
+    const scalar R_specific =
+        mixture_.gasConstant() > SMALL
+      ? mixture_.gasConstant()
+      : k_B/safeParticleMass;
 
     const bool validEvaporationCoeff = Foam::mag(evaporationCoeff) > Foam::SMALL;
 
@@ -763,8 +769,17 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
     scalar localMinInterfaceTemp = GREAT;
     const scalar vaporThreshold =
         vaporTemp_.value() + phaseChangeTempOffset_.value();
+    // Recoil acts wherever evaporation removes mass. The phase-change model
+    // evaporates from T_melt upwards (one-way Hertz-Knudsen flux), so a recoil
+    // gate at T_vapor left mass loss without its reaction force between the
+    // two temperatures. Below T_vapor the recoil is at most 0.54*p_sat(T_vapor)
+    // = 0.055 MPa, so this changes little, but the two are now consistent.
     const scalar recoilThreshold =
-        vaporTemp_.value() + recoilTempOffset_.value();
+        Foam::min
+        (
+            vaporTemp_.value() + recoilTempOffset_.value(),
+            mixture_.T_melt()
+        );
 
     // Option: confined vapour at the donor/carrier side. In the real
     // experiment the film's laser-side surface is bonded to the glass, so the

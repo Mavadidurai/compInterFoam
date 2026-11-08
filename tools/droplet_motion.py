@@ -18,7 +18,9 @@ from paraview.simple import OpenFOAMReader, ForceTime, MergeBlocks, CleantoGrid,
 from paraview import servermanager as sm
 from vtk.numpy_interface import dataset_adapter as dsa
 from vtk import vtkCellCenters
-case = sys.argv[1]; RHO = 4515.0
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from case_props import metal_density
+case = sys.argv[1]; RHO = metal_density(case)
 f = os.path.join(case, 'case.foam'); open(f, 'a').close()
 rd = OpenFOAMReader(FileName=f); rd.CaseType = 'Decomposed Case'; rd.MeshRegions = ['internalMesh']; rd.CellArrays = ['alpha.metal', 'U']
 ft = ForceTime(Input=rd); ft.IgnorePipelineTime = 1

@@ -146,18 +146,13 @@ relaxationFactors
 }
 
 // Pressure relaxation control
-targetResP  0.05;
 
 compInterFoamCoeffs
 {
     maxReasonableVelocity  1000;
     maxVelocity            0;
-    maxInitialResidual     10;
     maxPressureGradient    1e16;
     // Interface clamp settings
-    enableAlphaClamp  false;
-    minAlpha          0.001;
-    maxAlpha          0.999;
 
     // Pressure clamp settings
     pressureClamp      true;
@@ -165,25 +160,14 @@ compInterFoamCoeffs
     minPressure       -1.0e7;
 
     // Density clamp settings
-    densityClamp       false;
-    maxDensity         10000;
-    minDensity         0.5;
 
     // Bounds on 1/A (inactive while enableRAUClamp is false)
-    enableRAUClamp     false;   // off
-    minRAU             1e-8;   // Increased from 1e-10
-    maxRAU             1e5;    // Decreased from 1e6
-    minRAUf            1e-12;  // Increased from 1e-14
-    maxRAUf            1e5;    // Decreased from 1e6
 
     // Diagonal safety (keep this)
     minUEqnDiag        1e-9;
 
     // RELAX RESIDUAL TARGETS
-    targetResU         0.1;
-    targetResP         0.5;
     // Under-relaxation of U and time smoothing of the recoil force
     URelaxationFactor      0.3;   // Aggressive U equation relaxation
     // pRelaxationFactor removed: the pressure-correction matrix must not be relaxed (breaks mass conservation)
-    recoilSmoothingFactor  0.8;   // Smooth recoil application over timesteps
 }

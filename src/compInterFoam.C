@@ -314,7 +314,7 @@ namespace
 
                 // Dimensionless parameters - read directly
                 input_evaporationCoeff = phaseChangeDict.lookupOrDefault<Foam::scalar>("evaporationCoeff", 0.0);
-                input_relaxationTime = phaseChangeDict.lookupOrDefault<Foam::scalar>("relaxationTime", 1e-11);
+                input_relaxationTime = phaseChangeDict.lookupOrDefault<Foam::scalar>("evapRelaxationTime", 1e-12);
                 input_alphaMin = phaseChangeDict.lookupOrDefault<Foam::scalar>("alphaMin", 0.001);
                 input_metalFractionCutoff = phaseChangeDict.lookupOrDefault<Foam::scalar>("metalFractionCutoff", 1e-6);
             }
@@ -876,8 +876,11 @@ namespace
         const bool electronHeated = (maxTe > 500);
         const bool latticeHeating = (maxTl > 500);
         const bool approachingMelt = (maxTl > 1500);
-        const bool melting = (maxTl > 1941);
-        const bool vaporizing = (maxTl > 3560);
+        // phase thresholds from the model inputs (were hard-coded 1941/3560 K)
+        const Foam::scalar TmeltTrack = mixture.T_melt();
+        const Foam::scalar TvapTrack = mixture.T_vapor();
+        const bool melting = (maxTl > TmeltTrack);
+        const bool vaporizing = (maxTl > TvapTrack);
         const bool plasmaConditions = (maxTl > 5000 && maxPressure > 1e7);
         const bool recoilSignificant = (maxRecoil > 1e7);
         const bool ejecting = (maxVel > 10);
@@ -895,8 +898,8 @@ namespace
         }
 
         const bool coolingStarted = (maxTl < 3000 && t > 5e-11);
-        const bool belowVapor = (maxTl < 3560);
-        const bool belowMelt = (maxTl < 1941);
+        const bool belowVapor = (maxTl < TvapTrack);
+        const bool belowMelt = (maxTl < TmeltTrack);
         const bool nearAmbient = (heatingObserved && latticeExceededAmbient && coolingStarted && maxTl < 500);
         const bool thermallyStable = (nearAmbient && tempSpread < 200);
 
@@ -967,7 +970,7 @@ namespace
                         case 4:
                             Info<< ">>> PHASE 4: APPROACHING MELT" << Foam::nl
                                 << "    Lattice temp: " << maxTl << " K" << Foam::nl
-                                << "    Near melting point (1941K)" << Foam::endl;
+                                << "    Near melting point (" << TmeltTrack << " K)" << Foam::endl;
                             break;
                         case 5:
                             Info<< ">>> PHASE 5: MELTING" << Foam::nl
@@ -980,10 +983,10 @@ namespace
                                 << "    Phase change: liquid → vapor" << Foam::endl;
                             break;
                         case 7:
-                            Info<< ">>> PHASE 7: PLASMA FORMATION" << Foam::nl
+                            Info<< ">>> PHASE 7: HOT AND HIGH PRESSURE (T > 5 kK, p > 10 MPa)" << Foam::nl
                                 << "    Lattice temp: " << maxTl << " K" << Foam::nl
                                 << "    Pressure: " << maxPressure/1e6 << " MPa" << Foam::nl
-                                << "    High-density plasma plaque" << Foam::endl;
+                                << "    (label only: the plasma model is not active)" << Foam::endl;
                             break;
                         case 8:
                             Info<< ">>> PHASE 8: RECOIL PRESSURE" << Foam::nl
@@ -1016,9 +1019,9 @@ namespace
                                 << "    Condensation occurring" << Foam::endl;
                             break;
                         case 14:
-                            Info<< ">>> PHASE 14: SOLIDIFICATION" << Foam::nl
+                            Info<< ">>> PHASE 14: BELOW THE MELTING TEMPERATURE" << Foam::nl
                                 << "    Max temp: " << maxTl << " K" << Foam::nl
-                                << "    Phase change: liquid → solid" << Foam::endl;
+                                << "    (label only: the model has no solid phase)" << Foam::endl;
                             break;
                         case 15:
                             Info<< ">>> PHASE 15: NEAR AMBIENT" << Foam::nl
@@ -1060,14 +1063,14 @@ namespace
                 case 4: phaseName = "PRE-MELT"; break;
                 case 5: phaseName = "MELTING"; break;
                 case 6: phaseName = "VAPORIZING"; break;
-                case 7: phaseName = "PLASMA"; break;
+                case 7: phaseName = "HOT_HIGH_PRESSURE"; break;
                 case 8: phaseName = "RECOIL"; break;
                 case 9: phaseName = "EJECTION"; break;
                 case 10: phaseName = "ACCELERATION"; break;
                 case 11: phaseName = "TRANSFER"; break;
                 case 12: phaseName = "COOLING"; break;
                 case 13: phaseName = "CONDENSING"; break;
-                case 14: phaseName = "SOLIDIFYING"; break;
+                case 14: phaseName = "BELOW_MELT"; break;
                 case 15: phaseName = "NEAR_AMBIENT"; break;
                 case 16: phaseName = "EQUILIBRIUM"; break;
             }
@@ -1271,7 +1274,9 @@ namespace
         // Log every timestep for complete simulation data
         if (Foam::Pstream::master())
         {
-            static bool headerWritten = false;
+            // write the header only into a new file (a restart appends)
+            static bool headerWritten =
+                Foam::isFile(Foam::fileName("liftProcessTracking.csv"));
 
             Foam::OFstream csvFile
             (
@@ -1337,14 +1342,14 @@ namespace
                 case 4: phaseName = "PRE_MELT"; break;
                 case 5: phaseName = "MELTING"; break;
                 case 6: phaseName = "VAPORIZING"; break;
-                case 7: phaseName = "PLASMA"; break;
+                case 7: phaseName = "HOT_HIGH_PRESSURE"; break;
                 case 8: phaseName = "RECOIL"; break;
                 case 9: phaseName = "EJECTION"; break;
                 case 10: phaseName = "ACCELERATION"; break;
                 case 11: phaseName = "TRANSFER"; break;
                 case 12: phaseName = "COOLING"; break;
                 case 13: phaseName = "CONDENSING"; break;
-                case 14: phaseName = "SOLIDIFYING"; break;
+                case 14: phaseName = "BELOW_MELT"; break;
                 case 15: phaseName = "NEAR_AMBIENT"; break;
                 case 16: phaseName = "EQUILIBRIUM"; break;
             }
@@ -1662,29 +1667,57 @@ int main(int argc, char *argv[])
             // Standard Courant number calculation
             #include "CourantNo.H"
             
-            // Alpha Courant number calculation
+            // Interface Courant number, over cells near the interface
+            // (0.01 < alpha < 0.99), as in the stock VoF solvers. It used to be
+            // computed over all cells and only logged; maxAlphaCo now limits
+            // the time step together with maxCo.
             scalar alphaCoNum = 0.0;
-            scalar meanAlphaCoNum = 0.0;
-            
             if (mesh.nInternalFaces())
             {
-                scalarField sumPhi
+                const scalarField sumPhi
                 (
                     fvc::surfaceSum(mag(phi))().primitiveField()
                 );
-                
-                alphaCoNum = 0.5*gMax(sumPhi/mesh.V().field())*runTime.deltaTValue();
-                meanAlphaCoNum = 0.5*(gSum(sumPhi)/gSum(mesh.V().field()))*runTime.deltaTValue();
+                const scalarField& a1 = alpha1.primitiveField();
+                scalarField nearInterface(a1.size(), 0.0);
+                forAll(a1, celli)
+                {
+                    nearInterface[celli] =
+                        (a1[celli] > 0.01 && a1[celli] < 0.99) ? 1.0 : 0.0;
+                }
+                alphaCoNum =
+                    0.5*gMax(nearInterface*sumPhi/mesh.V().field())
+                   *runTime.deltaTValue();
             }
-            
+            const scalar maxAlphaCoStep =
+                runTime.controlDict().getOrDefault<scalar>("maxAlphaCo", maxCo);
+
             if (verbose && master)
             {
-                Info<< "Interface Courant Number mean: " << meanAlphaCoNum
-                    << " max: " << alphaCoNum << endl;
+                Info<< "Interface Courant Number max: " << alphaCoNum << endl;
             }
-            
-            // Standard time step setting
-            #include "setDeltaT.H"
+
+            // setDeltaT.H with both limits (the stock VoF form)
+            if (adjustTimeStep)
+            {
+                const scalar maxDeltaTFact =
+                    Foam::min
+                    (
+                        maxCo/(CoNum + SMALL),
+                        maxAlphaCoStep/(alphaCoNum + SMALL)
+                    );
+                const scalar deltaTFact =
+                    Foam::min
+                    (
+                        Foam::min(maxDeltaTFact, 1.0 + 0.1*maxDeltaTFact),
+                        1.2
+                    );
+                runTime.setDeltaT
+                (
+                    Foam::min(deltaTFact*runTime.deltaTValue(), maxDeltaT)
+                );
+                Info<< "deltaT = " << runTime.deltaTValue() << endl;
+            }
         }
 
         ++runTime;

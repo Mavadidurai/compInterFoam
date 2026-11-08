@@ -18,7 +18,7 @@ FoamFile
 
 dimensions      [0 0 0 0 0 0 0];
 
-// SLM: Metal powder initially absent (set by setFieldsDict)
+// Metal fraction: the receiver and the film are set by setFieldsDict
 internalField   uniform 0;
 
 boundaryField

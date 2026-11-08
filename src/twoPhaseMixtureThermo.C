@@ -1398,7 +1398,7 @@ void Foam::twoPhaseMixtureThermo::computePhaseChange()
         }
 
         const scalar sqrt_T = std::sqrt(Foam::max(T_eff, 1.0));
-        const scalar sqrt_2piR = std::sqrt(2.0*3.14159*R);
+        const scalar sqrt_2piR = std::sqrt(constant::mathematical::twoPi*R);
 
         const scalar j_evap = evaporationCoeff_*p_vapor/(sqrt_2piR*sqrt_T);
         const scalar j_cond = evaporationCoeff_*p_metalVapor/(sqrt_2piR*sqrt_T);
@@ -1423,23 +1423,6 @@ void Foam::twoPhaseMixtureThermo::computePhaseChange()
                         << multiplier << "x (indicator=" << explosionInd[cellI] << ")" << nl;
                 }
             }
-        }
-        if
-        (
-            Pstream::master()
-         && cellI == 0
-         && mesh.time().timeIndex() % 10 == 0
-        )
-        {
-            Info<< "DEBUG Hertz-Knudsen at cell 0:" << nl
-                << "  T_eff = " << T_eff << " K" << nl
-                << "  p_vapor (psat) = " << p_vapor << " Pa" << nl
-                << "  sqrt_2piR = " << sqrt_2piR << nl
-                << "  sqrt_T = " << sqrt_T << nl
-                << "  evaporationCoeff = " << evaporationCoeff_ << nl
-                << "  j_evap = " << j_evap << " kg/m²/s" << nl
-                << "  j_net = " << j_net << " kg/m²/s" << nl
-                << "  Expected at 5000K: ~90 kg/m²/s" << endl;
         }
         const scalar Cl = ClTTM_.value();
 

@@ -123,7 +123,7 @@ extern Foam::Switch verbose;
     )
     {
         WarningInFunction
-            << "applyGasLaserHeating requested but gasAbsorptionCoeff â‰ˆ 0;"
+            << "applyGasLaserHeating requested but gasAbsorptionCoeff ~ 0;"
             << " skipping direct gas heating."
             << endl;
     }
@@ -218,13 +218,13 @@ extern Foam::Switch verbose;
         twoTemperatureDict.lookupOrDefault<scalar>
         (
             "metalFractionFloor",
-            1e-8
+            1e-6
         );
     const scalar blendWidth =
         twoTemperatureDict.lookupOrDefault<scalar>
         (
             "metalAmbientBlendWidth",
-            5e-3
+            1e-3
         );
 
     const scalar activeCutoff = Foam::max(metalFractionFloor, VSMALL);
@@ -430,12 +430,8 @@ if (verbose && Foam::Pstream::master() && timeIndex % 10 == 0)
 
     interfaceDelta.correctBoundaryConditions();
 
-    tmp<volScalarField> tSurfaceExchange(cappedInterfaceExchange*interfaceDelta);
-    volScalarField& surfaceExchange = tSurfaceExchange.ref();
-
-    surfaceExchange.correctBoundaryConditions();
-    
-    cappedInterfaceExchange = surfaceExchange/interfaceDelta;
+    // (A multiply-by-delta then divide-by-delta round trip that changed
+    // nothing was removed here.)
     cappedInterfaceExchange.correctBoundaryConditions();
 
 

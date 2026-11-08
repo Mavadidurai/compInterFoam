@@ -22,7 +22,7 @@ thermoType
     mixture         pureMixture;
     transport       const;
     thermo          hConst;
-    equationOfState rhoConst;   // incompressible gas (verification choice): the solver lacks the stock compressibility feedback (dgdt) into the alpha equation, so a compressible gas is unstable
+    equationOfState rhoConst;   // incompressible gas (verification choice); a compressible gas with the dgdtComp feedback has not been verified
     specie          specie;
     energy          sensibleEnthalpy;
 }

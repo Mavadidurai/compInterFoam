@@ -41,7 +41,15 @@ t, Te = read_probe("Te")
 _, Tl = read_probe("Tl")
 # the solver centres the pulse at min(0.5*(laserEnd - laserStart), 3 sigma) when pulseCenterTime is absent
 sigma = fd.P["tau"] / (2 * math.sqrt(2 * math.log(2)))
-tc = min(0.5 * 2e-10, 3 * sigma)
+def _ctrl(key, default):
+    import re as _re
+    try:
+        txt = _re.sub(r"//.*", "", open(os.path.join(CASE, "system", "controlDict")).read())
+        m = _re.search(r"^\s*%s\s+([0-9.eE+-]+)\s*;" % key, txt, _re.M)
+        return float(m.group(1)) if m else default
+    except OSError:
+        return default
+tc = min(0.5 * (_ctrl("laserEndTime", 2e-10) - _ctrl("laserStartTime", 0.0)), 3 * sigma)
 shift = 3.0 * fd.P["tau"] - tc                     # the FD code puts the pulse peak at 3 tau
 r = fd.run(N=32, dt=1e-15, t_end=t[-1] + shift, ke_model="repo", record_every=10)  # ke = Ce*De, as in the case
 h = r["hist"]; tfd = h["t"] - shift

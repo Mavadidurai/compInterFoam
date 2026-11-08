@@ -555,7 +555,7 @@ bool femtosecondLaserModel::checkPhysicalBounds() const
     if (!continuousLaser_
      && (pulseWidth_.value() < 1e-16 || pulseWidth_.value() > 1e-11))
     {
-        WarningInFunction << "Pulse width out of 10fs–10ps range: "
+        WarningInFunction << "Pulse width outside 0.1 fs-10 ps: "
                           << pulseWidth_.value() << " s" << endl;
         //ok = false;
     }
@@ -1793,7 +1793,20 @@ femtosecondLaserModel::applySpatialWeighting
 
             source[cellI] = limitedValue;
 
-            const scalar cellPower = source[cellI] * cellVolumes[cellI];
+            // The two-temperature model deposits alpha*Q (the metal share of
+            // the cell). Normalising the integral of Q without alpha let
+            // partly filled cells absorb less than the pulse energy; weight
+            // by alpha so that the integral of alpha*Q is the expected energy.
+            const scalar alphaWeight =
+                metalFractions
+              ? Foam::min
+                (
+                    Foam::max((*metalFractions)[cellI], scalar(0)),
+                    scalar(1)
+                )
+              : scalar(1);
+            const scalar cellPower =
+                source[cellI]*cellVolumes[cellI]*alphaWeight;
 
             metrics.maxSourceValue =
                 max(metrics.maxSourceValue, source[cellI]);

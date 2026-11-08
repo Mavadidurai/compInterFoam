@@ -18,7 +18,7 @@ FoamFile
 
 dimensions      [0 0 0 0 0 0 0];
 
-// SLM: Argon gas fills most of domain initially (1 - powder fraction)
+// Gas fraction: 1 - alpha.metal (set by setFieldsDict)
 internalField   uniform 1;
 
 boundaryField

@@ -12,7 +12,9 @@ import os, sys
 import numpy as np
 from paraview.simple import OpenFOAMReader, MergeBlocks, CellCenters, CellSize, CleantoGrid, servermanager
 from vtk.util.numpy_support import vtk_to_numpy as v2n
-case = os.path.abspath(sys.argv[1]); RHO = 4515.0
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from case_props import metal_density
+case = os.path.abspath(sys.argv[1]); RHO = metal_density(case)
 f = os.path.join(case, 'case.foam'); open(f, 'a').close()
 r = OpenFOAMReader(FileName=f); r.MeshRegions = ['internalMesh']
 r.CaseType = 'Decomposed Case' if os.path.isdir(os.path.join(case, 'processor0')) else 'Reconstructed Case'

@@ -22,45 +22,6 @@ if (LTS)
         << "scheme such as Euler or backward instead."
         << exit(FatalError);
 
-    if (verbose && Foam::Pstream::master())
-    {
-        Info<< "Using LTS" << endl;
-    }
-    trDeltaT = tmp<volScalarField>
-    (
-        new volScalarField
-        (
-            IOobject
-            (
-                fv::localEulerDdt::rDeltaTName,
-                runTime.timeName(),
-                mesh,
-                IOobject::READ_IF_PRESENT,
-                IOobject::AUTO_WRITE
-            ),
-            mesh,
-            dimensionedScalar("oneOverTime", dimless/dimTime, 1),
-            extrapolatedCalculatedFvPatchScalarField::typeName
-        )
-    );
-    trSubDeltaT = tmp<volScalarField>
-    (
-        new volScalarField
-        (
-            IOobject
-            (
-                fv::localEulerDdt::rSubDeltaTName,
-                runTime.timeName(),
-                mesh,
-                IOobject::READ_IF_PRESENT,
-                IOobject::AUTO_WRITE
-            ),
-            mesh,
-            dimensionedScalar("oneOverSubTime", dimless/dimTime, 1),
-            extrapolatedCalculatedFvPatchScalarField::typeName
-        )
-    );
-    
 }
 
 if (verbose && Foam::Pstream::master())
