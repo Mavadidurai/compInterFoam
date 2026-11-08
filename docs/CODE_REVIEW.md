@@ -114,4 +114,10 @@ Reviewed: commit `5844a69` (every file in `src/`, `tools/`, `cases/` and `docs/`
 | Galilean invariance: film at −170 m/s, 0–100 ps | velocity exactly −170 m/s; pressure within 5 × 10⁻⁶ of 10⁵ Pa |
 | 1-D laser and two-temperature column against the independent finite-difference code | peak electron temperature 6640 K against 6672 K (−0.5 %); electrons and lattice meet at 0.500 ps against 0.496 ps (+0.8 %); unchanged by the fixes |
 | Clean-up (§3, §6) against the binary used for the rerun | all written fields (U, p, p_rgh, α, T_e, T_l, T) bit-identical on the Galilean test and the 1-D column: the clean-up changes no number |
+| Static drop, Laplace pressure jump (MULES correction now active) | −2.75 % at R/Δx = 10, −3.80 % at R/Δx = 20: the same as before the fixes; drop volume within 1×10⁻⁴ % |
+| Oscillating drop against Lamb, R/Δx = 10 | frequency −12.9 %, damping −52 %: the same as before (the weak damping is a known open point); volume within 3×10⁻³ % |
+| Viscous decay of a velocity field | decay rate 0.9988 of the exact value at 5 ns (0.12 %), the same as before |
+| Force on the film in the corrected reference run | change of momentum against the recoil and vapour impulse: 1.7 % (2–102 ps) and 4 % (102–202 ps); before the fixes the worst interval was 6 % |
+| Vapour-pocket mass balance in the corrected reference run (fix 2) | pocket mass / metal lost by the film = 0.98–1.02 from 2 to 16 ps; afterwards lower, as designed (vapour above p_sat condenses; the gap side evaporates into the open gas). Before the fix the pocket received about half |
+| Corrected reference run against the old one, launch | trapped-vapour pressure on the axis 961 MPa at 26 ps (old: 524 MPa, the factor ≈ 2 expected from fix 2); film speed on the axis about 10–30 % higher (205 against 185 m/s at 0.45–0.65 ns); no NaN, no fatal error, no energy-balance warning |
 | Reference case rerun to 20 ns | running; results replace those in `figures/` and the docs when it finishes |
