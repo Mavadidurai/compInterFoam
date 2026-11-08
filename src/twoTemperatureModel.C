@@ -1530,25 +1530,6 @@ void twoTemperatureModel::solve
     scalar residual = gMax(mag(Te_ - Tl_)().internalField());
     const volScalarField& TlOld = Tl_.oldTime();
 
-    auto updateElectronHeatCapacityField = [&](volScalarField& field)
-    {
-        if (CeFunction_.valid())
-        {
-            forAll(field, cellI)
-            {
-                const scalar TeVal = Te_[cellI];
-                const scalar evaluated = CeFunction_->value(TeVal);
-                field[cellI] = Foam::max(evaluated, scalar(1e4));
-            }
-        }
-        else
-        {
-            const scalar CeConst = Foam::max(Ce_.value(), scalar(1e4));
-            field = dimensionedScalar(Ce_.name(), Ce_.dimensions(), CeConst);
-        }
-
-        field.correctBoundaryConditions();
-    };
 
     tmp<volScalarField> tG;
     tmp<volScalarField> tkl;
@@ -1613,7 +1594,6 @@ void twoTemperatureModel::solve
             const volScalarField& keField = tke();
 
             tCe = electronHeatCapacity();
-            volScalarField& CeMutable = tCe.ref();
             const volScalarField& CeField = tCe();
 
             solveElectronEquation
@@ -1627,7 +1607,6 @@ void twoTemperatureModel::solve
                 dtSub,
                 TePrev
             );
-            updateElectronHeatCapacityField(CeMutable);
             tmp<volScalarField> tBoundTe =
                 Foam::max(Foam::min(Te_, maxTe), minTe);
             const volScalarField& boundTe = tBoundTe();

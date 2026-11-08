@@ -12,7 +12,7 @@
 
 | Question | Name | Answered here? |
 |---|---|---|
-| Does the code solve its equations correctly? | code verification | **yes**: every added equation against an exact solution, an independent code or a hand calculation (§2) |
+| Does the code solve its equations correctly? | code verification | **largely**: the laser source, the two-temperature model (with k_e = C_e D_e), evaporation, recoil, surface tension, viscosity and Galilean invariance against exact solutions, an independent code or hand calculations (§2). Not covered by a test: the Drude k_e path, the gas–metal exchange, and the mass balance of the trapped-vapour pocket |
 | How large is the numerical error of a production run? | solution verification | **partly**: drop benchmarks at several resolutions. There is no mesh-refinement study of the reference case (§5) |
 | Are these the right equations for fs-LIFT? | validation | **no**: no comparison with measurements is included |
 
@@ -120,7 +120,7 @@ These defects were found by the tests above, or by inspecting development runs. 
 | The optional pressure clamp overwrote the pressure after the pressure solve, so the velocity no longer satisfied continuity, and a development run crashed | a crash at 647 ps | `pressureClamp false` |
 | The electron conductivity k_e = C_e · D_e grows with T_e even when electrons and atoms are at the same temperature: 10–17 times too high in a hot film, so the film first moved the wrong way | comparison with the finite-difference code | Drude form k_e = k_e0 · T_e/T_l (option `ke0`) |
 | Temperature limits of 10,000 K were reached with the 10 nm absorption depth and removed energy | energy balance | limits raised to 50,000 K |
-| The first optical inputs were wrong: reflectivity 0.35 instead of 0.428, and an absorption coefficient from 2k/λ (1.07e7 1/m, 93 nm depth) instead of 4πk/λ (1.035e8 1/m, 9.7 nm) | a check of the inputs against the optical constants of titanium | corrected inputs in the reference case |
+| The first optical inputs were wrong: reflectivity 0.35 instead of 0.428, and an absorption coefficient of 1.07e7 1/m (93 nm depth) of unknown origin (it is not 2k/λ = 1.65e7, k/λ or 2πk/λ) instead of 4πk/λ (1.035e8 1/m, 9.7 nm) | a check of the inputs against the optical constants of titanium | corrected inputs in the reference case |
 | The temperature equations were skipped after the pulse: a solver tolerance of 1e-6 to 1e-8 was above the residual, so 0 iterations were made and the temperature froze | 1-D energy budget; solver logs | tolerance 1e-14 |
 | With the physical laser inputs the run failed within 2–6 ps | development runs | cause: the mass source of the unverified phase-explosion sub-model; switched off |
 | One trapped-vapour pocket for the whole spot pushed a 7.4 µm-wide region as a rigid plug, which tore at the cold edge | development runs | one vapour column per radial ring (`mode local`) |

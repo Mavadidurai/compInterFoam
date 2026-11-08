@@ -32,7 +32,7 @@ The detailed test descriptions are in [VERIFICATION.md](VERIFICATION.md), the li
 | 4. Sub-model validation | Do the physics sub-models behave as titanium and thin films do? | **partial** | heating, phase explosion, stress confinement and thin-film bulging compared with the literature: mechanisms consistent; two missing mechanisms identified (stress waves, phase explosion); no matched numbers |
 | 5. System validation | Does the whole simulated LIFT event match an experiment? | **not done** | no public measurement under matching conditions; the predicted sequence (bulge, cup, rupture, droplet smaller than the spot) is reported in several experiments on other metals |
 
-**Bottom line.** The code is verified. The reference result is a verified solution of a model whose titanium inputs need four corrections and which lacks two known mechanisms. It is not yet validated. The launch phase is the most reliable part of the result; the separation of the droplet is mesh-limited.
+**Bottom line.** The equations that carry the result are verified against exact or independent solutions; the Drude conductivity path, the gas–metal exchange and the pocket mass balance are not covered by a test (see the code review, docs/CODE_REVIEW.md). The reference result is a solution of a model whose titanium inputs need three corrections and which lacks two known mechanisms. It is not yet validated. The launch phase is the most reliable part of the result; the separation of the droplet is mesh-limited.
 
 ---
 
@@ -108,8 +108,8 @@ Each equation added to OpenFOAM was tested on its own, against an exact solution
 - **Resolution from scale analysis** ([MODEL.md §8–9](MODEL.md#8-characteristic-scales-and-dimensionless-numbers)):
   - 16 cells across the 71.4 nm film (4.46 nm), resolving the 9.7 nm absorption depth with about two cells per depth (the deposition is exact per cell, [MODEL.md §3.2](MODEL.md#32-implementation));
   - 6 nm cells for the first 3 µm below the film, so the dome tip stays sharp; on coarser cells it smeared to α ≈ 0.5.
-- **Time step** set by the flow Courant number (`maxCo`) and the staged `maxDeltaT`, which keeps it below the capillary limit of about 4.4 ps on the film cells. The interface Courant number and `maxThermalCourant` are not time-step limits in this solver (only logged, and a bound on the gas–metal exchange respectively).
-- **Conservation:** the metal volume changed by −0.0135 % over 20 ns, a change that includes the evaporated metal.
+- **Time step** set by the flow and interface Courant numbers (`maxCo`, `maxAlphaCo`) and the staged `maxDeltaT`, which keeps it below the capillary limit of about 4.4 ps on the film cells. `maxThermalCourant` is not a time-step limit (it bounds the gas–metal exchange).
+- **Conservation:** the metal volume is conserved by the transport apart from evaporation. Over 20 ns the film lost about 1.5 % of its volume to evaporation (−0.0135 % of all metal in the domain, which includes the 8 µm metal receiver).
 
 **What has not been done.**
 1. **No mesh-refinement study of the reference case.** The launch speed (191.7 m/s) has no numerical error bar yet.
@@ -264,7 +264,7 @@ Of the 48 screened papers: 6 provide input data (level 3), 14 concern femtosecon
 
 In order:
 
-1. **Correct the four inputs.** Use the measured ρ(T) and σ(T) of liquid titanium (Ozawa et al., 2017; Seimiya et al., 2022), and first-principles G(T_e) and C_e(T_e) (Hobmaier et al., 2026, or Lin et al., 2008). Then check the pending inputs (viscosity, optical constants, vapour pressure) against their sources. Rerun the launch to 1 ns.
+1. **Correct the three inputs, and the film expansion.** Use the measured σ(T) and, with the deposited mass fixed, ρ(T) of liquid titanium (Ozawa et al., 2017; Seimiya et al., 2022), and first-principles G(T_e) and C_e(T_e) (Hobmaier et al., 2026, or Lin et al., 2008). Then check the pending inputs (viscosity, optical constants, vapour pressure) against their sources. Rerun the launch to 1 ns.
 2. **Solution verification.** Mesh study of the launch to 1 ns (three meshes, grid-convergence index), and a radially refined run of the separation (6–20 ns).
 3. **Proxy validation on a measured case.** Rerun the solver with the metal, film, pulse and gap of a published femtosecond or picosecond LIFT experiment that reports speeds or droplet sizes. Gold is the best first choice, because its two-temperature parameters and liquid properties are well established. The solver accepts pulse durations from 10 fs to 10 ps, so nanosecond experiments need code changes.
 4. **Sub-model validation on titanium.** Simulate single-pulse femtosecond irradiation of titanium as in the published threshold experiments (Kuzmin & Klekovkin, 2022) and compare the melting and ablation thresholds.

@@ -11,9 +11,24 @@ alpha2.correctBoundaryConditions();
 // the alpha transport (and the per-sub-cycle recoil updates) needlessly.
 const label nAlphaSubCyclesForStep = nAlphaSubCycles;
 
-if (useAdvancedCapturing && pInterfaceCapturing.valid())
+// One code path for both settings. The two branches used to be ~90-line
+// copies that differed only in the interface-capturing update, the rhoPhi
+// reconstruction without sub-cycles and the verbose report; those three
+// steps are kept, and still apply only with advanced capturing.
+const bool advancedCapturingActive =
+    useAdvancedCapturing && pInterfaceCapturing.valid();
+
 {
     tmp<surfaceScalarField> talphaPhi1(alphaPhi10);
+
+    // bound alpha1 to [0, 1] and refresh alpha2
+    auto boundAlpha = [&]()
+    {
+        alpha1 = max(min(alpha1, scalar(1)), scalar(0));
+        alpha1.correctBoundaryConditions();
+        alpha2 = scalar(1) - alpha1;
+        alpha2.correctBoundaryConditions();
+    };
 
     if (nAlphaSubCyclesForStep > 1)
     {
@@ -56,19 +71,14 @@ if (useAdvancedCapturing && pInterfaceCapturing.valid())
             !(++alphaSubCycle).end();
         )
         {
-            pInterfaceCapturing->correct();
+            if (advancedCapturingActive)
+            {
+                pInterfaceCapturing->correct();
+            }
 
-            alpha1 = max(min(alpha1, scalar(1)), scalar(0));
-            alpha1.correctBoundaryConditions();
-            alpha2 = scalar(1) - alpha1;
-            alpha2.correctBoundaryConditions();
-
+            boundAlpha();
             #include "alphaEqn.H"
-
-            alpha1 = max(min(alpha1, scalar(1)), scalar(0));
-            alpha1.correctBoundaryConditions();
-            alpha2 = scalar(1) - alpha1;
-            alpha2.correctBoundaryConditions();
+            boundAlpha();
 
             const dimensionedScalar subCycleWeight(runTime.deltaT()/totalDeltaT);
             talphaPhi1.ref() += subCycleWeight*alphaPhi10;
@@ -80,31 +90,26 @@ if (useAdvancedCapturing && pInterfaceCapturing.valid())
     }
     else
     {
-        pInterfaceCapturing->correct();
+        if (advancedCapturingActive)
+        {
+            pInterfaceCapturing->correct();
+        }
 
-        alpha1 = max(min(alpha1, scalar(1)), scalar(0));
-        alpha1.correctBoundaryConditions();
-        alpha2 = scalar(1) - alpha1;
-        alpha2.correctBoundaryConditions();
-
+        boundAlpha();
         #include "alphaEqn.H"
-
-        alpha1 = max(min(alpha1, scalar(1)), scalar(0));
-        alpha1.correctBoundaryConditions();
-        alpha2 = scalar(1) - alpha1;
-        alpha2.correctBoundaryConditions();
+        boundAlpha();
     }
 
     rho = alpha1*rho1 + alpha2*rho2;
 
-    if (nAlphaSubCyclesForStep <= 1)
+    if (advancedCapturingActive && nAlphaSubCyclesForStep <= 1)
     {
         tmp<surfaceScalarField> trho1 = fvc::interpolate(rho1);
         tmp<surfaceScalarField> trho2 = fvc::interpolate(rho2);
         rhoPhi = alphaPhi10*trho1() + (phi - alphaPhi10)*trho2();
     }
 
-if (verbose && Foam::Pstream::master())
+    if (advancedCapturingActive && verbose && Foam::Pstream::master())
     {
         Info<< "Phase-1 volume fraction (" << alpha1.name() << ") = "
             << alpha1.weightedAverage(mesh.V()).value()
@@ -117,86 +122,4 @@ if (verbose && Foam::Pstream::master())
             << "  Max(" << alpha2.name() << ") = " << max(alpha2).value()
             << endl;
     }
-}
-else
-{
-    tmp<surfaceScalarField> talphaPhi1(alphaPhi10);
-
-    if (nAlphaSubCyclesForStep > 1)
-    {
-        const dimensionedScalar totalDeltaT(runTime.deltaT());
-
-        talphaPhi1.reset
-        (
-            new surfaceScalarField
-            (
-                IOobject
-                (
-                    "alphaPhi1",
-                    runTime.timeName(),
-                    mesh,
-                    IOobject::NO_READ,
-                    IOobject::NO_WRITE
-                ),
-                mesh,
-                dimensionedScalar(alphaPhi10.dimensions(), Zero)
-            )
-        );
-
-        surfaceScalarField rhoPhiSum
-        (
-            IOobject
-            (
-                "rhoPhiSum",
-                runTime.timeName(),
-                mesh,
-                IOobject::NO_READ,
-                IOobject::NO_WRITE
-            ),
-            mesh,
-            dimensionedScalar(rhoPhi.dimensions(), Zero)
-        );
-
-        for
-        (
-            subCycle<volScalarField> alphaSubCycle(alpha1, nAlphaSubCyclesForStep);
-            !(++alphaSubCycle).end();
-        )
-        {
-            alpha1 = max(min(alpha1, scalar(1)), scalar(0));
-            alpha1.correctBoundaryConditions();
-            alpha2 = scalar(1) - alpha1;
-            alpha2.correctBoundaryConditions();
-
-            #include "alphaEqn.H"
-
-            alpha1 = max(min(alpha1, scalar(1)), scalar(0));
-            alpha1.correctBoundaryConditions();
-            alpha2 = scalar(1) - alpha1;
-            alpha2.correctBoundaryConditions();
-
-            const dimensionedScalar subCycleWeight(runTime.deltaT()/totalDeltaT);
-            talphaPhi1.ref() += subCycleWeight*alphaPhi10;
-            rhoPhiSum += subCycleWeight*rhoPhi;
-        }
-
-        alphaPhi10 = talphaPhi1();
-        rhoPhi = rhoPhiSum;
-    }
-    else
-    {
-        alpha1 = max(min(alpha1, scalar(1)), scalar(0));
-        alpha1.correctBoundaryConditions();
-        alpha2 = scalar(1) - alpha1;
-        alpha2.correctBoundaryConditions();
-
-        #include "alphaEqn.H"
-
-        alpha1 = max(min(alpha1, scalar(1)), scalar(0));
-        alpha1.correctBoundaryConditions();
-        alpha2 = scalar(1) - alpha1;
-        alpha2.correctBoundaryConditions();
-    }
-
-    rho = alpha1*rho1 + alpha2*rho2;
 }

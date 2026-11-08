@@ -20,7 +20,7 @@ The medium-severity items have also been corrected:
 
 A10 (Kapitza gradient, low–medium) is not changed: fixing it would switch on a gas–metal exchange that has never been active in any run.
 
-The fixes have **not been compiled or run** (no OpenFOAM in the review environment). The reference results in `figures/` and the docs were produced with the old code; they will change once the case is rerun with the fixed solver.
+These fixes were written without a compiler. They have since been compiled and tested, the remaining items fixed, and every finding checked against the code and the OpenFOAM v2406 sources: see **§10, verification of this review**. The reference results in `figures/` and the docs were produced with the old code; the reference case is being rerun with the fixed solver.
 
 ## 0. Scope, method and what this review could *not* do
 
@@ -387,3 +387,70 @@ Short summary of §3: the results numbers are reproducible, but several explanat
 | C1 unused contradictory `thermophysicalProperties` blocks | Medium–High | key scan plus stock behaviour of `rhoThermo::New` |
 | Kapitza / argon sound-speed value | Low–Medium | from memory |
 | Nothing was compiled or run | — | no OpenFOAM in this environment; all runtime statements are inferred |
+
+---
+
+## 10. Verification of this review (compiled and run, 2026-11-08)
+
+The review above was written from the source alone. Every finding was then checked against the code at `5844a69`, and A3 against the OpenFOAM v2406 sources installed with the solver. The fixes were compiled (no warnings) and tested. Verdicts: **confirmed** (the finding is right), **corrected** (right, with a correction below), **wrong**.
+
+### 10.1 Verdicts
+
+| Item | Verdict | Evidence | Status |
+|---|---|---|---|
+| A1 relaxation term | confirmed | `Sp(α·C_l/τ, T_l)` with `α·C_l·T_l^old/τ` on the right; τ = max(1e-12, dtFloor 1e-12) | fixed (term removed). The evaporation sink is now explicit; it is stable because its stiffness time, 1/(∂S/∂T)/C_l, is ≥ 33 ps at the 10 kK cap against Δt ≤ 2.5 ps |
+| A2 pocket mass | confirmed | Gauss-linear |∇α| in the metal-side cell of a sharp step is 0.5/Δx; the film sink uses the full face area | fixed (pocket inflow = ρ_m·dgdt·V, the mass the α equation removes) |
+| A3 MULES source | **corrected** | not uncertain: v2406 `applications/solvers/multiphase/VoF/alphaEqn.H` passes `(-Sp*alpha1)()` to `MULES::correct`, and `CMULESTemplates.C` updates ψ = (ρψ/Δt + Su − ∇·φ_corr)/(ρ/Δt − Sp). **Correction:** A3 never acted in the reference run, because A4 kept `MULESCorr` off in all three stages | fixed |
+| A4 MULESCorr | confirmed | each stage of `run_case.sh` restarts with Δt ≤ 1 ps, the femtosecond test switches `MULESCorr` off at the first step, and the variable stays off. So the old reference run used plain explicit MULES throughout | fixed. With the fix, the MULES correction is **on** whenever Δt > 1 ps, i.e. in the flight stage: the corrected run uses a different α algorithm there |
+| A5 limiter override | confirmed | the override came after the limiter | fixed (removed) |
+| A6 gas speed clip | confirmed | **addition:** it could not act in the reference run: the largest gas speed was about 200 m/s against the 2000 m/s limit | fixed (off by default; applied before φ) |
+| A7 silent overrides | confirmed | | fixed (reported, only for missing keys) |
+| A8 emergency clamp | confirmed | its bounds (±7.5 GPa, widened during the run) are more than 10× the largest pressure, 524 MPa, so it very probably never acted [inferred, the logs do not record it] | fixed (off means off; non-finite p is fatal) |
+| A9 energy check | confirmed | | fixed; compiles |
+| A10 Kapitza exchange | confirmed | | **not changed**: fixing the gradient would switch on a gas–metal exchange that has never been tested; it stays effectively off and is documented as such |
+| A10 Function1 lookup | confirmed | | fixed (looked up in the parent dictionary) |
+| A10 laser vs TTM α | confirmed | | fixed: the laser normalises ∫αQ dV, as the TTM deposits αQ |
+| A10 gas–metal bookkeeping | confirmed | | not changed (belongs to the inactive exchange) |
+| A10 recoil threshold | confirmed | | fixed: recoil from T_melt, where evaporation starts (below T_vapor the recoil is ≤ 0.055 MPa) |
+| A10 Saha, critical density | confirmed | Saha: 2(g_i/g_0)λ⁻³; n_c = 1.115e27/(λ/µm)² = 9.5e27 m⁻³ at 343 nm | fixed (sub-model off) |
+| A10 explosion multipliers | confirmed | | unused `explosionFluxMultiplier` removed |
+| A10 defaults | confirmed | | phase explosion and plasma default to off; `maxTe`, `metalFractionFloor`, `metalAmbientBlendWidth`, `clampRecoil` defaults made consistent. The breakup model still defaults to on: it is a diagnostic and changes α only with `applyAlphaRedistribution` |
+| B1 metal volume | confirmed | −0.0135 % of all metal ÷ 0.885 % film share = −1.5 % of the film | docs corrected |
+| B2 MODEL numbers | confirmed | (71.4 nm)²/10⁻⁴ m²/s = 51 ps | corrected |
+| B3 time-step limits | confirmed | the standard `setDeltaT.H` uses `maxCo` and `maxDeltaT` only | **code changed:** `maxAlphaCo` now limits Δt over interface cells (stock VoF form). With maxAlphaCo 0.5 > maxCo 0.2 it does not bind in these cases. `maxThermalCourant` still only bounds the exchange; the docs say so |
+| B4 (§3) absorption coefficient | confirmed | 2k/λ = 1.65e7, k/λ = 8.2e6, 2πk/λ = 5.2e7 | corrected. Note: the review uses "B4" twice (summary table: mesh-study case; §3: this item) |
+| B4 (summary) mesh-study case | confirmed | | docs say so |
+| B5, B6, B7 | confirmed | | corrected |
+| B8 droplet mass | confirmed | 1.5396e-17 → 1.5904e-17 kg (+3.3 %) between 13.4 and 19.8 ns | stated in RESULTS |
+| C inputs | confirmed | key scan of `src/` for every listed key | unread keys removed from all four cases; gas density 1.1614 in `transportProperties` (its value only enters a term that is switched off). `donor` stays `wall` in `blockMeshDict`: with laminar flow the patch type has no effect, and changing it would change the mesh of the reference run |
+| D dynamic mesh | confirmed | `createMesh.H` builds a static `fvMesh`; the dynamic-mesh code was commented out | dead code and the `dynamicFvMesh`/`topoChangerFvMesh` libraries removed; `constant/dynamicMeshDict` is not read |
+| D duplication | confirmed | | done: the 13 mass-weighted functions now use three helpers, with γ = C_p/C_v, C_p/C_pv and 1/W = ΣY_i/W_i of the mixture instead of mass-weighted γ and W; the two α sub-cycle branches merged; the repeated laser α test; the discarded C_e update; the no-op δ round trip; dead LTS code; the unused recoil clamp; the per-cell debug print; π and k_B to full precision; mojibake; tracker labels, thresholds and CSV header. **Not done** (no effect on any number): the laser pulse-centre and pulse-train duplicates, the clamp blocks in `advancedInterfaceCapturing.C`, the TTM cut-off checks, the alias lookups, the `simulationType` parsing, `foundObject` inside loops, and replacing `postProcess.H` |
+
+No finding of the review was wrong. The corrections are: A3 is certain, not [UNCERTAIN], and did not act in the old run; A6 and A8 almost certainly did not act; and the review numbers two different items "B4".
+
+### 10.2 Changes beyond the review
+
+These also change results slightly and are in the corrected run:
+- laser normalisation weighted by α (A10);
+- recoil from T_melt (A10);
+- `maxAlphaCo` limits Δt (does not bind here);
+- one specific gas constant (174 J/(kg K)) for the evaporation flux, the recoil and the pocket; the recoil used k_B/m = 173.6.
+
+### 10.3 Why the old solver still produced results
+
+The defects fall into three groups, and none of them makes the equations unsolvable:
+1. **Inactive in the reference run.** A3 (switched off by A4), A6 (limit never reached), A8 (bounds never reached), A5 (a no-op), A9, A10 Kapitza (the exchange was off), and the switched-off sub-models. They could not change the numbers.
+2. **Biases in a bounded, stable scheme.** A1 made the surface cells respond 2–3.5× more slowly to heating and cooling, and A2 gave the pocket 25–50 % of the evaporated mass. Both change *how much* drive the film gets, not whether the solver converges. The pocket pressure is also capped at p_sat, so where saturation binds, A2 has no effect. Implicit time stepping, bounded MULES transport and the pressure equation still conserve mass and momentum, which is why the conservation, Galilean and force-balance tests passed.
+3. **Reporting and documentation.** B1 to B8 change what the docs say, not what the solver computes.
+
+So the old results were plausible and internally consistent, but the size of the vapour drive, and therefore the launch speed, carried an unknown bias from A1 and A2. The rerun with the corrected solver measures it.
+
+### 10.4 Tests of the corrected solver
+
+| Test | Result |
+|---|---|
+| Compilation (OpenFOAM v2406, `wclean; wmake`) | no errors, no warnings |
+| Galilean invariance (film at −170 m/s, 100 ps) | velocity exactly −170 m/s; pressure within 5×10⁻⁶ of 10⁵ Pa |
+| 1-D laser and two-temperature column against the finite-difference code | peak electron temperature 6640 K against 6672 K (−0.5 %); electrons and lattice meet at 0.500 ps against 0.496 ps (+0.8 %): unchanged from before the fixes |
+| Refactored code (de-duplication, dead-code removal) against the binary used for the rerun | Galilean test (0–100 ps) and the 1-D column (0–3 ps): every written field (U, p, p_rgh, α, T_e, T_l, T) bit-identical, so the refactoring changes no number |
+| Reference case rerun | running |

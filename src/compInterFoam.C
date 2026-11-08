@@ -48,7 +48,6 @@ Description
 \*---------------------------------------------------------------------------*/
 
 #include "fvCFD.H"
-#include "dynamicFvMesh.H"
 #include "OSspecific.H"
 #include "CMULES.H"
 #include "EulerDdtScheme.H"
@@ -1481,20 +1480,6 @@ int main(int argc, char *argv[])
     #include "setRootCaseLists.H"
     #include "createTime.H"
     #include "createMesh.H"
-/*
-    const Foam::fileName meshDir = runTime.constant()/"polyMesh";
-        if (!Foam::isDir(meshDir) || !Foam::isFile(meshDir/"points"))
-    {
-        FatalErrorInFunction
-            << "Missing initial mesh: " << meshDir/"points" << '\n'
-            << "Generate the background mesh (e.g. blockMesh or surface meshing) "
-            << "before launching compInterFoam."
-            << exit(FatalError);
-    }
-
-    autoPtr<dynamicFvMesh> meshPtr(dynamicFvMesh::New(runTime));
-    dynamicFvMesh& mesh = meshPtr();
-    */
     #include "createTimeControls.H" 
     #ifndef CREATE_FIELDS_DONE
     #include "createFields.H"
@@ -1721,45 +1706,7 @@ int main(int argc, char *argv[])
         }
 
         ++runTime;
-/*        
-        static bool dynamicMeshSuppressedPrinted = false;
 
-        if (mesh.dynamic())
-        {
-            const Switch enableDynamicMeshRefinement =
-                runTime.controlDict()
-                    .subOrEmptyDict("advancedInterfaceCapturing")
-                    .lookupOrDefault<Switch>("enableDynamicMeshRefinement", true);
-
-            if (useAdvancedCapturing && enableDynamicMeshRefinement)
-            {
-               const bool meshChangedThisStep = mesh.update();
-
-                if (meshChangedThisStep)
-                {
-                    dynamicMeshSuppressedPrinted = false;
-
-                    if (verbose && master)
-                    {
-                        Info<< "Dynamic mesh update executed" << endl;
-                    }
-
-                    phi = fvc::flux(U);
-                    rhoPhi = fvc::interpolate(rho)*phi;
-                    alphaPhi10 = phi*fvc::interpolate(alpha1);
-                }
-            }
-            else if (!dynamicMeshSuppressedPrinted && master)
-            {
-                Info<< "Dynamic mesh refinement suppressed"
-                    << (useAdvancedCapturing
-                        ? " (enableDynamicMeshRefinement = false in advancedInterfaceCapturing)"
-                        : " (useAdvancedInterfaceCapturing = false)")
-                    << endl;
-                dynamicMeshSuppressedPrinted = true;
-            }
-        }
-*/
         Info<< "Time = " << runTime.timeName() << nl << endl;
 
         // Update laser model

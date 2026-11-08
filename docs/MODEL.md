@@ -103,7 +103,7 @@ $$
 \bar Q_{cell} = (1-R)\,\bar I \;\frac{e^{-a s_{in}} - e^{-a s_{out}}}{s_{out}-s_{in}},
 $$
 
-where $\bar I$ is the intensity **averaged over the time step** (the Gaussian integrated analytically between $t$ and $t+\Delta t$). The deposited energy is therefore exact for any cell size and time step: panel (b) below compares the exact profile with the 16 cell averages across the film. In the 5° wedge, `beamCoverage geometric` normalises the deposition to the share of the beam that falls into the wedge sector.
+where $\bar I$ is the intensity **averaged over the time step** (the Gaussian integrated analytically between $t$ and $t+\Delta t$). The two-temperature model deposits $\alpha\bar Q$, the metal share of each cell, so the source is normalised such that $\int \alpha \bar Q\, dV$ equals the energy of the step. The deposited energy is therefore exact for any cell size and time step: panel (b) below compares the exact profile with the 16 cell averages across the film. In the 5° wedge, `beamCoverage geometric` normalises the deposition to the share of the beam that falls into the wedge sector.
 
 ![Laser source: pulse in time, absorption across the film with the cell averages, and radial profile](../figures/model/laser_source.png)
 
@@ -119,7 +119,7 @@ where $\bar I$ is the intensity **averaged over the time step** (the Gaussian in
 | Nominal peak fluence before the glass | $F_0 = 2E_0/(\pi w_0^2)$ = 332 mJ/cm², so $E_0$ = 4.694e-8 J | case definition |
 | Transmission to the film | (1 − 0.0460) × 0.9177 = 0.87545: Fresnel reflection at the air–glass surface and internal transmission of the glass | case input |
 | Energy reaching the film | $E$ = 0.87545 $E_0$ = 4.109e-8 J; peak fluence on the film 290.6 mJ/cm² | derived |
-| Absorbed fraction | $(1-R)(1-e^{-ah}) = 0.5717 \times 0.99938 = 0.5713$; only $e^{-ah} = 6\times10^{-4}$ of the light leaves the film on the gap side | derived |
+| Absorbed fraction | $(1-R)(1-e^{-ah}) = 0.57168 \times 0.99938 = 0.5713$; only $e^{-ah} = 6\times10^{-4}$ of the light leaves the film on the gap side | derived |
 | Peak absorbed fluence on the axis | 0.5713 × 290.6 = 166 mJ/cm² | derived |
 | Peak absorbed power density | $Q_0 = (1-R) I_0 a = 7.55\times10^{23}$ W/m³ | derived |
 
@@ -232,15 +232,15 @@ At 10,000 K the surface recedes by 15.7 nm per nanosecond. Evaporation is theref
 
 ### 5.2 Mass and heat sources
 
-The surface flux is converted into volumetric sources with the interface area density $|\nabla\alpha|$, a continuum-field representation of the interface source (Hardt & Wondra, 2008):
+The surface flux is converted into volumetric sources with an interface area density $a_i$, a continuum-field representation of the interface source (Hardt & Wondra, 2008):
 
 $$
-\dot m''' = j\,|\nabla\alpha|, \qquad
-S_{evap} = j\,h_v\,|\nabla\alpha|, \qquad
-\left.\frac{\partial\alpha}{\partial t}\right|_{evap} = -\frac{j\,|\nabla\alpha|}{\rho_m}
+\dot m''' = j\,a_i, \qquad
+S_{evap} = j\,h_v\,a_i, \qquad
+\left.\frac{\partial\alpha}{\partial t}\right|_{evap} = -\frac{j\,a_i}{\rho_m}
 $$
 
-The evaporated mass leaves the metal; no gas volume is created in its place (`phaseChangeVolumeSource false`). The same $j$ and the same $|\nabla\alpha|$ are used for the mass and the heat, so the metal and its latent heat are removed in step. The heat source is bounded by `maxSource` = 10²⁵ W/m³, which is not reached.
+$a_i$ is computed geometrically: the area of each cell face that crosses α = 0.5, projected on the interface normal, is assigned to the metal-side cell and divided by its volume. For a sharp step this is exactly $1/\Delta x$ in one cell; a cell-limited $|\nabla\alpha|$ is close to zero there and a Gauss-linear one gives only half of it. The evaporated mass leaves the metal; no gas volume is created in its place (`phaseChangeVolumeSource false`). The same $j$ and the same $a_i$ are used for the mass and the heat, so the metal and its latent heat are removed in step. The latent-heat sink enters the lattice equation explicitly, with the latest $T_l$ of each outer iteration; at the 10 kK cap it changes $T_l$ by about 60 K per picosecond, and its stiffness time is at least 33 ps, so the explicit form is stable for Δt ≤ 2.5 ps. (An earlier version also added a relaxation $C_l(T_l^{old}-T_l)/\tau$ with τ = 1 ps in evaporating cells, which slowed their heating and cooling 2–3.5× and was not in the energy audit; it was removed.) The heat source is bounded by `maxSource` = 10²⁵ W/m³, which is not reached.
 
 ### 5.3 Recoil pressure
 
@@ -250,7 +250,7 @@ $$
 p_r = c_m\,\frac{0.54}{\beta}\, j\, \sqrt{2\pi R_v T} \;=\; c_m \cdot 0.54\, p_{sat}(T)
 $$
 
-with the momentum accommodation coefficient $c_m$ = 1 (`momentumAccommodationCoeff`). The recoil is bounded at 5 GPa (`maxRecoilPressure`). Because of the temperature cap it cannot exceed 0.54 × 1.30 GPa = 0.70 GPa, so the bound is never reached.
+with the momentum accommodation coefficient $c_m$ = 1 (`momentumAccommodationCoeff`). The recoil acts in the same cells as evaporation, from the melting temperature up; below the boiling point it is at most 0.055 MPa. The recoil is bounded at 5 GPa (`maxRecoilPressure`). Because of the temperature cap it cannot exceed 0.54 × 1.30 GPa = 0.70 GPa, so the bound is never reached.
 
 **How the recoil enters the momentum equation.** The recoil pressure is non-zero only in interface cells. It is applied as a force on the cell faces that carry the jump of α, $\mathbf{f}_f = -p_{r,f}\,\Delta\alpha_f\,\mathbf{S}_f$, consistent with the surface-tension force (§7.3). The face value $p_{r,f}$ is taken from the neighbour with the larger recoil (`recoilFaceInterpolation localMax`). Then the sum over the faces of a monotone interface is exactly $p_r A$. A linear face average gave each of the two faces half the cell value, so only half the recoil was applied; this was found by the force-balance test and corrected.
 
@@ -289,7 +289,7 @@ p_b = \min\!\left(\langle p_{sat}\rangle_b,\; \frac{m_b R_v \langle T\rangle_b}{
 $$
 
 - $A_b$ is the ring area in the wedge and $\mathbf{n}_g$ the normal pointing into the glass.
-- $\dot\alpha_{evap} = j\,|\nabla\alpha|/\rho_m$ is the evaporation sink of §5.2 (the field `dgdt`), so the pocket gains exactly the mass the film loses. $A_b$ is the sum of $|\nabla\alpha|V$ over the metal- and gas-side cells of the surface.
+- $\dot\alpha_{evap} = j\,a_i/\rho_m$ is the evaporation sink of §5.2 (the field `dgdt`), so the pocket gains exactly the mass the film loses. (An earlier version used $j|\nabla\alpha|V$ with a Gauss-linear gradient, which gave the pocket only 25–50 % of that mass.) $A_b$ is the sum of $|\nabla\alpha|V$ over the metal- and gas-side cells of the surface.
 - $\langle\cdot\rangle_b$ are averages over the evaporating cells of the ring, weighted by the evaporation flux, so the hottest surface dominates.
 - The vapour behaves as an ideal gas but cannot exceed the saturation pressure. Vapour in excess of saturation condenses back (it is removed from $m_b$).
 - When no cell of the ring evaporates any more, the stored vapour keeps its ideal-gas pressure without the saturation cap.
@@ -457,7 +457,7 @@ The time step is the smaller of:
 | 2 | 2 ps – 1 ns | 1 ps | launch of the film; large vapour pressures |
 | 3 | 1 ns – end | 2.5 ps | flight; kept below the capillary limit of 4.4 ps (§8) |
 
-`maxAlphaCo` and `maxThermalCourant` do **not** limit the time step in this solver. The interface Courant number is computed and only logged, and `maxThermalCourant` only bounds the gas–metal exchange coefficient in the gas temperature equation. The capillary limit is respected only through the `maxDeltaT` values above.
+The flow Courant number (`maxCo`) and the interface Courant number (`maxAlphaCo`, over cells with 0.01 < α < 0.99) limit the time step, as in the stock VoF solvers; with 0.2 and 0.5 the flow limit is the one that binds. `maxThermalCourant` does **not** limit the time step: it only bounds the gas–metal exchange coefficient in the gas temperature equation. The capillary limit is respected only through the `maxDeltaT` values above.
 
 The electron equation is additionally sub-stepped (§4.4).
 

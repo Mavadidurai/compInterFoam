@@ -1632,26 +1632,9 @@ femtosecondLaserModel::applySpatialWeighting
                 inFilm = false;
             }
         }
-        bool depositInMetal = inFilm;
+        // (the same alpha test used to be repeated here for depositInMetal)
+        const bool depositInMetal = inFilm;
         const scalar gasCoeff = gasAbsorptionCoeff_.value();
-
-        if (metalFractions)
-        {
-            const scalar alphaVal = Foam::min
-            (
-                Foam::max((*metalFractions)[cellI], scalar(0)),
-                scalar(1)
-            );
-
-            if (alphaVal > metalFractionTol)
-            {
-                depositInMetal = true;
-            }
-            else
-            {
-                depositInMetal = false;
-            }
-        }
         if (!isInBeam(c, axialHalfLength))
         {
             continue;
