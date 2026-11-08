@@ -228,7 +228,7 @@ with the evaporation coefficient β = 0.18. The back-flux term $p_{v,\infty}$ is
 | 7,000 K | 138 MPa | 75 MPa | 9.0×10³ kg/(m² s) | 2.0 m/s |
 | 10,000 K (cap) | 1.30 GPa | 0.70 GPa | 7.1×10⁴ kg/(m² s) | 15.7 m/s |
 
-At 10,000 K the surface recedes by 15.7 nm per nanosecond. Evaporation is therefore significant only while the surface is far above the boiling point, i.e. during the first few hundred picoseconds. Over the whole reference run the metal volume decreases by 0.0135 %.
+At 10,000 K the surface recedes by 15.7 nm per nanosecond. Evaporation is therefore significant only while the surface is far above the boiling point, i.e. during the first few hundred picoseconds. Over the whole reference run the film loses about 1.5 % of its volume this way (−0.0135 % of all metal in the domain, which includes the 8 µm receiver).
 
 ### 5.2 Mass and heat sources
 

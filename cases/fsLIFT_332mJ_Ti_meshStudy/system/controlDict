@@ -175,7 +175,7 @@ G
 
     gasMetalExchangeCoeff
     {
-        type        kapitza;    // acoustic-mismatch gas-metal exchange; acts only in interface cells with 0.5 <= alpha < 1 and Tl < gasMetalCutoffTemperature (docs/CODE_REVIEW.md 10.1, A10)
+        type        kapitza;    // acoustic-mismatch gas-metal exchange; acts only in interface cells with 0.5 <= alpha < 1 and Tl < gasMetalCutoffTemperature (docs/CODE_REVIEW.md, section 2)
         Z_metal     2.3e7;      // Ti acoustic impedance [Pa·s/m]
         Z_gas       403;        // acoustic impedance of air [Pa·s/m]: 1.1614 kg/m3 x 347 m/s
         rho_metal   4506;       // Ti density [kg/m^3]

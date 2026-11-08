@@ -127,7 +127,7 @@ The case is **axisymmetric**: every quantity is assumed to be the same at every 
 
 ### 4.3 Run
 
-The case was run to 20 ns on 4 processes with [`tools/run_case.sh`](tools/run_case.sh), in three stages with growing largest time steps (10 fs, 1 ps, 2.5 ps). It took about 20 hours and wrote about 5 GB of fields. The metal volume changed by only −0.0135 % over the whole run, a change that includes the metal that evaporated.
+The case was run to 20 ns on 4 processes with [`tools/run_case.sh`](tools/run_case.sh), in three stages with growing largest time steps (10 fs, 1 ps, 2.5 ps). It took about 20 hours and wrote about 5 GB of fields. The film lost about 1.5 % of its volume over the whole run, by evaporation (−0.0135 % of all metal in the domain, which includes the 8 µm metal receiver).
 
 ### 4.4 How to read the section images
 
@@ -277,7 +277,7 @@ From [`figures/fsLIFT_332mJ_axisymmetric/results_table.md`](figures/fsLIFT_332mJ
 | Time of separation | about 13 ns | **mesh-limited** |
 | Main droplet at 19.8 ns | 0.254 µm³, equal-volume sphere 0.79 µm | **mesh-limited** |
 | Speed of the droplet (centre of mass) | about 100 m/s, constant from 13.4 to 19.8 ns | separation time and volume mesh-limited |
-| Change of total metal volume | −0.0135 % (evaporated metal) | |
+| Change of the film volume | about −1.5 % (evaporated metal) | −0.0135 % of all metal, which includes the 8 µm receiver |
 
 The data behind the time plots are in [`figures/fsLIFT_332mJ_axisymmetric/data/`](figures/fsLIFT_332mJ_axisymmetric/data/), with the columns named in the first line of each file. The full discussion is in [docs/RESULTS.md](docs/RESULTS.md).
 

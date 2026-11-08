@@ -64,7 +64,8 @@ At 19.8 ns, counted with `tools/count_metal_pieces.py` (cells with α > 0.5):
 
 - The ring at the edge of the free piece has broken into fragments. In this axisymmetric model a "fragment" is a ring around the axis; in reality such a ring would break into separate droplets around its circumference.
 - The lowest metal is still about 9.5 µm above the receiver at 20 ns. Nothing has reached the receiver, so there is **no splash** in this run.
-- The total metal volume changed by −0.0135 % over the run, which includes the metal that evaporated.
+- The film lost about 1.5 % of its volume over the run, by evaporation (−0.0135 % of all metal in the domain, which includes the 8 µm metal receiver).
+- The mass counted in the main droplet grows by 3.3 % between 13.4 and 19.8 ns (1.540 to 1.590 × 10⁻¹⁷ kg in the wedge). A detached droplet cannot gain mass; the growth comes from smeared metal near the α = 0.5 threshold joining the counted body, another sign that the droplet volume is not mesh-converged.
 
 ![Speed in a section through the axis, with direction arrows, at several times](../figures/fsLIFT_332mJ_axisymmetric/gallery/montage_Umag.png)
 
