@@ -161,6 +161,9 @@ private:
         const scalar overlapEnd,
         const scalar dt
     ) const;
+    //- Centre of a single pulse (pulseCenterTime or the default)
+    scalar singlePulseCentre(const scalar sigma) const;
+
     scalar gaussianWindowIntegral
     (
         const scalar a,

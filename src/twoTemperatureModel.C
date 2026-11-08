@@ -2058,15 +2058,8 @@ tmp<volScalarField> twoTemperatureModel::gasMetalExchangeCoeffField() const
                 Foam::min(scalar(1) - metalFraction_[cellI], scalar(1)),
                 scalar(0)
             );
-            if
-            (
-                minMetalFractionForExchange_ > SMALL
-             && metal < minMetalFractionForExchange_
-            )
-            {
-                coeff[cellI] = scalar(0);
-                continue;
-            }
+            // (the minimum metal fraction and the cut-off temperature are
+            // applied once, for every exchange model, after this loop)
 
             if (interfaceIndicator < interfaceActiveThreshold)
             {
@@ -2081,15 +2074,6 @@ tmp<volScalarField> twoTemperatureModel::gasMetalExchangeCoeffField() const
             }
             
             const scalar T = Foam::max(Tl[cellI], scalar(0));
-            if
-            (
-                gasMetalCutoffTemperature_ > SMALL
-             && T >= gasMetalCutoffTemperature_
-            )
-            {
-                coeff[cellI] = scalar(0);
-                continue;
-            }
             scalar Tsafe = T;
 
             if (kapitzaMaxTemperature_ > 0)

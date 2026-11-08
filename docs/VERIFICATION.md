@@ -38,7 +38,7 @@
 |---|---|---|---|
 | Evaporation flux (Hertz–Knudsen) | every evaporating cell of a 2-D run (100 cells, 1986–5129 K), and a hand calculation | the formula | ratio 1.000000 (0.999999–1.000002); hand check 4249 against 4246 kg/(m² s) |
 | Recoil pressure 0.54 · p_sat | every recoil cell of a 2-D run, and a hand calculation | the formula | ratio 0.9989; hand check 5.96 against 5.95 MPa. The 0.1 % difference comes from the gas constant: the recoil uses k_B/m = 173.7 J/(kg K), the evaporation the input 174 J/(kg K) |
-| Latent heat | lattice energy lost against the latent plus sensible heat of the evaporated metal, 1-D | energy balance | consistent: 1.6 times the latent heat alone, against about 1.4 expected from the latent and sensible heat |
+| Latent heat | lattice energy lost against the latent plus sensible heat of the evaporated metal, 1-D | energy balance | 1.6 times the latent heat alone, against about 1.4 expected from the latent and sensible heat: 14 % apart, not explained |
 | Force on the film | change of the metal momentum against the impulse of the recoil and trapped-vapour force, from the reference run (*released code*) | Newton's second law | 0.99 (42–102 ps), 0.96 (102–202 ps), 0.94 (202–402 ps). See §5 for the remaining few percent |
 
 ### 2.3 Flow, interface and surface tension
@@ -47,7 +47,7 @@ Drop benchmarks: a liquid titanium drop (density 4515 kg/m³, viscosity 2.35e-3 
 
 | Part | Test | Reference | Result (*released code*) |
 |---|---|---|---|
-| Surface tension, static | pressure jump of a static drop at 0.2 ns | Laplace law 2σ/R = 16.40 MPa | −2.75 % (R/Δx = 10), −3.80 % (20), −4.09 % (40). The error does not go to zero under refinement but settles near −4 %: the curvature is computed from the gradient of α, a known limitation of this surface-tension method |
+| Surface tension, static | pressure jump of a static drop at 0.2 ns | Laplace law 2σ/R = 16.40 MPa | −2.75 % (R/Δx = 10), −3.80 % (20), −4.09 % (40). The error does not decrease under refinement (it grows slightly, to about −4 %): the curvature is computed from the gradient of α, a known limitation of this surface-tension method |
 | Spurious velocity | largest velocity in the static drop | exactly 0 | 2.85 m/s (R/Δx = 10), 1.47 m/s (20), 1.40 m/s (40) |
 | Metal volume | metal volume of the static and oscillating drops | exactly conserved | change below 1e-6 (static drop) and 3e-5 to 5e-5 (oscillating drop over 12 ns) |
 | Inertia, surface tension and viscosity together | oscillation of a drop deformed into an ellipsoid (b/a = 1.2, mode l = 2) | Lamb: period 10.49 ns, decay time 15.4 ns | frequency 12.9 % below Lamb at R/Δx = 10 and 10.5 % below at R/Δx = 20 (approaching Lamb); damping rate 52 % and 70 % too low, not improving with refinement (§5) |

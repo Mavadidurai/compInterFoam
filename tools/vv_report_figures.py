@@ -19,7 +19,7 @@ plt.rcParams.update({"font.size": 9})
 GREEN, AMBER, RED, GREY = "#2E7D32", "#F9A825", "#C62828", "#9E9E9E"
 
 # ------------------------------------------------------------------ 1. status of the five levels
-levels = [("1  Code verification", "15 checks: 12 within 5 %, force balance 6 %, drop frequency 10.5 % and converging, damping open", GREEN),
+levels = [("1  Code verification", "15 checks: 12 within 5 %, force balance 6 %, drop frequency 10.5 % (two meshes), damping open", GREEN),
           ("2  Solution verification", "no mesh-refinement study of the reference case; separation mesh-limited", AMBER),
           ("3  Input validation", "3 titanium inputs differ from measured or first-principles values; density gives the right film mass", RED),
           ("4  Sub-model validation", "mechanisms consistent with titanium and thin-film literature; no matched numbers", AMBER),

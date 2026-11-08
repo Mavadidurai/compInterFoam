@@ -889,6 +889,8 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
         }
         const scalar rawRecoil = pRecoil;
         scalar recoilValue = rawRecoil;
+        // Dictionary-controlled clamp (one block; it used to be two copies,
+        // one for the overshoot report and one for the clamp itself).
         if (clampRecoil_)
         {
             scalar localMax = recoilMax_;
@@ -896,13 +898,13 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
             {
                 localMax *= alphaMask;
             }
-
             localMax = Foam::max(localMax, scalar(0));
 
             if (localMax > SMALL)
             {
                 const scalar rawMag = Foam::mag(rawRecoil);
-                const scalar overshootAmount = Foam::max(rawMag - localMax, scalar(0));
+                const scalar overshootAmount =
+                    Foam::max(rawMag - localMax, scalar(0));
 
                 if (overshootAmount > maxOvershootAmount)
                 {
@@ -911,32 +913,13 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
                     maxOvershootLimit = localMax;
                     maxOvershootCell = cellI;
                 }
-            }
-        }
 
-        // Honour the dictionary controlled clamp instead of a hard-coded ceiling.
-        if (clampRecoil_)
-        {
-            scalar localMax = recoilMax_;
-            if (scaleRecoilMax_)
-            {
-                localMax *= alphaMask;
-            }
-
-            localMax = Foam::max(localMax, scalar(0));
-
-            const scalar unclampedMag = Foam::mag(rawRecoil);
-
-            if (localMax > SMALL && unclampedMag > localMax)
-            {
-                ++clampCount;
-
-
-                recoilValue = Foam::min
-                (
-                    Foam::max(rawRecoil, -localMax),
-                    localMax
-                );
+                if (rawMag > localMax)
+                {
+                    ++clampCount;
+                    recoilValue =
+                        Foam::min(Foam::max(rawRecoil, -localMax), localMax);
+                }
             }
         }
 

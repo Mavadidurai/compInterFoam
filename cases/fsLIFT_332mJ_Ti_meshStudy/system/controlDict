@@ -175,11 +175,11 @@ G
 
     gasMetalExchangeCoeff
     {
-        type        kapitza;    // Use acoustic mismatch model
+        type        kapitza;    // acoustic-mismatch gas-metal exchange; acts only in interface cells with 0.5 <= alpha < 1 and Tl < gasMetalCutoffTemperature (docs/CODE_REVIEW.md 10.1, A10)
         Z_metal     2.3e7;      // Ti acoustic impedance [Pa·s/m]
-        Z_gas       383;        // acoustic impedance of the gas [Pa·s/m] (argon value)
+        Z_gas       403;        // acoustic impedance of air [Pa·s/m]: 1.1614 kg/m3 x 347 m/s
         rho_metal   4506;       // Ti density [kg/m^3]
-        rho_gas     1.7;        // gas density in this exchange model [kg/m^3] (argon value)
+        rho_gas     1.1614;     // gas density [kg/m^3], as thermophysicalProperties.air
         maxTemperature 0;      // Optional cap [K] (0 => no cap)
     }
     gasMetalCutoffTemperature 3560;

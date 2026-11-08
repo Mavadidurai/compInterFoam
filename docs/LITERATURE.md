@@ -55,7 +55,7 @@ Only numbers that were read in a source are used below. Where a comparison could
 | Critical temperature of Ti | 9,500 K (case value; used only by a switched-off sub-model) | 8,980 K (as cited by Hobmaier et al. 2026) | 6 % apart; no effect on the results (§5) |
 | Phase explosion | sub-model switched off; surface reaches about 16,400 K | onset criterion $T_l > 0.9\,T_{crit}$ ≈ 8,100 K (Hobmaier et al. 2026) | **the reference case is far into the phase-explosion regime** that the model does not describe (§5) |
 | Stress confinement | incompressible metal: no stress waves | liquid Ti sound speed 4.4 km/s; stress confinement when the heating is faster than the acoustic time (Hobmaier et al. 2026) | **the real film is stress-confined**; spallation is physically expected and absent from the model (§6) |
-| Surface tension: static drop | pressure-jump error settles near −4 % | interFoam curvature converges to a value ≈ 10 % off (Deshpande et al. 2012) | **consistent**; the model does better than standard interFoam (§7) |
+| Surface tension: static drop | pressure-jump error stays near −4 % under refinement (−2.75, −3.80, −4.09 %) | interFoam curvature converges to a value ≈ 10 % off (Deshpande et al. 2012) | **consistent**; the model does better than standard interFoam (§7) |
 | Surface tension: spurious currents | do not vanish under refinement; oscillation damping too weak | interFoam parasitic currents reach a plateau; OpenFOAM surface-tension approximation needs "significant improvements" (Lippert et al. 2022) | **consistent**: a known limitation of the method (§7) |
 | LIFT experiments (ejection speed, droplet size, regimes) | dome 192 m/s; droplet at about 100 m/s (centre of mass), 0.25 µm³ | could not be read here | **not compared** (§8) |
 

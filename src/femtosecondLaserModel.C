@@ -41,6 +41,50 @@ Description
 
 extern Foam::Switch verbose;
 
+namespace
+{
+    // Visit the pulse windows [k*period, k*period + onTime] of a pulse train
+    // that overlap [localStart, localEnd]; f returns false to stop. Shared by
+    // the energy integral and the active-window test (they were two copies).
+    template<class F>
+    void forEachPulseWindow
+    (
+        const Foam::scalar localStart,
+        const Foam::scalar localEnd,
+        const Foam::scalar period,
+        const Foam::scalar onTime,
+        const F& f
+    )
+    {
+        Foam::label periodIndex = 0;
+        if (localStart > Foam::SMALL)
+        {
+            periodIndex = static_cast<Foam::label>(std::floor(localStart/period));
+        }
+        for
+        (
+            Foam::scalar windowStart = periodIndex*period;
+            windowStart < localEnd + period;
+            windowStart += period
+        )
+        {
+            const Foam::scalar windowEnd = windowStart + onTime;
+            if (windowEnd <= localStart)
+            {
+                continue;
+            }
+            if (windowStart >= localEnd)
+            {
+                break;
+            }
+            if (!f(windowStart, windowEnd))
+            {
+                break;
+            }
+        }
+    }
+}
+
 namespace Foam
 {
 defineTypeNameAndDebug(femtosecondLaserModel, 0);
@@ -547,6 +591,23 @@ void femtosecondLaserModel::validateParameters() const
 
 //------------------------------------------------------------------------------
 // physical bounds
+//------------------------------------------------------------------------------
+scalar femtosecondLaserModel::singlePulseCentre(const scalar sigma) const
+{
+    // pulseCenterTime if given; otherwise 3 sigma after laserStartTime, but
+    // not later than the middle of the laser window
+    if (pulseCenterTime_ > -0.5*GREAT)
+    {
+        return pulseCenterTime_;
+    }
+    const scalar windowWidth = max(laserEndTime_ - laserStartTime_, SMALL);
+    if (sigma <= VSMALL)
+    {
+        return laserStartTime_ + 0.5*windowWidth;
+    }
+    return laserStartTime_ + min(0.5*windowWidth, 3.0*sigma);
+}
+
 //------------------------------------------------------------------------------
 bool femtosecondLaserModel::checkPhysicalBounds() const
 {
@@ -1249,36 +1310,17 @@ femtosecondLaserModel::evaluateTemporalEnvelope
         const scalar localStart = overlapStart - laserStartTime_;
         const scalar localEnd   = overlapEnd   - laserStartTime_;
 
-        label periodIndex = 0;
-        if (localStart > SMALL)
-        {
-            periodIndex = static_cast<label>(std::floor(localStart/period));
-        }
-
-        for
+        forEachPulseWindow
         (
-            scalar windowStart = periodIndex*period;
-            windowStart < localEnd + period;
-            windowStart += period
-        )
+            localStart, localEnd, period, onTime,
+            [&](const scalar windowStart, const scalar windowEnd) -> bool
         {
-            const scalar windowEnd = windowStart + onTime;
-
-            if (windowEnd <= localStart)
-            {
-                continue;
-            }
-            if (windowStart >= localEnd)
-            {
-                break;
-            }
-
             const scalar clipStart = max(windowStart, localStart);
             const scalar clipEnd   = min(windowEnd, localEnd);
 
             if (clipEnd <= clipStart)
             {
-                continue;
+                return true;
             }
 
             const scalar center = windowStart + 0.5*onTime;
@@ -1294,7 +1336,8 @@ femtosecondLaserModel::evaluateTemporalEnvelope
                 result.temporalIntegral += fraction*gaussianNormalization;
                 result.expectedEnergy += pulseEnergy_.value()*fraction;
             }
-        }
+            return true;
+        });
     }
     else
     {
@@ -1310,26 +1353,7 @@ femtosecondLaserModel::evaluateTemporalEnvelope
         const scalar sigma =
             pulseWidth_.value()/(2.0*sqrt(2.0*log(2.0)));
             // std dev from FWHM
-        scalar center = pulseCenterTime_;
-        const bool customCenter = (pulseCenterTime_ > -0.5*GREAT);
-
-        if (!customCenter)
-        {
-            const scalar windowWidth = max(laserEndTime_ - laserStartTime_, SMALL);
-
-            if (sigma <= VSMALL)
-            {
-                center = laserStartTime_ + 0.5*windowWidth;
-            }
-            else
-            {
-                const scalar halfWindow = 0.5*windowWidth;
-                const scalar maxCenterOffset = 3.0*sigma;
-                const scalar centerOffset = min(halfWindow, maxCenterOffset);
-
-                center = laserStartTime_ + centerOffset;
-            }
-        }
+        const scalar center = singlePulseCentre(sigma);
 
         result.temporalIntegral =
             gaussianWindowIntegral(overlapStart, overlapEnd, center, sigma);
@@ -1601,6 +1625,11 @@ femtosecondLaserModel::applySpatialWeighting
     label cellsChecked = 0;
     label cellsInSearchBox = 0;
     
+    // looked up once, not in every cell
+    const volScalarField* plasmaShieldPtr =
+        mesh_.foundObject<volScalarField>("plasmaShielding")
+      ? &mesh_.lookupObject<volScalarField>("plasmaShielding")
+      : nullptr;
     forAll(cellCentres, cellI)
     {
         const point& c = cellCentres[cellI];
@@ -1725,10 +1754,9 @@ femtosecondLaserModel::applySpatialWeighting
         // ========== PLASMA SHIELDING ==========
         // Check for plasma shielding (reduces laser absorption)
         scalar shieldingFactor = 1.0;
-        if (mesh_.foundObject<volScalarField>("plasmaShielding"))
+        if (plasmaShieldPtr)
         {
-            const volScalarField& plasmaShield =
-                mesh_.lookupObject<volScalarField>("plasmaShielding");
+            const volScalarField& plasmaShield = *plasmaShieldPtr;
 
             // shieldingFactor ranges from 0 (full shielding) to 1 (no shielding)
             shieldingFactor = Foam::max(1.0 - plasmaShield[cellI], scalar(0.0));
@@ -2136,26 +2164,7 @@ void femtosecondLaserModel::calculateSource() const
     {
         sigma = pulseWidth_.value()/(2.0*sqrt(2.0*log(2.0)));
 
-        if (pulseCenterTime_ > -0.5*GREAT)
-        {
-            pulseCenter = pulseCenterTime_;
-        }
-        else
-        {
-            const scalar windowWidth = max(laserEndTime_ - laserStartTime_, SMALL);
-
-            if (sigma <= VSMALL)
-            {
-                pulseCenter = laserStartTime_ + 0.5*windowWidth;
-            }
-            else
-            {
-                const scalar maxCenterOffset = 3.0*sigma;
-                const scalar halfWindow = 0.5*windowWidth;
-                const scalar centerOffset = min(halfWindow, maxCenterOffset);
-                pulseCenter = laserStartTime_ + centerOffset;
-            }
-        }
+        pulseCenter = singlePulseCentre(sigma);
     }
 
     const scalar pulseToleranceRadius = (singlePulse && sigma > VSMALL)
@@ -2202,35 +2211,15 @@ void femtosecondLaserModel::calculateSource() const
                 const scalar localStart = Foam::max(0.0, overlapStart - laserStartTime_);
                 const scalar localEnd   = Foam::max(localStart, overlapEnd - laserStartTime_);
 
-                label periodIndex = 0;
-
-                if (localStart > SMALL)
-                {
-                    periodIndex = static_cast<label>(std::floor(localStart/period));
-                }
-
-                for
+                forEachPulseWindow
                 (
-                    scalar windowStart = periodIndex*period;
-                    windowStart < localEnd + period;
-                    windowStart += period
-                )
-                {
-                    const scalar windowEnd = windowStart + onTime;
-
-                    if (windowEnd <= localStart)
+                    localStart, localEnd, period, onTime,
+                    [&](const scalar, const scalar) -> bool
                     {
-                        continue;
+                        overlapsPulseWindow = true;
+                        return false;   // one overlapping window is enough
                     }
-
-                    if (windowStart >= localEnd)
-                    {
-                        break;
-                    }
-
-                    overlapsPulseWindow = true;
-                    break;
-                }
+                );
             }
 
             if (!overlapsPulseWindow)

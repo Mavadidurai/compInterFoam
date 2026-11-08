@@ -278,36 +278,16 @@ Foam::twoPhaseMixtureThermo::twoPhaseMixtureThermo
                 return true;
             }
 
-            if
-            (
-                entryName == "T_vapor"
-             || entryName == "Tvapor"
-             || entryName == "Tvap"
-            )
+            // aliases of the vaporisation temperature, tried in this order
+            static const wordList vaporAliases({"Tvapor", "T_vapor", "Tvap"});
+            if (vaporAliases.found(entryName))
             {
-                if
-                (
-                    entryName != "Tvapor"
-                 && tryNameInAllLocations(word("Tvapor"), true)
-                )
+                for (const word& alias : vaporAliases)
                 {
-                    return true;
-                }
-                if
-                (
-                    entryName != "T_vapor"
-                 && tryNameInAllLocations(word("T_vapor"), true)
-                )
-                {
-                    return true;
-                }
-                if
-                (
-                    entryName != "Tvap"
-                 && tryNameInAllLocations(word("Tvap"), true)
-                )
-                {
-                    return true;
+                    if (alias != entryName && tryNameInAllLocations(alias, true))
+                    {
+                        return true;
+                    }
                 }
             }
 
@@ -1345,6 +1325,11 @@ void Foam::twoPhaseMixtureThermo::computePhaseChange()
         };
 
 
+    // looked up once, not in every cell
+    const volScalarField* explosionIndPtr =
+        mesh.foundObject<volScalarField>("explosionIndicator")
+      ? &mesh.lookupObject<volScalarField>("explosionIndicator")
+      : nullptr;
     forAll(TlField, cellI)
     {
         const scalar T_local = TlField[cellI];
@@ -1406,22 +1391,14 @@ void Foam::twoPhaseMixtureThermo::computePhaseChange()
         scalar j_net = j_evap - j_cond;
         
         // Apply phase explosion enhancement if active
-        if (mesh.foundObject<volScalarField>("explosionIndicator"))
+        if (explosionIndPtr)
         {
-            const volScalarField& explosionInd =
-                mesh.lookupObject<volScalarField>("explosionIndicator");
+            const volScalarField& explosionInd = *explosionIndPtr;
 
             if (explosionInd[cellI] > 0.01)
             {
                 // Enhanced mass flux: 1 to 100x based on superheat indicator
-                const scalar multiplier = 1.0 + 99.0 * explosionInd[cellI];
-                j_net *= multiplier;
-
-                if (Foam::Pstream::master() && cellI == 0 && mesh.time().timeIndex() % 100 == 0)
-                {
-                    Info<< "  Phase explosion enhancement at cell 0: "
-                        << multiplier << "x (indicator=" << explosionInd[cellI] << ")" << nl;
-                }
+                j_net *= 1.0 + 99.0*explosionInd[cellI];
             }
         }
         const scalar Cl = ClTTM_.value();
@@ -1520,11 +1497,13 @@ Foam::twoPhaseMixtureThermo::computeMassTransfer() const
         // latent heat is removed from the lattice every step with no
         // compensating mass leaving alpha1, breaking mass/energy
         // conservation whenever massTransferCoeffs is omitted.
-        if (master)
+        static bool loggedDefault = false;   // report once, not every step
+        if (master && !loggedDefault)
         {
             Info<< "massTransferCoeffs not found - using Hertz-Knudsen"
                 << " phase-change flux as the default mass-transfer rate"
                 << nl;
+            loggedDefault = true;
         }
         dgdt = phaseChangeVolumetricRate_;
         return tDgdt;

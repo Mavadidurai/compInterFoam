@@ -378,7 +378,7 @@ $$
 
 with σ = 1.64 N/m. The force is applied only in a band three cells wide around the α = 0.5 crossings (`surfaceTensionBandLayers 3`). A band one cell wide misses part of the force, because the interface is spread over two to three cells: it gave a pressure jump 17 % too low in the static-drop test.
 
-The curvature is computed from the gradient of α. This produces small spurious velocities, and the pressure-jump error does not vanish under refinement but settles near −4 % ([VERIFICATION.md](VERIFICATION.md#23-flow-interface-and-surface-tension)). The same spurious velocities make the damping of capillary oscillations too weak. This matters for the thinning and breaking of liquid sheets.
+The curvature is computed from the gradient of α. This produces small spurious velocities, and the pressure-jump error does not decrease under refinement; it stays near −4 % ([VERIFICATION.md](VERIFICATION.md#23-flow-interface-and-surface-tension)). The same spurious velocities make the damping of capillary oscillations too weak. This matters for the thinning and breaking of liquid sheets.
 
 ---
 

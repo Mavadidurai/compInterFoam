@@ -79,6 +79,46 @@ Foam::compressibleInterPhaseTransportModel::compressibleInterPhaseTransportModel
 
     if (twoPhaseTransport_)
     {
+        // the per-phase transport dictionaries must exist
+        const word phase1Name = mixture_.alpha1().group();
+        const word phase2Name = mixture_.alpha2().group();
+        const auto dictionaryExists = [&](const word& objectName) -> bool
+        {
+            IOobject io
+            (
+                objectName,
+                U.time().constant(),
+                U.db(),
+                IOobject::READ_IF_PRESENT,
+                IOobject::NO_WRITE,
+                false
+            );
+            return io.typeHeaderOk<IOdictionary>();
+        };
+        const bool phase1DictFound =
+            dictionaryExists(IOobject::groupName("momentumTransport", phase1Name))
+         || dictionaryExists("phase1RASProperties")
+         || dictionaryExists("phase1LESProperties")
+         || dictionaryExists("phase1LaminarProperties");
+        const bool phase2DictFound =
+            dictionaryExists(IOobject::groupName("momentumTransport", phase2Name))
+         || dictionaryExists("phase2RASProperties")
+         || dictionaryExists("phase2LESProperties")
+         || dictionaryExists("phase2LaminarProperties");
+        if (!phase1DictFound || !phase2DictFound)
+        {
+            FatalErrorInFunction
+                << "simulationType is set to twoPhaseTransport but the required"
+                << " phase transport dictionaries are missing in '"
+                << U.time().constant() << "' (momentumTransport." << phase1Name
+                << " and momentumTransport." << phase2Name
+                << ", or phase1*/phase2* RAS/LES/Laminar properties)."
+                << exit(FatalError);
+        }
+    }
+
+    if (twoPhaseTransport_)
+    {
         const volScalarField& alpha1 = mixture_.alpha1();
         const volScalarField& alpha2 = mixture_.alpha2();
 

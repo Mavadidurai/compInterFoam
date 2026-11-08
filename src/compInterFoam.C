@@ -636,7 +636,9 @@ namespace
             if (alphaInternal[cellI] < (1.0 - alpha2Threshold)) // Gas phase
             {
                 const Foam::scalar rhoCell = rho.primitiveField()[cellI];
-                const Foam::scalar TCell = Tl.primitiveField()[cellI];
+                // gas temperature: the lattice temperature Tl is held at
+                // ambient in gas cells, so it cannot detect a hot plume
+                const Foam::scalar TCell = mixture.T().primitiveField()[cellI];
 
                 // Detect high-density/high-temp gas (vapor plume, not ambient)
                 if (rhoCell > rhoGasThreshold || TCell > 500.0)
@@ -748,6 +750,23 @@ namespace
 
         if (metalVolumeWeight > Foam::VSMALL)
         {
+            // mass-weighted mean velocity vector of the metal
+            Foam::vector Umean(Foam::Zero);
+            Foam::scalar massSum = 0.0;
+            forAll(alphaInternal, cellI)
+            {
+                if (alphaInternal[cellI] > 0.01)
+                {
+                    const Foam::scalar m =
+                        rho.primitiveField()[cellI]*alphaInternal[cellI]*cellVolumes[cellI];
+                    Umean += m*UInternal[cellI];
+                    massSum += m;
+                }
+            }
+            Foam::reduce(Umean, Foam::sumOp<Foam::vector>());
+            Foam::reduce(massSum, Foam::sumOp<Foam::scalar>());
+            Umean /= Foam::max(massSum, Foam::VSMALL);
+
             forAll(alphaInternal, cellI)
             {
                 if (alphaInternal[cellI] > 0.01)
@@ -757,12 +776,11 @@ namespace
                     const Foam::scalar deviation = velMag - avgVel;
                     velocityStdDev += weight * deviation * deviation;
 
-                    // Turbulent KE ≈ 0.5 * rho * (U - U_mean)^2
-                    const Foam::vector velFluctuation = UInternal[cellI] -
-                        (UInternal[cellI] / Foam::mag(UInternal[cellI] + Foam::vector::one*Foam::SMALL)) * avgVel;
+                    // kinetic energy of the deviation from the mean velocity
+                    // (a fluctuation energy; not turbulence, the flow is laminar)
                     turbulentKE += 0.5 * rho.primitiveField()[cellI] *
                         alphaInternal[cellI] * cellVolumes[cellI] *
-                        Foam::magSqr(velFluctuation);
+                        Foam::magSqr(UInternal[cellI] - Umean);
                 }
             }
 
@@ -1188,7 +1206,7 @@ namespace
             formattedRow("Film velocity (max):", scalarValue(maxVel, "m/s"));
             formattedRow("Velocity std dev:", scalarValue(velocityStdDev, "m/s"));
             formattedRow("Acceleration:", scalarValue(velAccel/1e12, "km/s²"));
-            formattedRow("Turbulent KE:", scalarValue(turbulentKE*1e9, "nJ"));
+            formattedRow("Fluctuation KE:", scalarValue(turbulentKE*1e9, "nJ"));
 
             Info<< "╠════════════════════════════════════════════════════════════════════════════════╣" << Foam::nl;
             centeredLine("☁️  VAPOR PLUME TRACKING");
@@ -1296,7 +1314,7 @@ namespace
                         << "vel_max_ms,vel_avg_ms,vel_stddev_ms,accel_kms2,"
                         << "interface_cells,interface_area_um2,"
                         << "vapor_vol_um3,vapor_cells,vapor_vel_avg_ms,vapor_vel_max_ms,"
-                        << "turbulent_KE_nJ,kinetic_eff_pct,"
+                        << "fluctuation_KE_nJ,kinetic_eff_pct,"
                         << "pressure_grad_GPam,shock_present,"
                         << "separation_detected,time_to_ejection_ps,"
                         << "laserPower_W,peakQLaser_TWm3,"
@@ -1314,7 +1332,7 @@ namespace
                         // Phase change (10)
                         << "input_Tvap_K,input_Tsol_K,input_evaporationCoeff,"
                         << "input_hf_Jkg,input_gasConstant_JkgK,input_p_ref_Pa,"
-                        << "input_relaxationTime_s,input_maxSource_kgm3s,"
+                        << "input_relaxationTime_s,input_maxSource_Wm3,"
                         << "input_alphaMin,input_metalFractionCutoff,"
                         // Two-temperature (6)
                         << "input_Cl_Jm3K,input_De_m2s,input_Ce_coeff_Jm3K2,"

@@ -17,20 +17,8 @@ FoamFile
 
 actions
 (
-    // Set kept from an earlier 3-D box mesh: empty on this wedge mesh and not used
-    {
-        name focusBox;
-        type cellSet;
-        action new;
-        source boxToCell;
-        sourceInfo
-        {
-            box (16.6666667e-06 18.0e-06 2.5e-06)
-                (33.3333333e-06 24.0e-06 7.5e-06);
-        }
-    }
 
-    // Receiver zone (y = 0-8 um), used by constant/fvOptions
+    // Receiver zone (y = 0-8 um), for post-processing
     {
         name substrateSet;
         type cellSet;

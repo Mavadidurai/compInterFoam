@@ -26,7 +26,7 @@ The detailed test descriptions are in [VERIFICATION.md](VERIFICATION.md), the li
 
 | Level | Question | Status | Main evidence |
 |---|---|---|---|
-| 1. Code verification | Does the code solve its equations correctly? | **done** | 15 checks against exact solutions, an independent code and hand calculations: 12 within 5 %, force balance within 6 %, drop-oscillation frequency within 10.5 % and converging; oscillation damping too weak (open) |
+| 1. Code verification | Does the code solve its equations correctly? | **done** | 15 checks against exact solutions, an independent code and hand calculations: 12 within 5 %, force balance within 6 %, drop-oscillation frequency within 10.5 % and approaching the exact value (two meshes); oscillation damping too weak (open); not covered: Drude k_e path, gas–metal exchange, pocket mass balance |
 | 2. Solution verification | How large is the numerical error of the reference run? | **partial** | resolution chosen from scale analysis; no mesh-refinement study; the droplet separation is limited by the radial cell size |
 | 3. Input validation | Are the material and laser inputs right for titanium? | **failed for 3 inputs** | surface tension right at the melting point but constant (9 % high at 2,500 K); electron–lattice coupling 5–27 times high above 5,000 K; electron heat capacity about 2 times high; the density gives the right film mass but no thermal expansion |
 | 4. Sub-model validation | Do the physics sub-models behave as titanium and thin films do? | **partial** | heating, phase explosion, stress confinement and thin-film bulging compared with the literature: mechanisms consistent; two missing mechanisms identified (stress waves, phase explosion); no matched numbers |
@@ -70,12 +70,12 @@ Each equation added to OpenFOAM was tested on its own, against an exact solution
 | 6 | Recoil | 0.54 p_sat in every recoil cell | formula | within 0.1 % | ✅ |
 | 7 | Force on the film | momentum change against applied impulse, reference run | Newton's second law | 0.99, 0.96, 0.94 over three intervals to 0.4 ns | ✅ (a few % unexplained) |
 | 8 | Surface tension | static drop, 10 cells per radius | Laplace law, 16.40 MPa | −2.75 % | ✅ |
-| 9 | Surface tension | static drop, 40 cells per radius | same | −4.09 % (settles, does not vanish) | ✅ known limit |
+| 9 | Surface tension | static drop, 40 cells per radius | same | −4.09 % (−2.75, −3.80, −4.09 % at 10, 20, 40 cells: does not decrease under refinement) | ⚠️ known limit |
 | 10 | Viscosity | decaying pipe flow | exact solution | −0.12 % | ✅ |
 | 11 | Moving film | film moving at −170 m/s | velocity and pressure unchanged | velocity exact; pressure within 0.1 % | ✅ |
 | 12 | Mass | metal volume of a static drop | constant | change below 10⁻⁶ | ✅ |
 | 13 | Parallel runs | serial against 3 and 4 processes | identical | 8 digits | ✅ |
-| 14 | Inertia + surface tension | drop oscillation frequency, 20 cells per radius | Lamb's solution | −10.5 %, converging (−12.9 % at 10 cells) | ⚠️ |
+| 14 | Inertia + surface tension | drop oscillation frequency, 20 cells per radius | Lamb's solution | −10.5 %, approaching Lamb's value (−12.9 % at 10 cells; two meshes only) | ⚠️ |
 | 15 | Inertia + surface tension + viscosity | drop oscillation damping | Lamb's solution | 70 % too low, not converging | ❌ open |
 
 ![Static drop](../figures/verification/static_drop.png)
@@ -90,7 +90,7 @@ Each equation added to OpenFOAM was tested on its own, against an exact solution
 
 *Two-temperature model in a 1-D film against the independent finite-difference code `tools/ttm_fd_1d.py`.*
 
-**Comparison with other solvers of the same type.** The surface-tension behaviour (an error that settles instead of vanishing, spurious velocities that do not decay, weak damping) is a known property of the continuum-surface-force method with curvature from the gradient of α. Deshpande et al. (2012) report that in interFoam the curvature converges to a value about 10 % off the exact one. Lippert et al. (2022), comparing several open-source and commercial volume-of-fluid solvers, conclude that the surface-tension approximation of the OpenFOAM solvers needs significant improvement. This solver's static-drop error (2.75–4.1 %) is within that range.
+**Comparison with other solvers of the same type.** The surface-tension behaviour (an error that does not decrease under refinement, spurious velocities that do not decay, weak damping) is a known property of the continuum-surface-force method with curvature from the gradient of α. Deshpande et al. (2012) report that in interFoam the curvature converges to a value about 10 % off the exact one. Lippert et al. (2022), comparing several open-source and commercial volume-of-fluid solvers, conclude that the surface-tension approximation of the OpenFOAM solvers needs significant improvement. This solver's static-drop error (2.75–4.1 %) is within that range.
 
 **Defects found and corrected by the tests:** 15, listed in [VERIFICATION.md §4](VERIFICATION.md#4-defects-found-and-corrected). Among them:
 - the recoil was applied at half strength;
@@ -248,7 +248,7 @@ Of the 48 screened papers: 6 provide input data (level 3), 14 concern femtosecon
 ## 9. What can and cannot be claimed
 
 **Can be claimed:**
-- The solver is verified: each added equation reproduces exact solutions, an independent code or hand calculations, with the exceptions stated.
+- The equations that carry the result reproduce exact solutions, an independent code or hand calculations, with the exceptions stated. Not covered by a test: the Drude conductivity path, the gas–metal exchange (inactive) and the mass balance of the trapped-vapour pocket.
 - The reference case is a verified solution of the stated model, with known numerical limitations.
 - The predicted mechanism (bulge, cup, rupture, single droplet smaller than the spot) is consistent with experiments on metal films.
 - Four titanium inputs differ from measured or first-principles values, and their effect has been estimated.
@@ -266,7 +266,7 @@ In order:
 
 1. **Correct the three inputs, and the film expansion.** Use the measured σ(T) and, with the deposited mass fixed, ρ(T) of liquid titanium (Ozawa et al., 2017; Seimiya et al., 2022), and first-principles G(T_e) and C_e(T_e) (Hobmaier et al., 2026, or Lin et al., 2008). Then check the pending inputs (viscosity, optical constants, vapour pressure) against their sources. Rerun the launch to 1 ns.
 2. **Solution verification.** Mesh study of the launch to 1 ns (three meshes, grid-convergence index), and a radially refined run of the separation (6–20 ns).
-3. **Proxy validation on a measured case.** Rerun the solver with the metal, film, pulse and gap of a published femtosecond or picosecond LIFT experiment that reports speeds or droplet sizes. Gold is the best first choice, because its two-temperature parameters and liquid properties are well established. The solver accepts pulse durations from 10 fs to 10 ps, so nanosecond experiments need code changes.
+3. **Proxy validation on a measured case.** Rerun the solver with the metal, film, pulse and gap of a published femtosecond or picosecond LIFT experiment that reports speeds or droplet sizes. Gold is the best first choice, because its two-temperature parameters and liquid properties are well established. The solver only warns outside pulse widths of 0.1 fs to 10 ps, but it has only been exercised with femtosecond pulses: its stage time steps and electron sub-steps are set for them, so a nanosecond experiment needs new settings and tests.
 4. **Sub-model validation on titanium.** Simulate single-pulse femtosecond irradiation of titanium as in the published threshold experiments (Kuzmin & Klekovkin, 2022) and compare the melting and ablation thresholds.
 5. **System validation.** Compare with measurements at matching conditions:
    - transfer threshold fluence;
