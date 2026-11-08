@@ -305,7 +305,7 @@ Each added equation was tested on its own. Selected results below; [VERIFICATION
 
 ![Static drop: pressure jump and spurious velocity at three resolutions](figures/verification/static_drop.png)
 
-*Surface tension: error of the pressure jump of a static liquid titanium drop (left) and the largest spurious velocity (right), at 10, 20 and 40 cells per drop radius. The error settles near −4 % rather than vanishing, a known limitation of computing the curvature from the gradient of α.*
+*Surface tension: error of the pressure jump of a static liquid titanium drop (left) and the largest spurious velocity (right), at 10, 20 and 40 cells per drop radius. The error does not decrease under refinement; it stays near −4 % rather than vanishing, a known limitation of computing the curvature from the gradient of α.*
 
 ![Oscillating drop against Lamb's solution](figures/verification/oscillating_drop.png)
 
