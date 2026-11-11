@@ -103,7 +103,26 @@ Reviewed: commit `5844a69` (every file in `src/`, `tools/`, `cases/` and `docs/`
 |---|---|
 | Gas–metal exchange energy: the gas gains the exchange heat per full cell volume, the lattice loses α times it | The exchange is active in partly filled cells, so a fix changes results, and the reference rerun was started with this code. Open; the energy involved is not yet quantified |
 | `postProcess.H`, `donor` patch type, metal C_p and conductivity | No effect on any run (reasons in §5 and §6) |
-| The `if (LTS)` branch of the time loop in `compInterFoam.C` | Unreachable: `createFields.H` stops the run when `localEuler` is selected. Harmless; left because removing it also touches `alphaEqn.H` and needs a compile |
+
+---
+
+## 7a. Later clean-up (not yet compiled)
+
+These follow the tests of §8 and have **not been compiled or run**. Run `wclean; wmake` and the 1-D column before relying on them.
+
+| Issue | Status | Fix | Changes results? |
+|---|---|---|---|
+| Unreachable `if (LTS)` branch in the time loop | ✅ | Removed (`createFields.H` already rejects `localEuler`) | No |
+| `he()` returned a null reference with a warning | ✅ | Fatal `NotImplemented`, as in the stock solver | No |
+| `try/catch` around `rhoThermo::New` that could never catch | ✅ | Removed | No |
+| Per-step laser energy check compared one step with ten whole pulses | ✅ | Removed; the end-of-pulse check remains | No |
+| `verbose` looked up from `controlDict` in three places | ✅ | The solver's switch is used | No |
+| Single-pocket (`uniform`) mode averaged p_sat by area, the ring mode by evaporated mass | ✅ | Both by evaporated mass | Only in `uniform` mode, which no case uses |
+| About 440 lines of gas-temperature projection behind `enableTClamp`, used by no case and never tested | ✅ | Removed; `enableTClamp true` is now a fatal error; the key is removed from the cases | No |
+| Only the negative part of the continuity residual is applied in the gas temperature equation | ❌ | Kept on purpose (a positive part would weaken the matrix diagonal in nearly empty cells); now explained in a comment | – |
+| α clipped again before and after each `alphaEqn.H` | ✅ | The repeated clips are removed | No |
+| Boilerplate "REASONING" comments in `0.orig/Te`, `Tl` | ✅ | Removed | No |
+| The metal band of the laser model was taken from cell **centres** | ✅ (separate commit) | Taken from cell extents. Before, the absorption depth started in the middle of the first film cell: after the energy rescale that cell received 7.6 % too little and the deeper cells 4.4 % too much (reference mesh). The total absorbed energy is unchanged | **Yes, slightly.** Leave this commit out until the running reference case has finished if the published run must match the code |
 
 ---
 
