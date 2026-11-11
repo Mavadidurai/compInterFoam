@@ -127,7 +127,6 @@ advancedInterfaceCapturing
 }
 
 // Temperature bounds
-enableTClamp    false;
 minT            200;           // Allow cooling below room temp
 maxT            50000;          // safety bound; 10 kK was too low (it was reached with the 10 nm absorption depth)
 

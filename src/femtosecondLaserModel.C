@@ -700,22 +700,6 @@ bool femtosecondLaserModel::isInBeam
 }
 
 //------------------------------------------------------------------------------
-bool femtosecondLaserModel::checkEnergyConservation() const
-{
-    if (!tSource_.valid() || continuousLaser_) return true;
-
-    const dimensionedScalar dt = mesh_.time().deltaT();
-    const dimensionedScalar totalEnergy = fvc::domainIntegrate(tSource_()*dt);
-
-    const dimensionedScalar expected
-    (
-        "expectedEnergy", dimEnergy,
-        peakIntensity_.value()*pulseNormalizationFactor()
-    );
-    const scalar maxAllowed = 10.0*expected.value(); // very generous
-    return totalEnergy.value() <= maxAllowed;
-}
-//------------------------------------------------------------------------------
 void femtosecondLaserModel::finalizePulseEnergyCheck
 (
     const char* context,
@@ -1975,12 +1959,9 @@ void femtosecondLaserModel::updateEnergyTracking
     cumulativeFilmEnergy_ += filmEnergyThisStep;
     cumulativeGasEnergy_  += gasEnergyThisStep;
 
-    if (!checkEnergyConservation())
-    {
-        WarningInFunction
-            << "Energy check failed at step " << timeIndex
-            << " (E=" << energyThisStep.value() << " J)" << endl;
-    }
+    // (A per-step "energy check" used to sit here. It compared the energy of
+    // one time step with 10 times the whole pulse, so it could never fail.
+    // The real check is finalizePulseEnergyCheck(), at the end of the pulse.)
 
     emitDiagnostics
     (

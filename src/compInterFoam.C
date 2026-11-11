@@ -1570,106 +1570,12 @@ int main(int argc, char *argv[])
         }
         #include "readTimeControls.H"
 
-        if (LTS)
-        {
-            // Traditional inline LTS implementation
-            volScalarField& rDeltaT = trDeltaT.ref();
-            volScalarField& rSubDeltaT = trSubDeltaT.ref();
-
-            const scalar maxDeltaTValue
-            (
-                runTime.controlDict().lookupOrDefault<scalar>
-                (
-                    "maxDeltaT",
-                    GREAT
-                )
-            );
-            const scalar rawMinDeltaT =
-                runTime.controlDict().lookupOrDefault<scalar>
-                (
-                    "minDeltaT",
-                    0.0
-                );
-            const scalar minDeltaTValue = rawMinDeltaT > 0 ? rawMinDeltaT : SMALL;
-            const dimensionedScalar maxDeltaT
-            (
-                "maxDeltaT",
-                dimTime,
-                maxDeltaTValue
-            );
-
-            const dimensionedScalar invMaxDeltaT(1/maxDeltaT);
-
-            scalar maxCo = runTime.controlDict().lookupOrDefault<scalar>
-            (
-                "maxCo",
-                0.9
-            );
-            scalar maxAlphaCo = runTime.controlDict().lookupOrDefault<scalar>
-            (
-                "maxAlphaCo",
-                0.2
-            );
-
-            const dictionary& solutionDict = mesh.solutionDict();
-            if (solutionDict.found("PIMPLE"))
-            {
-                const dictionary& pimpleDict = solutionDict.subDict("PIMPLE");
-                maxCo = pimpleDict.getOrDefault<scalar>("maxCo", maxCo);
-                maxAlphaCo = pimpleDict.getOrDefault<scalar>("maxAlphaCo", maxAlphaCo);
-            }
-
-            // Set reciprocal time-step from local Courant number
-            rDeltaT.ref() = max
-            (
-                invMaxDeltaT,
-                fvc::surfaceSum(mag(rhoPhi))()
-               /((2*maxCo)*mesh.V()*rho)
-            );
-
-            // Limit based on alpha Courant number
-            if (maxAlphaCo < maxCo)
-            {
-                volScalarField alpha1Bar(fvc::average(alpha1));
-                rDeltaT.ref() = max
-                (
-                    rDeltaT(),
-                    pos0(alpha1Bar() - 0.01)
-                   *pos0(0.99 - alpha1Bar())
-                   *fvc::surfaceSum(mag(phi))()
-                   /((2*maxAlphaCo)*mesh.V())
-                );
-            }
-
-            rDeltaT.correctBoundaryConditions();
-            rSubDeltaT = rDeltaT;
-            rSubDeltaT = max(invMaxDeltaT, rSubDeltaT);
-            rSubDeltaT.correctBoundaryConditions();
-            scalar newDeltaT = 1.0/gMax(rDeltaT.primitiveField());
-            if (!std::isfinite(newDeltaT) || newDeltaT <= SMALL)
-            {
-                newDeltaT = Foam::max(runTime.deltaTValue(), minDeltaTValue);
-            }
-
-            newDeltaT = Foam::max
-            (
-                minDeltaTValue,
-                Foam::min(maxDeltaTValue, newDeltaT)
-            );
-            runTime.setDeltaT(newDeltaT);
-           
-            if (verbose && master)
-            {
-                Info<< "Flow time scale min/max = "
-                    << gMin(1/rDeltaT.primitiveField())
-                    << ", " << gMax(1/rDeltaT.primitiveField()) << endl;
-            }
-        }
-        else
+        // (localEuler/LTS is rejected in createFields.H, so only the
+        // time-accurate branch exists here.)
         {
             // Standard Courant number calculation
             #include "CourantNo.H"
-            
+        
             // Interface Courant number, over cells near the interface
             // (0.01 < alpha < 0.99), as in the stock VoF solvers. It used to be
             // computed over all cells and only logged; maxAlphaCo now limits

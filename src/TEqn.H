@@ -14,10 +14,19 @@ extern Foam::Switch verbose;
     const Switch femtosecondShot =
         ctrl.lookupOrDefault<Switch>("femtosecondShot", false);
 
-    const Switch enableTClampUser =
-        ctrl.lookupOrDefault<Switch>("enableTClamp", false);
+    // The option enableTClamp (an elaborate replacement of out-of-range gas
+    // temperatures by neighbour averages, about 400 lines) was removed: no
+    // case used it and it had never been tested. The gas temperature is
+    // bounded to [minT, maxT] as before.
+    if (ctrl.lookupOrDefault<Switch>("enableTClamp", false))
+    {
+        FatalErrorInFunction
+            << "enableTClamp true is no longer supported: the temperature"
+            << " projection was removed. The gas temperature is bounded to"
+            << " [minT, maxT]; remove the entry or set it to false."
+            << exit(FatalError);
+    }
 
-    const bool enableTClamp = !femtosecondShot && enableTClampUser;
     const scalar minPhysicalTemp = Foam::max
     (
         ctrl.lookupOrDefault<scalar>("minT", 0.0),
@@ -38,38 +47,6 @@ extern Foam::Switch verbose;
     const dictionary twoTemperatureDict =
         ctrl.subOrEmptyDict("twoTemperatureProperties");
 
-    if (enableTClamp && !ctrl.found("maxT"))
-    {
-        if (twoTemperatureDict.found("maxTl"))
-        {
-            maxPhysicalTemp = readScalar(twoTemperatureDict.lookup("maxTl"));
-
-            if (verbose && Foam::Pstream::master())
-            {
-                WarningInFunction
-                    << "enableTClamp active without controlDict maxT;"
-                    << " falling back to twoTemperatureProperties.maxTl="
-                    << maxPhysicalTemp
-                    << endl;
-            }
-        }
-        else
-        {
-            FatalErrorInFunction
-                << "enableTClamp requires controlDict entry maxT or"
-                << " twoTemperatureProperties.maxTl"
-                << abort(FatalError);
-        }
-    }
-
-    if (enableTClamp && maxPhysicalTemp <= minPhysicalTemp)
-    {
-        FatalErrorInFunction
-            << "Temperature clamp bounds invalid: minT=" << minPhysicalTemp
-            << " must be less than maxT=" << maxPhysicalTemp
-            << abort(FatalError);
-    }
-
     const dimensionedScalar maxTDim
     (
         "maxT",
@@ -82,13 +59,6 @@ extern Foam::Switch verbose;
     const scalar fluxRelax =
         Foam::max(scalar(0), Foam::min(scalar(1), thermalFluxRelax));
     const volScalarField& Tl = ttm.Tl();
-    scalar totalCellsProjected = 0.0;
-    scalar totalLowProjected = 0.0;
-    scalar totalHighProjected = 0.0;
-    scalar lastCellsProjected = 0.0;
-    scalar lastLowProjected = 0.0;
-    scalar lastHighProjected = 0.0;
-    word lastProjectionStage("none");
 
     volScalarField& gasMetalHeatFlux =
         mesh.lookupObjectRef<volScalarField>("gasMetalHeatFlux");
@@ -544,429 +514,14 @@ if (verbose && Foam::Pstream::master() && timeIndex % 10 == 0)
         CvolLimited.dimensions(),
         SMALL
     );
-    const scalar capThreshold = 10.0*cvolFloor.value();
 
-    const volScalarField& Told = T.oldTime();
-
+    // bound the gas temperature to [minT, maxT]
     auto projectTemperature =
-        [&](const word& stage)
+        [&](const word&)
         {
-            // femtosecondShot always has enableTClamp == false (see above),
-            // so it already falls into the branch below, which applies the
-            // basic minT/maxT floor and ceiling. Skip only the elaborate
-            // diagnostic-tracking projection, not the bound itself --
-            // otherwise T is left completely unbounded during exactly the
-            // highest-risk period for overshoot.
-            if (!enableTClamp)
-            {
-                T = Foam::max(T, minTDim);
-                T = Foam::min(T, maxTDim);
-                T.correctBoundaryConditions();
-                return;
-            }
-
-            const bool enforceUpperBound = enableTClamp;
-            const bool haveExplicitUpper = enforceUpperBound || ctrl.found("maxT");
-            const scalar detectionUpper = haveExplicitUpper
-                ? maxPhysicalTemp
-                : Foam::max(10.0*maxTl, minPhysicalTemp);
-
-            const scalarField TintPre(T.internalField());
-            label nLow = 0;
-            label nHigh = 0;
-            label nNonFinite = 0;
-            forAll(TintPre, cellI)
-            {
-                const scalar val = TintPre[cellI];
-                if (!std::isfinite(val))
-                {
-                    ++nNonFinite;
-                }
-                else if (val < minPhysicalTemp)
-                {
-                    ++nLow;
-                }
-                else if (val > detectionUpper)
-                {
-                    ++nHigh;
-                }
-            }
-
-            label localCells = TintPre.size();
-            Foam::reduce(nLow, sumOp<label>());
-            Foam::reduce(nHigh, sumOp<label>());
-            Foam::reduce(nNonFinite, sumOp<label>());
-            Foam::reduce(localCells, sumOp<label>());
-
-            totalLowProjected = scalar(nLow);
-            totalHighProjected = scalar(nHigh);
-            totalCellsProjected = scalar(localCells);
-
-            tmp<volScalarField> tEnergy(CvolLimited*T);
-            volScalarField& energy = tEnergy.ref();
-
-            tmp<volScalarField> tNeighbourT(fvc::average(T));
-            const volScalarField& neighbourT = tNeighbourT();
-
-            tmp<volScalarField> tNeighbourCvol(fvc::average(CvolLimited));
-            const volScalarField& neighbourCvol = tNeighbourCvol();
-
-            const scalarField& capInternal = CvolLimited.internalField();
-            const scalarField& neighbourTInternal = neighbourT.internalField();
-            const scalarField& neighbourCapInternal = neighbourCvol.internalField();
-            const scalarField& TlInternal = Tl.internalField();
-            const scalarField& ToldInternal = Told.internalField();
-            scalarField& energyInternal = energy.primitiveFieldRef();
-            scalarField& Tint = T.primitiveFieldRef();
-
-            label correctedInternal = 0;
-
-            forAll(Tint, cellI)
-            {
-                scalar& Tcell = Tint[cellI];
-                scalar& Ecell = energyInternal[cellI];
-                const scalar cap = capInternal[cellI];
-                const bool lowCap = cap < capThreshold;
-
-                const bool badT =
-                    (!std::isfinite(Tcell)
-                  || Tcell < minPhysicalTemp
-                  || Tcell > detectionUpper);
-
-                bool corrected = false;
-
-                if (!std::isfinite(Ecell))
-                {
-                    corrected = true;
-                }
-
-                if (badT || !std::isfinite(Ecell))
-                {
-                    scalar candidateT = neighbourTInternal[cellI];
-                    if (!std::isfinite(candidateT))
-                    {
-                        candidateT = ToldInternal[cellI];
-                    }
-                    if (!std::isfinite(candidateT))
-                    {
-                        candidateT = TlInternal[cellI];
-                    }
-                    if (!std::isfinite(candidateT))
-                    {
-                        candidateT = minPhysicalTemp;
-                    }
-
-                    if (enforceUpperBound)
-                    {
-                        candidateT = Foam::min
-                        (
-                            Foam::max(candidateT, minPhysicalTemp),
-                            maxPhysicalTemp
-                        );
-                    }
-                    else
-                    {
-                        candidateT = Foam::max(candidateT, minPhysicalTemp);
-                    }
-
-                    if (lowCap)
-                    {
-                        Tcell = candidateT;
-                        Ecell = cap*candidateT;
-                        corrected = true;
-                    }
-                    else
-                    {
-                        scalar candidateEnergy =
-                            neighbourCapInternal[cellI]*candidateT;
-                        if (!std::isfinite(candidateEnergy))
-                        {
-                            candidateEnergy = cap*candidateT;
-                        }
-
-                        const scalar energyFloor = cap*minPhysicalTemp;
-
-                        candidateEnergy = Foam::max
-                        (
-                            candidateEnergy,
-                            energyFloor
-                        );
-
-                        if (enforceUpperBound)
-                        {
-                            const scalar energyCeil = cap*maxPhysicalTemp;
-                            candidateEnergy = Foam::min
-                            (
-                                candidateEnergy,
-                                energyCeil
-                            );
-                        }
-
-                        Ecell = candidateEnergy;
-                        Tcell = candidateEnergy/Foam::max(cap, VSMALL);
-                        corrected = true;
-                    }
-                }
-                else if (!lowCap)
-                {
-                    const scalar energyFloor = cap*minPhysicalTemp;
-                    scalar limitedEnergy = Foam::max(Ecell, energyFloor);
-
-                    if (enforceUpperBound)
-                    {
-                        const scalar energyCeil = cap*maxPhysicalTemp;
-                        limitedEnergy = Foam::min
-                        (
-                            limitedEnergy,
-                            energyCeil
-                        );
-                    }
-
-                    if (limitedEnergy != Ecell)
-                    {
-                        Ecell = limitedEnergy;
-                        corrected = true;
-                    }
-
-                    Tcell = Ecell/Foam::max(cap, VSMALL);
-                }
-
-                else
-                {
-                    scalar limitedT = Foam::max(Tcell, minPhysicalTemp);
-
-                    if (enforceUpperBound)
-                    {
-                        limitedT = Foam::min
-                        (
-                            limitedT,
-                            maxPhysicalTemp
-                        );
-                    }
-
-                    if (limitedT != Tcell || !std::isfinite(Tcell))
-                    {
-                        Tcell = limitedT;
-                        Ecell = cap*limitedT;
-                        corrected = true;
-                    }
-                }
-
-                if (!std::isfinite(Tcell))
-                {
-                    scalar fallbackT = neighbourTInternal[cellI];
-                    if (!std::isfinite(fallbackT))
-                    {
-                        fallbackT = ToldInternal[cellI];
-                    }
-                    if (!std::isfinite(fallbackT))
-                    {
-                        fallbackT = TlInternal[cellI];
-                    }
-                    if (!std::isfinite(fallbackT))
-                    {
-                        fallbackT = minPhysicalTemp;
-                    }
-
-                    if (enforceUpperBound)
-                    {
-                        fallbackT = Foam::min
-                        (
-                            Foam::max(fallbackT, minPhysicalTemp),
-                            maxPhysicalTemp
-                        );
-                    }
-                    else
-                    {
-                        fallbackT = Foam::max(fallbackT, minPhysicalTemp);
-                    }
-
-                    Ecell = cap*fallbackT;
-                    Tcell = fallbackT;
-                    corrected = true;
-                }
-
-                if (corrected)
-                {
-                    ++correctedInternal;
-                }
-            }
-
-            label correctedBoundary = 0;
-
-            forAll(T.boundaryField(), patchI)
-            {
-                scalarField& Tp = T.boundaryFieldRef()[patchI];
-                scalarField& Ep = energy.boundaryFieldRef()[patchI];
-                const scalarField& CapP = CvolLimited.boundaryField()[patchI];
-                const scalarField& TlP = Tl.boundaryField()[patchI];
-                const scalarField& ToldP = Told.boundaryField()[patchI];
-
-                forAll(Tp, faceI)
-                {
-                    scalar& Tface = Tp[faceI];
-                    scalar& Eface = Ep[faceI];
-                    const scalar cap = CapP[faceI];
-                    const bool lowCap = cap < capThreshold;
-
-                    const bool badT =
-                        (!std::isfinite(Tface)
-                      || Tface < minPhysicalTemp
-                      || Tface > detectionUpper);
-
-                    bool corrected = false;
-
-                    if (badT || !std::isfinite(Eface))
-                    {
-                        scalar candidateT = Tface;
-                        if (!std::isfinite(candidateT))
-                        {
-                            candidateT = ToldP[faceI];
-                        }
-                        if (!std::isfinite(candidateT))
-                        {
-                            candidateT = TlP[faceI];
-                        }
-                        if (!std::isfinite(candidateT))
-                        {
-                            candidateT = minPhysicalTemp;
-                        }
-
-                        if (enforceUpperBound)
-                        {
-                            candidateT = Foam::min
-                            (
-                                Foam::max(candidateT, minPhysicalTemp),
-                                maxPhysicalTemp
-                            );
-                        }
-                        else
-                        {
-                            candidateT = Foam::max(candidateT, minPhysicalTemp);
-                        }
-
-                        if (lowCap)
-                        {
-                            Tface = candidateT;
-                            Eface = cap*candidateT;
-                            corrected = true;
-                        }
-                        else
-                        {
-                            Eface = cap*candidateT;
-                            corrected = true;
-                        }
-                    }
-
-                    if (!lowCap)
-                    {
-                        const scalar energyFloor = cap*minPhysicalTemp;
-                        scalar limitedEnergy = Foam::max(Eface, energyFloor);
-
-                        if (enforceUpperBound)
-                        {
-                            const scalar energyCeil = cap*maxPhysicalTemp;
-                            limitedEnergy = Foam::min
-                            (
-                                limitedEnergy,
-                                energyCeil
-                            );
-                        }
-
-                        if (limitedEnergy != Eface)
-                        {
-                            Eface = limitedEnergy;
-                            corrected = true;
-                        }
-
-                        Tface = Eface/Foam::max(cap, VSMALL);
-                    }
-                    else
-                    {
-                        scalar limitedT = Foam::max(Tface, minPhysicalTemp);
-
-                        if (enforceUpperBound)
-                        {
-                            limitedT = Foam::min
-                            (
-                                limitedT,
-                                maxPhysicalTemp
-                            );
-                        }
-
-                        if (limitedT != Tface || !std::isfinite(Tface))
-                        {
-                            Tface = limitedT;
-                            Eface = cap*limitedT;
-                            corrected = true;
-                        }
-                    }
-
-                    if (!std::isfinite(Tface))
-                    {
-                        scalar fallbackT = ToldP[faceI];
-                        if (!std::isfinite(fallbackT))
-                        {
-                            fallbackT = TlP[faceI];
-                        }
-                        if (!std::isfinite(fallbackT))
-                        {
-                            fallbackT = minPhysicalTemp;
-                        }
-
-                        if (enforceUpperBound)
-                        {
-                            fallbackT = Foam::min
-                            (
-                                Foam::max(fallbackT, minPhysicalTemp),
-                                maxPhysicalTemp
-                            );
-                        }
-                        else
-                        {
-                            fallbackT = Foam::max(fallbackT, minPhysicalTemp);
-                        }
-
-                        Tface = fallbackT;
-                        Eface = cap*fallbackT;
-                        corrected = true;
-                    }
-
-                    if (corrected)
-                    {
-                        ++correctedBoundary;
-                    }
-                }
-            }
-
+            T = Foam::max(T, minTDim);
+            T = Foam::min(T, maxTDim);
             T.correctBoundaryConditions();
-
-            Foam::reduce(correctedInternal, sumOp<label>());
-            Foam::reduce(correctedBoundary, sumOp<label>());
-
-            const label correctedTotal = correctedInternal + correctedBoundary;
-
-            if (correctedTotal > 0)
-            {
-                lastLowProjected = totalLowProjected;
-                lastHighProjected = totalHighProjected;
-                lastCellsProjected = totalCellsProjected;
-                lastProjectionStage = stage;
-            }
-            
-            if
-            (
-                (correctedTotal > 0 || nNonFinite > 0)
-             && verbose
-             && Foam::Pstream::master()
-            )
-            {
-                WarningInFunction
-                    << "Energy-consistent gas-temperature projection activated during "
-                    << stage << ": corrected " << correctedTotal << " cells"
-                    << " (low=" << nLow << ", high=" << nHigh
-                    << ", non-finite=" << nNonFinite << ")" << endl;
-            }
         };
 
     projectTemperature("pre-solve");
@@ -1175,6 +730,13 @@ if (verbose && Foam::Pstream::master() && timeIndex % 10 == 0)
         0.0
     );
 
+    // Only the negative part of the continuity residual is kept, on purpose:
+    // -fvm::Sp(contErr, T) with contErr < 0 adds to the matrix diagonal, while
+    // a positive residual would subtract from it and can make the gas
+    // temperature equation unbounded in the nearly empty cells (capacity at
+    // its floor). The price is that the advective form is exact only where
+    // the residual is negative. The gas temperature does not act back on the
+    // flow, so this choice has been left as it is.
     contErr = Foam::min(contErr, zeroContErr);
 
     projectTemperature("pre-assembly");
@@ -1545,20 +1107,6 @@ if (verbose && Foam::Pstream::master() && timeIndex % 10 == 0)
         Info<< "    net heat flux metal to gas: "
             << totalHeatOut.value() << " W" << endl;
 
-        if (enableTClamp)
-        {
-            if (lastProjectionStage != "none" && lastCellsProjected > VSMALL)
-            {
-                const scalar denom = Foam::max(scalar(1), lastCellsProjected);
-                Info<< "    projection fractions (" << lastProjectionStage << "): low="
-                    << lastLowProjected/denom
-                    << "  high=" << lastHighProjected/denom << endl;
-            }
-            else
-            {
-                Info<< "    projection fractions: low=0  high=0" << endl;
-            }
-        }
     }
 
     mixture.correctThermo();

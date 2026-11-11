@@ -49,11 +49,4 @@ boundaryField
 
 }
 
-// REASONING:
-// - Substrate (bottom): Strong heat sink - removes excess energy
-// - Donor (top): Glass substrate - minimal thermal interference
-// - This allows proper temperature buildup in metal film
-// - Prevents over-cooling from both sides
-
-
 // ************************************************************************* //

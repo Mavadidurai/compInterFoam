@@ -870,29 +870,12 @@ Foam::twoPhaseMixtureThermo::twoPhaseMixtureThermo
             << ", rho=" << rho2_.value() << endl;
     }
     updateTwoTemperatureCache();
-    try
-    {
-        thermo1_ = rhoThermo::New(U.mesh(), phase1Name());
-    }
-    catch (const Foam::IOerror&)
-    {
-        FatalErrorInFunction
-            << "Failed to construct rhoThermo for phase '" << phase1Name()
-            << "'. Expected dictionary 'thermophysicalProperties."
-            << phase1Name() << "'." << exit(FatalError);
-    }
-
-    try
-    {
-        thermo2_ = rhoThermo::New(U.mesh(), phase2Name());
-    }
-    catch (const Foam::IOerror&)
-    {
-        FatalErrorInFunction
-            << "Failed to construct rhoThermo for phase '" << phase2Name()
-            << "'. Expected dictionary 'thermophysicalProperties."
-            << phase2Name() << "'." << exit(FatalError);
-    }
+    // rhoThermo::New reports a missing or wrong
+    // thermophysicalProperties.<phase> itself (FatalIOError). The former
+    // try/catch blocks around these calls could never catch anything,
+    // because OpenFOAM errors are not thrown as exceptions by default.
+    thermo1_ = rhoThermo::New(U.mesh(), phase1Name());
+    thermo2_ = rhoThermo::New(U.mesh(), phase2Name());
     correct();
 }
 // * * * * * * * * * * * * * * * * Destructor  * * * * * * * * * * * * * * * //

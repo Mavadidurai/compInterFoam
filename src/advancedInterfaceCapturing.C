@@ -41,6 +41,11 @@ Description
 #include "PstreamReduceOps.H"
 #include <cmath>
 
+// The solver's verbosity switch (compInterFoam.C), set from controlDict in
+// createFields.H before this class is constructed. It was looked up from
+// controlDict again in three places here.
+extern Foam::Switch verbose;
+
 namespace Foam
 {
 advancedInterfaceCapturing::advancedInterfaceCapturing
@@ -194,9 +199,6 @@ advancedInterfaceCapturing::advancedInterfaceCapturing
 
     const dictionary& aicDict =
         mesh.time().controlDict().subOrEmptyDict("advancedInterfaceCapturing");
-
-    const bool verbose =
-        mesh.time().controlDict().lookupOrDefault<Switch>("verbose", false);
 
     auto readTemperature =
         [&](const word& key, const dimensionedScalar& defaultValue)
@@ -746,8 +748,6 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
         : 0.0;
     const scalar scaledKnightCoeff = pressureScale_.value()*knightCoeff;
     
-    const bool verbose =
-        mesh_.time().controlDict().lookupOrDefault<Switch>("verbose", false);
     const bool master = Pstream::master();
 
     label clampCount = 0;
@@ -1503,8 +1503,11 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
                       ? (*pSatPub)[i]
                       : j*Foam::sqrt(constant::mathematical::twoPi*R_specific*T)
                        /Foam::max(Foam::mag(evaporationCoeff), SMALL);
-                    pSatA += pSat*dA;
-                    evapA += dA;
+                    // weighted by the evaporated mass, as in the ring
+                    // (local) mode; the area weighting used here before let
+                    // cool cells pull the mean p_sat below the hot surface's
+                    pSatA += pSat*evaporatedMassRate(i);
+                    evapA += evaporatedMassRate(i);
                 }
             }
             reduce(area, sumOp<scalar>());
@@ -1612,7 +1615,6 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
 }
 void Foam::advancedInterfaceCapturing::correct()
 {
-    const bool verbose = mesh_.time().controlDict().lookupOrDefault<Switch>("verbose", false);
     const bool master = Pstream::master();
     if (verbose && master)
     {

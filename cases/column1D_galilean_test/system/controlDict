@@ -113,7 +113,6 @@ advancedInterfaceCapturing
 }
 
 // Temperature bounds
-enableTClamp    false;
 minT            200;           // Allow cooling below room temp
 maxT            10000;          // safety bound
 
