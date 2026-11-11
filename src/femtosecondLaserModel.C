@@ -1421,9 +1421,21 @@ femtosecondLaserModel::applySpatialWeighting
         {
             if ((*metalFractions)[cellI] > metalFractionTol)
             {
-                const scalar y = cellCentres[cellI].y();
-                localMin = Foam::min(localMin, y);
-                localMax = Foam::max(localMax, y);
+                // Extent of the cell, not its centre. With the centres the
+                // metal band ended half a cell inside the film on each side:
+                // the absorption depth was then measured from the middle of
+                // the first film cell, and that cell deposited over half its
+                // path. After the energy rescale the first cell received too
+                // little and all deeper cells too much (7.6 % low and 4.4 %
+                // high for 4.46 nm cells and a 9.66 nm absorption depth). The
+                // total absorbed energy was not affected.
+                const labelList& cPts = mesh_.cellPoints(cellI);
+                forAll(cPts, pI)
+                {
+                    const scalar y = meshPoints[cPts[pI]].y();
+                    localMin = Foam::min(localMin, y);
+                    localMax = Foam::max(localMax, y);
+                }
                 foundMetal = true;
             }
         }
