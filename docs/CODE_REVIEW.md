@@ -101,7 +101,7 @@ Reviewed: commit `5844a69` (every file in `src/`, `tools/`, `cases/` and `docs/`
 
 | Issue | Reason |
 |---|---|
-| Gas–metal exchange energy: the gas gained the exchange heat per full cell volume, the lattice lost α times it | ✅ **Fixed after the tests of §8; not yet compiled.** The lattice now loses exactly the field the gas gains (per cell volume, in the metal cells), and the energy audit uses the same term. It **changes results** in partly filled interface cells below 3560 K, so the reference rerun started before this commit does not include it. The energy involved has not been quantified |
+| Gas–metal exchange energy: the gas gained the exchange heat per full cell volume, the lattice lost α times it | ✅ **Now fixed (after the tests of §8; not yet compiled).** The lattice now loses exactly the field the gas gains (per cell volume, in the metal cells), and the energy audit uses the same term. It **changes results** in partly filled interface cells below 3560 K, so the reference rerun started before this commit does not include it. The energy involved has not been quantified |
 | `postProcess.H`, `donor` patch type, metal C_p and conductivity | No effect on any run (reasons in §5 and §6) |
 
 ---
