@@ -129,9 +129,8 @@ femtosecondLaserModel::femtosecondLaserModel
     scanVelocity_(dict.getOrDefault<vector>("scanVelocity", vector::zero)),
     pulseFrequency_(dict.getOrDefault<scalar>("pulseFrequency", 0.0)),
     pulseDutyCycle_(dict.getOrDefault<scalar>("pulseDutyCycle", 1.0)),
-    reflectivity_(dict.getOrDefault<scalar>("reflectivity", 0.05)),
+    reflectivity_(dict.getOrDefault<scalar>("reflectivity", 0.0)),
     transmission_(dict.getOrDefault<scalar>("transmission", -1.0)),
-    incidenceAngle_(dict.getOrDefault<scalar>("incidenceAngle", 0.0)),
     gaussianProfile_(dict.getOrDefault<bool>("gaussianProfile", true)),
     continuousLaser_(dict.getOrDefault<bool>("continuousLaser", false)),
     applyInterfaceTransmissionEverywhere_
@@ -168,6 +167,15 @@ femtosecondLaserModel::femtosecondLaserModel
     pulseCompleted_(false),
     activeThisStep_(false)
 {
+    if (!dict.found("reflectivity") && transmission_ < 0)
+    {
+        FatalIOErrorInFunction(dict)
+            << "Specify 'reflectivity' of the interface the laser enters the"
+            << " film through (or 'transmission' = 1 - reflectivity)."
+            << " There is no built-in default."
+            << exit(FatalIOError);
+    }
+
     const scalar originalReflectivity = reflectivity_;
     const scalar clampedReflectivity =
         Foam::min(Foam::max(originalReflectivity, scalar(0)), scalar(1));
@@ -966,45 +974,14 @@ scalar femtosecondLaserModel::gaussianWindowIntegral
 //------------------------------------------------------------------------------
 scalar femtosecondLaserModel::effectiveTransmission(const scalar reflectivity) const
 {
-    scalar transmissionFactor = 1.0 - reflectivity;
-
-    if (transmission_ >= 0)
-    {
-        transmissionFactor = transmission_;
-    }
-    else if (dict_.found("reflectivity"))
-    {
-        transmissionFactor = 1.0 - reflectivity;
-    }
-    else
-    {
-        // Fresnel reflection at the air-metal interface (normal incidence)
-        // Empirical optical constants for Ti at 343 nm
-        const scalar n_metal = 2.0;
-        const scalar k_metal = 2.8;
-        const scalar n_air = 1.0;
-
-        const scalar num_real = n_air - n_metal;
-        const scalar num_imag = -k_metal;
-        const scalar den_real = n_air + n_metal;
-        const scalar den_imag = k_metal;
-
-        const scalar R_fresnel =
-            (sqr(num_real) + sqr(num_imag)) /
-            (sqr(den_real) + sqr(den_imag));
-
-        const scalar T_interface = 1.0 - R_fresnel;
-
-        const scalar filmThickness = Foam::max(filmYMax_ - filmYMin_, scalar(0));
-        const scalar alpha_abs = absorptionCoeff_.value();
-        const scalar opticalDepth = alpha_abs*filmThickness;
-        const scalar R_back = R_fresnel;
-        const scalar denom = 1.0 - R_back*R_back*std::exp(-2.0*opticalDepth);
-        const scalar multipleReflFactor =
-            (mag(denom) > VSMALL) ? (1.0/denom) : 1.0;
-
-        transmissionFactor = T_interface * multipleReflFactor;
-    }
+    // 'transmission' (when given) overrides 'reflectivity'. One of the two is
+    // required (checked in the constructor). The former fallback used when
+    // both were missing computed a Fresnel reflectivity with hard-coded
+    // constants (n = 2.0, k = 2.8, light arriving from air, n = 1), which is
+    // neither the titanium data of the cases nor the glass side the laser
+    // comes from in LIFT.
+    const scalar transmissionFactor =
+        (transmission_ >= 0) ? transmission_ : (1.0 - reflectivity);
 
     return min(max(transmissionFactor, scalar(0)), scalar(1));
 }
@@ -1400,7 +1377,6 @@ femtosecondLaserModel::applySpatialWeighting
 
     const scalar interfaceTransmission = effectiveTransmission(reflectivity_);
     const bool transmissionOverride = transmission_ >= 0;
-    const bool reflectivityConfigured = dict_.found("reflectivity");
 
    if (verbose && Pstream::master())
     {
@@ -1411,13 +1387,9 @@ femtosecondLaserModel::applySpatialWeighting
         {
             Info<< " (user transmission override)";
         }
-        else if (reflectivityConfigured)
-        {
-            Info<< " (from reflectivity = " << reflectivity_ << ")";
-        }
         else
         {
-            Info<< " (default Fresnel interface model)";
+            Info<< " (from reflectivity = " << reflectivity_ << ")";
         }
 
         Info<< endl;
@@ -2470,7 +2442,6 @@ void femtosecondLaserModel::write() const
             << "  Reflectivity: " << reflectivity_ << nl
             << "  Transmission: " << (transmission_ >= 0
                                       ? transmission_ : (1.0 - reflectivity_)) << nl
-            << "  Incidence angle: " << incidenceAngle_ << " rad" << nl
             << "  Focus: " << focus_ << nl
             << "  Direction: " << direction_ << nl
             << "  Active time: " << laserStartTime_ << " to "

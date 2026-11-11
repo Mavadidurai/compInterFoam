@@ -93,7 +93,7 @@ Reviewed: commit `5844a69` (every file in `src/`, `tools/`, `cases/` and `docs/`
 | Process tracker: hard-coded 1941/3560 K, "PLASMA" and "SOLIDIFICATION" phases the model cannot produce, plume detected from T_l (held at ambient in gas), a "turbulent KE" that was not a fluctuation energy, `maxSource` labelled kg/(m³ s), header re-written after every restart | ✅ Corrected (column now `fluctuation_KE_nJ`) |
 | Analysis tools hard-coded ρ = 4515 and σ = 1.64 | ✅ Read from the case |
 | `postProcess.H` is the openfoam.org 2016–2018 version | ❌ `compInterFoam.C` relies on a macro this copy defines; it affects only the `-postProcess` option |
-| `incidenceAngle` is read but unused; a dead Fresnel fallback uses air instead of glass | ❌ No effect on any run; left for a later clean-up |
+| `incidenceAngle` was read but unused; a Fresnel fallback with hard-coded constants (n = 2.0, k = 2.8, light from air) was used when `reflectivity` was missing | ✅ Both removed. `reflectivity` (or `transmission`) is now required; every case sets it, so no number changes. **Not yet compiled** |
 
 ---
 
@@ -102,7 +102,8 @@ Reviewed: commit `5844a69` (every file in `src/`, `tools/`, `cases/` and `docs/`
 | Issue | Reason |
 |---|---|
 | Gas–metal exchange energy: the gas gains the exchange heat per full cell volume, the lattice loses α times it | The exchange is active in partly filled cells, so a fix changes results, and the reference rerun was started with this code. Open; the energy involved is not yet quantified |
-| `postProcess.H`, `incidenceAngle`, Fresnel fallback, `donor` patch type, metal C_p and conductivity | No effect on any run (reasons in §5 and §6) |
+| `postProcess.H`, `donor` patch type, metal C_p and conductivity | No effect on any run (reasons in §5 and §6) |
+| The `if (LTS)` branch of the time loop in `compInterFoam.C` | Unreachable: `createFields.H` stops the run when `localEuler` is selected. Harmless; left because removing it also touches `alphaEqn.H` and needs a compile |
 
 ---
 

@@ -72,7 +72,6 @@ private:
     // before spatial weighting so it attenuates the beam entering any cell.
     scalar              reflectivity_;      // [-]
     scalar              transmission_;      // [-] (>=0 overrides reflectivity)
-    scalar              incidenceAngle_;    // [rad]
     bool                gaussianProfile_;
     bool                continuousLaser_;
     bool                applyInterfaceTransmissionEverywhere_;
