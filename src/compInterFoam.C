@@ -889,36 +889,53 @@ namespace
         static bool heatingObserved = false;
         static bool latticeExceededAmbient = false;
 
-        const bool laserActive = (peakQLaser > 1e6);
-        const bool electronHeated = (maxTe > 500);
-        const bool latticeHeating = (maxTl > 500);
-        const bool approachingMelt = (maxTl > 1500);
+        // Thresholds of the progress labels below. They only choose the
+        // text printed in the log and the "phase" column of the CSV file;
+        // nothing in the solution depends on them.
+        const Foam::scalar trkLaserOnQ = 1e6;       // [W/m3] laser counted as on
+        const Foam::scalar trkHeatedT = 500;        // [K] "heated" / "near ambient"
+        const Foam::scalar trkFirstHeatT = 320;     // [K] first sign of heating
+        const Foam::scalar trkHotT = 5000;          // [K] "hot and high pressure"
+        const Foam::scalar trkHighP = 1e7;          // [Pa] high pressure / recoil
+        const Foam::scalar trkEjectU = 10;          // [m/s] "ejecting"
+        const Foam::scalar trkAccelU = 100;         // [m/s] "accelerating"
+        const Foam::scalar trkTransferLoss = 2.0;   // metal loss for "transfer"
+        const Foam::scalar trkCoolT = 3000;         // [K] "cooling" below this ...
+        const Foam::scalar trkCoolTime = 5e-11;     // [s] ... and after this time
+        const Foam::scalar trkStableSpread = 200;   // [K] "thermally stable"
+
+        const bool laserActive = (peakQLaser > trkLaserOnQ);
+        const bool electronHeated = (maxTe > trkHeatedT);
+        const bool latticeHeating = (maxTl > trkHeatedT);
+        // "approaching melt": above 77 % of the melting temperature
+        // (1500 K for the 1941 K of titanium, the former fixed value)
+        const bool approachingMelt = (maxTl > 0.773*mixture.T_melt());
         // phase thresholds from the model inputs (were hard-coded 1941/3560 K)
         const Foam::scalar TmeltTrack = mixture.T_melt();
         const Foam::scalar TvapTrack = mixture.T_vapor();
         const bool melting = (maxTl > TmeltTrack);
         const bool vaporizing = (maxTl > TvapTrack);
-        const bool plasmaConditions = (maxTl > 5000 && maxPressure > 1e7);
-        const bool recoilSignificant = (maxRecoil > 1e7);
-        const bool ejecting = (maxVel > 10);
-        const bool accelerating = (maxVel > 100);
-        const bool significantTransfer = (metalLoss > 2.0);
+        const bool plasmaConditions = (maxTl > trkHotT && maxPressure > trkHighP);
+        const bool recoilSignificant = (maxRecoil > trkHighP);
+        const bool ejecting = (maxVel > trkEjectU);
+        const bool accelerating = (maxVel > trkAccelU);
+        const bool significantTransfer = (metalLoss > trkTransferLoss);
 
-        if (!heatingObserved && (electronHeated || maxTl > 320))
+        if (!heatingObserved && (electronHeated || maxTl > trkFirstHeatT))
         {
             heatingObserved = true;
         }
 
-        if (!latticeExceededAmbient && maxTl > 500)
+        if (!latticeExceededAmbient && maxTl > trkHeatedT)
         {
             latticeExceededAmbient = true;
         }
 
-        const bool coolingStarted = (maxTl < 3000 && t > 5e-11);
+        const bool coolingStarted = (maxTl < trkCoolT && t > trkCoolTime);
         const bool belowVapor = (maxTl < TvapTrack);
         const bool belowMelt = (maxTl < TmeltTrack);
-        const bool nearAmbient = (heatingObserved && latticeExceededAmbient && coolingStarted && maxTl < 500);
-        const bool thermallyStable = (nearAmbient && tempSpread < 200);
+        const bool nearAmbient = (heatingObserved && latticeExceededAmbient && coolingStarted && maxTl < trkHeatedT);
+        const bool thermallyStable = (nearAmbient && tempSpread < trkStableSpread);
 
         Foam::label detectedPhase = 0;
 
@@ -1292,12 +1309,17 @@ namespace
         if (Foam::Pstream::master())
         {
             // write the header only into a new file (a restart appends)
-            static bool headerWritten =
-                Foam::isFile(Foam::fileName("liftProcessTracking.csv"));
+            // in the case directory (was relative to the directory the
+            // solver was started from, which differs with -case)
+            const Foam::fileName csvPath
+            (
+                runTime.globalPath()/"liftProcessTracking.csv"
+            );
+            static bool headerWritten = Foam::isFile(csvPath);
 
             Foam::OFstream csvFile
             (
-                "liftProcessTracking.csv",
+                csvPath,
                 Foam::IOstreamOption::ASCII,
                 Foam::IOstreamOption::UNCOMPRESSED,
                 Foam::IOstreamOption::APPEND
@@ -1505,7 +1527,6 @@ int main(int argc, char *argv[])
     #endif
 
     const volScalarField& phaseChangeSource = mixture.phaseChangeSource();
-    const volScalarField& phaseChangeRelaxCoeff = mixture.phaseChangeRelaxCoeff();
     
     // Reference to psi fields (needed for compressibility)
     #ifndef NDEBUG
@@ -1516,12 +1537,9 @@ int main(int argc, char *argv[])
     (void)psi2;
     #endif
 
-    if (!LTS)
-    {
-        #include "readTimeControls.H"
-        #include "CourantNo.H"
-        #include "setInitialDeltaT.H"
-    }
+    #include "readTimeControls.H"
+    #include "CourantNo.H"
+    #include "setInitialDeltaT.H"
     // Instantiate PIMPLE control for pressure-velocity coupling
     pimpleControl pimple(mesh);
 
@@ -1671,7 +1689,6 @@ while (pimple.loop())
         (
             QLaser,
             phaseChangeSource,
-            phaseChangeRelaxCoeff,
             gasMetalHeatFlux
         );
         

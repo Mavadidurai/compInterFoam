@@ -55,7 +55,6 @@ private:
         // User-configurable recoil pressure parameters
     dimensionedScalar pressureScale_; // Scaling factor for evaporation rate [Pa·s]
     scalar recoilMax_;               // Base recoil pressure cap
-    dimensionedScalar recoilTempOffset_;        // Temperature offset for recoil activation
     dimensionedScalar phaseChangeTempOffset_;   // Offset for phase-change threshold
     dimensionedScalar maxPhysicalTemperature_;  // Optional physical temperature clamp
     Switch clampRecoil_;             // Enable/disable recoil pressure clamping

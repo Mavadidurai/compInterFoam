@@ -151,9 +151,7 @@ private:
             const volScalarField& metalPhysical,
             const volScalarField& G,
             const volScalarField& klField,
-            const volScalarField& phaseChangeRelaxCoeff,
             const volScalarField& phaseChangeSource,
-            const volScalarField& TlOld,
             const volScalarField& gasMetalHeatFlux,
             const dimensionedScalar& dtSub,
             const volScalarField& TlPrev
@@ -238,7 +236,6 @@ public:
         (
             const volScalarField& laserSource,
             const volScalarField& phaseChangeSource,
-            const volScalarField& phaseChangeRelaxCoeff,
             const volScalarField& gasMetalHeatFlux
         );
         //- Calculate electron thermal conductivity

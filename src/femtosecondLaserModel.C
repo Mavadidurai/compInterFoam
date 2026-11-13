@@ -1400,7 +1400,13 @@ femtosecondLaserModel::applySpatialWeighting
         metalFractions = &metalFractionPtr->internalField();
     }
 
-    const scalar metalFractionTol = 1e-6;
+    // A cell counts as metal for the absorption band when alpha exceeds this
+    // value. It was a fixed 1e-6, so a trace of metal (alpha = 1e-5) in the
+    // cell next to the film moved the band edge, and with it the start of
+    // the Beer-Lambert depth, by a whole cell. 0.5 is the usual position of a
+    // VOF interface; with a sharp film (alpha 0 or 1) both give the same band.
+    const scalar metalFractionTol =
+        dict_.getOrDefault<scalar>("metalFractionCutoff", 0.5);
 
     // filmYMin_/filmYMax_ are set once from the initial geometry and never
     // updated as the film melts, spreads, or ejects material. Rebuild the

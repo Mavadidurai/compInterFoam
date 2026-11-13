@@ -746,9 +746,7 @@ void twoTemperatureModel::solveLatticeEquation
       const volScalarField& metalPhysical,
       const volScalarField& G,
     const volScalarField& klField,
-    const volScalarField& phaseChangeRelaxCoeff,
     const volScalarField& phaseChangeSource,
-    const volScalarField& TlOld,
     const volScalarField& gasMetalHeatFlux,
     const dimensionedScalar& dtSub,
     const volScalarField& TlPrev
@@ -808,8 +806,6 @@ void twoTemperatureModel::solveLatticeEquation
      // its energy was not counted by the audit. The evaporation sink is now
      // explicit (evaluated with the latest Tl in each PIMPLE iteration); at
      // the 10 kK cap it changes Tl by about 60 K per picosecond step.
-     (void)phaseChangeRelaxCoeff;
-     (void)TlOld;
 
      if
      (
@@ -1349,7 +1345,6 @@ void twoTemperatureModel::solve
 (
     const volScalarField& laserSource,
     const volScalarField& phaseChangeSource,
-    const volScalarField& phaseChangeRelaxCoeff,
     const volScalarField& gasMetalHeatFlux
 )
 {
@@ -1568,9 +1563,7 @@ void twoTemperatureModel::solve
                 metalPhysical,
                 G,
                 klField,
-                phaseChangeRelaxCoeff,
                 phaseChangeSource,
-                TlOld,
                 gasMetalHeatFlux,
                 dtSub,
                 TlPrev

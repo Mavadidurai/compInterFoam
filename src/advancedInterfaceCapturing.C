@@ -92,10 +92,6 @@ advancedInterfaceCapturing::advancedInterfaceCapturing
         )
     ),
     recoilMax_(1e8), // 100 MPa default cap, consistent with fs-LIFT measurements
-    recoilTempOffset_
-    (
-        dimensionedScalar("recoilTempOffset", dimTemperature, 0.0)
-    ),
     phaseChangeTempOffset_
     (
         dimensionedScalar("phaseChangeTempOffset", dimTemperature, 0.0)
@@ -341,45 +337,15 @@ advancedInterfaceCapturing::advancedInterfaceCapturing
           : recoilMaxPressure;
     }
     
-    const scalar recoilOffsetValue =
-        aicDict.lookupOrDefault<scalar>
-        (
-            "recoilTempOffset",
-            recoilTempOffset_.value()
-        );
-
-    recoilTempOffset_ = dimensionedScalar
-    (
-        "recoilTempOffset",
-        dimTemperature,
-        recoilOffsetValue
-    );
-    if (recoilTempOffset_.value() < 0)
+    // recoilTempOffset shifted a recoil gate at T_vapor + offset. Recoil now
+    // starts at T_melt, where evaporation starts (see calculateRecoilPressure),
+    // and the offset had to be >= 0, so it could never lower the gate: the key
+    // has no effect.
+    if (aicDict.found("recoilTempOffset") && master)
     {
-        FatalErrorInFunction
-            << "recoilTempOffset (" << recoilTempOffset_.value()
-            << ") must be non-negative"
-            << abort(FatalError);
-    }
-    if (recoilTempOffset_.value() >= vaporTemp_.value())
-    {
-        FatalErrorInFunction
-            << "recoilTempOffset (" << recoilTempOffset_.value()
-            << ") must be less than vaporTemperature ("
-            << vaporTemp_.value() << ")"
-            << abort(FatalError);
-    }
-    if (recoilTempOffset_.value() > phaseChangeTempOffset_.value())
-    {
-        if (master)
-        {
-            WarningInFunction
-                << "recoilTempOffset (" << recoilTempOffset_.value()
-                << ") exceeds phaseChangeTempOffset ("
-                << phaseChangeTempOffset_.value()
-                << ") and will be limited." << endl;
-        }
-        recoilTempOffset_ = phaseChangeTempOffset_;
+        WarningInFunction
+            << "recoilTempOffset is no longer used and is ignored: recoil "
+            << "acts from the melting temperature upwards." << endl;
     }
 
     clampRecoil_ = aicDict.lookupOrDefault<Switch>
@@ -460,16 +426,6 @@ advancedInterfaceCapturing::advancedInterfaceCapturing
                 0.0
             );
             femtosecondDefaultsApplied.append(word("phaseChangeTempOffset"));
-        }
-        if (!aicDict.found("recoilTempOffset"))
-        {
-            recoilTempOffset_ = dimensionedScalar
-            (
-                "recoilTempOffset",
-                dimTemperature,
-                0.0
-            );
-            femtosecondDefaultsApplied.append(word("recoilTempOffset"));
         }
     }
     metalAlphaCutoff_ = aicDict.lookupOrDefault<scalar>
@@ -774,12 +730,7 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
     // gate at T_vapor left mass loss without its reaction force between the
     // two temperatures. Below T_vapor the recoil is at most 0.54*p_sat(T_vapor)
     // = 0.055 MPa, so this changes little, but the two are now consistent.
-    const scalar recoilThreshold =
-        Foam::min
-        (
-            vaporTemp_.value() + recoilTempOffset_.value(),
-            mixture_.T_melt()
-        );
+    const scalar recoilThreshold = mixture_.T_melt();
 
     // Option: confined vapour at the donor/carrier side. In the real
     // experiment the film's laser-side surface is bonded to the glass, so the

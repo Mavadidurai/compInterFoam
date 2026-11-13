@@ -101,14 +101,14 @@ Reviewed: commit `5844a69` (every file in `src/`, `tools/`, `cases/` and `docs/`
 
 | Issue | Reason |
 |---|---|
-| Gas–metal exchange energy: the gas gained the exchange heat per full cell volume, the lattice lost α times it | ✅ **Now fixed (after the tests of §8; not yet compiled).** The lattice now loses exactly the field the gas gains (per cell volume, in the metal cells), and the energy audit uses the same term. It **changes results** in partly filled interface cells below 3560 K, so the reference rerun started before this commit does not include it. The energy involved has not been quantified |
+| Gas–metal exchange energy: the gas gained the exchange heat per full cell volume, the lattice lost α times it | ✅ **Now fixed (after the tests of §8; compiled, not yet compared with a run).** The lattice now loses exactly the field the gas gains (per cell volume, in the metal cells), and the energy audit uses the same term. It **changes results** in partly filled interface cells below 3560 K, so the reference rerun started before this commit does not include it. The energy involved has not been quantified |
 | `postProcess.H`, `donor` patch type, metal C_p and conductivity | No effect on any run (reasons in §5 and §6) |
 
 ---
 
-## 7a. Later clean-up (not yet compiled)
+## 7a. Later clean-up
 
-These follow the tests of §8 and have **not been compiled or run**. Run `wclean; wmake` and the 1-D column before relying on them.
+These follow the tests of §8. They compile with OpenFOAM v2406 (`wclean; wmake`: no errors, no warnings). The only run made with them is the first 10 ps of the 1-D column (§7b); the Galilean test, the benchmarks of §8 and the reference case have **not** been rerun with them.
 
 | Issue | Status | Fix | Changes results? |
 |---|---|---|---|
@@ -123,6 +123,22 @@ These follow the tests of §8 and have **not been compiled or run**. Run `wclean
 | α clipped again before and after each `alphaEqn.H` | ✅ | The repeated clips are removed | No |
 | Boilerplate "REASONING" comments in `0.orig/Te`, `Tl` | ✅ | Removed | No |
 | The metal band of the laser model was taken from cell **centres** | ✅ (separate commit) | Taken from cell extents. Before, the absorption depth started in the middle of the first film cell: after the energy rescale that cell received 7.6 % too little and the deeper cells 4.4 % too much (reference mesh). The total absorbed energy is unchanged | **Yes, slightly.** Leave this commit out until the running reference case has finished if the published run must match the code |
+
+## 7b. Minor items
+
+Compiled as above. With these changes the 1-D column (`column1D_laser_TTM`, 0 to 10 ps, which contains the whole pulse) gives bit-identical T_e, T_l, T, p, α, U, ρ, recoil pressure, evaporation flux and gas–metal flux, and an identical tracking file, compared with the binary of §7a.
+
+| Issue | Status | Fix | Changes results? |
+|---|---|---|---|
+| The plasma model used a fixed 343 nm for the critical density | ✅ | The wavelength of the laser model is passed in | Only with the plasma model on (no case) |
+| `explosionMultiplier` was read but the flux used a fixed factor of 100 | ✅ | The input is used (default 100) | Only with phase explosion on and another value |
+| `recoilTempOffset` could not have any effect (recoil starts at T_melt, and the offset had to be ≥ 0) | ✅ | Removed; a warning is printed if the key is given; removed from the cases | No |
+| `phaseChangeRelaxCoeff` and `TlOld` passed through the two-temperature model unused; field `phaseChangeRelaxCoeff` written but used by nothing; `dtFloor` only limited that field | ✅ | Removed; `dtFloor` gives a warning and is removed from the cases. `evapRelaxationTime` stays: it still sets the 10τ grace time of the phase-change window | No (one output field fewer) |
+| Leftovers of local time stepping (`LTS`, `trDeltaT`, `trSubDeltaT`, `localEuler` branches in `alphaEqn.H`) and two commented-out recoil blocks in `pEqn.H` | ✅ | Removed; `localEuler` is still rejected at start-up | No |
+| A cell counted as metal for the laser band when α > 10⁻⁶, so a trace of metal next to the film moved the start of the absorption depth by a whole cell | ✅ | New laser input `metalFractionCutoff`, default 0.5 | **Not for a sharp film** (identical on the 1-D column). It differs once metal with 10⁻⁶ < α < 0.5 lies in the beam during a pulse; that situation has not been run |
+| Thresholds of the progress labels were bare numbers | ✅ | Named in one place; "approaching melt" is 0.773 T_melt (1500 K for titanium) | Labels only |
+| `liftProcessTracking.csv` was written relative to the start directory | ✅ | Written in the case directory | Only the file location with `-case` |
+| The energy check weights its sources with α, the solver with α above the metal cutoff (10⁻⁶) | ❌ | Not changed: the two differ by at most the cutoff fraction | – |
 
 ---
 

@@ -355,11 +355,13 @@ Foam::enhancedLIFTPhysics::enhancedLIFTPhysics
 (
     const fvMesh& mesh,
     const twoPhaseMixtureThermo& mixture,
-    const dictionary& dict
+    const dictionary& dict,
+    const scalar laserWavelength
 )
 :
     mesh_(mesh),
     mixture_(mixture),
+    laserWavelength_(laserWavelength),
     phaseExplosion_(nullptr),
     plasma_(nullptr),
     breakup_(nullptr)
@@ -677,9 +679,9 @@ void Foam::enhancedLIFTPhysics::updatePlasma
 
             // critical electron density n_c = eps0 m_e omega^2/e^2
             // = 1.115e27 m^-3 / (lambda/1 um)^2; 9.5e27 m^-3 at 343 nm.
-            // The former 1.1e27 is the value for about 1 um light.
-            const scalar lambdaLaser = 343e-9;
-            const scalar n_crit = 1.115e27/sqr(lambdaLaser/1e-6);
+            // lambda is the wavelength of the laser model (was a fixed
+            // 343e-9 here, whatever the laser input said).
+            const scalar n_crit = 1.115e27/sqr(laserWavelength_/1e-6);
             const scalar shield = 1.0 - exp(-n_e / n_crit);
             shieldField[cellI] = shield;
 

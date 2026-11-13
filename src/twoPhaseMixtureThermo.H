@@ -48,8 +48,6 @@ class twoPhaseMixtureThermo
         //- Optional physical temperature ceiling for phase-change physics (K)
         scalar maxPhaseChangeTemperature_;
         
-        //- Minimum permissible time-step for phase change (s)
-        mutable scalar dtFloor_;
 
         //- Ideal-gas constant used in Hertz-Knudsen relation [J/(kg K)]
         //  Must be supplied via controlDict.phaseChangeCoeffs
@@ -82,8 +80,6 @@ class twoPhaseMixtureThermo
         //- Phase change source term (explicit part)
         volScalarField phaseChangeSource_;
 
-        //- Relaxation coefficient used for implicit phase-change treatment
-        volScalarField phaseChangeRelaxCoeff_;
         //- Mass-transfer rate due to phase change [1/s]
         volScalarField dgdt_;
         //- Physical phase-change mass flux [kg/(m^2 s)]
@@ -200,11 +196,6 @@ public:
         const volScalarField& phaseChangeSource() const
         {
             return phaseChangeSource_;
-        }
-        //- Return const access to the implicit relaxation coefficient
-        const volScalarField& phaseChangeRelaxCoeff() const
-        {
-            return phaseChangeRelaxCoeff_;
         }
         //- Access dg/dt field [1/s]
         const volScalarField& dgdt() const

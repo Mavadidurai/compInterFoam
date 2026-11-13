@@ -26,12 +26,6 @@ volVectorField HbyA
 // HbyA recoil addition disabled - recoil is now included via phig (surface gradient)
 // The recoil and trapped-vapour pressure act as an interface traction in the
 // predictor (UEqn.H, gradTotalP) and as a face force in phig here.
-/*
-if (recoilForceReady && tRecoilForce.valid())
-{
-    HbyA += rAU*tRecoilForce();
-}
-*/
 surfaceScalarField phiHbyA
 (
     IOobject
@@ -638,12 +632,6 @@ if (gasCompressible)
 }
 p_rgh.correctBoundaryConditions();
 p.correctBoundaryConditions();
-/*
-if (tRecoilForce.valid())
-{
-    tRecoilForce.clear();
-}
-*/
 const Foam::Switch pressureClamp =
     solverCoeffs.lookupOrDefault<Foam::Switch>("pressureClamp", false);
 
