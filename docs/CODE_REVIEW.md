@@ -101,14 +101,14 @@ Reviewed: commit `5844a69` (every file in `src/`, `tools/`, `cases/` and `docs/`
 
 | Issue | Reason |
 |---|---|
-| Gas–metal exchange energy: the gas gained the exchange heat per full cell volume, the lattice lost α times it | ✅ **Now fixed (after the tests of §8; compiled, not yet compared with a run).** The lattice now loses exactly the field the gas gains (per cell volume, in the metal cells), and the energy audit uses the same term. It **changes results** in partly filled interface cells below 3560 K, so the reference rerun started before this commit does not include it. The energy involved has not been quantified |
+| Gas–metal exchange energy: the gas gained the exchange heat per full cell volume, the lattice lost α times it | ✅ **Now fixed (after the tests of §8; compiled; no visible effect on the two 1-D tests, which do not exercise it, see §7c).** The lattice now loses exactly the field the gas gains (per cell volume, in the metal cells), and the energy audit uses the same term. It **changes results** in partly filled interface cells below 3560 K, so the reference rerun started before this commit does not include it. The energy involved has not been quantified |
 | `postProcess.H`, `donor` patch type, metal C_p and conductivity | No effect on any run (reasons in §5 and §6) |
 
 ---
 
 ## 7a. Later clean-up
 
-These follow the tests of §8. They compile with OpenFOAM v2406 (`wclean; wmake`: no errors, no warnings). The only run made with them is the first 10 ps of the 1-D column (§7b); the Galilean test, the benchmarks of §8 and the reference case have **not** been rerun with them.
+These follow the tests of §8. They compile with OpenFOAM v2406 (`wclean; wmake`: no errors, no warnings). They were compared with `main` (`9052889`) on the Galilean test (0 to 100 ps) and the 1-D column (0 to 20 ps), one binary per step (§7c). The other benchmarks of §8 and the reference case have **not** been rerun with them.
 
 | Issue | Status | Fix | Changes results? |
 |---|---|---|---|
@@ -139,6 +139,20 @@ Compiled as above. With these changes the 1-D column (`column1D_laser_TTM`, 0 to
 | Thresholds of the progress labels were bare numbers | ✅ | Named in one place; "approaching melt" is 0.773 T_melt (1500 K for titanium) | Labels only |
 | `liftProcessTracking.csv` was written relative to the start directory | ✅ | Written in the case directory | Only the file location with `-case` |
 | The energy check weights its sources with α, the solver with α above the metal cutoff (10⁻⁶) | ❌ | Not changed: the two differ by at most the cutoff fraction | – |
+
+## 7c. Comparison with `main` on the two 1-D tests
+
+Four binaries (OpenFOAM v2406, no warnings), each case run with the inputs of its own commit: `main` (`9052889`), the clean-up (`59bb572`), the laser band (`e1925fa`), the gas–metal exchange (`a0b444e`).
+
+| Step | Galilean test, 0–100 ps | 1-D laser column, 0–20 ps |
+|---|---|---|
+| `main` → clean-up | bit-identical | bit-identical (all written fields, tracking file) |
+| clean-up → laser band `e1925fa` | bit-identical (laser off) | peak T_e 6639.7 → 6649.0 K (+0.14 %; the finite-difference code gives 6672 K, so −0.48 % becomes −0.34 %); peak T_l 6322.1 → 6329.1 K (+0.11 %); peak pressure 33.64 → 33.95 MPa (+0.9 %), largest difference +1.3 % at 0.51 ps; evaporated mass at 20 ps +0.16 %; differences below 1 K after 10 ps |
+| laser band → exchange `a0b444e` | bit-identical (uniform 300 K, no exchange) | no visible difference (T_e, T_l, T identical as written; p within 10⁻³ Pa) |
+
+All four Galilean runs keep U = −170 m/s exactly and p within 0.5 Pa of 10⁵ Pa.
+
+**The exchange fix is not tested by these cases.** The error it removes is (1 − α) times the exchange heat in partly filled cells. In the column the only such cell has α ≥ 0.9968, and in the Galilean test there is no heat exchange, so the result says only that the fix does no harm here. Its size in the reference case, where the interface smears, is still not quantified.
 
 ---
 
