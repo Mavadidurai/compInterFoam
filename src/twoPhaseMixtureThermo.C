@@ -57,7 +57,6 @@ Foam::twoPhaseMixtureThermo::twoPhaseMixtureThermo
     T_vapor_(0.0),
     p_ref_(101325.0),
     maxPhaseChangeTemperature_(GREAT),
-    dtFloor_(1e-12),
     gasConstant_(0.0),  // Populated from controlDict.phaseChangeCoeffs (required)
     evaporationCoeff_(0.18),
     relaxationTime_(1e-12),
@@ -83,12 +82,6 @@ Foam::twoPhaseMixtureThermo::twoPhaseMixtureThermo
         IOobject("phaseChangeSource", U.mesh().time().timeName(), U.mesh(), IOobject::NO_READ, IOobject::AUTO_WRITE),
         U.mesh(),
         dimensionedScalar("source", dimTemperature/dimTime, 0.0)  // [K/s]
-    ),
-    phaseChangeRelaxCoeff_
-    (
-        IOobject("phaseChangeRelaxCoeff", U.mesh().time().timeName(), U.mesh(), IOobject::NO_READ, IOobject::AUTO_WRITE),
-        U.mesh(),
-        dimensionedScalar("relax", dimless/dimTime, 0.0)
     ),
     dgdt_
     (
@@ -679,21 +672,14 @@ Foam::twoPhaseMixtureThermo::twoPhaseMixtureThermo
 
     if (phaseChangeDict.found("dtFloor"))
     {
-        // Bare scalar in seconds, matching relaxationTime/evapRelaxationTime
-        // and the README (dtFloor entries are not bracket-dimensioned in
-        // shipped cases).
-        const scalar val = readScalar(phaseChangeDict.lookup("dtFloor"));
-        ensureFinite("dtFloor", val);
-
-        if (val <= 0)
+        // dtFloor only limited the relaxation coefficient of the lattice
+        // relaxation term, which was removed; the key does nothing now.
+        if (Pstream::master())
         {
-            FatalIOErrorInFunction(phaseChangeDict)
+            WarningInFunction
                 << "Entry 'dtFloor' in " << phaseChangeDictDisplay
-                << " must be positive"
-                << exit(FatalIOError);
+                << " is no longer used and is ignored." << endl;
         }
-
-        dtFloor_ = val;
     }
 
     if (phaseChangeDict.found("alphaMin"))
@@ -870,29 +856,12 @@ Foam::twoPhaseMixtureThermo::twoPhaseMixtureThermo
             << ", rho=" << rho2_.value() << endl;
     }
     updateTwoTemperatureCache();
-    try
-    {
-        thermo1_ = rhoThermo::New(U.mesh(), phase1Name());
-    }
-    catch (const Foam::IOerror&)
-    {
-        FatalErrorInFunction
-            << "Failed to construct rhoThermo for phase '" << phase1Name()
-            << "'. Expected dictionary 'thermophysicalProperties."
-            << phase1Name() << "'." << exit(FatalError);
-    }
-
-    try
-    {
-        thermo2_ = rhoThermo::New(U.mesh(), phase2Name());
-    }
-    catch (const Foam::IOerror&)
-    {
-        FatalErrorInFunction
-            << "Failed to construct rhoThermo for phase '" << phase2Name()
-            << "'. Expected dictionary 'thermophysicalProperties."
-            << phase2Name() << "'." << exit(FatalError);
-    }
+    // rhoThermo::New reports a missing or wrong
+    // thermophysicalProperties.<phase> itself (FatalIOError). The former
+    // try/catch blocks around these calls could never catch anything,
+    // because OpenFOAM errors are not thrown as exceptions by default.
+    thermo1_ = rhoThermo::New(U.mesh(), phase1Name());
+    thermo2_ = rhoThermo::New(U.mesh(), phase2Name());
     correct();
 }
 // * * * * * * * * * * * * * * * * Destructor  * * * * * * * * * * * * * * * //
@@ -916,7 +885,6 @@ void Foam::twoPhaseMixtureThermo::correct()
     // Laser heating is now supplied externally via setQLaser()
     computePhaseChange();
     phaseChangeSource_.correctBoundaryConditions();
-    phaseChangeRelaxCoeff_.correctBoundaryConditions();
     phaseChangeMassFlux_.correctBoundaryConditions();
     // Compute mass-transfer rate [1/s]
     dgdt_ = computeMassTransfer()();
@@ -1069,7 +1037,6 @@ Foam::twoPhaseMixtureThermo::sigma() const
 void Foam::twoPhaseMixtureThermo::computePhaseChange()
 {
     phaseChangeSource_.primitiveFieldRef() = 0.0;
-    phaseChangeRelaxCoeff_.primitiveFieldRef() = 0.0;
     phaseChangeMassFlux_.primitiveFieldRef() = 0.0;
     phaseChangeMassFlux_.boundaryFieldRef() = 0.0;
     phaseChangeVolumetricRate_.primitiveFieldRef() = 0.0;
@@ -1330,6 +1297,13 @@ void Foam::twoPhaseMixtureThermo::computePhaseChange()
         mesh.foundObject<volScalarField>("explosionIndicator")
       ? &mesh.lookupObject<volScalarField>("explosionIndicator")
       : nullptr;
+    // same key and default as enhancedLIFTPhysics (the factor was a fixed
+    // 100 here, so the input had no effect)
+    const scalar explosionMultiplier =
+        time.controlDict()
+       .subOrEmptyDict("enhancedLIFTPhysics")
+       .subOrEmptyDict("phaseExplosionCoeffs")
+       .getOrDefault<scalar>("explosionMultiplier", 100.0);
     forAll(TlField, cellI)
     {
         const scalar T_local = TlField[cellI];
@@ -1397,8 +1371,10 @@ void Foam::twoPhaseMixtureThermo::computePhaseChange()
 
             if (explosionInd[cellI] > 0.01)
             {
-                // Enhanced mass flux: 1 to 100x based on superheat indicator
-                j_net *= 1.0 + 99.0*explosionInd[cellI];
+                // Enhanced mass flux: 1 to explosionMultiplier times,
+                // linear in the superheat indicator
+                j_net *=
+                    1.0 + (explosionMultiplier - 1.0)*explosionInd[cellI];
             }
         }
         const scalar Cl = ClTTM_.value();
@@ -1426,19 +1402,6 @@ void Foam::twoPhaseMixtureThermo::computePhaseChange()
         // Store the volumetric temperature rate with a sign convention where
         // evaporation yields a negative contribution and condensation positive.
         const scalar rate = volumetricHeat/Cl;
-        // NOTE: phaseChangeRelaxCoeff is still computed and written for
-        // diagnostics, but twoTemperatureModel no longer applies it (it added
-        // an artificial, time-step-dependent damping of Tl; see
-        // twoTemperatureModel::solveLatticeEquation).
-        // dtFloor clamps the implicit relaxation coefficient to 1/dtFloor
-        // (i.e. the effective relaxation time is never allowed below
-        // dtFloor), preventing a very short evapRelaxationTime from
-        // producing an unbounded implicit coefficient.
-        const scalar effectiveRelaxationTime =
-            Foam::max(relaxationTime_, dtFloor_);
-        const scalar relax = 1.0/effectiveRelaxationTime;
-
-        phaseChangeRelaxCoeff_[cellI] = relax;
         phaseChangeSource_[cellI] = -rate;
         phaseChangeMassFlux_[cellI] = j_net;
 

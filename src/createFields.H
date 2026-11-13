@@ -1,9 +1,6 @@
 extern Foam::Switch verbose;
 verbose = runTime.controlDict().lookupOrDefault<Foam::Switch>("verbose", false);
-bool LTS = fv::localEulerDdt::enabled(mesh);
-tmp<volScalarField> trDeltaT;
-tmp<volScalarField> trSubDeltaT;
-if (LTS)
+if (fv::localEulerDdt::enabled(mesh))
 {
     // localEuler (LTS) discretizes every ddt() with a per-cell pseudo-time
     // step (fv::localEulerDdt looks up its own rDeltaT field and ignores
@@ -821,7 +818,8 @@ if (runTime.controlDict().found("enhancedLIFTPhysics"))
         (
             mesh,
             mixture,
-            runTime.controlDict().subDict("enhancedLIFTPhysics")
+            runTime.controlDict().subDict("enhancedLIFTPhysics"),
+            laser.wavelength().value()
         )
     );
 }

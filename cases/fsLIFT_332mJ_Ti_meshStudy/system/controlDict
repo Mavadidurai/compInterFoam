@@ -66,7 +66,6 @@ evaporationCoeff       0.18;     // evaporation coefficient beta in the Hertz-Kn
     //momentumAccom       0.18;     // Momentum accommodation
 
     //windowWidth         100;
-    dtFloor             1e-15;
     // NOTE: The solver expects maxSource in volumetric units [W/m^3].
     // 1e25 W/m^3 is far above the largest source of this case, so the cap does not act.
     maxSource           [1 -1 -3 0 0 0 0]   1e25;
@@ -114,7 +113,6 @@ advancedInterfaceCapturing
     recoilMax             5.0e9;      // [Pa] older name of the recoil bound; maxRecoilPressure below takes precedence
     clampRecoil           false;
     scaleRecoilMax        false;
-    recoilTempOffset      0;        // [K] shift of the recoil onset temperature
     phaseChangeTempOffset 0;      // [K] shift of the evaporation onset temperature
     recoilRelax           0.7;      // under-relaxation of the recoil pressure between iterations
     alphaMin              0.01;
@@ -127,7 +125,6 @@ advancedInterfaceCapturing
 }
 
 // Temperature bounds
-enableTClamp    false;
 minT            200;           // Allow cooling below room temp
 maxT            50000;          // safety bound; 10 kK was too low (it was reached with the 10 nm absorption depth)
 

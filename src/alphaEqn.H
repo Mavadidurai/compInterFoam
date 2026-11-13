@@ -32,11 +32,7 @@ extern Foam::Switch verbose;
 
     scalar ocCoeff = 0;
 
-    if
-    (
-        isType<fv::EulerDdtScheme<scalar>>(ddtAlpha)
-     || isType<fv::localEulerDdtScheme<scalar>>(ddtAlpha)
-    )
+    if (isType<fv::EulerDdtScheme<scalar>>(ddtAlpha))
     {
         ocCoeff = 0;
     }
@@ -300,11 +296,7 @@ extern Foam::Switch verbose;
     {
         fvScalarMatrix alpha1Eqn
         (
-            (
-                LTS
-              ? fv::localEulerDdtScheme<scalar>(mesh).fvmDdt(alpha1)
-              : fv::EulerDdtScheme<scalar>(mesh).fvmDdt(alpha1)
-            )
+            fv::EulerDdtScheme<scalar>(mesh).fvmDdt(alpha1)
           + fv::gaussConvectionScheme<scalar>
             (
                 mesh,
@@ -547,8 +539,6 @@ extern Foam::Switch verbose;
     (
         word(mesh.ddtScheme("ddt(rho,U)"))
      == fv::EulerDdtScheme<vector>::typeName
-     || word(mesh.ddtScheme("ddt(rho,U)"))
-     == fv::localEulerDdtScheme<vector>::typeName
     )
     {
         rhoPhi = alphaPhi10*(rho1f - rho2f) + phiCN()*rho2f;

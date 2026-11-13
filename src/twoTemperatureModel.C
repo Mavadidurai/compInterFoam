@@ -746,9 +746,7 @@ void twoTemperatureModel::solveLatticeEquation
       const volScalarField& metalPhysical,
       const volScalarField& G,
     const volScalarField& klField,
-    const volScalarField& phaseChangeRelaxCoeff,
     const volScalarField& phaseChangeSource,
-    const volScalarField& TlOld,
     const volScalarField& gasMetalHeatFlux,
     const dimensionedScalar& dtSub,
     const volScalarField& TlPrev
@@ -790,7 +788,13 @@ void twoTemperatureModel::solveLatticeEquation
        + metalPhysicalActive*G*Te_
         // Signed so evaporation (j_net > 0) is negative and cools the lattice.
        + metalPhysicalActive*Cl_*phaseChangeSource
-       - metalPhysicalActive*gasMetalHeatFlux
+        // Heat given to the gas [W/m^3 of cell]. TEqn.H adds exactly this
+        // field to the gas per unit cell volume, so the lattice must lose it
+        // per unit cell volume too, not alpha times it (the interface
+        // exchange coefficient h*|grad alpha| is already a volumetric
+        // quantity of the whole cell). With the alpha weighting the lattice
+        // lost less than the gas gained in every partly filled cell.
+       - activeMask*gasMetalHeatFlux
      );
 
      // The former pair Sp(Cl*relax, Tl) and Cl*relax*TlOld (relax = 1/tau,
@@ -802,8 +806,6 @@ void twoTemperatureModel::solveLatticeEquation
      // its energy was not counted by the audit. The evaporation sink is now
      // explicit (evaluated with the latest Tl in each PIMPLE iteration); at
      // the 10 kK cap it changes Tl by about 60 K per picosecond step.
-     (void)phaseChangeRelaxCoeff;
-     (void)TlOld;
 
      if
      (
@@ -906,9 +908,16 @@ dimensionedScalar twoTemperatureModel::couplingEnergy
     const dimensionedScalar& dtDim
 ) const
 {
-    tmp<volScalarField> tMetal = clampedMetalFraction();
-    const volScalarField& metalEff = tMetal();
-    return fvc::domainIntegrate(metalEff*gasMetalHeatFlux)*dtDim;
+    // the same cells and weighting as the sink in solveLatticeEquation
+    const dimensionedScalar metalCutoffDim
+    (
+        "metalCutoffCoupling",
+        dimless,
+        metalValidationThreshold()
+    );
+    tmp<volScalarField> tActiveMask =
+        pos(clampedMetalFraction() - metalCutoffDim);
+    return fvc::domainIntegrate(tActiveMask()*gasMetalHeatFlux)*dtDim;
 
 }
 
@@ -1336,7 +1345,6 @@ void twoTemperatureModel::solve
 (
     const volScalarField& laserSource,
     const volScalarField& phaseChangeSource,
-    const volScalarField& phaseChangeRelaxCoeff,
     const volScalarField& gasMetalHeatFlux
 )
 {
@@ -1555,9 +1563,7 @@ void twoTemperatureModel::solve
                 metalPhysical,
                 G,
                 klField,
-                phaseChangeRelaxCoeff,
                 phaseChangeSource,
-                TlOld,
                 gasMetalHeatFlux,
                 dtSub,
                 TlPrev
@@ -1655,7 +1661,7 @@ void twoTemperatureModel::solve
         const dimensionedScalar lCoupling =
             fvc::domainIntegrate(metalPhysical*GFinal*Tl_);
         const dimensionedScalar gasLoss =
-            fvc::domainIntegrate(metalPhysical*gasMetalHeatFlux);
+            couplingEnergy(gasMetalHeatFlux, dtDim)/dtDim;
         const dimensionedScalar metalVolume =
             fvc::domainIntegrate(metalPhysical);
         const scalar dtValue = dtDim.value();

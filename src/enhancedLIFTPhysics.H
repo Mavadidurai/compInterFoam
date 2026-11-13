@@ -151,6 +151,9 @@ private:
         //- Reference to mixture
         const twoPhaseMixtureThermo& mixture_;
 
+        //- Laser wavelength [m], from the laser model (plasma critical density)
+        const scalar laserWavelength_;
+
         //- Phase explosion data
         autoPtr<PhaseExplosionData> phaseExplosion_;
 
@@ -206,7 +209,8 @@ public:
         (
             const fvMesh& mesh,
             const twoPhaseMixtureThermo& mixture,
-            const dictionary& dict
+            const dictionary& dict,
+            const scalar laserWavelength
         );
 
 

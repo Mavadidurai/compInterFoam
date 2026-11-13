@@ -93,7 +93,7 @@ Reviewed: commit `5844a69` (every file in `src/`, `tools/`, `cases/` and `docs/`
 | Process tracker: hard-coded 1941/3560 K, "PLASMA" and "SOLIDIFICATION" phases the model cannot produce, plume detected from T_l (held at ambient in gas), a "turbulent KE" that was not a fluctuation energy, `maxSource` labelled kg/(m³ s), header re-written after every restart | ✅ Corrected (column now `fluctuation_KE_nJ`) |
 | Analysis tools hard-coded ρ = 4515 and σ = 1.64 | ✅ Read from the case |
 | `postProcess.H` is the openfoam.org 2016–2018 version | ❌ `compInterFoam.C` relies on a macro this copy defines; it affects only the `-postProcess` option |
-| `incidenceAngle` is read but unused; a dead Fresnel fallback uses air instead of glass | ❌ No effect on any run; left for a later clean-up |
+| `incidenceAngle` was read but unused; a Fresnel fallback with hard-coded constants (n = 2.0, k = 2.8, light from air) was used when `reflectivity` was missing | ✅ Both removed. `reflectivity` (or `transmission`) is now required; every case sets it, so no number changes. **Not yet compiled** |
 
 ---
 
@@ -101,8 +101,58 @@ Reviewed: commit `5844a69` (every file in `src/`, `tools/`, `cases/` and `docs/`
 
 | Issue | Reason |
 |---|---|
-| Gas–metal exchange energy: the gas gains the exchange heat per full cell volume, the lattice loses α times it | The exchange is active in partly filled cells, so a fix changes results, and the reference rerun was started with this code. Open; the energy involved is not yet quantified |
-| `postProcess.H`, `incidenceAngle`, Fresnel fallback, `donor` patch type, metal C_p and conductivity | No effect on any run (reasons in §5 and §6) |
+| Gas–metal exchange energy: the gas gained the exchange heat per full cell volume, the lattice lost α times it | ✅ **Now fixed (after the tests of §8; compiled; no visible effect on the two 1-D tests, which do not exercise it, see §7c).** The lattice now loses exactly the field the gas gains (per cell volume, in the metal cells), and the energy audit uses the same term. It **changes results** in partly filled interface cells below 3560 K, so the reference rerun started before this commit does not include it. The energy involved has not been quantified |
+| `postProcess.H`, `donor` patch type, metal C_p and conductivity | No effect on any run (reasons in §5 and §6) |
+
+---
+
+## 7a. Later clean-up
+
+These follow the tests of §8. They compile with OpenFOAM v2406 (`wclean; wmake`: no errors, no warnings). They were compared with `main` (`9052889`) on the Galilean test (0 to 100 ps) and the 1-D column (0 to 20 ps), one binary per step (§7c). The other benchmarks of §8 and the reference case have **not** been rerun with them.
+
+| Issue | Status | Fix | Changes results? |
+|---|---|---|---|
+| Unreachable `if (LTS)` branch in the time loop | ✅ | Removed (`createFields.H` already rejects `localEuler`) | No |
+| `he()` returned a null reference with a warning | ✅ | Fatal `NotImplemented`, as in the stock solver | No |
+| `try/catch` around `rhoThermo::New` that could never catch | ✅ | Removed | No |
+| Per-step laser energy check compared one step with ten whole pulses | ✅ | Removed; the end-of-pulse check remains | No |
+| `verbose` looked up from `controlDict` in three places | ✅ | The solver's switch is used | No |
+| Single-pocket (`uniform`) mode averaged p_sat by area, the ring mode by evaporated mass | ✅ | Both by evaporated mass | Only in `uniform` mode, which no case uses |
+| About 440 lines of gas-temperature projection behind `enableTClamp`, used by no case and never tested | ✅ | Removed; `enableTClamp true` is now a fatal error; the key is removed from the cases | No |
+| Only the negative part of the continuity residual is applied in the gas temperature equation | ❌ | Kept on purpose (a positive part would weaken the matrix diagonal in nearly empty cells); now explained in a comment | – |
+| α clipped again before and after each `alphaEqn.H` | ✅ | The repeated clips are removed | No |
+| Boilerplate "REASONING" comments in `0.orig/Te`, `Tl` | ✅ | Removed | No |
+| The metal band of the laser model was taken from cell **centres** | ✅ (separate commit) | Taken from cell extents. Before, the absorption depth started in the middle of the first film cell: after the energy rescale that cell received 7.6 % too little and the deeper cells 4.4 % too much (reference mesh). The total absorbed energy is unchanged | **Yes, slightly.** Leave this commit out until the running reference case has finished if the published run must match the code |
+
+## 7b. Minor items
+
+Compiled as above. With these changes the 1-D column (`column1D_laser_TTM`, 0 to 10 ps, which contains the whole pulse) gives bit-identical T_e, T_l, T, p, α, U, ρ, recoil pressure, evaporation flux and gas–metal flux, and an identical tracking file, compared with the binary of §7a.
+
+| Issue | Status | Fix | Changes results? |
+|---|---|---|---|
+| The plasma model used a fixed 343 nm for the critical density | ✅ | The wavelength of the laser model is passed in | Only with the plasma model on (no case) |
+| `explosionMultiplier` was read but the flux used a fixed factor of 100 | ✅ | The input is used (default 100) | Only with phase explosion on and another value |
+| `recoilTempOffset` could not have any effect (recoil starts at T_melt, and the offset had to be ≥ 0) | ✅ | Removed; a warning is printed if the key is given; removed from the cases | No |
+| `phaseChangeRelaxCoeff` and `TlOld` passed through the two-temperature model unused; field `phaseChangeRelaxCoeff` written but used by nothing; `dtFloor` only limited that field | ✅ | Removed; `dtFloor` gives a warning and is removed from the cases. `evapRelaxationTime` stays: it still sets the 10τ grace time of the phase-change window | No (one output field fewer) |
+| Leftovers of local time stepping (`LTS`, `trDeltaT`, `trSubDeltaT`, `localEuler` branches in `alphaEqn.H`) and two commented-out recoil blocks in `pEqn.H` | ✅ | Removed; `localEuler` is still rejected at start-up | No |
+| A cell counted as metal for the laser band when α > 10⁻⁶, so a trace of metal next to the film moved the start of the absorption depth by a whole cell | ✅ | New laser input `metalFractionCutoff`, default 0.5 | **Not for a sharp film** (identical on the 1-D column). It differs once metal with 10⁻⁶ < α < 0.5 lies in the beam during a pulse; that situation has not been run |
+| Thresholds of the progress labels were bare numbers | ✅ | Named in one place; "approaching melt" is 0.773 T_melt (1500 K for titanium) | Labels only |
+| `liftProcessTracking.csv` was written relative to the start directory | ✅ | Written in the case directory | Only the file location with `-case` |
+| The energy check weights its sources with α, the solver with α above the metal cutoff (10⁻⁶) | ❌ | Not changed: the two differ by at most the cutoff fraction | – |
+
+## 7c. Comparison with `main` on the two 1-D tests
+
+Four binaries (OpenFOAM v2406, no warnings), each case run with the inputs of its own commit: `main` (`9052889`), the clean-up (`59bb572`), the laser band (`e1925fa`), the gas–metal exchange (`a0b444e`).
+
+| Step | Galilean test, 0–100 ps | 1-D laser column, 0–20 ps |
+|---|---|---|
+| `main` → clean-up | bit-identical | bit-identical (all written fields, tracking file) |
+| clean-up → laser band `e1925fa` | bit-identical (laser off) | peak T_e 6639.7 → 6649.0 K (+0.14 %; the finite-difference code gives 6672 K, so −0.48 % becomes −0.34 %); peak T_l 6322.1 → 6329.1 K (+0.11 %); peak pressure 33.64 → 33.95 MPa (+0.9 %), largest difference +1.3 % at 0.51 ps; evaporated mass at 20 ps +0.16 %; differences below 1 K after 10 ps |
+| laser band → exchange `a0b444e` | bit-identical (uniform 300 K, no exchange) | no visible difference (T_e, T_l, T identical as written; p within 10⁻³ Pa) |
+
+All four Galilean runs keep U = −170 m/s exactly and p within 0.5 Pa of 10⁵ Pa.
+
+**The exchange fix is not tested by these cases.** The error it removes is (1 − α) times the exchange heat in partly filled cells. In the column the only such cell has α ≥ 0.9968, and in the Galilean test there is no heat exchange, so the result says only that the fix does no harm here. Its size in the reference case, where the interface smears, is still not quantified.
 
 ---
 

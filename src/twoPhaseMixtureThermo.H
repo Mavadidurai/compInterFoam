@@ -48,8 +48,6 @@ class twoPhaseMixtureThermo
         //- Optional physical temperature ceiling for phase-change physics (K)
         scalar maxPhaseChangeTemperature_;
         
-        //- Minimum permissible time-step for phase change (s)
-        mutable scalar dtFloor_;
 
         //- Ideal-gas constant used in Hertz-Knudsen relation [J/(kg K)]
         //  Must be supplied via controlDict.phaseChangeCoeffs
@@ -82,8 +80,6 @@ class twoPhaseMixtureThermo
         //- Phase change source term (explicit part)
         volScalarField phaseChangeSource_;
 
-        //- Relaxation coefficient used for implicit phase-change treatment
-        volScalarField phaseChangeRelaxCoeff_;
         //- Mass-transfer rate due to phase change [1/s]
         volScalarField dgdt_;
         //- Physical phase-change mass flux [kg/(m^2 s)]
@@ -201,11 +197,6 @@ public:
         {
             return phaseChangeSource_;
         }
-        //- Return const access to the implicit relaxation coefficient
-        const volScalarField& phaseChangeRelaxCoeff() const
-        {
-            return phaseChangeRelaxCoeff_;
-        }
         //- Access dg/dt field [1/s]
         const volScalarField& dgdt() const
         {
@@ -245,24 +236,21 @@ public:
         // Access to thermodynamic state variables
 
             //- Enthalpy/Internal energy [J/kg]
-            //  Non-const access allowed for transport equations
-            //- Direct access to mixture enthalpy/internal energy is
-            //  currently unsupported and returns a null field. A runtime
-            //  warning is issued to discourage use.
+            //  Not available for the mixture (each phase has its own). As in
+            //  stock compressibleInterFoam the call is a fatal error; it used
+            //  to return a null reference with a warning, which crashes
+            //  without a message as soon as the field is used.
             virtual volScalarField& he()
             {
-                WarningInFunction
-                    << "twoPhaseMixtureThermo::he() is unsupported." << endl;
-                return const_cast<volScalarField&>(volScalarField::null());
+                NotImplemented;
+                return thermo1_->he();
             }
 
-            //- Enthalpy/Internal energy [J/kg]
-            //  Unsupported: returns a null field with a warning.
+            //- Enthalpy/Internal energy [J/kg] (not available, see above)
             virtual const volScalarField& he() const
             {
-                WarningInFunction
-                    << "twoPhaseMixtureThermo::he() const is unsupported." << endl;
-                return volScalarField::null();
+                NotImplemented;
+                return thermo1_->he();
             }
 
             //- Enthalpy/Internal energy

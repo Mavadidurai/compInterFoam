@@ -1,10 +1,5 @@
 extern Foam::Switch verbose;
 
-alpha1 = max(min(alpha1, scalar(1)), scalar(0));
-alpha1.correctBoundaryConditions();
-alpha2 = scalar(1) - alpha1;
-alpha2.correctBoundaryConditions();
-
 // Alpha sub-cycling is controlled by fvSolution (nAlphaSubCycles) alone;
 // the electron micro-step count is a thermal-stiffness control and has no
 // bearing on the interface CFL, so tying the two multiplied the cost of
@@ -76,9 +71,10 @@ const bool advancedCapturingActive =
                 pInterfaceCapturing->correct();
             }
 
+            // alpha1 is bounded once before the transport; alphaEqn.H bounds
+            // it again after each solve, so no further clip is needed here
             boundAlpha();
             #include "alphaEqn.H"
-            boundAlpha();
 
             const dimensionedScalar subCycleWeight(runTime.deltaT()/totalDeltaT);
             talphaPhi1.ref() += subCycleWeight*alphaPhi10;
@@ -97,7 +93,6 @@ const bool advancedCapturingActive =
 
         boundAlpha();
         #include "alphaEqn.H"
-        boundAlpha();
     }
 
     rho = alpha1*rho1 + alpha2*rho2;
