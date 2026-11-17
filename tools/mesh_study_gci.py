@@ -13,7 +13,8 @@ which extends Roache's grid convergence index to non-constant refinement ratios:
   s = sign(e32/e21), e21 = phi2 - phi1, e32 = phi3 - phi2;
   extrapolated value phi_ext = (r21^p phi1 - phi2)/(r21^p - 1);
   GCI_fine = 1.25 |phi1 - phi2|/|phi1| / (r21^p - 1).
-If e32/e21 < 0 the convergence is oscillatory and if |e32/e21| > 1 it diverges; no order is then
+If e32/e21 < 0 the convergence is oscillatory and if |e32/e21| < 1 (the change on the finer pair
+is the larger one) it diverges; no order is then
 reported, and the spread of the three values is given instead.
 Output: figures/fsLIFT_332mJ_Ti_meshStudy/data/gci_<t>.csv and a Markdown table on stdout.
 """
@@ -86,7 +87,7 @@ def gci(phi1, phi2, phi3, r21, r32):
         if abs(pn - p) < 1e-10:
             break
         p = pn
-    if abs(ratio) > 1:
+    if abs(ratio) < 1:
         return dict(kind="diverging", p=p, ext=np.nan, gci=np.nan)
     ext = (r21 ** p * phi1 - phi2) / (r21 ** p - 1)
     g = 1.25 * abs((phi1 - phi2) / phi1) / (r21 ** p - 1)
