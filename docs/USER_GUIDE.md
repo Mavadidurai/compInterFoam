@@ -156,6 +156,7 @@ To change the fluence, change `pulseEnergy`: energy on the film = 0.87545 × F�
 | `electronSubCycles` | 4 | Sub-steps of the electron equation per time step |
 | `maxTe`, `maxTl` | 50,000 K | Safety bounds. Keep them well above the peak temperatures: 10,000 K was too low for this laser and removed energy |
 | `advectTemperatures` | `true` (default) | Carry T_e and T_l with the flow |
+| `temperatureAdvectionFlux` | `metal` (default) | Flux that carries T_e and T_l: `metal` (the metal flux of the α equation) or `mixture` (the mixture flux, the earlier behaviour; it cools receding metal surfaces numerically, see [MODEL.md](MODEL.md)) |
 
 ### 4.3 Evaporation, recoil and trapped vapour: `system/controlDict`
 
