@@ -168,7 +168,8 @@ G
     De  [0  2 -1  0 0 0 0] 1e-4;
     ke0  18.9;   // Drude k_e = ke0*Te/Tl; electronic conductivity at 300 K, kept from the reference case (independent of Ce)
     kl  [1  1 -3 -1 0 0 0] 4.5;    // Ti lattice (phonon) conductivity: k_total(21.9) minus electronic part (Wiedemann-Franz)
-    advectTemperatures  true;      // transport Te/Tl with the mixture flux (ejected material keeps its heat)
+    advectTemperatures  true;      // transport Te/Tl with the material (ejected metal keeps its heat)
+    temperatureAdvectionFlux metal; // carry them with the metal flux of the alpha equation (mixture: earlier behaviour)
 
     gasMetalExchangeCoeff
     {

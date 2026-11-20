@@ -145,7 +145,7 @@ $$
 C_l\,\frac{\partial T_l}{\partial t} = \nabla\cdot\big(k_l \nabla T_l\big) + G(T_e)\,(T_e - T_l) - S_{evap}
 $$
 
-where $S_{evap} = j\,h_v\,|\nabla\alpha|$ is the latent heat removed by evaporation (§5.2). Both temperatures are also transported with the flow (`advectTemperatures true`), so ejected metal keeps its heat. Heat exchange between the metal and the surrounding gas is handled by a separate interfacial exchange model; it is small compared with the terms above.
+where $S_{evap} = j\,h_v\,|\nabla\alpha|$ is the latent heat removed by evaporation (§5.2). Both temperatures are also transported with the flow (`advectTemperatures true`), so ejected metal keeps its heat. They are carried by the metal volume flux of the α equation (`temperatureAdvectionFlux metal`, the default), in the advective form $\alpha C\,\partial T/\partial t + C\,[\nabla\cdot(\phi_\alpha T) - T\,\nabla\cdot\phi_\alpha]$ of the metal energy equation, so gas flowing past the metal brings no gas temperature into it. The earlier form used the mixture flux $\phi$ (`temperatureAdvectionFlux mixture`, kept for comparison). At a receding metal surface it mixed the ambient temperature of the gas cells into the hottest metal cells, at a rate set by the cell size: a 1-D film at 1500 K moving at −170 m/s lost 3.0 % of its heat in 90 ps (0.06 % with the metal flux), and in the fs-LIFT mesh study it made the film momentum change by about 6 % per refinement level without converging. Heat exchange between the metal and the surrounding gas is handled by a separate interfacial exchange model; it is small compared with the terms above.
 
 ### 4.2 Closures
 
@@ -306,7 +306,7 @@ The pressure applied to the glass-side interface cells of ring $b$ is $\max(p_b,
 | `maxRadius` | 10 µm | beyond the domain (8 µm) |
 | `minThickness` $h_0$ | 1 nm | not known; assumed |
 | `metalDensity` | 4515 kg/m³ | |
-| `filmMinHeight` | 9 µm | only metal above y = 9 µm counts as donor film (receiver top at 8 µm) |
+| `filmMinHeight` | 9 µm | only metal above y = 9 µm counts as donor film (receiver top at 8 µm): only those surfaces get the pocket pressure and count towards the ring area, and only that metal enters the film velocity average |
 
 In the reference run the pressure on the axis peaks at **524 MPa at 26 ps**. It then falls by more than two orders of magnitude within the first nanosecond, as the gap opens and the surface cools, and is below 1 MPa from 0.59 ns on.
 

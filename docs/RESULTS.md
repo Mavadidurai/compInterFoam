@@ -2,6 +2,8 @@
 
 Case `cases/fsLIFT_332mJ_axisymmetric`, run to 20 ns on 4 processes with `tools/run_case.sh`. The inputs are described in [MODEL.md](MODEL.md); the main numbers are also in [`figures/fsLIFT_332mJ_axisymmetric/results_table.md`](../figures/fsLIFT_332mJ_axisymmetric/results_table.md).
 
+> **Out of date (November 2026).** These results were produced before fixes 8 and 9 of [CODE_REVIEW.md](CODE_REVIEW.md#1-defects-that-change-results): the temperatures were carried by the mixture flux, and the trapped-vapour pressure also pushed the receiver. In the mesh-study case (same geometry and inputs), the two fixes together raised the film momentum at about 0.3 ns by roughly 80 % and the axis speed by roughly 90 %. Speeds, momenta and droplet timing below are therefore too low; the case has to be rerun.
+
 **Read the [limitations](#limitations) before using any number.** In short:
 - the launch of the film (up to about 1 ns) is the best-resolved part of the result;
 - the separation of a droplet at about 13 ns happens where the film is thinner than one cell, so its time and volume depend on the mesh;
