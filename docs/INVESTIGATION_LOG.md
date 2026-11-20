@@ -101,13 +101,27 @@ Units: momentum in 10⁻¹³ kg m/s (full circle), speeds in m/s, times in ps un
 - The Phase C data and the reference-case results in `RESULTS.md` are too low.
 - Fixes 8 and 9 together raised the L1 momentum at about 0.3 ns by roughly 80 % and the axis speed by roughly 90 %.
 
-## 9. Phase D: mesh study with fixes 8 and 9 (started 20 Nov)
+## 9. Phase D: mesh study with fixes 8 and 9 (20 Nov)
 
-- L1 continued to 315 ps. L2 and L3 restart from 0, because the bug acts from about 3 ps.
-- Driver: `phaseD/run.sh`, restartable. Results to be added here and in PR #4.
+- L1 is the fixed on/off-test run continued to 315 ps. L2 and L3 were rerun from 0, because the bug acts from about 3 ps. Driver: `phaseD/run.sh`, restartable (L3 needed three 2-hour runs).
+- At 315 ps (L1 / L2 / L3):
+
+| Quantity | L1 | L2 | L3 | Result |
+|---|---|---|---|---|
+| Momentum | 9.116 | 9.104 | 9.061 | spread 0.6 %; the change grows on the finer pair, so no order or GCI |
+| Kinetic energy (10⁻¹⁰ J) | 1.300 | 1.285 | 1.267 | spread 2.6 %; same pattern, apparent p = 0.33 |
+| Speed within 1 µm | 396.3 | 389.6 | 389.5 | converged (L2–L3 0.03 %) |
+| Speed within 25 µm | 146.4 | 149.6 | 146.2 | oscillatory, ±1.2 % |
+| Thickness on the axis (nm) | 68.84 | 68.88 | 68.90 | converged, GCI 0.02 % |
+
+- Spread = (max − min)/min: momentum (9.116 − 9.061)/9.061 = 0.61 %.
+- Momentum budget against the film's momentum change over 2–315 ps: 0.969 (L2), 0.977 (L3); 0.959 on L1 over 0–305 ps. The residual shrinks with the cell size, which fits the α weighting of interface cells, but this is not proven.
+- Same pattern as Phase C (fix 8 only: 7.388 / 7.376 / 7.348, spread 0.55 %). Fix 9 raised momentum by 23–24 % on every level without making it mesh-dependent.
+- Not settled: the film is still accelerating at 315 ps (L1 9.056 at 280 ps → 9.116 at 315 ps), so this is not the final launch momentum.
+- Data: `figures/fsLIFT_332mJ_Ti_meshStudy/data/fixes8and9/`.
 
 ## 10. Known limits not addressed by these fixes
 
 - **The gas is incompressible** (`rhoConst`, a documented verification choice). The gap reacts instantly: at 28 ps the gap shows +58 bar under the film and −58 bar above it. A real gas cannot have negative pressure, and a real gap would not feel the film this early.
-- **Peak temperatures reach the 10,000 K cap** and exceed the critical point of titanium, where the evaporation and recoil closures are outside their range.
+- **Peak temperatures exceed the closure range.** The lattice reaches about 20,000 K at 3.3 ps, far above the critical point of titanium. The evaporation and recoil closures use at most `maxPhysicalTemperature` (10,000 K), so they are outside their range there.
 - **No comparison with experiment.** Mesh convergence shows that the equations are solved consistently, not that the model is right.

@@ -1,0 +1,13 @@
+# cells fine,medium,coarse = [248252, 124200, 62010]; r21 = 1.41379; r32 = 1.41524
+quantity,fine,medium,coarse,convergence,p,extrapolated,GCI_fine
+"speed of the metal, r < 1 um [m/s]",389.486,389.607,396.266,monotonic,11.53,389.484,7.303e-06
+"speed of the metal, r < 2.5 um [m/s]",146.236,149.615,146.413,oscillatory,nan,nan,nan
+"axial momentum of the metal [kg m/s]",9.06118e-13,9.10449e-13,9.11569e-13,diverging,3.922,nan,nan
+"kinetic energy of the metal [J]",1.2674e-10,1.28473e-10,1.30025e-10,diverging,0.3262,nan,nan
+"displacement of the film on the axis [nm]",102.764,103.103,103.437,diverging,0.04735,nan,nan
+"metal thickness on the axis [nm]",68.9016,68.8833,68.8397,monotonic,2.493,68.915,0.0002425
+"peak trapped-vapour pressure [MPa]",1301.64,1301.64,1301.64,no change,nan,1301.64,0
+"time of the peak pressure [ps]",11.8607,11.8607,8.41714,no change,nan,11.8607,0
+"peak electron temperature [K]",27041.7,26405.8,25352.6,monotonic,1.446,28020.5,0.04525
+"peak lattice temperature [K]",20043.5,19778.1,19183,monotonic,2.319,20258.9,0.01343
+"metal volume [um3]",14.3238,14.3238,14.3237,diverging,1.781,nan,nan

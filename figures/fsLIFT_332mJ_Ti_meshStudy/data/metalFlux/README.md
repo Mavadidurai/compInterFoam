@@ -11,3 +11,7 @@ The files one level up (`fields_L*.csv`, `gci_1e-09s.csv`) were made with
 the earlier mixture-flux transport and are superseded: that transport cooled
 the hottest metal cells at a mesh-dependent rate and biased momentum low by
 about 30-50 %.
+
+**Superseded (20 Nov 2026)** by `../fixes8and9/`: these runs still applied the
+confined-vapour pocket pressure to the receiver (docs/CODE_REVIEW.md §1, item 9),
+which lowered the film momentum by about 20 %.
