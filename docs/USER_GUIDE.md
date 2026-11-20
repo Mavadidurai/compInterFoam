@@ -190,7 +190,7 @@ To change the fluence, change `pulseEnergy`: energy on the film = 0.87545 × F�
 | `maxRadius` | 1e-5 m | 1e-5 m | Cells further from the axis belong to no ring and feel no vapour pressure |
 | `minThickness` | 1e-9 m | 1e-9 m | Initial gap h₀ between glass and film |
 | `metalDensity` | 4515 kg/m³ | 4515 kg/m³ | Converts the evaporated mass into the volume it leaves behind |
-| `filmMinHeight` | 9e-6 m | no limit | Only metal above this y belongs to the donor film. Set it between the receiver top and the film |
+| `filmMinHeight` | 9e-6 m | no limit | Only metal above this y belongs to the donor film; below it no surface receives the pocket pressure. Set it between the receiver top and the film |
 
 ### 4.4 Interface and pressure: `system/fvSolution`
 

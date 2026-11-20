@@ -306,7 +306,7 @@ The pressure applied to the glass-side interface cells of ring $b$ is $\max(p_b,
 | `maxRadius` | 10 µm | beyond the domain (8 µm) |
 | `minThickness` $h_0$ | 1 nm | not known; assumed |
 | `metalDensity` | 4515 kg/m³ | |
-| `filmMinHeight` | 9 µm | only metal above y = 9 µm counts as donor film (receiver top at 8 µm) |
+| `filmMinHeight` | 9 µm | only metal above y = 9 µm counts as donor film (receiver top at 8 µm): only those surfaces get the pocket pressure and count towards the ring area, and only that metal enters the film velocity average |
 
 In the reference run the pressure on the axis peaks at **524 MPa at 26 ps**. It then falls by more than two orders of magnitude within the first nanosecond, as the gap opens and the surface cools, and is below 1 MPa from 0.59 ns on.
 
