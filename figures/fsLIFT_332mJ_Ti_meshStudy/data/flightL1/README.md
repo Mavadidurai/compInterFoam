@@ -16,5 +16,10 @@ not its shape.
 
 Main values: speed within 1 µm of the axis 432.9 m/s at 1.9 ns (highest), 413 m/s at 6.5 ns;
 first break of the dome wall between the writes at 3.96 and 4.26 ns; lowest metal at 10.52 µm
-(2.52 µm above the receiver) at 18.7 ns. The run continues to 30 ns; this directory will be
+(2.52 µm above the receiver) at 18.7 ns.
+
+`momentum_by_alpha_and_radius.csv`: the film momentum (10⁻¹³ kg m/s) split by α class and by radius, 2.96–7.9 ns.
+`force_decomposition_*.csv`: `tools/force_decomposition.py` output before (0.4–3.9 ns) and after (3.96–7.7 ns) the tear; see docs/INVESTIGATION_LOG.md §14. The momentum rise after the tear is mostly a numerical net surface-tension force plus the unvented pocket, so the momentum after about 4 ns is not physical.
+
+The run continues to 30 ns; this directory will be
 extended when it finishes.

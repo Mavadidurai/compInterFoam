@@ -180,3 +180,44 @@ All values in pJ for the 5° wedge; percentages relative to the laser energy.
 **Run:** driver `flightC/flightC.sh`, to 35 ns at maxDeltaT 2.5 ps, written every 0.2 ns (about 5 GB). It starts when run A has finished. The speed was not measured: the smoke test shared the 4 cores with run A. The estimate is about 30–35 h from 1.8 × the cells at the same time step [UNCERTAIN].
 
 **What C does not fix:** the radial cells are unchanged (49 nm), so the tear of the dome wall after 2.96 ns is as mesh-limited as on L1.
+
+## 14. Why the film momentum keeps rising after the tear (22 Nov)
+
+**Observation (§12):** on L1 the film momentum rises from 9.66 (3.96 ns) to 10.39 (7.6 ns) × 10⁻¹³ kg m/s, while the kinetic energy stays at 1.41–1.44 × 10⁻¹⁰ J and the cap slows down.
+
+**Step 1: the logged budget does not close after about 1 ns.** Integrated over windows, the α-weighted `momentumBudget` total gives −0.30 against a measured −0.33 over 0.32–1 ns, but the opposite sign from 2 to 6 ns (+0.06 to +0.10 per ns against −0.05 to −0.18). It weights each cell's force by α. In a partly filled cell, though, almost all the mass is metal (ρ_m/ρ_g ≈ 3900), so the metal feels almost all of the cell force. After the tear much of the metal is in such cells, so the logged budget cannot be used.
+
+**Step 2: where the momentum is gained** (`data/flightL1/momentum_by_alpha_and_radius.csv`, units 10⁻¹³ kg m/s):
+
+| | 2.96 ns | 7.90 ns |
+|---|---|---|
+| Film | −9.61 | −10.47 |
+| in cells with α > 0.9 | −3.78 | −1.05 |
+| in cells with 0.1 < α < 0.5 | −0.69 | −5.70 |
+| metal volume in cells with 0.01 < α < 0.5 | 0.24 µm³ | 1.04 µm³ |
+| mass-weighted speed of that metal | 71 m/s | 143 m/s |
+
+The metal is spread more and more over partly filled cells, and that metal speeds up.
+
+**Step 3: which force** (`tools/force_decomposition.py`; the force fields written at every 0.1 ns, weighted by the metal mass fraction α ρ_m/ρ and integrated over time; units 10⁻¹³ kg m/s):
+
+| Window | Measured change | Surface tension | Pocket pressure | Gas pressure | Sum | Surface tension summed over all cells |
+|---|---|---|---|---|---|---|
+| 0.42–3.86 ns (before the tear) | −0.435 | +0.123 | −0.588 | −0.073 | −0.537 | **+0.006** |
+| 3.96–7.59 ns (after the tear) | −0.726 | −0.324 | −0.128 | −0.096 | −0.549 | **−0.570** |
+
+Split of the surface tension after the tear (mass-weighted): +0.319 on the cap (r < 1.5 µm, y < 19.5 µm), −0.478 on partly filled metal (α < 0.5) elsewhere, −0.165 on full cells elsewhere.
+
+**Conclusion:**
+1. **About 45 % of the rise (−0.32 of −0.73) is a numerical net force of the surface tension.** The surface-tension force (continuum surface force, σκ∇α) summed over all cells is zero before the tear (+0.006, as it must be for closed interfaces) and −0.57 after it. The force sits mainly on smeared metal thinner than a cell: the broken wall and its fragments. The continuum-surface-force form does not conserve momentum when the curvature is computed from the gradient of a smeared α. Why the net force points towards the receiver has not been established [UNCERTAIN].
+2. **About 18 % (−0.13) is the trapped-vapour pocket**, which keeps pushing the descending metal after the dome has opened. The model has no venting: once the wall breaks, the vapour should escape through the opening, but the pocket rings keep their mass and push every glass-side surface in their ring.
+3. **About 13 % (−0.10) is gas pressure.**
+4. **About 24 % (−0.18) is not accounted for.** The forces flicker from step to step (standard deviation 0.155 per sample against a mean of −0.09), so integrating 39 snapshots is uncertain by about ±0.1. The viscous force is not written and is not included.
+5. **Kinetic energy stays flat** because the cap loses energy to the pull of the wall (surface tension +0.32 on the cap), while the low-mass smeared metal gains momentum.
+
+**Consequences:**
+- The momentum after the tear (10.39 at 7.6 ns) is not a physical result. The physical momentum gain after about 4 ns is at most the pocket and gas-pressure part, and the pocket part assumes vapour that should have vented.
+- The logged `momentumBudget` (α-weighted) must not be used after the tear.
+- Run C refines only the vertical cells along the flight path. The fragments of the wall are thinner than the radial cells, so C will not remove this force [UNCERTAIN: C may reduce it on the cap].
+
+**Possible remedies (not done):** vent the pocket rings once the film above them has opened; resolve the wall radially (10–15 nm cells for r < 3.5 µm from about 3 ns); a momentum-conserving surface-tension form, or a curvature from height functions.
