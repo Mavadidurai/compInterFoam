@@ -4,7 +4,7 @@ Reviewed: commit `5844a69` (every file in `src/`, `tools/`, `cases/` and `docs/`
 
 **Status:** ✅ fixed · ❌ not fixed (reason given) · ℹ️ the review's claim was corrected.
 
-**Effect on the old run:** what the issue did to the reference results in `figures/` and the docs, which were produced before the fixes. The reference case is being rerun with the corrected solver.
+**Effect on the old run:** what the issue did to the reference results in `figures/` and the docs, which were produced before the fixes. The reference case has not been rerun with all fixes; the current results come from the mesh-study case ([RESULTS.md](RESULTS.md)).
 
 ---
 
@@ -172,7 +172,7 @@ All four Galilean runs keep U = −170 m/s exactly and p within 0.5 Pa of 10⁵ 
 | Force on the film in the corrected reference run | change of momentum against the recoil and vapour impulse: 1.7 % (2–102 ps) and 4 % (102–202 ps); before the fixes the worst interval was 6 % |
 | Vapour-pocket mass balance in the corrected reference run (fix 2) | pocket mass / metal lost by the film = 0.98–1.02 from 2 to 16 ps; afterwards lower, as designed (vapour above p_sat condenses; the gap side evaporates into the open gas). Before the fix the pocket received about half |
 | Corrected reference run against the old one, launch | trapped-vapour pressure on the axis 961 MPa at 26 ps (old: 524 MPa, the factor ≈ 2 expected from fix 2); film speed on the axis about 10–30 % higher (205 against 185 m/s at 0.45–0.65 ns); no NaN, no fatal error, no energy-balance warning |
-| Reference case rerun to 20 ns | running; results replace those in `figures/` and the docs when it finishes |
+| Reference case rerun to 20 ns | not completed: no finished run or result of it is recorded. It ran without fixes 8 and 9, so its results would be superseded as well. Not restarted; the mesh-study case replaced it ([RESULTS.md](RESULTS.md)) |
 | Fix 8, film moving at −170 m/s with a temperature step (1000 K / 1800 K), 90 ps | heat change: metal flux +1.17 %, film at rest (reference) +1.38 %, mixture flux −2.47 %; interior temperature 1407.8–1418.1 K (metal flux) against 1409.9–1420.4 K (at rest) and 1370.1–1374.1 K (mixture flux) |
 | Fix 8, 1-D laser and two-temperature column against the finite-difference code | peak electron temperature 6649 K against 6672 K (−0.3 %); electrons and lattice meet at 0.500 ps against 0.496 ps (+0.8 %): unchanged (the film barely moves in this test) |
 | Fix 9, mesh-study L1 from 0 to 5 ps with and without the change | receiver: pocket pressure 485 MPa → 0, momentum −8.1 × 10⁻¹⁵ → −3.7 × 10⁻¹⁷ kg m/s at 5 ps. Logged momentum budget per 1 ps window: matches film + receiver within 0.2 % before, film alone within 0.4 % after. Film identical up to 3 ps; 3.1 % more momentum gained in 4–5 ps after the fix |

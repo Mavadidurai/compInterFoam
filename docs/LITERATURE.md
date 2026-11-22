@@ -44,6 +44,8 @@ Only numbers that were read in a source are used below. Where a comparison could
 
 ## 2. Summary
 
+The "Model" column gives the inputs of the reference case `cases/fsLIFT_332mJ_axisymmetric`. The mesh-study case, which gives the current results ([RESULTS.md §1](RESULTS.md#1-current-results-mesh-study-case-with-fixes-8-and-9)), already uses the first-principles level of the coupling (capped at 2.5×10¹⁸ W/(m³ K)), γ = 318 J/(m³ K²), the solid density 4,506 kg/m³ and the melting-point surface tension 1.613 N/m; the temperature dependences are still missing there.
+
 | Item | Model | Literature | Verdict |
 |---|---|---|---|
 | Electron–lattice coupling $G(T_e)$ of Ti | table from 10¹⁸ (300 K) to 10²⁰ W/(m³ K) (20,000 K) | peak ≈ 2.5×10¹⁸ (first principles, Hobmaier et al. 2026); ≈ 1.5× higher in Lin et al. 2008 | **inconsistent**: the model is 5× higher at 5,000 K and 14–27× higher at 10,000–20,000 K (§3) |
@@ -53,11 +55,11 @@ Only numbers that were read in a source are used below. Where a comparison could
 | Effect of these two on the heating | – | 1-D sensitivity study with this repository's code | peak surface temperature changes by −11 % to +9 %; electron–lattice equilibration takes 1.7–2.3 ps instead of 0.25 ps (§3.3) |
 | Electron conductivity form | Drude, $k_{e0} T_e/T_l$ | the Drude form overestimates the peak lattice temperature of Ti by 7 % (melting threshold) and up to 19 % (Hobmaier et al. 2026) | **known bias**, same direction as above (§4) |
 | Critical temperature of Ti | 9,500 K (case value; used only by a switched-off sub-model) | 8,980 K (as cited by Hobmaier et al. 2026) | 6 % apart; no effect on the results (§5) |
-| Phase explosion | sub-model switched off; surface reaches about 16,400 K | onset criterion $T_l > 0.9\,T_{crit}$ ≈ 8,100 K (Hobmaier et al. 2026) | **the reference case is far into the phase-explosion regime** that the model does not describe (§5) |
+| Phase explosion | sub-model switched off; surface reaches about 16,400 K (reference case) and about 20,000 K (current case) | onset criterion $T_l > 0.9\,T_{crit}$ ≈ 8,100 K (Hobmaier et al. 2026) | **both cases are far into the phase-explosion regime** that the model does not describe (§5) |
 | Stress confinement | incompressible metal: no stress waves | liquid Ti sound speed 4.4 km/s; stress confinement when the heating is faster than the acoustic time (Hobmaier et al. 2026) | **the real film is stress-confined**; spallation is physically expected and absent from the model (§6) |
 | Surface tension: static drop | pressure-jump error stays near −4 % under refinement (−2.75, −3.80, −4.09 %) | interFoam curvature converges to a value ≈ 10 % off (Deshpande et al. 2012) | **consistent**; the model does better than standard interFoam (§7) |
 | Surface tension: spurious currents | do not vanish under refinement; oscillation damping too weak | interFoam parasitic currents reach a plateau; OpenFOAM surface-tension approximation needs "significant improvements" (Lippert et al. 2022) | **consistent**: a known limitation of the method (§7) |
-| LIFT experiments (ejection speed, droplet size, regimes) | dome 192 m/s; droplet at about 100 m/s (centre of mass), 0.25 µm³ | could not be read here | **not compared** (§8) |
+| LIFT experiments (ejection speed, droplet size, regimes) | current case: film centre 390 m/s at 315 ps (mesh-converged), dome wall breaks at about 4 ns, central cap at about 410–420 m/s (coarse mesh); superseded reference run: 192 m/s, droplet at about 100 m/s | could not be read here | **not compared** (§8) |
 
 ---
 
@@ -127,7 +129,7 @@ At high electron temperature the Drude form underestimates the conductivity, so 
 
 - Hobmaier et al. (2026) use a critical temperature of titanium of $T_{crit}$ = 8,980 K, citing their reference [67]. The case uses 9,500 K. This value is read only by the phase-explosion sub-model, which is switched off, so it does not affect the results.
 - They take the onset of phase explosion as $T_{l,max} = 0.9\,T_{crit}$ ≈ 8,080 K.
-- **The reference case reaches about 16,400 K at the glass-side surface, about twice that onset temperature.** Under this criterion the heated layer would decompose explosively into vapour and droplets. The model describes it by surface evaporation and the trapped-vapour model instead ([MODEL.md §10](MODEL.md#10-sub-models-present-but-switched-off)). This is a model limitation; it is consistent with the limitation already stated for temperatures above the critical point ([RESULTS.md](RESULTS.md#limitations)).
+- **The reference case reaches about 16,400 K at the glass-side surface, about twice that onset temperature; the current mesh-study case reaches about 20,000 K, about 2.5 times.** Under this criterion the heated layer would decompose explosively into vapour and droplets. The model describes it by surface evaporation and the trapped-vapour model instead ([MODEL.md §10](MODEL.md#10-sub-models-present-but-switched-off)). This is a model limitation; it is consistent with the limitation already stated for temperatures above the critical point ([RESULTS.md](RESULTS.md#limitations)).
 
 ---
 
@@ -169,10 +171,10 @@ The register's directly relevant LIFT experiments could not be read here, becaus
 No comparison of ejection speeds, droplet sizes or ejection regimes is therefore made, and no literature speed range is quoted anywhere in this repository.
 
 The observables to compare, once the texts are available, are:
-- the film displacement and speed on the axis against time (model: 0.18 µm and 191 m/s at 1 ns);
+- the film displacement and speed on the axis against time (current case: 0.44 µm and 426 m/s at 1 ns, coarse mesh; 390 m/s at 315 ps on all three meshes);
 - the dome height and radial extent;
-- the time of separation (about 13 ns, mesh-limited);
-- the droplet diameter and transferred volume (0.25 µm³, 0.79 µm equivalent diameter, mesh-limited).
+- the time of separation (current case: break of the dome wall at 3.96–4.26 ns, mesh-limited);
+- the droplet diameter and transferred volume (not yet measured for the current case; the superseded reference run gave 0.25 µm³).
 
 A meaningful comparison also needs the same film thickness, wavelength, pulse duration and fluence definition, as the register's own notes require.
 

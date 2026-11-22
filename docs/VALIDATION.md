@@ -1,6 +1,6 @@
 # Verification and validation report
 
-This report collects all evidence on whether the solver and its reference result can be trusted. It is organised in the five levels used in computational science (code verification, solution verification, input validation, sub-model validation, system validation), and it states at each level what has been shown, how, and what has not.
+This report collects all evidence on whether the solver and its results can be trusted. The current results are those of the mesh-study case with all fixes ([RESULTS.md §1](RESULTS.md#1-current-results-mesh-study-case-with-fixes-8-and-9)); the reference case `cases/fsLIFT_332mJ_axisymmetric` was run before the fixes of [CODE_REVIEW.md §1](CODE_REVIEW.md#1-defects-that-change-results) and its numbers are superseded. Where a section below still refers to the reference run, it says so. It is organised in the five levels used in computational science (code verification, solution verification, input validation, sub-model validation, system validation), and it states at each level what has been shown, how, and what has not.
 
 The detailed test descriptions are in [VERIFICATION.md](VERIFICATION.md), the literature comparison in [LITERATURE.md](LITERATURE.md), the model in [MODEL.md](MODEL.md) and the result in [RESULTS.md](RESULTS.md). This report summarises them and adds the input validation against measured titanium data.
 
@@ -26,13 +26,13 @@ The detailed test descriptions are in [VERIFICATION.md](VERIFICATION.md), the li
 
 | Level | Question | Status | Main evidence |
 |---|---|---|---|
-| 1. Code verification | Does the code solve its equations correctly? | **done** | 15 checks against exact solutions, an independent code and hand calculations: 12 within 5 %, force balance within 6 %, drop-oscillation frequency within 10.5 % and approaching the exact value (two meshes); oscillation damping too weak (open); not covered: Drude k_e path, gas–metal exchange, pocket mass balance |
-| 2. Solution verification | How large is the numerical error of the reference run? | **partial** | resolution chosen from scale analysis; no mesh-refinement study; the droplet separation is limited by the radial cell size |
-| 3. Input validation | Are the material and laser inputs right for titanium? | **failed for 3 inputs** | surface tension right at the melting point but constant (9 % high at 2,500 K); electron–lattice coupling 5–27 times high above 5,000 K; electron heat capacity about 2 times high; the density gives the right film mass but no thermal expansion |
+| 1. Code verification | Does the code solve its equations correctly? | **done** | 15 checks against exact solutions, an independent code and hand calculations: 12 within 5 %, force balance within 3 %, drop-oscillation frequency within 10.5 % and approaching the exact value (two meshes); oscillation damping too weak (open); not covered: Drude k_e path, gas–metal exchange, pocket mass balance |
+| 2. Solution verification | How large is the numerical error of the current runs? | **partial** | three-mesh study of the launch to 315 ps: momentum within 0.6 %, axis speed within 0.03 % (L2–L3); the tear (about 4 ns) and the flight on one mesh only, the wall about one cell thick at the tear; 4 % of the laser energy unaccounted for at 315 ps, 7 % at 2.16 ns |
+| 3. Input validation | Are the material and laser inputs right for titanium? | **failed for 3 inputs in the reference case; 2 corrected approximately in the current case** | reference case: surface tension constant (9 % high at 2,500 K), electron–lattice coupling 5–27 times high above 5,000 K, electron heat capacity about 2 times high. Current case: coupling capped at the first-principles peak and heat capacity from the Sommerfeld fit (Hobmaier et al. 2026; not their full temperature dependence), surface tension at its melting-point value but still constant; the density gives the right film mass but no thermal expansion |
 | 4. Sub-model validation | Do the physics sub-models behave as titanium and thin films do? | **partial** | heating, phase explosion, stress confinement and thin-film bulging compared with the literature: mechanisms consistent; two missing mechanisms identified (stress waves, phase explosion); no matched numbers |
 | 5. System validation | Does the whole simulated LIFT event match an experiment? | **not done** | no public measurement under matching conditions; the predicted sequence (bulge, cup, rupture, droplet smaller than the spot) is reported in several experiments on other metals |
 
-**Bottom line.** The equations that carry the result are verified against exact or independent solutions; the Drude conductivity path, the gas–metal exchange and the pocket mass balance are not covered by a test (see the code review, docs/CODE_REVIEW.md). The reference result is a solution of a model whose titanium inputs need three corrections and which lacks two known mechanisms. It is not yet validated. The launch phase is the most reliable part of the result; the separation of the droplet is mesh-limited.
+**Bottom line.** The equations that carry the result are verified against exact or independent solutions; the Drude conductivity path, the gas–metal exchange and the pocket mass balance are not covered by a test (see the code review, docs/CODE_REVIEW.md). Two defects found by the mesh study (fixes 8 and 9) had made the earlier reference result about 80 % too low in momentum. The current result is a mesh-converged solution of the launch to 315 ps, of a model that lacks two known mechanisms (stress waves, phase explosion) and runs far above the range of its evaporation closures. It is not validated. The tear and flight are mesh-limited.
 
 ---
 
@@ -68,7 +68,7 @@ Each equation added to OpenFOAM was tested on its own, against an exact solution
 | 4 | Two-temperature model | time at which electrons and lattice meet | same | 0.500 ps against 0.496 ps, +0.8 % | ✅ |
 | 5 | Evaporation | Hertz–Knudsen flux in every evaporating cell | formula | ratio 1.000000 | ✅ |
 | 6 | Recoil | 0.54 p_sat in every recoil cell | formula | within 0.1 % | ✅ |
-| 7 | Force on the film | momentum change against applied impulse, reference run | Newton's second law | 0.99, 0.96, 0.94 over three intervals to 0.4 ns | ✅ (a few % unexplained) |
+| 7 | Force on the film | logged force budget against the film's momentum change, mesh-study case with all fixes | Newton's second law | 0.969 (L2), 0.977 (L3) over 2–315 ps (earlier, reference run: 0.99, 0.96, 0.94 to 0.4 ns, recoil and vapour entries only) | ✅ (2–4 % unexplained) |
 | 8 | Surface tension | static drop, 10 cells per radius | Laplace law, 16.40 MPa | −2.75 % | ✅ |
 | 9 | Surface tension | static drop, 40 cells per radius | same | −4.09 % (−2.75, −3.80, −4.09 % at 10, 20, 40 cells: does not decrease under refinement) | ⚠️ known limit |
 | 10 | Viscosity | decaying pipe flow | exact solution | −0.12 % | ✅ |
@@ -105,18 +105,19 @@ Each equation added to OpenFOAM was tested on its own, against an exact solution
 ## 4. Level 2: solution verification
 
 **What has been done.**
-- **Resolution from scale analysis** ([MODEL.md §8–9](MODEL.md#8-characteristic-scales-and-dimensionless-numbers)):
+- **Mesh study of the current case** ([VERIFICATION.md §2.4](VERIFICATION.md#24-solution-verification-of-the-mesh-study-case)): three meshes (62,010 / 124,200 / 248,252 cells, ratio √2) to 315 ps. Film momentum 9.116 / 9.104 / 9.061 × 10⁻¹³ kg m/s (spread 0.6 %, no order can be given because the change grows on the finer pair); speed within 1 µm of the axis 396.3 / 389.6 / 389.5 m/s (converged); film thickness on the axis GCI 0.02 %. Before fix 8 the momentum differed by about 6 % per level.
+- **Time step:** L2 at three largest time steps (0.595, 1.0, 1.68 ps) gave the momentum within 0.4 % (GCI 0.2 %), so the time-step error is small against the mesh error.
+- **Energy and mass balance** (L1): laser deposition −0.06 %; 4.0 % of the laser energy not accounted for at 315 ps and 7.1 % at 2.16 ns, attributed (not proven) to the mismatch between the temperature and α transports.
+- **Resolution from scale analysis** (reference case) ([MODEL.md §8–9](MODEL.md#8-characteristic-scales-and-dimensionless-numbers)):
   - 16 cells across the 71.4 nm film (4.46 nm), resolving the 9.7 nm absorption depth with about two cells per depth (the deposition is exact per cell, [MODEL.md §3.2](MODEL.md#32-implementation));
   - 6 nm cells for the first 3 µm below the film, so the dome tip stays sharp; on coarser cells it smeared to α ≈ 0.5.
 - **Time step** set by the flow and interface Courant numbers (`maxCo`, `maxAlphaCo`) and the staged `maxDeltaT`, which keeps it below the capillary limit of about 4.4 ps on the film cells. `maxThermalCourant` is not a time-step limit (it bounds the gas–metal exchange).
-- **Conservation:** the metal volume is conserved by the transport apart from evaporation. Over 20 ns the film lost about 1.5 % of its volume to evaporation (−0.0135 % of all metal in the domain, which includes the 8 µm metal receiver).
+- **Conservation:** the metal volume is conserved by the transport apart from evaporation: the film of the current case lost 0.098 % of its volume over 0–315 ps.
 
 **What has not been done.**
-1. **No mesh-refinement study of the reference case.** The launch speed (191.7 m/s) has no numerical error bar yet.
-2. **The separation is mesh-limited.** The radial cell size is 50 nm. The cup walls thin to about 50 nm by 8.4 ns and about 5 nm by 13.4 ns, so they are spread over one radial cell well before they tear. The time of separation (about 13 ns) and the droplet volume (0.254 µm³) therefore depend on the radial resolution.
-3. **No time-step study.** The time step is set by the Courant limits, not by a convergence study.
-
-**Recommended study** (the grid-convergence index of Roache, 1994): run the launch to 1 ns on three meshes, with a refinement ratio of about 1.5, and report the speed at 0.54 ns with its uncertainty. Separately, rerun 6–20 ns on a radially refined gap mesh (about 10 nm for r < 2.5 µm).
+1. **The tear and the flight are on one mesh.** On L1 the dome wall is about one radial cell (49 nm) thick when it breaks at about 4 ns, and from about 7 ns the flying cap is thinner than one 71 nm cell. A run refined along the flight path (15 nm cells) is under way ([RESULTS.md §2](RESULTS.md#2-runs-in-progress)); a radially refined run of the tear (about 10–15 nm for r < 3.5 µm, from about 3 ns) has not been started.
+2. **The film is still accelerating at 315 ps** (433 m/s at 1.9 ns on L1), so the mesh study covers the early launch, not the final launch speed.
+3. **The energy residual** has not been computed on L2 and L3.
 
 **Verdict, level 2: partial.**
 
@@ -171,9 +172,9 @@ So neither input error changes the launch speed to first order. Both matter for 
 
 The coupling error mainly changes how fast the lattice heats (0.25 ps instead of about 2 ps). The peak surface temperature changes by only −11 % to +9 %. Because the model evaluates the vapour pressure with the temperature capped at 10,000 K, and the surface stays above that cap for the first 20 ps in all three cases, the early vapour drive is nearly unchanged. With first-principles values, the surface stays hotter for longer, so the vapour drive would probably last longer.
 
-**Combined.** The density does not bias the launch speed. With first-principles two-temperature parameters the surface stays hotter for longer, so the vapour drive would probably last longer and the launch speed of the reference run is more likely an underestimate than an overestimate [UNCERTAIN: the size is not known; it needs the 2-D rerun with corrected inputs, case `cases/fsLIFT_332mJ_Ti_meshStudy`; that case also changes the radial mesh, so it is not a mesh study of the reference result].
+**Combined.** The density does not bias the launch speed. With first-principles two-temperature parameters the surface stays hotter for longer, so the vapour drive would probably last longer. The 2-D case with corrected inputs, `cases/fsLIFT_332mJ_Ti_meshStudy`, gives about 390 m/s at 315 ps against 191.7 m/s at its peak for the reference run, but it also contains fixes 1–9 of the code review and a different radial mesh, so the share of the inputs in that difference has not been separated.
 
-**Verdict, level 3: failed for three inputs** (temperature dependence of the surface tension, electron–lattice coupling, electron heat capacity); the density gives the right film mass but no expansion. The corrections are known and should be applied before any comparison with experiment.
+**Verdict, level 3: failed for three inputs in the reference case** (temperature dependence of the surface tension, electron–lattice coupling, electron heat capacity); the density gives the right film mass but no expansion. The current case uses the first-principles level of the coupling and the Sommerfeld heat capacity, and the melting-point surface tension; the temperature dependences of all three are still missing.
 
 ---
 
@@ -183,17 +184,17 @@ The sub-models are checked against what is known for titanium and for femtosecon
 
 | Sub-model | Model behaviour | Literature | Assessment |
 |---|---|---|---|
-| Heating of electrons and lattice | electrons peak about 16,400 K at 0.54 ps; lattice equal by 0.6 ps | first-principles titanium parameters give equilibration in about 2 ps (Hobmaier et al., 2026) | heating too fast with the current parameters; the peak temperature is similar (§5.2) |
+| Heating of electrons and lattice | reference case: electrons peak about 16,400 K at 0.54 ps, lattice equal by 0.6 ps. Current case (first-principles level inputs): electrons up to 25,000–27,000 K, lattice about 20,000 K at about 3 ps | first-principles titanium parameters give equilibration in about 2 ps (Hobmaier et al., 2026) | reference case too fast; current case consistent with the 1-D first-principles case C (§5.2) |
 | Heat confinement | energy stays near the glass-side surface for nanoseconds | consistent with the low equilibrium electron conductivity of Ti | consistent |
-| Phase explosion | sub-model switched off; surface reaches about 16,400 K | onset taken at 0.9 T_crit ≈ 8,100 K (Hobmaier et al., 2026) | **missing mechanism**: the surface is about twice the onset temperature |
+| Phase explosion | sub-model switched off; surface reaches about 20,000 K (16,400 K in the reference case) | onset taken at 0.9 T_crit ≈ 8,100 K (Hobmaier et al., 2026) | **missing mechanism**: the surface is about 2.5 times the onset temperature |
 | Stress waves and spallation | none (incompressible metal) | stress confinement when heating is faster than the acoustic time; liquid Ti sound speed 4.4 km/s (Hobmaier et al., 2026). Spallation of a titanium film by a stress wave is found in a combined two-temperature and molecular-dynamics simulation (Wang et al., 2021, which has a published correction). Spallation of 300 nm nickel films irradiated through the glass substrate (Temnov et al., 2020) | **missing mechanism**: the acoustic time across the film (16 ps) is far longer than the heating (0.3 ps), so the real film is stress-confined |
 | Vapour-driven push | trapped vapour at the glass-side surface pushes the film | the back of the film reaches boiling before the film melts through, so the transfer is vapour-driven (Adrian et al., 1987, nanosecond pulses) | consistent |
-| Bulging of a thin film | the heated centre bulges into a dome, then a cup | single ultrafast pulses on a 40 nm gold film give bump deformation, then bump rupture, then ablation as the fluence rises (Zhou & Shen, 2026); microbumps and nanojets on Cu and Cu/Ag films shaped by electron–lattice non-equilibrium (Naghilou et al., 2019); nanobumps on gold films in femtosecond LIFT (Tseng et al., 2012); modelled melt hydrodynamics in noble-metal films (Wang, Kuchmizhak et al., 2017) | consistent mechanism |
+| Bulging of a thin film | the heated centre bulges into a dome; its wall breaks and the central cap flies free | single ultrafast pulses on a 40 nm gold film give bump deformation, then bump rupture, then ablation as the fluence rises (Zhou & Shen, 2026); microbumps and nanojets on Cu and Cu/Ag films shaped by electron–lattice non-equilibrium (Naghilou et al., 2019); nanobumps on gold films in femtosecond LIFT (Tseng et al., 2012); modelled melt hydrodynamics in noble-metal films (Wang, Kuchmizhak et al., 2017) | consistent mechanism |
 | Femtosecond ablation of thin titanium films | – | single- and multi-pulse ablation regimes of thin Ti films at 515 and 1030 nm (Kuzmin & Klekovkin, 2022) | numbers not compared (full text not read); a candidate for sub-model validation (§10) |
 
-![Metal fraction at 0.2 to 19.8 ns](../figures/fsLIFT_332mJ_axisymmetric/gallery/montage_alpha.png)
+![Section and 3-D view at 6.0 ns on the coarse mesh](../figures/fsLIFT_332mJ_Ti_meshStudy/flight_L1_6.0ns.png)
 
-*The simulated sequence: bulge (0.2–1 ns), dome (3 ns), cup with thinning walls (6–10 ns), wall rupture (13.4 ns), and a free droplet with ring fragments (15–19.8 ns). This is the sequence the thin-film studies above describe qualitatively.*
+*The current simulated sequence (coarse mesh L1): launch as a plug (to 0.3 ns), dome (to about 4 ns), break of the dome wall (3.96–4.26 ns) and a central cap in flight (6 ns shown). The superseded reference run showed the same sequence about three times slower (wall rupture at 13.4 ns). This is the sequence the thin-film studies above describe qualitatively.*
 
 **Verdict, level 4: partial.** The heating, heat confinement, vapour drive and film bulging are consistent with the literature. Two mechanisms that the literature shows to be active under these conditions are missing: stress-wave spallation and phase explosion.
 
@@ -207,17 +208,19 @@ The sub-models are checked against what is known for titanium and for femtosecon
 
 | Observable | Simulated | Reliability |
 |---|---|---|
-| Film displacement on the axis at 1 / 5 / 20 ns | 0.18 / 0.90 / 2.16 µm | launch well resolved; inputs to be corrected |
-| Highest speed on the axis | 191.7 m/s at 0.54 ns | probably an underestimate (§5.2); no mesh error bar |
-| Time of separation | about 13 ns | mesh-limited |
-| Droplet | 0.254 µm³, equal-volume sphere 0.79 µm, centre of mass at a constant ~100 m/s | separation time and volume mesh-limited |
-| Transfer regime | one main droplet with ring fragments; no splash within 20 ns | qualitative |
+| Speed of the film centre at 315 ps | 389.5 m/s (finest mesh) | mesh-converged (0.03 %) |
+| Film displacement on the axis at 1 / 4.9 ns | 0.44 / 2.41 µm | coarse mesh |
+| Highest speed on the axis | 432.9 m/s at 1.9 ns | coarse mesh; 1.7 % above the finest mesh at 315 ps |
+| Break of the dome wall | 3.96–4.26 ns | mesh-limited (wall about one cell thick) |
+| Central cap in flight | about 410–420 m/s at 5–6.5 ns, 62–68 nm thick | coarse mesh; not resolved after about 7 ns |
+| Arrival at the receiver | expected at about 24–28 ns; not yet computed | runs in progress |
+| Transfer regime | a central cap with ring fragments | qualitative; the fragments are below the cell size |
 
-![Histories on the beam axis](../figures/fsLIFT_332mJ_axisymmetric/results_timeseries.png)
+![Speed, momentum and position of the metal on the coarse mesh](../figures/fsLIFT_332mJ_Ti_meshStudy/flight_L1_history.png)
 
 **Qualitative comparison with experiments on other metals.** The predicted sequence agrees with what is observed in LIFT of metal films:
 - the donor film bulges outward from the centre of the laser spot before material leaves (Willis & Grosu, 2005, Al and Ni);
-- the transferred droplets are much smaller than the laser spot (Willis & Grosu, 2005). In the reference case the droplet's equal-volume diameter (0.79 µm) is about a quarter of the beam's 1/e² radius (3 µm);
+- the transferred droplets are much smaller than the laser spot (Willis & Grosu, 2005). In the superseded reference run the droplet's equal-volume diameter (0.79 µm) was about a quarter of the beam's 1/e² radius (3 µm); the volume of the cap in the current run has not yet been measured;
 - liquid-metal droplets are ejected and deposited from pure copper and gold films (Visser et al., 2015);
 - femtosecond LIFT of thin metal films produces dots, droplets and nanobumps whose size depends on fluence and film thickness (Tseng et al., 2012; Grant-Jacob et al., 2013; Han et al., 2022).
 
@@ -249,14 +252,15 @@ Of the 48 screened papers: 6 provide input data (level 3), 14 concern femtosecon
 
 **Can be claimed:**
 - The equations that carry the result reproduce exact solutions, an independent code or hand calculations, with the exceptions stated. Not covered by a test: the Drude conductivity path, the gas–metal exchange (inactive) and the mass balance of the trapped-vapour pocket.
-- The reference case is a verified solution of the stated model, with known numerical limitations.
-- The predicted mechanism (bulge, cup, rupture, single droplet smaller than the spot) is consistent with experiments on metal films.
-- Four titanium inputs differ from measured or first-principles values, and their effect has been estimated.
+- The launch of the current case to 315 ps is a verified, mesh-converged solution of the stated model (momentum within 0.6 %, axis speed within 0.03 %), with 4 % of the laser energy unaccounted for.
+- The predicted mechanism (bulge, dome, rupture of the dome wall, a central piece in flight smaller than the spot) is consistent with experiments on metal films.
+- Four titanium inputs of the reference case differ from measured or first-principles values, and their effect has been estimated; two are corrected approximately in the current case.
 
 **Cannot be claimed:**
 - That the model is validated.
 - That the launch speed, separation time or droplet size are predictions of an experiment.
-- That the separation time and droplet volume are mesh-converged.
+- That the time of the tear, the speed and shape of the cap after about 7 ns, or the fragments are mesh-converged.
+- Any number of the superseded reference run (191.7 m/s, separation at 13 ns, 0.254 µm³ droplet).
 
 ---
 
@@ -265,7 +269,7 @@ Of the 48 screened papers: 6 provide input data (level 3), 14 concern femtosecon
 In order:
 
 1. **Correct the three inputs, and the film expansion.** Use the measured σ(T) and, with the deposited mass fixed, ρ(T) of liquid titanium (Ozawa et al., 2017; Seimiya et al., 2022), and first-principles G(T_e) and C_e(T_e) (Hobmaier et al., 2026, or Lin et al., 2008). Then check the pending inputs (viscosity, optical constants, vapour pressure) against their sources. Rerun the launch to 1 ns.
-2. **Solution verification.** Mesh study of the launch to 1 ns (three meshes, grid-convergence index), and a radially refined run of the separation (6–20 ns).
+2. **Solution verification.** Done for the launch to 315 ps. Still to do: the flight on a mesh refined along the flight path (running), a radially refined run of the tear (from about 3 ns), and the energy balance on L2 and L3.
 3. **Proxy validation on a measured case.** Rerun the solver with the metal, film, pulse and gap of a published femtosecond or picosecond LIFT experiment that reports speeds or droplet sizes. Gold is the best first choice, because its two-temperature parameters and liquid properties are well established. The solver only warns outside pulse widths of 0.1 fs to 10 ps, but it has only been exercised with femtosecond pulses: its stage time steps and electron sub-steps are set for them, so a nanosecond experiment needs new settings and tests.
 4. **Sub-model validation on titanium.** Simulate single-pulse femtosecond irradiation of titanium as in the published threshold experiments (Kuzmin & Klekovkin, 2022) and compare the melting and ablation thresholds.
 5. **System validation.** Compare with measurements at matching conditions:

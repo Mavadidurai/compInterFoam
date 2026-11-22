@@ -19,9 +19,9 @@ plt.rcParams.update({"font.size": 9})
 GREEN, AMBER, RED, GREY = "#2E7D32", "#F9A825", "#C62828", "#9E9E9E"
 
 # ------------------------------------------------------------------ 1. status of the five levels
-levels = [("1  Code verification", "15 checks: 12 within 5 %, force balance 6 %, drop frequency 10.5 % (two meshes), damping open", GREEN),
-          ("2  Solution verification", "no mesh-refinement study of the reference case; separation mesh-limited", AMBER),
-          ("3  Input validation", "3 titanium inputs differ from measured or first-principles values; density gives the right film mass", RED),
+levels = [("1  Code verification", "15 checks: 12 within 5 %, force balance 3 %, drop frequency 10.5 % (two meshes), damping open", GREEN),
+          ("2  Solution verification", "3 meshes to 315 ps: momentum 0.6 %, axis speed 0.03 %; tear and flight on one mesh; energy residual 4 %", AMBER),
+          ("3  Input validation", "coupling and heat capacity at first-principles level, surface tension constant; no thermal expansion", AMBER),
           ("4  Sub-model validation", "mechanisms consistent with titanium and thin-film literature; no matched numbers", AMBER),
           ("5  System validation", "no public measurement under matching conditions", RED)]
 fig, ax = plt.subplots(figsize=(10, 4.6)); ax.set_xlim(0, 10); ax.set_ylim(0, 5.2); ax.axis("off")
@@ -43,7 +43,7 @@ tests = [  # (label, |error| in %, run with the released code?)
     ("Two-temperature: electron-lattice meeting time", 0.8, True),
     ("Hertz-Knudsen flux, cell by cell", 1e-4, False),
     ("Recoil pressure 0.54 p_sat", 0.1, False),
-    ("Force on the film (worst of 3 intervals)", 6.0, True),
+    ("Force budget against film momentum (L2, 2-315 ps)", 3.1, True),
     ("Static drop: Laplace jump, R/dx = 10", 2.75, True),
     ("Static drop: Laplace jump, R/dx = 40", 4.09, True),
     ("Viscous decay rate", 0.12, True),

@@ -2,6 +2,8 @@
 
 This document describes the mathematical model and its numerical implementation: the physical assumptions, the governing equations as they are implemented in `src/`, the closures and input values of the reference case `cases/fsLIFT_332mJ_axisymmetric`, the characteristic scales that follow from them, and the numerical method. Every figure in the [figures/model](../figures/model) folder is computed from the case inputs with the formulas below by [`tools/plot_model_inputs.py`](../tools/plot_model_inputs.py); figures from the simulation itself are marked as such.
 
+> **Which case.** The values below are those of the reference case. The current results come from `cases/fsLIFT_332mJ_Ti_meshStudy`, which has the same model and laser but four different titanium inputs: density 4506 kg/m³, surface tension 1.613 N/m, γ = 318 J/(m³ K²), and G capped at 2.5×10¹⁸ W/(m³ K) ([USER_GUIDE.md §2.4](USER_GUIDE.md#24-mesh-study-with-titanium-inputs-from-the-literature)). Where these change a number in this document, both values are given. The numbers of the reference run itself were produced before the fixes of [CODE_REVIEW.md §1](CODE_REVIEW.md#1-defects-that-change-results) and are superseded ([RESULTS.md §3](RESULTS.md#3-the-earlier-reference-case-superseded)).
+
 **Contents**
 
 1. [Physical setting and modelling assumptions](#1-physical-setting-and-modelling-assumptions)
@@ -149,15 +151,15 @@ where $S_{evap} = j\,h_v\,|\nabla\alpha|$ is the latent heat removed by evaporat
 
 ### 4.2 Closures
 
-| Property | Model | Value in the reference case |
-|---|---|---|
-| Electron heat capacity | Sommerfeld, linear in $T_e$ | $C_e = \gamma T_e$, $\gamma$ = 630 J/(m³ K²) |
-| Lattice heat capacity | constant | $C_l$ = 2.5×10⁶ J/(m³ K) |
-| Electron–lattice coupling | tabulated $G(T_e)$, linear interpolation | 10¹⁸ W/(m³ K) at 300 K to 10²⁰ W/(m³ K) at 20,000 K |
-| Electron conductivity | Drude-type, valid for $T_e \ll T_F$ | $k_e = k_{e0}\, T_e/T_l$, $k_{e0}$ = 18.9 W/(m K) |
-| Lattice conductivity | constant | $k_l$ = 4.5 W/(m K) |
+| Property | Model | Value in the reference case | Value in the mesh-study case (current results) |
+|---|---|---|---|
+| Electron heat capacity | Sommerfeld, linear in $T_e$ | $C_e = \gamma T_e$, $\gamma$ = 630 J/(m³ K²) | $\gamma$ = 318 J/(m³ K²) (Hobmaier et al. 2026) |
+| Lattice heat capacity | constant | $C_l$ = 2.5×10⁶ J/(m³ K) | same |
+| Electron–lattice coupling | tabulated $G(T_e)$, linear interpolation | 10¹⁸ W/(m³ K) at 300 K to 10²⁰ W/(m³ K) at 20,000 K | the same table capped at 2.5×10¹⁸ W/(m³ K) from 1,000 K |
+| Electron conductivity | Drude-type, valid for $T_e \ll T_F$ | $k_e = k_{e0}\, T_e/T_l$, $k_{e0}$ = 18.9 W/(m K) | same |
+| Lattice conductivity | constant | $k_l$ = 4.5 W/(m K) | same |
 
-> **Literature check.** The coupling table and γ of the reference case are higher than published values for titanium: G by 5–27 times above 5,000 K, and γ by about 2 times. A sensitivity study shows that this changes mainly the electron–lattice equilibration time (0.25 ps instead of about 2 ps), and the peak surface temperature by only −11 % to +9 % ([LITERATURE.md §3](LITERATURE.md#3-two-temperature-parameters-of-titanium)).
+> **Literature check.** The coupling table and γ of the reference case (not of the mesh-study case) are higher than published values for titanium: G by 5–27 times above 5,000 K, and γ by about 2 times. A sensitivity study shows that this changes mainly the electron–lattice equilibration time (0.25 ps instead of about 2 ps), and the peak surface temperature by only −11 % to +9 % ([LITERATURE.md §3](LITERATURE.md#3-two-temperature-parameters-of-titanium)).
 
 ![Two-temperature model: heat capacities, coupling factor and coupling times](../figures/model/two_temperature_properties.png)
 
@@ -219,7 +221,7 @@ with the evaporation coefficient β = 0.18. The back-flux term $p_{v,\infty}$ is
 
 ![Saturation pressure, recoil and evaporation flux against temperature](../figures/model/phase_change.png)
 
-*(a) Saturation pressure and free-surface recoil pressure; the dashed line is the peak trapped-vapour pressure of the reference run. (b) Evaporation flux and the corresponding surface recession speed $j/\rho$. Both curves are flat above 10,000 K because of the temperature cap. The vertical lines mark the melting and boiling temperatures, the critical temperature given in the case (9,500 K), and the cap.*
+*(a) Saturation pressure and free-surface recoil pressure; the dashed line is the peak trapped-vapour pressure of the superseded reference run (524 MPa; about 1.3 GPa in the current case). (b) Evaporation flux and the corresponding surface recession speed $j/\rho$. Both curves are flat above 10,000 K because of the temperature cap. The vertical lines mark the melting and boiling temperatures, the critical temperature given in the case (9,500 K), and the cap.*
 
 | Surface temperature | $p_{sat}$ | Recoil 0.54 $p_{sat}$ | Flux $j$ | Recession speed $j/\rho$ |
 |---|---|---|---|---|
@@ -297,7 +299,7 @@ $$
 
 The pressure applied to the glass-side interface cells of ring $b$ is $\max(p_b,\ p_r)$, through the same face force as the recoil (§5.3).
 
-### 6.3 Parameters and behaviour in the reference case
+### 6.3 Parameters and behaviour
 
 | Parameter | Value | Note |
 |---|---|---|
@@ -305,10 +307,10 @@ The pressure applied to the glass-side interface cells of ring $b$ is $\max(p_b,
 | `binWidth` | 100 nm | 2 radial cells |
 | `maxRadius` | 10 µm | beyond the domain (8 µm) |
 | `minThickness` $h_0$ | 1 nm | not known; assumed |
-| `metalDensity` | 4515 kg/m³ | |
+| `metalDensity` | 4515 kg/m³ (4506 in the mesh-study case) | the film density |
 | `filmMinHeight` | 9 µm | only metal above y = 9 µm counts as donor film (receiver top at 8 µm): only those surfaces get the pocket pressure and count towards the ring area, and only that metal enters the film velocity average |
 
-In the reference run the pressure on the axis peaks at **524 MPa at 26 ps**. It then falls by more than two orders of magnitude within the first nanosecond, as the gap opens and the surface cools, and is below 1 MPa from 0.59 ns on.
+In the mesh-study case with all fixes the pocket pressure peaks at about **1.3 GPa at about 12 ps** (read from log lines written every 20 steps, so the peak may be missed by a little). At 2.96 ns the pressure on the axis is about 2.5 MPa and the gap there is 1.47 µm deep. The superseded reference run peaked at 524 MPa at 26 ps; it applied the pocket pressure also to the receiver, which roughly doubled the ring volumes (fix 9).
 
 **Why rings, and not one pocket for the whole spot.** A single pocket (`mode uniform`) applies one pressure to the whole heated area and pushed a 7.4 µm-wide region as a rigid plug, which tore at its cold edge. Within a few nanoseconds the real vapour cannot travel far sideways, so independent rings are the better approximation. The truth lies between these limits, since sideways flow is neglected (A8).
 
@@ -384,23 +386,23 @@ The curvature is computed from the gradient of α. This produces small spurious 
 
 ## 8. Characteristic scales and dimensionless numbers
 
-Evaluated with the inputs of §11 and, where a speed is needed, the peak speed of the film on the axis, $v$ = 191.7 m/s.
+Evaluated with the inputs of the mesh-study case (ρ_m = 4506 kg/m³, σ = 1.613 N/m, γ = 318 J/(m³ K²), G = 2.5×10¹⁸ W/(m³ K)), the film thickness h = 71.4 nm and, where a speed is needed, the mesh-converged speed of the film centre at 315 ps, $v$ = 389.5 m/s. Values for the reference inputs and its superseded speed (191.7 m/s) are in brackets where they differ.
 
 | Quantity | Definition | Value | Meaning |
 |---|---|---|---|
 | Absorption depth | $1/a$ | 9.66 nm | the laser heats a layer one seventh of the film thickness |
 | Optical thickness | $a h$ | 7.4 | the film is optically thick |
-| Electron–lattice equilibration | $[G(1/C_e+1/C_l)]^{-1}$ | 0.03–0.17 ps | as fast as the pulse |
+| Electron–lattice equilibration | $[G(1/C_e+1/C_l)]^{-1}$ | 0.3–0.7 ps for $T_e$ = 3,000–20,000 K [0.03–0.17 ps] | e-folding time; electrons and lattice meet within 5 % after about 2.3 ps (1-D, [LITERATURE.md §3](LITERATURE.md#3-two-temperature-parameters-of-titanium)) |
 | Lattice heat diffusion across the film | $h^2 C_l / k_l$ | 2.8 ns | lattice conduction alone is slow |
-| Electron diffusion across the film, hot lattice | $h^2 \gamma T_l / k_{e0}$ at 10,000 K | 1.7 ns | heat stays near the glass side |
+| Electron diffusion across the film, hot lattice | $h^2 \gamma T_l / k_{e0}$ at 10,000 K | 0.86 ns [1.7 ns] | heat stays near the glass side |
 | Acoustic time across the film | $h / c_l$, $c_l$ = 4.4 km/s (liquid titanium, as used by Hobmaier et al. 2026) | 16 ps | ≫ heating time: the real film is stress-confined (A3; [LITERATURE.md §6](LITERATURE.md#6-stress-confinement)) |
-| Peak trapped-vapour pressure | from the run | 524 MPa at 26 ps | the main driving force |
-| Weber number | $\rho_m v^2 h / \sigma$ | 7.2 | inertia dominates surface tension at the launch |
+| Peak trapped-vapour pressure | from the run | about 1.3 GPa at about 12 ps [524 MPa at 26 ps] | the main driving force |
+| Weber number | $\rho_m v^2 h / \sigma$ | 30 [7.2] | inertia dominates surface tension at the launch |
 | Speed at which $We$ = 1 | $\sqrt{\sigma/(\rho_m h)}$ | 71 m/s | below this, surface tension wins |
-| Kinetic / surface energy | $\tfrac12\rho_m h v^2 \,/\, 2\sigma$ | 5.92 / 3.28 = 1.81 | enough energy for two new surfaces |
-| Reynolds number | $\rho_m v h / \mu_m$ | 26 | viscous effects moderate on the film scale |
+| Kinetic / surface energy | $\tfrac12\rho_m h v^2 \,/\, 2\sigma$ | 24.4 / 3.23 = 7.6 [1.81] | enough energy for two new surfaces |
+| Reynolds number | $\rho_m v h / \mu_m$ | 53 [26] | viscous effects moderate on the film scale |
 | Ohnesorge number | $\mu_m / \sqrt{\rho_m \sigma h}$ | 0.10 | low-viscosity capillary dynamics |
-| Taylor–Culick speed | $\sqrt{2\sigma/(\rho_m h)}$ | 101 m/s | speed at which a torn 71 nm sheet retracts |
+| Taylor–Culick speed | $\sqrt{2\sigma/(\rho_m h)}$ | 100 m/s | speed at which a torn 71 nm sheet retracts |
 | Bond number | $\rho_m g h^2/\sigma$ | 1.4×10⁻¹⁰ | gravity irrelevant |
 | Capillary time-step limit | $\sqrt{\bar\rho\,\Delta x^3/(2\pi\sigma)}$, $\bar\rho = (\rho_m+\rho_g)/2$, $\Delta x$ = 4.46 nm | 4.4 ps | the largest stable time step for surface tension on the film cells |
 
@@ -495,19 +497,19 @@ All values are those of `cases/fsLIFT_332mJ_axisymmetric`. "Case input" means th
 | | energy reaching the film | 4.109×10⁻⁸ J | derived (§3.3) |
 | | reflectivity, glass–titanium | 0.428 | derived from $n$, $k$, $n_g$ |
 | | absorption coefficient | 1.0347×10⁸ 1/m | derived, $4\pi k/\lambda$ |
-| Titanium, liquid | density | 4515 kg/m³ | case input: within 0.2 % of solid titanium at room temperature (4,506 kg/m³), which with the deposited 71.4 nm gives the right film mass; the liquid is **7.1 % less dense at the melting point** (4,193 kg/m³; the film expands by 7.7 %), so the real liquid film is thicker (Ozawa et al. 2017; [VALIDATION.md §5](VALIDATION.md#5-level-3-input-validation)) |
+| Titanium, liquid | density | 4515 kg/m³ (mesh-study case: 4506) | case input: within 0.2 % of solid titanium at room temperature (4,506 kg/m³), which with the deposited 71.4 nm gives the right film mass; the liquid is **7.1 % less dense at the melting point** (4,193 kg/m³; the film expands by 7.7 %), so the real liquid film is thicker (Ozawa et al. 2017; [VALIDATION.md §5](VALIDATION.md#5-level-3-input-validation)) |
 | | dynamic viscosity | 2.35×10⁻³ Pa s | case input |
-| | surface tension | 1.64 N/m | case input; matches the measured value at the melting point (1.613 N/m) but is constant, while the measured value falls by 0.2 mN/m per K (Seimiya et al. 2022; [VALIDATION.md §5](VALIDATION.md#5-level-3-input-validation)) |
+| | surface tension | 1.64 N/m (mesh-study case: 1.613) | case input; matches the measured value at the melting point (1.613 N/m) but is constant, while the measured value falls by 0.2 mN/m per K (Seimiya et al. 2022; [VALIDATION.md §5](VALIDATION.md#5-level-3-input-validation)) |
 | | melting (solidus = liquidus) temperature | 1941 K | case input |
 | | boiling temperature at 1 atm | 3560 K | case input |
 | | latent heat of vaporisation | 9.1×10⁶ J/kg | case input |
 | | gas constant of the vapour | 174 J/(kg K) | derived, $R/M$ |
 | | critical temperature (used only by the switched-off phase-explosion model) | 9500 K | case input; Hobmaier et al. (2026) use 8,980 K |
-| Two-temperature model | $\gamma$ ($C_e = \gamma T_e$) | 630 J/(m³ K²) | case input; first-principles value for titanium 318 J/(m³ K²) ([LITERATURE.md §3](LITERATURE.md#3-two-temperature-parameters-of-titanium)) |
-| | $G(T_e)$ | table, 10¹⁸–10²⁰ W/(m³ K) | case input of undocumented origin. **5–27 times higher than published titanium values above 5,000 K** (peak about 2.5–3.7×10¹⁸; [LITERATURE.md §3](LITERATURE.md#3-two-temperature-parameters-of-titanium)) |
+| Two-temperature model | $\gamma$ ($C_e = \gamma T_e$) | 630 J/(m³ K²) (mesh-study case: 318) | case input; first-principles value for titanium 318 J/(m³ K²) ([LITERATURE.md §3](LITERATURE.md#3-two-temperature-parameters-of-titanium)) |
+| | $G(T_e)$ | table, 10¹⁸–10²⁰ W/(m³ K) (mesh-study case: capped at 2.5×10¹⁸) | case input of undocumented origin. **5–27 times higher than published titanium values above 5,000 K** (peak about 2.5–3.7×10¹⁸; [LITERATURE.md §3](LITERATURE.md#3-two-temperature-parameters-of-titanium)) |
 | | $C_l$ | 2.5×10⁶ J/(m³ K) | case input |
 | | $k_l$ | 4.5 W/(m K) | case input |
-| | $k_{e0}$ | 18.9 W/(m K) | derived, $\gamma \cdot 300\ \text{K} \cdot D_e$ with $D_e$ = 10⁻⁴ m²/s |
+| | $k_{e0}$ | 18.9 W/(m K) | derived, $\gamma \cdot 300\ \text{K} \cdot D_e$ with $D_e$ = 10⁻⁴ m²/s. Kept at 18.9 in the mesh-study case, where the same formula with γ = 318 would give 9.5 |
 | Evaporation and recoil | evaporation coefficient β | 0.18 | case input |
 | | recoil coefficient | 0.54 | Anisimov (1968) |
 | | momentum accommodation $c_m$ | 1 | physical value; 0.54 $p_{sat}$ already includes the back-flux |

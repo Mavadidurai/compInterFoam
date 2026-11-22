@@ -1,4 +1,6 @@
-# fsLIFT_332mJ_axisymmetric: main results
+# fsLIFT_332mJ_axisymmetric: main results (superseded)
+
+> **Superseded.** This run was made before the fixes of docs/CODE_REVIEW.md §1 (in particular fixes 8 and 9, which raised the film momentum by about 80 % in the mesh-study case). Do not use these numbers; the current results are in docs/RESULTS.md §1. The table is kept because the figures in this folder show this run.
 
 | Quantity | Value |
 |---|---|
