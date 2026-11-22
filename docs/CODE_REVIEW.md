@@ -178,3 +178,20 @@ All four Galilean runs keep U = −170 m/s exactly and p within 0.5 Pa of 10⁵ 
 | Fix 9, mesh-study L1 from 0 to 5 ps with and without the change | receiver: pocket pressure 485 MPa → 0, momentum −8.1 × 10⁻¹⁵ → −3.7 × 10⁻¹⁷ kg m/s at 5 ps. Logged momentum budget per 1 ps window: matches film + receiver within 0.2 % before, film alone within 0.4 % after. Film identical up to 3 ps; 3.1 % more momentum gained in 4–5 ps after the fix |
 | Fix 9, L1 continued to 305 ps | logged momentum budget within 4.1 % of the film's momentum change (0–305 ps); the difference is attributed to the α weighting of interface cells in the budget, not confirmed |
 | Mesh study with fixes 8 and 9 (L1/L2/L3 to 315 ps) | momentum 9.116 / 9.104 / 9.061 e-13 kg m/s, spread 0.6 % but not in the asymptotic range (no GCI); axis speed converged at 389.5 m/s; budget within 2.3–3.1 % |
+
+---
+
+## 9. Targeted reading of the force and energy paths (22 Nov)
+
+Read after the mesh study with fixes 8 and 9, to look for errors that a mesh study cannot show (an error that is the same on every mesh converges too). Source: `src/advancedInterfaceCapturing.C`, `src/twoTemperatureModel.C`. Nothing here has been changed.
+
+| Finding | Where | Effect on the mesh-study case |
+|---|---|---|
+| Recoil acts only in cells that evaporate (`|jNet| > massRateEps`), relaxed with `recoilRelax 0.7` against the previous step | `calculateRecoilPressure` | Intended; no smoothing, cap or clamp is active in this case |
+| Recoil and the pocket pressure are set to zero for `t > laserEndTime + 50 ps` | `advancedInterfaceCapturing.C:609` | **None here** (`laserEndTime 5e-8`, beyond the run end). It does act in cases with a short `laserEndTime`, e.g. the 1-D tests (2e-10) |
+| Saturation cap of the local pocket: vapour above p_sat is removed from the bin mass (`pocketBinMass_[b] = pSat*Vb/(R_specific*Tv)`); the mass and its latent heat are not returned to the film | `advancedInterfaceCapturing.C:1331` | Mass and energy are not conserved there. Size on L1, 0–315 ps: the pocket holds the equivalent of 0.006 → 0.004 µm³ of titanium, against a film of 14.3 µm³, so below 0.05 % of the film mass [estimate, not tracked directly] |
+| Built-in energy check compares with the total metal energy, tolerance `energyTolerance 0.02` | `twoTemperatureModel.C:1208–1221`, case `controlDict` | **Too weak to detect a film error**: the total is dominated by the receiver, so 2 % of it is many times the laser energy. It never warned, and that says nothing |
+| "Cumulative laser energy" adds the laser energy at every inner coupling sweep (`nInnerCouplingSweeps 3`), so it reports 3× the deposited energy | `twoTemperatureModel.C:1092` | Reporting only; the field is not used in the equations |
+| The electron heat capacity Ce = γ·Te (γ = 318) is evaluated at the start of each sub-step, not at its midpoint | `twoTemperatureModel.C` | Hypothesis for part of the 0.8 % energy lost in the solve during the pulse (§11 of `INVESTIGATION_LOG.md`); not tested |
+
+The laser deposition itself is correct: the energy diagnostics give 326.04 pJ absorbed in the 5° wedge against 4.1089e-8 J × (1 − 0.42832) / 72 = 326.24 pJ expected (−0.06 %).

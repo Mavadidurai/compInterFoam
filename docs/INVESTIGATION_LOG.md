@@ -125,3 +125,25 @@ Units: momentum in 10⁻¹³ kg m/s (full circle), speeds in m/s, times in ps un
 - **The gas is incompressible** (`rhoConst`, a documented verification choice). The gap reacts instantly: at 28 ps the gap shows +58 bar under the film and −58 bar above it. A real gas cannot have negative pressure, and a real gap would not feel the film this early.
 - **Peak temperatures exceed the closure range.** The lattice reaches about 20,000 K at 3.3 ps, far above the critical point of titanium. The evaporation and recoil closures use at most `maxPhysicalTemperature` (10,000 K), so they are outside their range there.
 - **No comparison with experiment.** Mesh convergence shows that the equations are solved consistently, not that the model is right.
+- **A small notch in the film surface on the axis** shows in the animation frames and in the unprocessed cell data, so it is in the solution, not a rendering artefact. Cause not investigated.
+
+## 11. Energy and mass balance (L1 with fixes 8 and 9, 22 Nov)
+
+- Run: L1 from 0 with `energyDiagnostics true` (`meshstudy/energyTest`), 0–315 ps, then continued towards 20 ns. It matches the Phase D L1 run within 0.04 % at all common times (momentum 9.112 against 9.116 × 10⁻¹³ kg m/s at 315 ps).
+- Balance per step from the solver's energy diagnostics: first pass = energy before, last pass = energy after, laser and phase-change terms once per step. "Solve" = change inside the temperature solve minus the sources; "between steps" = change from one step's end to the next step's start (transport of the metal fraction).
+
+| Up to | E − E₀ | Laser | Evaporation | Solve | Between steps | Net unaccounted |
+|---|---|---|---|---|---|---|
+| 0.51 ps | 321.90 | 324.51 | −0.00 | −2.61 | −0.00 | −2.61 (−0.8 %) |
+| 30 ps | 315.41 | 326.04 | −3.06 | +8.92 | −16.50 | −7.58 (−2.3 %) |
+| 315 ps | 306.33 | 326.04 | −6.64 | +132.92 | −146.00 | −13.08 (−4.0 %) |
+| 2.16 ns | 294.23 | 326.04 | −8.77 | +132.48 | −155.52 | −23.04 (−7.1 %) |
+
+All values in pJ for the 5° wedge; percentages relative to the laser energy.
+
+- **Laser deposition is correct:** 326.04 pJ against 4.1089e-8 J × 0.57168 / 72 = 326.24 pJ (−0.06 %).
+- **Evaporation heat is consistent with the mass lost:** −3.06 pJ at 30 ps is 92 % of the latent heat of the metal the film lost (3.32 pJ).
+- **Mass:** the film lost 0.0140 µm³ (0.098 %) over 0–315 ps, so evaporation cannot change the momentum by more than about 0.1 %.
+- **The two large terms nearly cancel.** Each is about 40 % of the laser energy by 315 ps. The solve carries the temperature with the metal flux (fix 8) and the metal fraction moves between steps; in exact arithmetic these cancel. The net −4.0 % at 315 ps is taken to be the discretisation mismatch between them, not proven: part could be heat leaving the metal that the diagnostics do not count.
+- The net loss keeps growing after the launch (−7.1 % at 2.16 ns), while most of the momentum is gained in the first tens of picoseconds (−2.3 % by 30 ps). Its effect on the momentum has **not** been measured; a loss that is similar on every mesh would not show in the mesh study.
+- Not done: the same balance on L2 and L3, and an energy-conserving form of fix 8.
