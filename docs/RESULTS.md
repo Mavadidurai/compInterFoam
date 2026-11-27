@@ -126,7 +126,7 @@ Run A, L1 continued to the receiver, finished on 27 November at 29.95 ns; its re
 
 | Run | What | Mesh | From → to | Expected |
 |---|---|---|---|---|
-| **C** | the L1 state at 2.9625 ns, before the tear, copied onto a mesh refined along the flight path, and continued | 112,148 cells: 15 nm cells for y = 8–16.5 µm (instead of 71 nm), graded to the unchanged 8.5 nm cells above 17 µm | 2.9625 ns → 35 ns, started 27 Nov 10:08 UTC, about 9 s per step (about 32 h) | the flying metal resolved along the flight path (15 nm instead of 71 nm); its radius is still limited by the unchanged 49 nm radial cells |
+| **C** | the L1 state at 2.9625 ns, before the tear, copied onto a mesh refined along the flight path, and continued | 112,148 cells: 15 nm cells for y = 8–16.5 µm (instead of 71 nm), graded to the unchanged 8.5 nm cells above 17 µm | 2.9625 ns → 35 ns, started 27 Nov 10:08 UTC; 15.6 ps of simulated time per minute, about 35 h in all (expected end about 28 Nov 21:00 UTC) | the flying metal resolved along the flight path (15 nm instead of 71 nm); its radius is still limited by the unchanged 49 nm radial cells |
 
 How C was set up, and what was checked: [INVESTIGATION_LOG.md §13](INVESTIGATION_LOG.md#13-run-c-refined-flight-path-22-nov). C refines the vertical direction only. The radial cells (49 nm) are unchanged, so the tear of the dome wall, which happens after 2.96 ns, is still limited by the radial cell size in C (limitation 3). Run A showed that the flying metal is a jet 2–3 radial cells wide (§1.3), so C will not resolve the jet's radius either, and its receiver is liquid too: C can show how much of A's flight depended on the 71 nm vertical cells, not give a resolved impact.
 

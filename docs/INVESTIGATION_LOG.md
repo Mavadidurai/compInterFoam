@@ -177,7 +177,7 @@ All values in pJ for the 5° wedge; percentages relative to the laser energy.
 - Boundary conditions identical, except the stored `value` of the mixed conditions and of `rho` on the receiver bottom (y = 0), which the solver recomputes on the first step.
 - 5 steps on 4 processes without error; the pocket state was read (m_v = 3.81e-19 kg, depth on the axis 1.47 µm, T_v = 4562 K).
 
-**Run:** driver `flightC/flightC.sh`, to 35 ns at maxDeltaT 2.5 ps, written every 0.2 ns (about 5 GB). Started on 27 Nov at 10:08 UTC, after run A. Measured speed with the 4 cores free: about 9 s per step at 2.5 ps, i.e. about 32 h to 35 ns if the time step stays at its maximum.
+**Run:** driver `flightC/flightC.sh`, to 35 ns at maxDeltaT 2.5 ps, written every 0.2 ns (about 5 GB). Started on 27 Nov at 10:08 UTC, after run A. Measured speed with the 4 cores free (3.30–3.57 ns): 15.6 ps of simulated time per minute, about 9–10 s per step at 1.9–2.5 ps; the pressure solver uses its 200-iteration limit in most corrections, as on L1. About 35 h in all, ending about 28 Nov 21:00 UTC. While post-processing ran next to it, steps took up to 400 s.
 
 **What C does not fix:** the radial cells are unchanged (49 nm), so the tear of the dome wall after 2.96 ns is as mesh-limited as on L1.
 

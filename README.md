@@ -153,7 +153,7 @@ The case is **axisymmetric**: every quantity is the same at every angle around t
 
 | Run | What | From → to |
 |---|---|---|
-| **C** | the L1 state at 2.96 ns (before the break) copied onto mesh C, with 15 nm cells along the flight path (71 nm on L1), and continued | 2.96 ns → 35 ns; started 27 Nov, about 32 h |
+| **C** | the L1 state at 2.96 ns (before the break) copied onto mesh C, with 15 nm cells along the flight path (71 nm on L1), and continued | 2.96 ns → 35 ns; started 27 Nov 10:08 UTC, about 35 h (expected end about 28 Nov 21:00 UTC) |
 
 Run A (the coarse mesh to the receiver) finished at 29.95 ns; its results are in §4.3.
 
