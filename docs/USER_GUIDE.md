@@ -125,7 +125,7 @@ cp -r <scratch copy>/$T/uniform $NEW/$T/                # trapped-vapour state (
 decomposePar -force
 ```
 
-Check that the metal volume, momentum and total mass of the target equal the source (they did to every printed digit for run C), and set `startFrom startTime; startTime $T;` in `system/controlDict`. `mapFields -consistent` of v2406 offers only `mapNearest`, `interpolate` and `cellPointInterpolate`; with identical cells where the metal is, `mapNearest` is exact there. The surface fields `phi` and `alphaPhi10` are not mapped; the solver rebuilds them on the first step. The radial cells are not changed by this procedure.
+Check that the metal volume, momentum and total mass of the target equal the source (they did to every printed digit for run C), and set `startFrom startTime; startTime $T;` in `system/controlDict` for the first launch. Change it to `startFrom latestTime;` once the run has written its first time, or a restart begins again from `$T` (this happened once in run C). `mapFields -consistent` of v2406 offers only `mapNearest`, `interpolate` and `cellPointInterpolate`; with identical cells where the metal is, `mapNearest` is exact there. The surface fields `phi` and `alphaPhi10` are not mapped; the solver rebuilds them on the first step. The radial cells are not changed by this procedure.
 
 ---
 

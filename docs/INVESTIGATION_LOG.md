@@ -177,9 +177,24 @@ All values in pJ for the 5° wedge; percentages relative to the laser energy.
 - Boundary conditions identical, except the stored `value` of the mixed conditions and of `rho` on the receiver bottom (y = 0), which the solver recomputes on the first step.
 - 5 steps on 4 processes without error; the pocket state was read (m_v = 3.81e-19 kg, depth on the axis 1.47 µm, T_v = 4562 K).
 
-**Run:** driver `flightC/flightC.sh`, to 35 ns at maxDeltaT 2.5 ps, written every 0.2 ns (about 5 GB). Started on 27 Nov at 10:08 UTC, after run A. Measured speed with the 4 cores free (3.30–3.57 ns): 15.6 ps of simulated time per minute, about 9–10 s per step at 1.9–2.5 ps; the pressure solver uses its 200-iteration limit in most corrections, as on L1. About 35 h in all. Paused on 27 Nov from 12:15 to about 18:30 UTC for the rigid-receiver run and its animation (§16), so the end moves to about 29 Nov 03:00 UTC. A restart at 11:58 began again from 2.96 ns because `startFrom` was `startTime`; it is now `latestTime`. While post-processing ran next to it, steps took up to 400 s.
+**Run:** driver `flightC/flightC.sh`, to 35 ns at maxDeltaT 2.5 ps, written every 0.2 ns (about 5 GB). Started on 27 Nov at 10:08 UTC, after run A. Measured speed with the 4 cores free (3.30–3.57 ns): 15.6 ps of simulated time per minute, about 9–10 s per step at 1.9–2.5 ps; the pressure solver uses its 200-iteration limit in most corrections, as on L1. About 35 h in all. Paused on 27 Nov from 12:15 to about 18:30 UTC for the rigid-receiver run and its animation (§16). From 18:47 to 20:37 UTC, with the cores free, it advanced 5.2149 → 7.0774 ns, 1.8625 ns in 110 min = 16.9 ps per minute; at that rate the remaining 27.9 ns take about 27.5 h, so the end is expected on about 29 Nov 00:00 UTC [UNCERTAIN: the time step may shrink at the impact, about 24 ns]. The driver stops at its 2-hour budget (exit 9) and is restarted from the latest write. A restart at 11:58 began again from 2.96 ns because `startFrom` was `startTime`; it is now `latestTime`. While post-processing ran next to it, steps took up to 400 s.
 
 **What C does not fix:** the radial cells are unchanged (49 nm), so the tear of the dome wall after 2.96 ns is as mesh-limited as on L1.
+
+**Interim comparison with run A (27 Nov, C at 7.48 ns).** `tools/full_run_curves.py` on all 25 writes of C (`data/flightC/full_run_curves_C.csv`; C paused for the 3 min it took), against run A interpolated to the same times:
+
+| t [ns] | gap C / A [µm] | v on the axis C / A [m/s] | T_l on the axis C / A [K] |
+|---|---|---|---|
+| 2.96 | 10.538 / 10.538 | 497 / 497 | 4736 / 4736 |
+| 4.16 | 9.928 / 9.928 | 475 / 475 | 4293 / 4282 |
+| 5.22 | 9.428 / 9.431 | 458 / 457 | 4009 / 4068 |
+| 6.42 | 8.942 / 8.945 | 449 / 458 (−2.0 %) | 3838 / 3963 |
+| 7.08 | 8.663 / 8.665 | 451 / 455 (−0.8 %) | 3784 / 3921 |
+| 7.48 | 8.463 / 8.477 | 453 / 453 | 3792 / 3905 |
+
+- The gap agrees within 0.04 µm and the axis speed within 2.0 % (largest difference at 6.4–6.6 ns). The axis lattice temperature in C falls faster: 113–140 K (2.9–3.6 %) lower from 6.4 ns.
+- **This is not yet a test of the refinement.** The lowest metal cell is at y = 8 + gap. It stays above 17 µm, where meshes C and L1 have the same 8.5 nm cells, until about 6.2 ns (gap 9.02 µm). It is in the graded 16.5–17 µm band until about 7.3 ns and has just entered the 15 nm cells at 7.48 ns (y = 16.46 µm). The differences so far must come from the refined cells below the metal, i.e. the gas and vapour there [UNCERTAIN: not traced; candidates are the gas temperature next to the leading edge and the pressure field below the jet].
+- The flight through 8–16.5 µm and the contact (23.6–23.7 ns in A) are still to come.
 
 ## 14. Why the film momentum keeps rising after the tear (22 Nov)
 
