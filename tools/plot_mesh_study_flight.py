@@ -5,7 +5,7 @@
 Reads figures/fsLIFT_332mJ_Ti_meshStudy/data/ and writes into figures/fsLIFT_332mJ_Ti_meshStudy/:
   mesh_study_315ps.png   film momentum and speed within 1 um of the axis on L1/L2/L3, 0-315 ps
   fix_effect_315ps.png   L1 momentum at 315 ps before the fixes, with fix 8, with fixes 8 and 9
-  flight_L1_history.png  L1 continued after 315 ps: speed and momentum to 7.6 ns, lowest metal to the last front row
+  flight_L1_history.png  L1 continued after 315 ps to 30 ns: speed, momentum (to 7.6 ns) and the lowest metal
 """
 import os
 
@@ -61,16 +61,21 @@ plt.close(fig)
 # 3. flight on L1
 d = load(os.path.join(D, 'flightL1', 'fields.csv'))
 fr = load(os.path.join(D, 'flightL1', 'front.csv'))
+fc = load(os.path.join(D, 'flightL1', 'full_run_curves.csv'))
 t = d['t_s'] * 1e9
 fig, ax = plt.subplots(1, 3, figsize=(15, 4.2))
 ax[0].plot(t, -d['v_r1_ms'], color='#238b45', lw=2, label='within 1 µm of the axis')
 ax[0].plot(fr['t_ns'], -fr['v_below18p5_ms'], 's', color='#74c476', label='all metal below y = 18.5 µm')
+ax[0].plot(fc['t_ns'][fc['t_ns'] > 7.0], fc['v_axis_ms'][fc['t_ns'] > 7.0], color='#00441b', lw=1.5, ls='--', label='within 0.5 µm of the axis (jet)')
 ax[0].set_ylabel('speed towards the receiver (m/s)')
 ax[0].legend(frameon=False, fontsize=10)
 ax[1].plot(t, -d['Py_kgms'] * 1e13, color='#08519c', lw=2)
 ax[1].set_ylabel('film momentum (10$^{-13}$ kg m/s)')
 ax[2].plot(t, d['y_bot_axis_um'], color='k', lw=2, label='lower film surface on the axis')
-ax[2].plot(fr['t_ns'], fr['y_low_alpha05_um'], 'o', color='#d94801', label='lowest metal (α > 0.5)')
+fg = fc['t_ns'] > 7.0
+ax[2].plot(fc['t_ns'][fg], 8.0 + fc['gap_um'][fg], color='#d94801', lw=2, label='lowest metal (α > 0.5)')
+ax[2].axvline(23.7, color='#d94801', ls=':', lw=1.2)
+ax[2].text(23.2, 13.5, 'contact\n23.6–23.7 ns', color='#d94801', fontsize=10, ha='right')
 ax[2].axhline(8.0, color='0.4', ls='--')
 ax[2].text(0.3, 8.15, 'receiver surface', color='0.4', fontsize=10)
 ax[2].axhspan(8.0, 16.5, color='#fdd0a2', alpha=0.35, lw=0)
@@ -80,13 +85,13 @@ ax[2].set_ylim(7, 20.5)
 ax[2].legend(frameon=False, fontsize=10, loc='upper right')
 for a in ax:
     a.set_xlabel('time (ns)')
-    a.set_xlim(0, max(t.max(), fr['t_ns'].max()) * 1.03)
+    a.set_xlim(0, 31)
     a.axvspan(3.96, 4.26, color='0.85', lw=0)
     a.spines[['top', 'right']].set_visible(False)
 ax[0].set_ylim(0, 480)
 ax[1].set_ylim(0, 11.5)
 ax[1].text(4.4, 1.0, 'grey band: first\nbreak of the dome wall', fontsize=10, color='0.35')
-fig.suptitle('Coarse mesh L1 (62,010 cells) continued after 315 ps: launch, tear and flight', fontsize=12)
+fig.suptitle('Coarse mesh L1 (62,010 cells) continued after 315 ps: launch, tear, flight and impact', fontsize=12)
 fig.tight_layout()
 fig.savefig(os.path.join(F, 'flight_L1_history.png'), dpi=150)
 plt.close(fig)

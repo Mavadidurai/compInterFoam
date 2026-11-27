@@ -267,6 +267,9 @@ All tools take the case directory as their first argument. The Python tools need
 | `pvpython tools/mesh_study_fields.py <case>` | Metal volume, momentum, kinetic energy, speed within 1 and 2.5 µm of the axis, film position and thickness on the axis, peak lattice temperature, at every written time (full circle) | `<case>/mesh_study_fields.csv` |
 | `python3 tools/mesh_study_gci.py <work dir> <time>` | Order of convergence, extrapolated value and grid convergence index of each quantity over L1–L3 | `figures/fsLIFT_332mJ_Ti_meshStudy/data/gci_<time>s.csv` |
 | `pvpython tools/flight_front.py <case> <t_min> <stride> <out.csv>` | Lowest metal, volume and mean speed of the metal below y = 18.5 µm, and the largest metal fraction near the axis (below about 0.95 the cap is not resolved) | `<out.csv>` |
+| `pvpython tools/render_full_run.py <case> <outdir> <x_half_um> <y0_um> <y1_um> <SY> <W> [times]` | Section (temperature, speed) and 3-D panels for the whole-run animation; run with `LP_NUM_THREADS=1` next to a running MPI case | `<outdir>/T_*.png, U_*.png, D_*.png, times.txt` |
+| `pvpython tools/full_run_curves.py <case> <times.txt> <out.csv>` | Gap to the receiver, speed and lattice temperature of the metal near the axis at each frame time | `<out.csv>` |
+| `python3 tools/compose_full_run.py <paneldir> <zoomdir> <curves.csv> <outdir> <dpi>` | 16:9 frames of the whole run (dpi 100: 1080p, 200: 4K) | `<outdir>/c_*.png` |
 | `python3 tools/plot_mesh_study_flight.py` | Figures of the mesh study and the coarse-mesh flight from `figures/fsLIFT_332mJ_Ti_meshStudy/data/` | `figures/fsLIFT_332mJ_Ti_meshStudy/*.png` |
 
 For a decomposed case, `count_metal_pieces.py` merges the processor pieces before counting. Without the merge, the shared points on processor boundaries make one piece look like several.

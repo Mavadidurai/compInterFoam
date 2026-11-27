@@ -1,12 +1,12 @@
 # compInterFoam-fsLIFT
 
-An OpenFOAM v2406 solver for **femtosecond laser-induced forward transfer (fs-LIFT)** of a thin metal film, applied to a 71.4 nm titanium film: from the laser pulse (femtoseconds) through the launch of the film, the break of the dome it forms, and the flight of the central cap towards the receiver (nanoseconds).
+An OpenFOAM v2406 solver for **femtosecond laser-induced forward transfer (fs-LIFT)** of a thin metal film, applied to a 71.4 nm titanium film: from the laser pulse (femtoseconds) through the launch of the film, the break of the dome it forms, and the flight of the metal to the receiver (nanoseconds).
 
 ![Section through the beam axis and 3-D view at 6.0 ns: the dome wall has broken and the central cap flies towards the receiver](figures/fsLIFT_332mJ_Ti_meshStudy/flight_L1_6.0ns.png)
 
 *The current simulation at 6.0 ns on the coarse mesh (62,010 cells). Left: section through the beam axis at true scale, lattice temperature on the left half and speed on the right half. The dome wall broke at about 4 ns; the central cap flies on at about 410 m/s. The small fragments along the wall are thinner than a cell and are not resolved. The simulation is two-dimensional and axisymmetric; the 3-D view is that result revolved about the beam axis, not a 3-D simulation.*
 
-> **Status, 22 November 2026.** The mesh study of the launch found two defects (fixes 8 and 9 of [docs/CODE_REVIEW.md](docs/CODE_REVIEW.md#1-defects-that-change-results)) that had made the film momentum about 80 % too low. The results below come from the corrected solver. The earlier reference simulation (`cases/fsLIFT_332mJ_axisymmetric`, 191.7 m/s, separation at 13 ns) is **superseded** ([docs/RESULTS.md §3](docs/RESULTS.md#3-the-earlier-reference-case-superseded)). Two runs to the receiver are in progress ([§5](#5-runs-in-progress)).
+> **Status, 27 November 2026.** The mesh study of the launch found two defects (fixes 8 and 9 of [docs/CODE_REVIEW.md](docs/CODE_REVIEW.md#1-defects-that-change-results)) that had made the film momentum about 80 % too low. The results below come from the corrected solver. The earlier reference simulation (`cases/fsLIFT_332mJ_axisymmetric`, 191.7 m/s, separation at 13 ns) is **superseded** ([docs/RESULTS.md §3](docs/RESULTS.md#3-the-earlier-reference-case-superseded)). On the coarse mesh the whole sequence from the laser pulse to the impact on the receiver (about 24 ns) is now computed; a run with finer cells along the flight path is in progress ([§5](#5-runs-in-progress)).
 
 ---
 
@@ -78,7 +78,7 @@ The interface transport, surface tension and pressure coupling were also correct
 | | Status | Meaning |
 |---|---|---|
 | **Verified** | yes | Every added equation has been checked against an exact solution, an independent code or a hand calculation ([§7](#7-verification-at-a-glance), [VERIFICATION.md](docs/VERIFICATION.md)) |
-| **Mesh-converged** | the launch, to 315 ps | On three meshes the film momentum agrees within 0.6 % and the speed near the axis within 0.03 % (finest pair). The break of the dome wall and the flight were computed on the coarsest mesh only, where the wall is about one cell thick when it breaks and the flying cap is thinner than one cell from about 7 ns ([§8](#8-limitations)) |
+| **Mesh-converged** | the launch, to 315 ps | On three meshes the film momentum agrees within 0.6 % and the speed near the axis within 0.03 % (finest pair). The break of the dome wall and the flight were computed on the coarsest mesh only, where the wall is about one cell thick when it breaks, the flying metal is a jet only 2–3 cells wide from about 7 ns, and the receiver is liquid, so the impact is not physical ([§8](#8-limitations)) |
 | **Energy balance** | 4 % open at 315 ps | The laser energy is deposited correctly (−0.06 %), but 4 % of it is not accounted for at 315 ps and 7 % at 2.16 ns ([RESULTS.md §1.5](docs/RESULTS.md#15-energy-and-mass-balance)) |
 | **Validated** | no | No comparison with measurements. The model also leaves out known physics, such as stress waves in the metal and the solid glass ([§8](#8-limitations)) |
 
@@ -138,11 +138,12 @@ The case is **axisymmetric**: every quantity is the same at every angle around t
 - **Launch, to about 0.3 ns.** The glass-side surface evaporates. The vapour cannot escape; its pressure peaks at about 1.3 GPa at about 12 ps and pushes the hot centre of the film away from the glass. At 315 ps the centre moves as a nearly uniform plug at **389.5 m/s** (finest mesh). Its kinetic energy per area is 7.3 times the energy of the two new surfaces a free piece needs, and the Weber number is 29.
 - **Dome, to about 4 ns.** The film keeps speeding up, to **433 m/s at 1.9 ns** near the axis (coarse mesh), and stretches into a dome.
 - **Break, 3.96–4.26 ns.** The dome wall thins to about one radial cell and breaks. The central cap, 62–68 nm thick on the axis, flies free at about 410–420 m/s.
-- **Flight.** From about 7 ns the cap enters the coarse cells and is no longer resolved. At 18.7 ns the lowest metal is 2.5 µm above the receiver; contact is expected at about 24–28 ns.
+- **Flight.** From about 7 ns the metal near the axis is drawn into a thin jet, at most about 0.12 µm in radius (2–3 cells), moving at 455 → 422 m/s with a lattice temperature of about 3,500–3,900 K. It is not resolved on this mesh.
+- **Impact, 23.6–23.7 ns.** The jet tip reaches the receiver at about 420 m/s and then digs a crater about 1 µm deep by 30 ns. **The crater is not physical:** the model has no solid phase, so the 300 K receiver behaves as a liquid ([RESULTS.md §1.3](docs/RESULTS.md#13-dome-tear-flight-and-impact-after-315-ps-coarse-mesh-l1-only)).
 
-![Speed, momentum and position of the metal on the coarse mesh to 18.7 ns](figures/fsLIFT_332mJ_Ti_meshStudy/flight_L1_history.png)
+![Speed, momentum and position of the metal on the coarse mesh to 30 ns](figures/fsLIFT_332mJ_Ti_meshStudy/flight_L1_history.png)
 
-*Coarse mesh L1 after 315 ps: speed (left), film momentum (middle), and the lowest metal against the receiver at 8 µm (right). Grey band: first break of the dome wall. Shaded: the 71 nm cells in which the cap is thinner than one cell.*
+*Coarse mesh L1 after 315 ps: speed (left; dashed: the jet within 0.5 µm of the axis), film momentum (middle; not physical after about 4 ns, limitation 3), and the lowest metal against the receiver at 8 µm (right). Grey band: first break of the dome wall. Shaded: the 71 nm cells in which the flying metal is thinner than one cell.*
 
 **What the mesh study changed.** On the coarse mesh at 315 ps the film momentum was 5.01 × 10⁻¹³ kg m/s before the fixes, 7.39 with fix 8 (temperatures carried with the metal, not with the mixture) and 9.12 with fix 9 as well (vapour pressure on the donor film only, not also on the receiver). Before fix 8 the momentum changed by about 6 % per mesh level; after it, by 0.6 % over all three.
 
@@ -152,10 +153,11 @@ The case is **axisymmetric**: every quantity is the same at every angle around t
 
 | Run | What | From → to |
 |---|---|---|
-| **A** | coarse mesh L1 continued to the receiver: the complete sequence from the laser pulse to the impact; flight and impact qualitative | 18.7 ns → 30 ns |
-| **C** | the L1 state at 2.96 ns (before the break) copied onto mesh C, with 15 nm cells along the flight path, and continued: the cap resolved by about 4 cells through flight and impact | 2.96 ns → 35 ns, after A |
+| **C** | the L1 state at 2.96 ns (before the break) copied onto mesh C, with 15 nm cells along the flight path (71 nm on L1), and continued | 2.96 ns → 35 ns; started 27 Nov, about 32 h |
 
-How C was set up and checked: [docs/INVESTIGATION_LOG.md §13](docs/INVESTIGATION_LOG.md#13-run-c-refined-flight-path-22-nov). Mesh C does not refine the radial cells, so the break of the dome wall remains mesh-limited.
+Run A (the coarse mesh to the receiver) finished at 29.95 ns; its results are in §4.3.
+
+How C was set up and checked: [docs/INVESTIGATION_LOG.md §13](docs/INVESTIGATION_LOG.md#13-run-c-refined-flight-path-22-nov). Mesh C does not refine the radial cells, so the break of the dome wall and the radius of the jet remain mesh-limited, and its receiver is liquid too. C shows how much of the flight on L1 depended on the 71 nm cells along the path.
 
 ---
 
@@ -170,6 +172,8 @@ How C was set up and checked: [docs/INVESTIGATION_LOG.md §13](docs/INVESTIGATIO
 | Highest speed near the axis | 432.9 m/s at 1.9 ns | coarse mesh only |
 | Break of the dome wall | 3.96–4.26 ns | coarse mesh; wall about one cell thick: **mesh-limited** |
 | Central cap in flight | about 410–420 m/s at 5–6.5 ns, 62–68 nm thick | coarse mesh; not resolved after about 7 ns |
+| Jet in flight | 455 → 422 m/s (7.3–23.6 ns), radius ≤ 0.12 µm, lattice 3,500–3,900 K | coarse mesh; 2–3 cells wide: **not resolved** |
+| Contact with the receiver | 23.6–23.7 ns, at about 420 m/s | coarse mesh; qualitative |
 | Mass | −0.098 % of the film by evaporation over 0–315 ps | |
 | Energy | laser deposition −0.06 %; −4.0 % unaccounted for at 315 ps, −7.1 % at 2.16 ns | under investigation |
 
@@ -213,11 +217,11 @@ Ordered by how much each could change the answer to "does the film eject, and ho
 
 1. **The metal is incompressible.** There are no stress waves and no spallation, which in femtosecond LIFT can drive part of the ejection.
 2. **The gas is incompressible, and the glass is modelled as a gas.** The gap reacts instantly to the film (negative gauge pressures appear above it), and the gas standing in for the glass follows the departing film.
-3. **The break and the flight are mesh-limited, and momentum is not conserved after the break.** Only the launch to 315 ps is mesh-converged. After the dome wall breaks, the film momentum keeps rising, mostly through a numerical net surface-tension force on metal smeared below the cell size and through vapour-pocket pressure that the model does not vent ([INVESTIGATION_LOG.md §14](docs/INVESTIGATION_LOG.md#14-why-the-film-momentum-keeps-rising-after-the-tear-22-nov)). The dome wall breaks where it is about one cell thick, and on the coarse mesh the cap is thinner than one cell from about 7 ns. Run C refines the flight path, not the radial cells of the break.
+3. **The break and the flight are mesh-limited, and momentum is not conserved after the break.** Only the launch to 315 ps is mesh-converged. After the dome wall breaks, the film momentum keeps rising, mostly through a numerical net surface-tension force on metal smeared below the cell size and through vapour-pocket pressure that the model does not vent ([INVESTIGATION_LOG.md §14](docs/INVESTIGATION_LOG.md#14-why-the-film-momentum-keeps-rising-after-the-tear-22-nov)). The dome wall breaks where it is about one cell thick, and on the coarse mesh the flying metal is a jet only 2–3 cells wide from about 7 ns. Run C refines the flight path, not the radial cells of the break.
 4. **Temperatures far above the critical point** (about 20,000 K against 8,980 K). The evaporation closures are evaluated with the temperature capped at 10,000 K.
 5. **Energy residual** of 4 % at 315 ps and 7 % at 2.16 ns, not yet explained.
 6. **Trapped-vapour model simplifications.** No sideways vapour flow between rings, no cooling of the vapour by the glass, and an assumed initial gap of 1 nm.
-7. **No solid phase.** All metal flows as a liquid, even below the melting temperature.
+7. **No solid phase.** All metal flows as a liquid, even below the melting temperature. This includes the 300 K receiver, so the impact digs a crater that a solid receiver would not allow: nothing after contact predicts the deposit.
 8. **Damping of interface oscillations is too weak** (§7).
 9. **Axisymmetric only.** Rings cannot break into separate droplets around their circumference.
 10. **Not validated** against measurements; the LIFT experiments in the literature register could not be read for this work.

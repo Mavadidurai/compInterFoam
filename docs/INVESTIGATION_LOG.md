@@ -177,7 +177,7 @@ All values in pJ for the 5° wedge; percentages relative to the laser energy.
 - Boundary conditions identical, except the stored `value` of the mixed conditions and of `rho` on the receiver bottom (y = 0), which the solver recomputes on the first step.
 - 5 steps on 4 processes without error; the pocket state was read (m_v = 3.81e-19 kg, depth on the axis 1.47 µm, T_v = 4562 K).
 
-**Run:** driver `flightC/flightC.sh`, to 35 ns at maxDeltaT 2.5 ps, written every 0.2 ns (about 5 GB). It starts when run A has finished. The speed was not measured: the smoke test shared the 4 cores with run A. The estimate is about 30–35 h from 1.8 × the cells at the same time step [UNCERTAIN].
+**Run:** driver `flightC/flightC.sh`, to 35 ns at maxDeltaT 2.5 ps, written every 0.2 ns (about 5 GB). Started on 27 Nov at 10:08 UTC, after run A. Measured speed with the 4 cores free: about 9 s per step at 2.5 ps, i.e. about 32 h to 35 ns if the time step stays at its maximum.
 
 **What C does not fix:** the radial cells are unchanged (49 nm), so the tear of the dome wall after 2.96 ns is as mesh-limited as on L1.
 
@@ -221,3 +221,14 @@ Split of the surface tension after the tear (mass-weighted): +0.319 on the cap (
 - Run C refines only the vertical cells along the flight path. The fragments of the wall are thinner than the radial cells, so C will not remove this force [UNCERTAIN: C may reduce it on the cap].
 
 **Possible remedies (not done):** vent the pocket rings once the film above them has opened; resolve the wall radially (10–15 nm cells for r < 3.5 µm from about 3 ns); a momentum-conserving surface-tension form, or a curvature from height functions.
+
+## 15. Run A to the receiver: jet, contact and impact (27 Nov)
+
+Run A (§12) was continued to 30 ns; last write 29.95 ns. Data: `figures/fsLIFT_332mJ_Ti_meshStudy/data/flightL1/full_run_curves.csv` (`tools/full_run_curves.py`, one row per animation frame).
+
+- **The flying metal is a jet.** From about 7 ns the metal near the axis forms a jet at most about 0.12 µm in radius, i.e. 2–3 radial cells of 49 nm. Its largest metal fraction is 0.78. The α-weighted speed within 0.5 µm of the axis falls from 455 m/s (7.3 ns) to 422 m/s (23.6 ns); the lowest point moves at about 0.5 µm/ns. The jet's lattice temperature is 3,500–3,900 K. Whether a resolved cap would also stretch into a jet is not known: the jet is only 2–3 cells wide.
+- **Contact.** The lowest metal (α > 0.5, cell layers from y = 8.106 µm up) reaches 8.106 µm between the writes at 23.63 and 23.73 ns. Cell by cell at 23.985 ns, the layer touching the receiver (centre 8.035 µm) is 72 % metal for r < 0.12 µm, moving at −432 m/s, and the cells above it at −448 to −495 m/s.
+- **Impact.** The receiver is liquid titanium in this model (the same phase as the film; no solid phase, MODEL.md assumption A4). The jet digs a crater into it: receiver cells (y < 8 µm) with α < 0.5 reach down to the cell centre at y = 7.677 µm at 26.1 ns, 7.373 µm at 28.1 ns and 6.931 µm at 29.95 ns (r up to 0.57 µm), with a rim raised about 0.3 µm around it. The jet is still feeding the crater at 330–380 m/s at 30 ns. This is not a prediction of the deposit.
+- **`T` versus `Tl`.** At first the jet looked as if it had cooled to 200 K. This turned out to be the wrong field: `src/TEqn.H` sets `T = (1 − pureMetal) T + pureMetal Tl` with `pureMetal` blended to zero below a metal fraction of about 0.9, so in the jet's 78 % cells `T` is the gas-side temperature, clipped at `minT` = 200 K. The metal temperature is `Tl`. The gas-side temperature at the floor in partly filled cells is itself odd, but it has not been followed up.
+- **Slowdown by post-processing.** While ParaView rendered next to the run, the time per step rose from about 5 s to about 29 s (CPU time, not only wall time). The Mesa software renderer starts one thread per core, and the 4 MPI ranks busy-wait on each other when one is descheduled. With `LP_NUM_THREADS=1` and `nice -n 19` the run kept its speed.
+- **Animation:** `tools/render_full_run.py`, `tools/full_run_curves.py`, `tools/compose_full_run.py`; 362 frames from 1 ps to 29.95 ns.
