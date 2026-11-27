@@ -6,7 +6,7 @@ An OpenFOAM v2406 solver for **femtosecond laser-induced forward transfer (fs-LI
 
 *The current simulation at 6.0 ns on the coarse mesh (62,010 cells). Left: section through the beam axis at true scale, lattice temperature on the left half and speed on the right half. The dome wall broke at about 4 ns; the central cap flies on at about 410 m/s. The small fragments along the wall are thinner than a cell and are not resolved. The simulation is two-dimensional and axisymmetric; the 3-D view is that result revolved about the beam axis, not a 3-D simulation.*
 
-> **Status, 27 November 2026.** The mesh study of the launch found two defects (fixes 8 and 9 of [docs/CODE_REVIEW.md](docs/CODE_REVIEW.md#1-defects-that-change-results)) that had made the film momentum about 80 % too low. The results below come from the corrected solver. The earlier reference simulation (`cases/fsLIFT_332mJ_axisymmetric`, 191.7 m/s, separation at 13 ns) is **superseded** ([docs/RESULTS.md §3](docs/RESULTS.md#3-the-earlier-reference-case-superseded)). On the coarse mesh the whole sequence from the laser pulse to the impact on the receiver (about 24 ns) is now computed; a run with finer cells along the flight path is in progress ([§5](#5-runs-in-progress)).
+> **Status, 27 November 2026.** The mesh study of the launch found two defects (fixes 8 and 9 of [docs/CODE_REVIEW.md](docs/CODE_REVIEW.md#1-defects-that-change-results)) that had made the film momentum about 80 % too low. The results below come from the corrected solver. The earlier reference simulation (`cases/fsLIFT_332mJ_axisymmetric`, 191.7 m/s, separation at 13 ns) is **superseded** ([docs/RESULTS.md §3](docs/RESULTS.md#3-the-earlier-reference-case-superseded)). On the coarse mesh the whole sequence from the laser pulse to the impact on the receiver (about 24 ns) is now computed, including a rerun of the impact on a rigid receiver; a run with finer cells along the flight path is in progress ([§5](#5-runs-in-progress)).
 
 ---
 
@@ -78,7 +78,7 @@ The interface transport, surface tension and pressure coupling were also correct
 | | Status | Meaning |
 |---|---|---|
 | **Verified** | yes | Every added equation has been checked against an exact solution, an independent code or a hand calculation ([§7](#7-verification-at-a-glance), [VERIFICATION.md](docs/VERIFICATION.md)) |
-| **Mesh-converged** | the launch, to 315 ps | On three meshes the film momentum agrees within 0.6 % and the speed near the axis within 0.03 % (finest pair). The break of the dome wall and the flight were computed on the coarsest mesh only, where the wall is about one cell thick when it breaks, the flying metal is a jet only 2–3 cells wide from about 7 ns, and the receiver is liquid, so the impact is not physical ([§8](#8-limitations)) |
+| **Mesh-converged** | the launch, to 315 ps | On three meshes the film momentum agrees within 0.6 % and the speed near the axis within 0.03 % (finest pair). The break of the dome wall and the flight were computed on the coarsest mesh only, where the wall is about one cell thick when it breaks, the flying metal is a jet only 2–3 cells wide from about 7 ns, and the receiver is liquid; a rerun with a rigid receiver gives a deposit thinner than one cell ([§8](#8-limitations)) |
 | **Energy balance** | 4 % open at 315 ps | The laser energy is deposited correctly (−0.06 %), but 4 % of it is not accounted for at 315 ps and 7 % at 2.16 ns ([RESULTS.md §1.5](docs/RESULTS.md#15-energy-and-mass-balance)) |
 | **Validated** | no | No comparison with measurements. The model also leaves out known physics, such as stress waves in the metal and the solid glass ([§8](#8-limitations)) |
 
@@ -139,7 +139,9 @@ The case is **axisymmetric**: every quantity is the same at every angle around t
 - **Dome, to about 4 ns.** The film keeps speeding up, to **433 m/s at 1.9 ns** near the axis (coarse mesh), and stretches into a dome.
 - **Break, 3.96–4.26 ns.** The dome wall thins to about one radial cell and breaks. The central cap, 62–68 nm thick on the axis, flies free at about 410–420 m/s.
 - **Flight.** From about 7 ns the metal near the axis is drawn into a thin jet, at most about 0.12 µm in radius (2–3 cells), moving at 455 → 422 m/s with a lattice temperature of about 3,500–3,900 K. It is not resolved on this mesh.
-- **Impact, 23.6–23.7 ns.** The jet tip reaches the receiver at about 420 m/s and then digs a crater about 1 µm deep by 30 ns. **The crater is not physical:** the model has no solid phase, so the 300 K receiver behaves as a liquid ([RESULTS.md §1.3](docs/RESULTS.md#13-dome-tear-flight-and-impact-after-315-ps-coarse-mesh-l1-only)).
+- **Impact, about 24 ns.** The jet tip reaches the receiver at about 495 m/s.
+  - **On the model's own receiver it digs a crater, which is not physical:** the model has no solid phase, so the 300 K receiver behaves as a liquid.
+  - **On a rigid receiver** (rerun from 21.5 ns with a no-slip 300 K wall), the peak wall pressure is about 0.5 GPa, close to ½ρv². The metal spreads into a film reaching r = 1.7 µm by 30 ns. From 27 ns that film is thinner than one cell, and its edge cools far below the melting point, which the model cannot follow. The deposit is not resolved ([RESULTS.md §1.3](docs/RESULTS.md#13-dome-tear-flight-and-impact-after-315-ps-coarse-mesh-l1-only)).
 
 ![Speed, momentum and position of the metal on the coarse mesh to 30 ns](figures/fsLIFT_332mJ_Ti_meshStudy/flight_L1_history.png)
 
@@ -153,7 +155,7 @@ The case is **axisymmetric**: every quantity is the same at every angle around t
 
 | Run | What | From → to |
 |---|---|---|
-| **C** | the L1 state at 2.96 ns (before the break) copied onto mesh C, with 15 nm cells along the flight path (71 nm on L1), and continued | 2.96 ns → 35 ns; started 27 Nov 10:08 UTC, about 35 h (expected end about 28 Nov 21:00 UTC) |
+| **C** | the L1 state at 2.96 ns (before the break) copied onto mesh C, with 15 nm cells along the flight path (71 nm on L1), and continued | 2.96 ns → 35 ns; started 27 Nov 10:08 UTC, about 35 h of computing; paused on 27 Nov from 12:15 to about 18:30 UTC for the rigid-receiver run and its animation (expected end about 29 Nov 03:00 UTC) |
 
 Run A (the coarse mesh to the receiver) finished at 29.95 ns; its results are in §4.3.
 
@@ -221,7 +223,7 @@ Ordered by how much each could change the answer to "does the film eject, and ho
 4. **Temperatures far above the critical point** (about 20,000 K against 8,980 K). The evaporation closures are evaluated with the temperature capped at 10,000 K.
 5. **Energy residual** of 4 % at 315 ps and 7 % at 2.16 ns, not yet explained.
 6. **Trapped-vapour model simplifications.** No sideways vapour flow between rings, no cooling of the vapour by the glass, and an assumed initial gap of 1 nm.
-7. **No solid phase.** All metal flows as a liquid, even below the melting temperature. This includes the 300 K receiver, so the impact digs a crater that a solid receiver would not allow: nothing after contact predicts the deposit.
+7. **No solid phase.** All metal flows as a liquid, even below the melting temperature. The 300 K receiver is a liquid too, so the impact digs a crater. A rigid-wall rerun removes the crater, but the deposit still cannot freeze, and on the coarse mesh it is thinner than one cell: nothing after contact predicts the deposit.
 8. **Damping of interface oscillations is too weak** (§7).
 9. **Axisymmetric only.** Rings cannot break into separate droplets around their circumference.
 10. **Not validated** against measurements; the LIFT experiments in the literature register could not be read for this work.

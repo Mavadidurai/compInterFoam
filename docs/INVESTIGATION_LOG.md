@@ -177,7 +177,7 @@ All values in pJ for the 5° wedge; percentages relative to the laser energy.
 - Boundary conditions identical, except the stored `value` of the mixed conditions and of `rho` on the receiver bottom (y = 0), which the solver recomputes on the first step.
 - 5 steps on 4 processes without error; the pocket state was read (m_v = 3.81e-19 kg, depth on the axis 1.47 µm, T_v = 4562 K).
 
-**Run:** driver `flightC/flightC.sh`, to 35 ns at maxDeltaT 2.5 ps, written every 0.2 ns (about 5 GB). Started on 27 Nov at 10:08 UTC, after run A. Measured speed with the 4 cores free (3.30–3.57 ns): 15.6 ps of simulated time per minute, about 9–10 s per step at 1.9–2.5 ps; the pressure solver uses its 200-iteration limit in most corrections, as on L1. About 35 h in all, ending about 28 Nov 21:00 UTC. While post-processing ran next to it, steps took up to 400 s.
+**Run:** driver `flightC/flightC.sh`, to 35 ns at maxDeltaT 2.5 ps, written every 0.2 ns (about 5 GB). Started on 27 Nov at 10:08 UTC, after run A. Measured speed with the 4 cores free (3.30–3.57 ns): 15.6 ps of simulated time per minute, about 9–10 s per step at 1.9–2.5 ps; the pressure solver uses its 200-iteration limit in most corrections, as on L1. About 35 h in all. Paused on 27 Nov from 12:15 to about 18:30 UTC for the rigid-receiver run and its animation (§16), so the end moves to about 29 Nov 03:00 UTC. A restart at 11:58 began again from 2.96 ns because `startFrom` was `startTime`; it is now `latestTime`. While post-processing ran next to it, steps took up to 400 s.
 
 **What C does not fix:** the radial cells are unchanged (49 nm), so the tear of the dome wall after 2.96 ns is as mesh-limited as on L1.
 
@@ -232,3 +232,39 @@ Run A (§12) was continued to 30 ns; last write 29.95 ns. Data: `figures/fsLIFT_
 - **`T` versus `Tl`.** At first the jet looked as if it had cooled to 200 K. This turned out to be the wrong field: `src/TEqn.H` sets `T = (1 − pureMetal) T + pureMetal Tl` with `pureMetal` blended to zero below a metal fraction of about 0.9, so in the jet's 78 % cells `T` is the gas-side temperature, clipped at `minT` = 200 K. The metal temperature is `Tl`. The gas-side temperature at the floor in partly filled cells is itself odd, but it has not been followed up.
 - **Slowdown by post-processing.** While ParaView rendered next to the run, the time per step rose from about 5 s to about 29 s (CPU time, not only wall time). The Mesa software renderer starts one thread per core, and the 4 MPI ranks busy-wait on each other when one is descheduled. With `LP_NUM_THREADS=1` and `nice -n 19` the run kept its speed.
 - **Animation:** `tools/render_full_run.py`, `tools/full_run_curves.py`, `tools/compose_full_run.py`; 362 frames from 1 ps to 29.95 ns.
+
+## 16. Rigid receiver: impact of run A's jet on a wall (27 Nov)
+
+The liquid receiver of §15 makes the impact meaningless, so the impact was rerun with a rigid receiver. Data: `figures/fsLIFT_332mJ_Ti_meshStudy/data/rigidL1/` (README there).
+
+**Set-up.** Started from run A at 21.5 ns, when the lowest metal was 1.17 µm above the receiver.
+- **Receiver cells removed.** The 1,802 cells below y = 8 µm were cut out with `topoSet` (boxToCell from y = 8 µm up) and `subsetMesh … -patch substrate -overwrite`, leaving 60,208 cells. `subsetMesh` copies the remaining cells' values without interpolation.
+- **New wall.** The exposed faces (106) joined the existing wall patch `substrate`, now at y = 8 µm. Their boundary values are not mapped by `subsetMesh`, so they were set explicitly with `foamDictionary`, which needs ASCII fields (`foamFormatConvert` first):
+  - `U` fixedValue 0 (no slip);
+  - `T`, `T.air`, `T.metal` fixedValue 300 K;
+  - `Tl`, `Te` mixed (refValue 300 K, valueFraction 0.9), as on the original substrate;
+  - `alpha.metal` zeroGradient, i.e. a 90° contact angle;
+  - `p_rgh` fixedFluxPressure.
+- **Fluxes recomputed.** `phi` and `alphaPhi10` were deleted so they are rebuilt from the fields.
+- **Check.** `checkMesh` passed. The metal volume after the cut is 0.19891 µm³ in the 5° wedge, against 14.31 µm³ / 72 = 0.1988 µm³ for the whole donor metal, so nothing that flies was lost.
+- **Run.** Same solver settings as run A (maxDeltaT 2.5e-12 s), written every 0.1 ns, from 21.5 to 29.98 ns. The 4 cores took 4 h 40 min, with run C paused.
+
+**Assumptions** beyond those of run A:
+- the wall is rigid and held near 300 K;
+- the contact angle is 90°; liquid titanium probably wets titanium better [not checked];
+- the metal on the wall does not solidify.
+
+**Results** (coarse mesh L1; quantities from `tools/impact_rigid.py` and `tools/wall_film_profile.py`):
+- **Contact.** The lowest metal cell (α > 0.5) reaches the first cell layer on the wall (centre 8.035 µm) between 23.9 and 24.0 ns. With the criterion of §15 (second layer, 8.106 µm) it is 23.8 ns, against 23.63–23.73 ns in run A. The two runs are the same flow until the receiver matters, so this 0.1 ns difference shows how sensitive this time is to the write interval and the threshold.
+- **Impact speed and pressure.** The largest downward speed of metal within 1 µm of the wall is 495 m/s at 24.0 ns. The largest pressure in the first cell layer is 508 MPa at 24.1 ns, against ½ρv² = ½ × 4506 × 495² = 0.55 GPa. It stays at 260–390 MPa while the jet keeps arriving (to 26.9 ns), drops to 40–60 MPa from 27.7 to 29.3 ns, and rises again when the second piece of the jet lands (176 MPa at 30.0 ns).
+- **Spreading.** The equivalent thickness h(r) is the sum of α Δy over the two cell layers next to the wall, with metal colder than 400 K excluded (see below). The radius where h > 2 nm is 0.37 µm at 24.0 ns, 0.71 µm at 25.2 ns, 1.06 µm at 27.0 ns, 1.40 µm at 28.8 ns and 1.70 µm at 30.0 ns. Radial speeds of the metal near the wall are 230–430 m/s.
+- **The deposit falls below the mesh.** From 27.3 ns no wall cell is more than half metal. h peaks at about 110 nm at 25–26 ns and is 28 nm at 28.2 ns and 19 nm at 29.4 ns. The α = 0.5 surface used in the animation therefore loses the deposit. The animation (`compose_full_run.py` with `FILM=`) draws h(r) in cyan behind the rendered metal.
+- **Second piece of the jet.** The jet behind the tip has broken off (gap 0.89 µm at 27.7 ns) and lands at about 29.9 ns at 330–440 m/s.
+- **No rebound.** Metal within 1 µm of the wall never moves away from it faster than about 50 m/s (α > 0.05). A jet 2–3 cells wide and a film thinner than a cell cannot show a splash, so this does not rule one out.
+- **Temperature.** The metal on the wall is at 2,900–3,300 K in the centre at 24–27 ns. At the edge it falls to 550–700 K by 28–30 ns, far below the melting point (1941 K). A real deposit would start to freeze at its edge within a few nanoseconds, which the model cannot represent (A4).
+- **Volume.** The metal in the first layer grows from 0.0074 µm³ (full circle) before contact to 0.067 µm³ at 27.3 ns. That is about 0.06 µm³ deposited, about 0.4 % of the 14.3 µm³ of metal in the model; most of the film is still near the donor at 30 ns.
+- **Leftover receiver metal.** When the receiver was cut at 21.5 ns, about 0.009 µm³ (full circle) of cold metal (306–332 K, α up to 0.29, at r ≈ 0.4 µm) lay in the first layer above y = 8 µm, a bump of run A's liquid receiver surface. It is excluded from h(r) by the 400 K threshold and has been subtracted in the volume above.
+
+**What this changes.** The crater of §15 is gone. The impact pressure is close to ½ρv², as expected for a liquid jet on a wall. On L1 the deposit is a film thinner than one cell, so the shape of the deposit and any splash are still not predictions. Resolving them needs much smaller cells near the wall and a solidification model.
+
+**Animation.** `/home/user/linkedin_post/LIFT_full_run_rigid_0-30ns_*`. Frames are from run A up to 21.5 ns, then from the rigid run (85 frames). The receiver is drawn as a hatched wall in every frame (`RIGID=1`). Tools: `tools/render_full_run.py` (`CLIP3=7.995`), `tools/full_run_curves.py`, `tools/impact_rigid.py`, `tools/wall_film_profile.py`, `tools/compose_full_run.py` (`RIGID=1 FILM=…`).

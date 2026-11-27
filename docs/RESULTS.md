@@ -11,7 +11,7 @@ Status: 27 November 2026.
 **Read the [limitations](#limitations) before using any number.** In short:
 - the launch of the film up to 315 ps is mesh-converged: momentum within 0.6 % and speed on the axis within 0.03 % over three meshes;
 - everything after 315 ps comes from the coarsest mesh only. The dome wall tears where it is about one cell thick, and from about 7 ns the flying metal is a jet only 2–3 cells wide. Tear and flight are therefore qualitative;
-- the jet reaches the receiver at 23.6–23.7 ns at about 420 m/s on that mesh. The impact is not physical: the model treats the 300 K receiver as a liquid, and the jet digs a crater about 1 µm deep into it;
+- the jet reaches the receiver at about 24 ns on that mesh, its tip at about 495 m/s. On a rigid receiver (rerun from 21.5 ns) the peak wall pressure is about 0.5 GPa, close to ½ρv², and the metal spreads into a film about 3 µm across by 30 ns. That film is thinner than one cell, so the deposit's shape is not resolved. With the model's liquid receiver the jet digs a crater instead, which is not physical;
 - about 4 % of the laser energy is unaccounted for at 315 ps, and about 7 % at 2.16 ns ([§1.5](#15-energy-and-mass-balance));
 - nothing is compared with an experiment.
 
@@ -77,6 +77,8 @@ At 315 ps, from [`data/fixes8and9/gci_3.148e-10s.csv`](../figures/fsLIFT_332mJ_T
 | 18.7 ns | (mean of the flying metal 266 m/s) | | 10.52 µm (lowest metal) | 2.5 µm above the receiver |
 | 23.6–23.7 ns | jet within 0.5 µm of the axis: 422 m/s | | 8.04 µm (cell touching the receiver) | **the jet tip reaches the receiver** |
 | 26.1 / 28.1 / 29.95 ns | jet 376 / 371 / 334 m/s | | | crater in the (liquid) receiver 0.32 / 0.63 / 1.07 µm deep; not physical (see below) |
+| **rigid receiver:** 23.9–24.0 ns | tip 495 m/s | | 8.035 µm (first cell layer) | contact; wall pressure 508 MPa (½ρv² = 0.55 GPa) |
+| **rigid receiver:** 27.0 / 30.0 ns | radial 230–430 m/s | | | metal film on the wall to r = 1.06 / 1.70 µm, thinner than one cell from 27.3 ns |
 
 ![Section and 3-D view at 3.5 ns: the dome](../figures/fsLIFT_332mJ_Ti_meshStudy/flight_L1_3.5ns.png)
 
@@ -91,6 +93,7 @@ At 315 ps, from [`data/fixes8and9/gci_3.148e-10s.csv`](../figures/fsLIFT_332mJ_T
 - **What flies is a thin jet on the axis, not a flat cap.** From about 7 ns the metal near the axis is drawn into a jet at most about 0.12 µm in radius (2–3 radial cells of 49 nm), whose metal fraction never exceeds 0.78. Its speed within 0.5 µm of the axis falls slowly from 455 m/s at 7.3 ns to 422 m/s at 23.6 ns; its lowest point moves at about 0.5 µm/ns. Its lattice temperature is about 3,500–3,900 K, above the melting point (1,941 K). A jet only 2–3 cells wide is not resolved: its radius, and whether a real cap would form a jet at all, are set by the mesh here.
 - **Contact.** The jet tip reaches the cell layer touching the receiver between the writes at 23.63 and 23.73 ns, at about 420 m/s (checked cell by cell: at 23.985 ns that layer is 72 % metal for r < 0.12 µm, moving at −432 m/s). This is early in the range of 24–28 ns estimated from the position at 18.7 ns.
 - **Impact.** The jet keeps feeding metal into the landing site and digs a crater into the receiver with a raised rim: 0.32 µm deep at 26.1 ns, 0.63 µm at 28.1 ns and 1.07 µm at 29.95 ns, about 1 µm wide, still deepening when the run stops. **The crater is not physical.** The model has no solid phase (limitation 7): the 300 K titanium receiver is a liquid with a viscosity of 2.35 mPa s, so it gives way like a pool. A solid titanium receiver would at most deform plastically under the impact, which this model cannot represent [the size of that deformation has not been estimated]. The impact on this mesh is therefore a picture of a liquid jet entering a liquid pool, nothing more.
+- **Impact on a rigid receiver** ([INVESTIGATION_LOG.md §16](INVESTIGATION_LOG.md#16-rigid-receiver-impact-of-run-as-jet-on-a-wall-27-nov)). Run A was restarted at 21.5 ns, when the lowest metal was 1.17 µm above the receiver, with the receiver cells removed. In their place is a no-slip wall near 300 K with a 90° contact angle. The jet tip reaches the wall between 23.9 and 24.0 ns at 495 m/s. The largest wall pressure is 508 MPa, close to ½ρv² = 0.55 GPa. The metal spreads along the wall: the edge of the film is at r = 0.37 µm at 24.0 ns, 1.06 µm at 27.0 ns and 1.70 µm at 30.0 ns. From 27.3 ns the film is thinner than half a cell (19 nm at its thickest at 29.4 ns), so its shape is not resolved. No metal rebounds, but a jet 2–3 cells wide could not show a splash anyway. The centre of the deposit is at 2,900–3,300 K, while its edge cools to 550–700 K by 30 ns, far below the melting point: a real deposit would begin to freeze, which the model cannot do. About 0.06 µm³ has landed by 27 ns, about 0.4 % of the metal; most of the film is still near the donor at 30 ns.
 ![Section, 3-D view and zoom on the landing site at 24.2 ns: the jet has just reached the receiver](../figures/fsLIFT_332mJ_Ti_meshStudy/full_run_L1_24.2ns.png)
 
 ![The same at 29.95 ns: the jet has dug a crater into the liquid receiver](../figures/fsLIFT_332mJ_Ti_meshStudy/full_run_L1_29.95ns.png)
@@ -126,7 +129,7 @@ Run A, L1 continued to the receiver, finished on 27 November at 29.95 ns; its re
 
 | Run | What | Mesh | From → to | Expected |
 |---|---|---|---|---|
-| **C** | the L1 state at 2.9625 ns, before the tear, copied onto a mesh refined along the flight path, and continued | 112,148 cells: 15 nm cells for y = 8–16.5 µm (instead of 71 nm), graded to the unchanged 8.5 nm cells above 17 µm | 2.9625 ns → 35 ns, started 27 Nov 10:08 UTC; 15.6 ps of simulated time per minute, about 35 h in all (expected end about 28 Nov 21:00 UTC) | the flying metal resolved along the flight path (15 nm instead of 71 nm); its radius is still limited by the unchanged 49 nm radial cells |
+| **C** | the L1 state at 2.9625 ns, before the tear, copied onto a mesh refined along the flight path, and continued | 112,148 cells: 15 nm cells for y = 8–16.5 µm (instead of 71 nm), graded to the unchanged 8.5 nm cells above 17 µm | 2.9625 ns → 35 ns, started 27 Nov 10:08 UTC; 15.6 ps of simulated time per minute, about 35 h of computing in all; paused on 27 Nov from 12:15 to about 18:30 UTC for the rigid-receiver run (expected end about 29 Nov 03:00 UTC) | the flying metal resolved along the flight path (15 nm instead of 71 nm); its radius is still limited by the unchanged 49 nm radial cells |
 
 How C was set up, and what was checked: [INVESTIGATION_LOG.md §13](INVESTIGATION_LOG.md#13-run-c-refined-flight-path-22-nov). C refines the vertical direction only. The radial cells (49 nm) are unchanged, so the tear of the dome wall, which happens after 2.96 ns, is still limited by the radial cell size in C (limitation 3). Run A showed that the flying metal is a jet 2–3 radial cells wide (§1.3), so C will not resolve the jet's radius either, and its receiver is liquid too: C can show how much of A's flight depended on the 71 nm vertical cells, not give a resolved impact.
 
@@ -157,7 +160,7 @@ Ordered by how much each could change the answer to "does the film eject, and ho
 4. **Temperatures far above the critical point.** The lattice reaches about 20,000 K, more than twice the critical temperature of titanium (8,980 K as cited by Hobmaier et al. 2026; the case file uses 9,500 K). The saturation pressure and evaporation flux are evaluated with the temperature capped at 10,000 K, outside the range of these closures.
 5. **Energy residual.** 4 % of the laser energy is unaccounted for at 315 ps and 7 % at 2.16 ns (§1.5). A loss of similar size on every mesh would not show in the mesh study.
 6. **Trapped-vapour model simplifications.** No sideways vapour flow between the radial rings, no cooling of the vapour by the glass, and an assumed initial gap of 1 nm. None of these has been varied.
-7. **No solid phase.** All metal flows as a liquid, even below the melting temperature (1941 K). This includes the 300 K receiver: on impact the jet digs a crater about 1 µm deep into it (§1.3), which a solid receiver would not allow. Everything after contact is therefore not a prediction of the deposit.
+7. **No solid phase.** All metal flows as a liquid, even below the melting temperature (1941 K). The 300 K receiver is a liquid too, so on impact the jet digs a crater about 1 µm deep into it (§1.3). The rigid-receiver rerun removes the crater, but it is a stand-in for the wall (no-slip, 300 K, 90° contact angle), and the deposit still cannot freeze. Its edge cools far below the melting point within a few nanoseconds.
 8. **Damping of interface oscillations is too weak** ([VERIFICATION.md §5](VERIFICATION.md#5-open-points)). This matters for the thinning and breaking of liquid walls.
 9. **Axisymmetric only.** A ring cannot break into droplets around its circumference, and an off-centre beam or film defects cannot be represented.
 10. **Not validated** against measurements ([LITERATURE.md §8](LITERATURE.md#8-lift-experiments-not-yet-compared)).
@@ -167,7 +170,7 @@ Ordered by how much each could change the answer to "does the film eject, and ho
 
 In order of priority:
 1. Finish run C (§2) and compare its flight with run A's (contact at 23.6–23.7 ns, jet at about 420 m/s).
-2. Give the receiver a solid response (for example a no-slip rigid receiver below its melting point) before any statement about the deposit.
+2. Resolve the deposit: the rigid-receiver rerun (§1.3) gives a film thinner than one cell. A deposit needs cells of about 10 nm near the wall and a solidification model; check the effect of the contact angle.
 3. Resolve the tear: rerun from about 3 ns on a mesh with about 10–15 nm radial cells for r < 3.5 µm; this would also resolve the jet's radius.
 4. Find the energy residual (§1.5): the same balance on L2 and L3, and an energy-conserving form of the temperature transport of fix 8.
 5. Remove the two sources of false momentum after the tear (§1.3): vent the pocket rings once the film above them has opened, and resolve or remove the metal smeared below the cell size (a momentum-conserving surface-tension form would remove the net force altogether).
