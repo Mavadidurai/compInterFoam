@@ -100,6 +100,10 @@ At 315 ps, from [`data/fixes8and9/gci_3.148e-10s.csv`](../figures/fsLIFT_332mJ_T
 
 *Frames of the whole-run animation (`tools/render_full_run.py`, `tools/compose_full_run.py`). Left: section through the axis from the glass side (top) to the receiver (bottom), true scale, lattice temperature (log scale) on the left half and speed on the right half; metal is drawn where α ≥ 0.5, so the smeared parts of the jet are not shown. Middle: 3-D view and a zoom on the landing site (blue box). Right: gap to the receiver and speed within 0.5 µm of the axis against log time. The crater in the second frame is an artefact of the liquid receiver.*
 
+![Rigid-receiver rerun at 26.98 ns: the jet has spread on the wall; the cyan film is thinner than one cell and drawn at its mean thickness](../figures/fsLIFT_332mJ_Ti_meshStudy/full_run_rigid_L1_27.0ns.png)
+
+*The rigid-receiver rerun at 26.98 ns (`RIGID=1 FILM=… tools/compose_full_run.py`). The receiver is a no-slip wall at 300 K. The metal that has landed has spread to r ≈ 1 µm as a film mostly thinner than half a cell. The α = 0.5 rendering misses that film, so it is drawn in cyan at its equivalent thickness (`tools/wall_film_profile.py`). A second piece of the jet is on its way down.*
+
 - In cells that are less than about 90 % metal the solver's mixture temperature `T` is the gas-side value, not the metal's (`src/TEqn.H`, the blend with `Tl`). In the jet it sits at the lower bound `minT` = 200 K. Read the metal temperature from `Tl`, not from `T`.
 
 ### 1.4 Mass
