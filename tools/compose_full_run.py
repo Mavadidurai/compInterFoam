@@ -92,7 +92,7 @@ for i, t in T:
     if FILM is not None:
         ax.add_patch(plt.Rectangle((-0.5, -0.5), wz, hz, fc=BG, ec='none', zorder=0)); film(ax, tns, wz, hz, ZW, ZH)
         iz = see_through(iz)
-        if tns > 21.5: ax.text(0.97*wz, 0.03*hz, 'cyan: metal film thinner than\none mesh cell, drawn at its\nmean thickness', fontsize=10.5, color='#0e7490', ha='right', va='top', zorder=5)
+        if tns > 21.5: ax.text(0.97*wz, 0.97*hz, 'cyan: metal film thinner than\none mesh cell, drawn at its\nmean thickness', fontsize=10.5, color='#a5f3fc', ha='right', va='bottom', zorder=5)
     ax.imshow(iz, interpolation='lanczos', zorder=2)
     if RIGID: ax.add_patch(plt.Rectangle((-0.5, hz*(1-1.0/ZH)), wz, hz/ZH, fc='#4b5563', ec='#9ca3af', lw=0, hatch='///', zorder=4))
     ax.set_xticks([]); ax.set_yticks([]); [s.set_color('#2563eb') for s in ax.spines.values()]; [s.set_linestyle('--') for s in ax.spines.values()]; [s.set_linewidth(1.6) for s in ax.spines.values()]
