@@ -155,7 +155,7 @@ The case is **axisymmetric**: every quantity is the same at every angle around t
 
 | Run | What | From → to |
 |---|---|---|
-| **C** | the L1 state at 2.96 ns (before the break) copied onto mesh C, with 15 nm cells along the flight path (71 nm on L1), and continued | 2.96 ns → 35 ns; started 27 Nov 10:08 UTC; paused on 27 Nov from 12:15 to about 18:00 UTC for the rigid-receiver run and its animation; at 7.48 ns on 27 Nov 21:14 UTC (expected end about 29 Nov 00:00 UTC). So far it agrees with A within 2 % in the speed on the axis, but the metal has only just reached the refined cells |
+| **C** | the L1 state at 2.96 ns (before the break) copied onto mesh C, with 15 nm cells along the flight path (71 nm on L1), and continued | 2.96 ns → 35 ns; started 27 Nov 10:08 UTC; paused on 27 Nov from 12:15 to about 18:00 UTC for the rigid-receiver run and its animation; at 24.47 ns on 28 Nov 13:12 UTC (expected end about 29 Nov 00:30 UTC). The bulk of the jet flies within 2.5 % of A's speed, but a thin, fast tip (about 650 m/s against about 510 m/s) reaches the receiver at 20.6 ns instead of 23.6–23.7 ns: **the arrival time is not mesh-converged** |
 
 Run A (the coarse mesh to the receiver) finished at 29.95 ns; its results are in §4.3.
 

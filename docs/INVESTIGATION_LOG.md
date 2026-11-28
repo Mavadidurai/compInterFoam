@@ -194,7 +194,22 @@ All values in pJ for the 5° wedge; percentages relative to the laser energy.
 
 - The gap agrees within 0.04 µm and the axis speed within 2.0 % (largest difference at 6.4–6.6 ns). The axis lattice temperature in C falls faster: 113–140 K (2.9–3.6 %) lower from 6.4 ns.
 - **This is not yet a test of the refinement.** The lowest metal cell is at y = 8 + gap. It stays above 17 µm, where meshes C and L1 have the same 8.5 nm cells, until about 6.2 ns (gap 9.02 µm). It is in the graded 16.5–17 µm band until about 7.3 ns and has just entered the 15 nm cells at 7.48 ns (y = 16.46 µm). The differences so far must come from the refined cells below the metal, i.e. the gas and vapour there [UNCERTAIN: not traced; candidates are the gas temperature next to the leading edge and the pressure field below the jet].
-- The flight through 8–16.5 µm and the contact (23.6–23.7 ns in A) are still to come.
+- **Update at 24.47 ns (28 Nov): the arrival is not mesh-converged.** On mesh C the leading metal reaches the receiver at **20.5–20.6 ns**, against 23.6–23.7 ns on L1, about 3 ns (13 %) earlier (`data/flightC/full_run_curves_C.csv`, `data/flightC/front_tip_C.csv`, `tools/front_tip_stats.py`). On mesh C the first counted cell above the receiver has its centre at 8.0525 µm, so gap = 0.0525 µm means contact.
+
+| t [ns] | gap C / A [µm] | v on the axis C / A [m/s] |
+|---|---|---|
+| 8.08 | 8.193 / 8.194 | 452 / 451 |
+| 12.02 | 5.614 / 5.938 | 447 / 439 |
+| 15.98 | 2.976 / 3.790 | 441 / 431 |
+| 20.00 | 0.397 / 1.876 | 436 / 426 |
+| 22.68 | contact / 0.638 | 397 / 424 |
+| 24.47 | contact / contact | 377 / 413 |
+
+  - Front speed from the gap: from 12.02 to 20.00 ns C closes (5.614 − 0.397) µm / 7.98 ns = 654 m/s, A (5.938 − 1.876) / 7.98 = 509 m/s. The tip metal of C (α > 0.5 within 0.5 µm of its lowest cell) moves at 650–660 m/s (α V weighted) from 16 to 20.6 ns, with cells up to 700–775 m/s.
+  - The fast tip is a thread about two radial cells wide (outermost cell centre r = 0.074 µm) holding only 0.0024–0.0039 µm³ (full circle), about 0.02 % of the 14.31 µm³ of metal. The α-weighted speed within 0.5 µm of the axis differs by only 1.5–2.5 % up to 20.6 ns, so the bulk of the jet flies at nearly the same speed on both meshes. After C's contact the axis speed in C falls (to 377 m/s at 24.47 ns) because metal near the axis stops on the receiver.
+  - On C the first metal touches at 20.6 ns, spreads below α = 0.5 (gap 0.32 µm at 21.08 ns) and is followed by more of the thread (contact again from 21.68 ns). Flying metal below y = 9 µm: 0.0075 µm³ at 20.6 ns, 0.054 µm³ at 24.47 ns.
+  - Why C's tip is faster is not established. On L1 a thread this thin fills a 71 nm cell to less than half, so the α > 0.5 front can lag the metal; and the numerical net surface-tension force of §14 acts on exactly such sub-cell metal and may differ with the vertical cell size [UNCERTAIN: neither is tested]. The radial cells (49 nm) are the same on both meshes, so the thread is unresolved on both, and neither arrival time can be called converged.
+  - Consequence: the contact time (21–24 ns) and the tip speed at impact (about 500 m/s on L1, about 650 m/s on C) depend on the mesh. The impact numbers of §16 (rigid receiver, from L1) hold only for L1.
 
 ## 14. Why the film momentum keeps rising after the tear (22 Nov)
 
