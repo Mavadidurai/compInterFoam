@@ -145,6 +145,17 @@ private:
             const dimensionedScalar& ambient
         );
         //- Assemble, relax, solve, and correct the lattice equation
+        //- Add the advective transport of T (Tl or Te) to TEqn, carried by
+        //  the metal flux (default) or the mixture flux
+        //  (temperatureAdvectionFlux metal|mixture)
+        void addTemperatureAdvection
+        (
+            fvScalarMatrix& TEqn,
+            volScalarField& T,
+            const volScalarField& C,
+            const volScalarField& capacity
+        ) const;
+
         void solveLatticeEquation
         (
             const volScalarField& metalEff,

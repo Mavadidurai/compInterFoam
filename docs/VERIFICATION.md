@@ -13,10 +13,10 @@
 | Question | Name | Answered here? |
 |---|---|---|
 | Does the code solve its equations correctly? | code verification | **largely**: the laser source, the two-temperature model (with k_e = C_e D_e), evaporation, recoil, surface tension, viscosity and Galilean invariance against exact solutions, an independent code or hand calculations (§2). Not covered by a test: the Drude k_e path, the gas–metal exchange, and the mass balance of the trapped-vapour pocket |
-| How large is the numerical error of a production run? | solution verification | **partly**: drop benchmarks at several resolutions. There is no mesh-refinement study of the reference case (§5) |
+| How large is the numerical error of a production run? | solution verification | **partly**: a three-mesh study of the launch to 315 ps (§2.4), an energy and mass balance (§2.4), and drop benchmarks at several resolutions. The tear and the flight after about 4 ns have been computed on one mesh only (§5) |
 | Are these the right equations for fs-LIFT? | validation | **no**: no comparison with measurements is included |
 
-**Which code version the numbers belong to.** The rows marked *released code* were run with the code in this repository. The other rows were run during development, before the last two corrections to the interface transport (the density update and the interface normal of the compression, §4). Those corrections do not touch the laser, two-temperature, evaporation or recoil code, so the earlier results for these parts still apply.
+**Which code version the numbers belong to.** The rows marked *released code* were run with the code in this repository, including fixes 8 and 9 of [CODE_REVIEW.md §1](CODE_REVIEW.md#1-defects-that-change-results) unless stated. The other rows were run during development, before the corrections to the interface transport (the density update and the interface normal of the compression, §4) and before fixes 8 and 9. Those corrections do not touch the laser, evaporation or recoil code, and the 1-D two-temperature test repeated after fix 8 gave a peak electron temperature of 6649 K (6636 K before; finite-difference code 6672 K), so the earlier results for these parts still apply.
 
 ---
 
@@ -39,7 +39,7 @@
 | Evaporation flux (Hertz–Knudsen) | every evaporating cell of a 2-D run (100 cells, 1986–5129 K), and a hand calculation | the formula | ratio 1.000000 (0.999999–1.000002); hand check 4249 against 4246 kg/(m² s) |
 | Recoil pressure 0.54 · p_sat | every recoil cell of a 2-D run, and a hand calculation | the formula | ratio 0.9989; hand check 5.96 against 5.95 MPa. The 0.1 % difference comes from the gas constant: the recoil uses k_B/m = 173.7 J/(kg K), the evaporation the input 174 J/(kg K) |
 | Latent heat | lattice energy lost against the latent plus sensible heat of the evaporated metal, 1-D | energy balance | 1.6 times the latent heat alone, against about 1.4 expected from the latent and sensible heat: 14 % apart, not explained |
-| Force on the film | change of the metal momentum against the impulse of the recoil and trapped-vapour force, from the reference run (*released code*) | Newton's second law | 0.99 (42–102 ps), 0.96 (102–202 ps), 0.94 (202–402 ps). See §5 for the remaining few percent |
+| Force on the film | time integral of the logged force budget against the change of the film momentum, mesh-study case (*released code*) | Newton's second law | 0.969 (L2) and 0.977 (L3) over 2–315 ps; 0.959 on L1 over 0–305 ps. The residual shrinks with the cell size (§5). Before fix 9 the budget was 1.65 times the film's momentum change, because it also counted the push on the receiver; an earlier test on the superseded reference run (0.99, 0.96, 0.94 over 42–402 ps) used the recoil and vapour entries only |
 
 ### 2.3 Flow, interface and surface tension
 
@@ -56,6 +56,26 @@ Drop benchmarks: a liquid titanium drop (density 4515 kg/m³, viscosity 2.35e-3 
 | Galilean invariance | 1-D column (2.23 nm film cells) moving as a whole at −170 m/s, laser off | velocity −170 m/s and pressure 1e5 Pa everywhere, for all time | velocity −170.000 m/s; pressure within 0.1 % of 1e5 Pa at 10 ps and within 0.001 % at 30 and 100 ps; metal volume exactly conserved. Before the density correction (§4) the metal carried a false pressure of −1.2e8 to −1.6e8 Pa, close to −ρU² = −1.3e8 Pa |
 | Interface compression on a moving interface | 1-D film with a smeared 40 nm interface layer, moving at −170 m/s; one setting changed at a time | the compression must re-sharpen the layer | after the correction of the interface normal (§4): 19 partly filled cells at 0.5 ns with `cAlpha 2` against 26 with `cAlpha 0`. Before the correction, every setting gave identical results |
 | Parallel and restart | serial against 3 and 4 processes with different decompositions; restart from a written time | identical results | identical to 8 digits; a restart reproduces the uninterrupted run |
+
+### 2.4 Solution verification of the mesh-study case
+
+Case `cases/fsLIFT_332mJ_Ti_meshStudy`, meshes L1 / L2 / L3 with 62,010 / 124,200 / 248,252 cells (refinement ratio √2 in both directions), all fixes (*released code*). Full record: [INVESTIGATION_LOG.md](INVESTIGATION_LOG.md) §9 and §11; data: [`figures/fsLIFT_332mJ_Ti_meshStudy/data/fixes8and9/`](../figures/fsLIFT_332mJ_Ti_meshStudy/data/fixes8and9/).
+
+| Quantity at 315 ps | L1 / L2 / L3 | Result |
+|---|---|---|
+| Film momentum | 9.116 / 9.104 / 9.061 × 10⁻¹³ kg m/s | spread 0.6 %; the change grows on the finer pair, so no order or GCI can be given |
+| Speed within 1 µm of the axis | 396.3 / 389.6 / 389.5 m/s | converged, L2–L3 0.03 % |
+| Film thickness on the axis | 68.84 / 68.88 / 68.90 nm | converged, GCI 0.02 % |
+| Peak lattice temperature | 19,183 / 19,778 / 20,044 K | monotonic, GCI 1.3 % |
+| Kinetic energy | 1.300 / 1.285 / 1.267 × 10⁻¹⁰ J | spread 2.6 % |
+
+| Balance (L1) | Result |
+|---|---|
+| Laser energy deposited | 326.04 pJ against 326.24 pJ requested (wedge), −0.06 % |
+| Evaporation heat against the latent heat of the mass lost | 92 % at 30 ps |
+| Energy not accounted for | −0.8 % (0.51 ps), −2.3 % (30 ps), −4.0 % (315 ps), −7.1 % (2.16 ns) of the laser energy (§5) |
+| Metal volume | −0.098 % over 0–315 ps, all by evaporation |
+| Time step | L2 at three largest time steps (0.595, 1.0, 1.68 ps): momentum within 0.4 %, GCI 0.2 % (before fix 8) |
 
 Figures: [`figures/verification/static_drop.png`](../figures/verification/static_drop.png), [`oscillating_drop.png`](../figures/verification/oscillating_drop.png), [`ttm_column_vs_fd.png`](../figures/verification/ttm_column_vs_fd.png).
 
@@ -107,7 +127,7 @@ The change of the printed momentum between two times is compared with the time i
 
 ## 4. Defects found and corrected
 
-These defects were found by the tests above, or by inspecting development runs. The released code and the reference case contain every correction.
+These defects were found by the tests above, or by inspecting development runs. The released code contains every correction. The results of the reference case in `figures/fsLIFT_332mJ_axisymmetric/` were produced before the corrections of [CODE_REVIEW.md §1](CODE_REVIEW.md#1-defects-that-change-results) and are superseded ([RESULTS.md §3](RESULTS.md#3-the-earlier-reference-case-superseded)).
 
 | Defect | How it was found | Correction |
 |---|---|---|
@@ -126,12 +146,16 @@ These defects were found by the tests above, or by inspecting development runs. 
 | One trapped-vapour pocket for the whole spot pushed a 7.4 µm-wide region as a rigid plug, which tore at the cold edge | development runs | one vapour column per radial ring (`mode local`) |
 | The wedge received the energy of a bounding box rather than of its 5° sector | laser energy test | exact sector share (`beamCoverage geometric`, default) |
 | Forced iterations of the α solver on an already converged system produced NaN | development runs | `minIter 0` |
+| T_e and T_l were carried by the mixture flux. At a receding metal surface it carried gas cells (reset to ambient temperature) into the hottest metal cells, at a rate set by the cell size: the film momentum changed by about 6 % per mesh level | mesh study; a rerun without temperature transport removed the mesh dependence | carried by the metal flux of the α equation in advective form (`temperatureAdvectionFlux metal`, default); the Galilean heat loss of a moving film fell from 3.0 % to 0.06 % in 90 ps (fix 8) |
+| The trapped-vapour pressure was also applied to the receiver's top surface, and the receiver area was added to the pocket rings | the logged force budget was 1.65 × the film's momentum change; the receiver gained momentum before any signal could cross the gap | only surfaces above `filmMinHeight` belong to the pocket (fix 9); the budget then closes within 2–4 % |
 
 ---
 
 ## 5. Open points
 
 1. **Damping of the drop oscillation.** The oscillation frequency approaches Lamb's value as the mesh is refined, but the damping is several times too weak. The viscous term alone is exact (§2.3), so the cause is in the interface numerics: the spurious velocities of the surface-tension discretisation are as large as the oscillation velocity at R/Δx = 10. A more accurate curvature (height functions, or a geometric interface reconstruction) would be needed. This matters for any study of how a liquid neck breaks.
-2. **No mesh-refinement study of the reference case.** The launch speed and the separation of the droplet have not been computed on a second mesh. The separation is known to be limited by the radial cell size ([RESULTS.md](RESULTS.md#limitations)).
+2. **Tear and flight on one mesh only.** The mesh study covers 0–315 ps. The tear of the dome wall (about 4 ns) and the flight were computed on the coarsest mesh only, where the wall is about one cell thick at the tear and the cap is thinner than one cell from about 7 ns. A run refined along the flight path is under way; the radial resolution of the tear is not yet addressed ([RESULTS.md §2](RESULTS.md#2-runs-in-progress)).
 3. **Interface compression settings.** `cAlpha 2`, `compressionLimiter 0.5` and the compression band were chosen during development, before the compression worked on moving interfaces, and have not been re-tuned since. With these values the effective compression coefficient is min(2, 0.5) = 0.5 ([MODEL.md §7.1](MODEL.md#71-volume-fraction-transport)).
-4. **The "pressure" entry of the logged force budget.** In the force-balance test, the momentum change of the film matches the recoil and trapped-vapour impulse alone. The "pressure" entry of the logged budget, which would add another 60–75 %, does not appear in the momentum change. How that entry overlaps with the recoil entry has not been resolved, so do not use the logged "total" as the net force on the film. The remaining 1–6 % is of the size expected from the pull of the gas left behind the moving film, but this has not been measured separately.
+4. **Residual of the force budget.** The extra 60–75 % of the logged budget seen in the superseded run was the pocket pressure on the receiver (fix 9). With the fix the logged total closes to 0.96–0.98 of the film's momentum change; the residual shrinks with the cell size, which fits the α weighting of the interface cells, but this is not proven.
+5. **Energy residual.** About 4 % of the laser energy is not accounted for at 315 ps and 7 % at 2.16 ns (§2.4). It is taken to be the mismatch between the temperature transport with the metal flux and the transport of α between steps, two terms of about 40 % of the laser energy each that cancel in exact arithmetic. This is not proven. Its effect on the momentum has not been measured, and the balance has not been repeated on L2 and L3.
+6. **Net surface-tension force after the tear.** The continuum-surface-force term summed over all cells is zero before the dome wall breaks and −0.57 × 10⁻¹³ kg m/s over 3.96–7.59 ns after it, on L1. It acts mainly on metal smeared over partly filled cells, and it causes about 45 % of the momentum rise after the tear ([INVESTIGATION_LOG.md §14](INVESTIGATION_LOG.md#14-why-the-film-momentum-keeps-rising-after-the-tear-22-nov)). The α-weighted logged budget gives the wrong sign there and must not be used after the tear.

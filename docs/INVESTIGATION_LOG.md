@@ -1,0 +1,300 @@
+# Investigation log of the mesh-study case (November 2026)
+
+This is a chronological record of the work on `cases/fsLIFT_332mJ_Ti_meshStudy`: first mesh-converged film momentum and speed, then the energy balance, the flight on the coarse mesh and a run refined along the flight path. It includes the hypotheses that turned out wrong, so the reasoning can be checked. The defects themselves and their fixes are listed in [CODE_REVIEW.md](CODE_REVIEW.md) (items 8 and 9 of §1); this file explains how they were found.
+
+Units: momentum in 10⁻¹³ kg m/s (full circle), speeds in m/s, times in ps unless stated. Meshes L1 / L2 / L3 have 62,010 / 124,200 / 248,252 cells (refinement ratio √2). All runs on 4 processes, OpenFOAM v2406.
+
+---
+
+## 1. First mesh study to 1 ns (PR #3, merged 17 Nov)
+
+- `tools/mesh_study_gci.py` labelled convergence the wrong way round: the ratio e32/e21 is above 1 for a converging sequence, and the tool called that case "diverging". Fixed in PR #3.
+- Result at 1 ns: the peak temperatures converged, but momentum (5.607 / 5.322 / 5.013 on L3 / L2 / L1, order p = 0.23), kinetic energy (p = 0.16) and the speed within 1 µm of the axis (234.9 / 221.9 / 209.5, diverging) did not.
+
+## 2. Phase A: time step against mesh (to 315 ps)
+
+**Hypothesis (wrong):** the time-step error dominates. The coarse levels used larger time steps.
+
+- L2 with maxDeltaT 0.595 / 1.0 / 1.68 ps: momentum 5.317 / 5.324 / 5.337, p = 1.15, GCI 0.2 %. The time-step error is small.
+- All three meshes at maxDeltaT 0.595 ps: momentum 5.607 / 5.317 / 5.010 (L3 / L2 / L1), p = 0.16. Axis speed 236.1 / 222.6 / 210.1. The mesh error stays at about 6 % per level.
+- **Conclusion:** the time step was not the cause. The non-convergence is a mesh effect.
+
+## 3. Where the meshes part: force budget and temperatures
+
+- The `momentumBudget` log lines, integrated over time, gave the same impulse on all meshes up to 30 ps. The meshes parted after that, in the recoil and pressure terms.
+- The integrated budget was about 1.65 × the film's actual momentum change on every mesh. It was then used only to compare meshes; the cause was found later (§8).
+- The hottest metal cooled faster on coarse meshes. Peak lattice temperature at 60 ps: 9503 / 9924 / 10284 K (L1 / L2 / L3); recoil maximum 547 / 610 / 703 MPa. A hotter surface gives more recoil for longer, hence more momentum on fine meshes.
+
+**Hypotheses examined for the cooling:**
+- *Heat leaking into the gas* (inferred from an "E_gas" measure): **retracted.** That measure mostly tracked the volume of the interface cells, not heat.
+- *Gas–metal Kapitza exchange*: **ruled out.** It switches off above `gasMetalCutoffTemperature` (3560 K), and the cooling is in cells far hotter than that.
+
+## 4. Phase B: temperature transport switched off (to 110 ps)
+
+- L1 and L2 rerun with `advectTemperatures false`. Gap between L1 and L2 at 110 ps, before → after:
+  - momentum +4.9 % → +0.7 %
+  - kinetic energy +10.9 % → +0.8 %
+  - speed within 1 µm +4.2 % → +0.07 %
+- **Conclusion:** the transport of T_e and T_l causes the mesh dependence. It used the mixture flux φ, which at a receding surface carries gas cells (reset to ambient temperature) into the hottest metal cells, at a rate set by the cell size.
+
+## 5. Fix 8: transport with the metal flux (commit `3b42c29`)
+
+- The energy equations now use the metal flux of the α equation (`alphaPhi10`, summed over the sub-cycles) in advective form, `C[∇·(φ_α T) − T ∇·φ_α]`. Switch `temperatureAdvectionFlux metal|mixture`.
+- Galilean tests (film at −170 m/s, 90 ps), heat change:
+
+| Case | Heat change |
+|---|---|
+| Uniform 1500 K, mixture flux | −3.0 % |
+| Uniform 1500 K, metal flux | −0.064 % |
+| Step 1000 / 1800 K, at rest (reference) | +1.38 % |
+| Step, metal flux | +1.17 % |
+| Step, mixture flux | −2.47 % |
+
+- The +1.38 % at rest is physical: electrons pass heat to the lattice. The exact mechanism is not confirmed. The metal flux tracks the reference within 0.2 % and creates no heat.
+- 1-D laser column against the finite-difference code: peak T_e 6649 K against 6672 K, coupling time 0.500 ps against 0.496 ps. This is unchanged, but the film barely moves there, so it does not test the transport.
+
+## 6. Phase C: mesh study with fix 8 (to 315 ps, 17–18 Nov)
+
+- The container restarted during L2. L2 resumed from 210.6 ps, its last complete write, which was checked in every processor directory.
+- At 315 ps (L1 / L2 / L3):
+
+| Quantity | L1 | L2 | L3 | Spread |
+|---|---|---|---|---|
+| Momentum | 7.388 | 7.376 | 7.348 | 0.55 % (11.9 % before) |
+| Kinetic energy (10⁻¹¹ J) | 8.331 | 8.223 | 8.121 | 2.6 %, not converging |
+| Speed within 1 µm | 316.7 | 310.9 | 310.9 | converged |
+| Speed within 25 µm | 118.6 | 121.2 | 118.5 | oscillatory |
+
+- Momentum was 47 % higher than with the old transport on L1, and still rising at 315 ps.
+- Data committed as `figures/fsLIFT_332mJ_Ti_meshStudy/data/metalFlux/`; PR #4 opened. These data were later superseded by §8.
+
+## 7. Cross-checks asked for
+
+- The 1-D laser column was rerun (§5).
+- The budget factor of 1.65 was the one unexplained inconsistency, so it was investigated next.
+
+## 8. Fix 9: the vapour pocket also pushed the receiver (commit `ec3a64d`, 19 Nov)
+
+**Steps:**
+1. Window by window, the budget was 1.6–1.8 × the film's momentum change from the first window on, on all three meshes. That pointed to a fixed factor, not a slow leak.
+2. The momentum extraction counts only y > 8.05 µm. The budget counts every metal cell, including the receiver (α = 1, 1606 µm³). Film plus receiver change, −12.285, matched the budget, −11.985, within 2.4 %.
+3. The receiver held −5.0 momentum at 315 ps (0.68 × the film). It already had −1.8 at 28 ps, before any signal could cross the 12 µm gas gap (about 35 ns at the speed of sound in the gas).
+4. The receiver's top cells, at 300 K and not evaporating, carried up to 1.13 GPa of "recoil" pressure at 28 ps. That equalled the film maximum.
+5. In the code, `glassSide()` selects every surface with metal below and gas above. `filmMinHeight` was used only for the film velocity average. So the receiver top got the pocket pressure, and its area was added to each pocket ring, roughly doubling the ring volume.
+
+**Alternative explanation considered:** the incompressible gas in the gap carries the film's push to the receiver. Rejected: the gas next to the receiver was below ambient pressure (0.6 bar), and the 840 MPa jump at the receiver surface needs an interface force.
+
+**Test (L1, 0–5 ps, same inputs with and without the fix):**
+- Pocket pressure on the receiver: 485 MPa → 0.
+- Receiver momentum: −0.0814 → −0.00037.
+- Budget per 1 ps window: matched film + receiver within 0.2 % before the fix, and the film alone within 0.4 % after.
+- The film was identical up to 3 ps.
+
+**L1 at 305 ps, before → after fix 9:**
+- momentum 7.372 → 9.101 (+23.5 %)
+- kinetic energy +56 %
+- speed within 1 µm 315.4 → 395.0 (+25 %)
+- peak temperature unchanged
+- The budget is now within 4.1 % of the film's momentum change (0–305 ps). The residual is attributed to the α weighting of interface cells; this is not confirmed.
+
+**Consequences:**
+- The Phase C data and the reference-case results in `RESULTS.md` are too low.
+- Fixes 8 and 9 together raised the L1 momentum at about 0.3 ns by roughly 80 % and the axis speed by roughly 90 %.
+
+## 9. Phase D: mesh study with fixes 8 and 9 (20 Nov)
+
+- L1 is the fixed on/off-test run continued to 315 ps. L2 and L3 were rerun from 0, because the bug acts from about 3 ps. Driver: `phaseD/run.sh`, restartable (L3 needed three 2-hour runs).
+- At 315 ps (L1 / L2 / L3):
+
+| Quantity | L1 | L2 | L3 | Result |
+|---|---|---|---|---|
+| Momentum | 9.116 | 9.104 | 9.061 | spread 0.6 %; the change grows on the finer pair, so no order or GCI |
+| Kinetic energy (10⁻¹⁰ J) | 1.300 | 1.285 | 1.267 | spread 2.6 %; same pattern, apparent p = 0.33 |
+| Speed within 1 µm | 396.3 | 389.6 | 389.5 | converged (L2–L3 0.03 %) |
+| Speed within 25 µm | 146.4 | 149.6 | 146.2 | oscillatory, ±1.2 % |
+| Thickness on the axis (nm) | 68.84 | 68.88 | 68.90 | converged, GCI 0.02 % |
+
+- Spread = (max − min)/min: momentum (9.116 − 9.061)/9.061 = 0.61 %.
+- Momentum budget against the film's momentum change over 2–315 ps: 0.969 (L2), 0.977 (L3); 0.959 on L1 over 0–305 ps. The residual shrinks with the cell size, which fits the α weighting of interface cells, but this is not proven.
+- Same pattern as Phase C (fix 8 only: 7.388 / 7.376 / 7.348, spread 0.55 %). Fix 9 raised momentum by 23–24 % on every level without making it mesh-dependent.
+- Not settled: the film is still accelerating at 315 ps (L1 9.056 at 280 ps → 9.116 at 315 ps), so this is not the final launch momentum.
+- Data: `figures/fsLIFT_332mJ_Ti_meshStudy/data/fixes8and9/`.
+
+## 10. Known limits not addressed by these fixes
+
+- **The gas is incompressible** (`rhoConst`, a documented verification choice). The gap reacts instantly: at 28 ps the gap shows +58 bar under the film and −58 bar above it. A real gas cannot have negative pressure, and a real gap would not feel the film this early.
+- **Peak temperatures exceed the closure range.** The lattice reaches about 20,000 K at 3.3 ps, far above the critical point of titanium. The evaporation and recoil closures use at most `maxPhysicalTemperature` (10,000 K), so they are outside their range there.
+- **No comparison with experiment.** Mesh convergence shows that the equations are solved consistently, not that the model is right.
+- **A small notch in the film surface on the axis** shows in the animation frames and in the unprocessed cell data, so it is in the solution, not a rendering artefact. Cause not investigated.
+
+## 11. Energy and mass balance (L1 with fixes 8 and 9, 22 Nov)
+
+- Run: L1 from 0 with `energyDiagnostics true` (`meshstudy/energyTest`), 0–315 ps, then continued towards 20 ns. It matches the Phase D L1 run within 0.04 % at all common times (momentum 9.112 against 9.116 × 10⁻¹³ kg m/s at 315 ps).
+- Balance per step from the solver's energy diagnostics: first pass = energy before, last pass = energy after, laser and phase-change terms once per step. "Solve" = change inside the temperature solve minus the sources; "between steps" = change from one step's end to the next step's start (transport of the metal fraction).
+
+| Up to | E − E₀ | Laser | Evaporation | Solve | Between steps | Net unaccounted |
+|---|---|---|---|---|---|---|
+| 0.51 ps | 321.90 | 324.51 | −0.00 | −2.61 | −0.00 | −2.61 (−0.8 %) |
+| 30 ps | 315.41 | 326.04 | −3.06 | +8.92 | −16.50 | −7.58 (−2.3 %) |
+| 315 ps | 306.33 | 326.04 | −6.64 | +132.92 | −146.00 | −13.08 (−4.0 %) |
+| 2.16 ns | 294.23 | 326.04 | −8.77 | +132.48 | −155.52 | −23.04 (−7.1 %) |
+
+All values in pJ for the 5° wedge; percentages relative to the laser energy.
+
+- **Laser deposition is correct:** 326.04 pJ against 4.1089e-8 J × 0.57168 / 72 = 326.24 pJ (−0.06 %).
+- **Evaporation heat is consistent with the mass lost:** −3.06 pJ at 30 ps is 92 % of the latent heat of the metal the film lost (3.32 pJ).
+- **Mass:** the film lost 0.0140 µm³ (0.098 %) over 0–315 ps, so evaporation cannot change the momentum by more than about 0.1 %.
+- **The two large terms nearly cancel.** Each is about 40 % of the laser energy by 315 ps. The solve carries the temperature with the metal flux (fix 8) and the metal fraction moves between steps; in exact arithmetic these cancel. The net −4.0 % at 315 ps is taken to be the discretisation mismatch between them, not proven: part could be heat leaving the metal that the diagnostics do not count.
+- The net loss keeps growing after the launch (−7.1 % at 2.16 ns), while most of the momentum is gained in the first tens of picoseconds (−2.3 % by 30 ps). Its effect on the momentum has **not** been measured; a loss that is similar on every mesh would not show in the mesh study.
+- Not done: the same balance on L2 and L3, and an energy-conserving form of fix 8.
+
+## 12. L1 continued after 315 ps: dome, tear and flight (21–22 Nov)
+
+- The energy-diagnostics L1 run (§11) was continued: to 1 ns at maxDeltaT 1 ps (written every 20 ps), then at 2.5 ps (every 0.1 ns). Background jobs were limited to 2 hours, so the driver `energyTest/flight.sh` writes and stops at its time budget and is restarted from the latest write. Data: `figures/fsLIFT_332mJ_Ti_meshStudy/data/flightL1/`.
+- **The film keeps accelerating after 315 ps:** speed within 1 µm of the axis 396.1 m/s at 315 ps, 425.8 at 1 ns, highest 432.9 at 1.9 ns, then 413.8 at 6.5 ns. Momentum 9.11 → 9.44 (1 ns) → 9.66 (4 ns). So the 315 ps mesh study converges the early launch, not the final launch momentum.
+- **The dome wall breaks between the writes at 3.96 and 4.26 ns.** Its thickness there is about 43 nm by a volume estimate, against 49 nm radial cells: about one cell. The fragments along the wall in the pictures are thinner than a cell; they are taken to be mesh artefacts.
+- **The central cap flies free** at about 410–420 m/s, 62–68 nm thick on the axis.
+- **From about 7 ns the cap is not resolved.** It enters the graded cells (y 16.5–17 µm) and then the 71 nm cells below. `y_bot_axis` is NaN from 7.195 ns, and from about 9 ns no cell for r < 1 µm below y = 18.5 µm has α above 0.78. The mean speed of that metal falls from 355 m/s (7 ns) to 266 m/s (18.7 ns); real and numerical slowing cannot be separated on one mesh.
+- **Momentum rises after the tear** (9.66 at 4 ns → 10.39 at 7.6 ns) while the kinetic energy stays at 1.41–1.44 × 10⁻¹⁰ J. Not analysed.
+- At 18.7 ns the lowest metal (α > 0.5) is at 10.52 µm, 2.52 µm above the receiver. Contact is expected at about 24–28 ns; the run end was moved from 20 to 30 ns (run A).
+- The animation (`LIFT_launch_and_tear_0-6.5ns`) stops at 6.5 ns, before the cap reaches coarse cells.
+
+## 13. Run C: refined flight path (22 Nov)
+
+**Aim:** resolve the cap through the flight and the impact without rerunning the verified launch.
+
+**Mesh:** L1 with the gap block changed from `((8.5 120 1) (0.5 17 0.12) (3.0 354 1))` to `((8.5 567 1) (0.5 43 0.567) (3.0 354 1))`, i.e. 15 nm cells for y = 8–16.5 µm (71 nm before), graded to the unchanged 8.5 nm cells from y = 17 µm. 106 × 1058 = 112,148 cells; `checkMesh` OK. The receiver, film, glass-side and radial cells are unchanged.
+
+**Start state:** L1 at 2.9625 ns, the last write before the tear. At that time all of the donor metal is above y = 17 µm, where the two meshes have identical cells.
+
+**Mapping:**
+1. `mapFields -consistent` of v2406 offers only `mapNearest`, `interpolate` and `cellPointInterpolate`, and maps a field only if the target already has it. With an empty target time directory and `-parallelSource` it mapped nothing.
+2. Therefore: the source time was reconstructed in a scratch copy (`reconstructPar`, then `foamFormatConvert` to ASCII). For every volume field a target file was written with the source boundary conditions and a uniform internal field. `mapFields -consistent -mapMethod mapNearest` then mapped all 31 volume fields. The surface fields `phi` and `alphaPhi10` are not mapped; the solver rebuilds them (`READ_IF_PRESENT`).
+3. `uniform/vapourPocket` (the pocket state per 0.1 µm ring; mesh-independent) was copied from the source, then the case was decomposed onto 4 processes.
+
+**Checks:**
+- Source against target, full circle: metal volume 1620.771214 µm³, momentum −9.623834e-13 kg m/s, Σ α V T_l 4.930897e-13, gas mass 7.522672e-15 kg, total mass 7.308792e-12 kg, p range and peak T_e: identical in every printed digit.
+- Boundary conditions identical, except the stored `value` of the mixed conditions and of `rho` on the receiver bottom (y = 0), which the solver recomputes on the first step.
+- 5 steps on 4 processes without error; the pocket state was read (m_v = 3.81e-19 kg, depth on the axis 1.47 µm, T_v = 4562 K).
+
+**Run:** driver `flightC/flightC.sh`, to 35 ns at maxDeltaT 2.5 ps, written every 0.2 ns (about 5 GB). Started on 27 Nov at 10:08 UTC, after run A. Measured speed with the 4 cores free (3.30–3.57 ns): 15.6 ps of simulated time per minute, about 9–10 s per step at 1.9–2.5 ps; the pressure solver uses its 200-iteration limit in most corrections, as on L1. About 35 h in all. Paused on 27 Nov from 12:15 to about 18:00 UTC for the rigid-receiver run and its animation (§16). From 18:47 to 20:37 UTC, with the cores free, it advanced 5.2149 → 7.0774 ns, 1.8625 ns in 110 min = 16.9 ps per minute; at that rate the remaining 27.9 ns take about 27.5 h, so the end is expected on about 29 Nov 00:00 UTC [UNCERTAIN: the time step may shrink at the impact, about 24 ns]. The driver stops at its 2-hour budget (exit 9) and is restarted from the latest write. A restart at 11:58 began again from 2.96 ns because `startFrom` was `startTime`; it is now `latestTime`. While post-processing ran next to it, steps took up to 400 s.
+
+**What C does not fix:** the radial cells are unchanged (49 nm), so the tear of the dome wall after 2.96 ns is as mesh-limited as on L1.
+
+**Interim comparison with run A (27 Nov, C at 7.48 ns).** `tools/full_run_curves.py` on all 25 writes of C (`data/flightC/full_run_curves_C.csv`; C paused for the 3 min it took), against run A interpolated to the same times:
+
+| t [ns] | gap C / A [µm] | v on the axis C / A [m/s] | T_l on the axis C / A [K] |
+|---|---|---|---|
+| 2.96 | 10.538 / 10.538 | 497 / 497 | 4736 / 4736 |
+| 4.16 | 9.928 / 9.928 | 475 / 475 | 4293 / 4282 |
+| 5.22 | 9.428 / 9.431 | 458 / 457 | 4009 / 4068 |
+| 6.42 | 8.942 / 8.945 | 449 / 458 (−2.0 %) | 3838 / 3963 |
+| 7.08 | 8.663 / 8.665 | 451 / 455 (−0.8 %) | 3784 / 3921 |
+| 7.48 | 8.463 / 8.477 | 453 / 453 | 3792 / 3905 |
+
+- The gap agrees within 0.04 µm and the axis speed within 2.0 % (largest difference at 6.4–6.6 ns). The axis lattice temperature in C falls faster: 113–140 K (2.9–3.6 %) lower from 6.4 ns.
+- **This is not yet a test of the refinement.** The lowest metal cell is at y = 8 + gap. It stays above 17 µm, where meshes C and L1 have the same 8.5 nm cells, until about 6.2 ns (gap 9.02 µm). It is in the graded 16.5–17 µm band until about 7.3 ns and has just entered the 15 nm cells at 7.48 ns (y = 16.46 µm). The differences so far must come from the refined cells below the metal, i.e. the gas and vapour there [UNCERTAIN: not traced; candidates are the gas temperature next to the leading edge and the pressure field below the jet].
+- **Update at 24.47 ns (28 Nov): the arrival is not mesh-converged.** On mesh C the leading metal reaches the receiver at **20.5–20.6 ns**, against 23.6–23.7 ns on L1, about 3 ns (13 %) earlier (`data/flightC/full_run_curves_C.csv`, `data/flightC/front_tip_C.csv`, `tools/front_tip_stats.py`). On mesh C the first counted cell above the receiver has its centre at 8.0525 µm, so gap = 0.0525 µm means contact.
+
+| t [ns] | gap C / A [µm] | v on the axis C / A [m/s] |
+|---|---|---|
+| 8.08 | 8.193 / 8.194 | 452 / 451 |
+| 12.02 | 5.614 / 5.938 | 447 / 439 |
+| 15.98 | 2.976 / 3.790 | 441 / 431 |
+| 20.00 | 0.397 / 1.876 | 436 / 426 |
+| 22.68 | contact / 0.638 | 397 / 424 |
+| 24.47 | contact / contact | 377 / 413 |
+
+  - Front speed from the gap: from 12.02 to 20.00 ns C closes (5.614 − 0.397) µm / 7.98 ns = 654 m/s, A (5.938 − 1.876) / 7.98 = 509 m/s. The tip metal of C (α > 0.5 within 0.5 µm of its lowest cell) moves at 650–660 m/s (α V weighted) from 16 to 20.6 ns, with cells up to 700–775 m/s.
+  - The fast tip is a thread about two radial cells wide (outermost cell centre r = 0.074 µm) holding only 0.0024–0.0039 µm³ (full circle), about 0.02 % of the 14.31 µm³ of metal. The α-weighted speed within 0.5 µm of the axis differs by only 1.5–2.5 % up to 20.6 ns, so the bulk of the jet flies at nearly the same speed on both meshes. After C's contact the axis speed in C falls (to 377 m/s at 24.47 ns) because metal near the axis stops on the receiver.
+  - On C the first metal touches at 20.6 ns, spreads below α = 0.5 (gap 0.32 µm at 21.08 ns) and is followed by more of the thread (contact again from 21.68 ns). Flying metal below y = 9 µm: 0.0075 µm³ at 20.6 ns, 0.054 µm³ at 24.47 ns.
+  - Why C's tip is faster is not established. On L1 a thread this thin fills a 71 nm cell to less than half, so the α > 0.5 front can lag the metal; and the numerical net surface-tension force of §14 acts on exactly such sub-cell metal and may differ with the vertical cell size [UNCERTAIN: neither is tested]. The radial cells (49 nm) are the same on both meshes, so the thread is unresolved on both, and neither arrival time can be called converged.
+  - Consequence: the contact time (21–24 ns) and the tip speed at impact (about 500 m/s on L1, about 650 m/s on C) depend on the mesh. The impact numbers of §16 (rigid receiver, from L1) hold only for L1.
+
+## 14. Why the film momentum keeps rising after the tear (22 Nov)
+
+**Observation (§12):** on L1 the film momentum rises from 9.66 (3.96 ns) to 10.39 (7.6 ns) × 10⁻¹³ kg m/s, while the kinetic energy stays at 1.41–1.44 × 10⁻¹⁰ J and the cap slows down.
+
+**Step 1: the logged budget does not close after about 1 ns.** Integrated over windows, the α-weighted `momentumBudget` total gives −0.30 against a measured −0.33 over 0.32–1 ns, but the opposite sign from 2 to 6 ns (+0.06 to +0.10 per ns against −0.05 to −0.18). It weights each cell's force by α. In a partly filled cell, though, almost all the mass is metal (ρ_m/ρ_g ≈ 3900), so the metal feels almost all of the cell force. After the tear much of the metal is in such cells, so the logged budget cannot be used.
+
+**Step 2: where the momentum is gained** (`data/flightL1/momentum_by_alpha_and_radius.csv`, units 10⁻¹³ kg m/s):
+
+| | 2.96 ns | 7.90 ns |
+|---|---|---|
+| Film | −9.61 | −10.47 |
+| in cells with α > 0.9 | −3.78 | −1.05 |
+| in cells with 0.1 < α < 0.5 | −0.69 | −5.70 |
+| metal volume in cells with 0.01 < α < 0.5 | 0.24 µm³ | 1.04 µm³ |
+| mass-weighted speed of that metal | 71 m/s | 143 m/s |
+
+The metal is spread more and more over partly filled cells, and that metal speeds up.
+
+**Step 3: which force** (`tools/force_decomposition.py`; the force fields written at every 0.1 ns, weighted by the metal mass fraction α ρ_m/ρ and integrated over time; units 10⁻¹³ kg m/s):
+
+| Window | Measured change | Surface tension | Pocket pressure | Gas pressure | Sum | Surface tension summed over all cells |
+|---|---|---|---|---|---|---|
+| 0.42–3.86 ns (before the tear) | −0.435 | +0.123 | −0.588 | −0.073 | −0.537 | **+0.006** |
+| 3.96–7.59 ns (after the tear) | −0.726 | −0.324 | −0.128 | −0.096 | −0.549 | **−0.570** |
+
+Split of the surface tension after the tear (mass-weighted): +0.319 on the cap (r < 1.5 µm, y < 19.5 µm), −0.478 on partly filled metal (α < 0.5) elsewhere, −0.165 on full cells elsewhere.
+
+**Conclusion:**
+1. **About 45 % of the rise (−0.32 of −0.73) is a numerical net force of the surface tension.** The surface-tension force (continuum surface force, σκ∇α) summed over all cells is zero before the tear (+0.006, as it must be for closed interfaces) and −0.57 after it. The force sits mainly on smeared metal thinner than a cell: the broken wall and its fragments. The continuum-surface-force form does not conserve momentum when the curvature is computed from the gradient of a smeared α. Why the net force points towards the receiver has not been established [UNCERTAIN].
+2. **About 18 % (−0.13) is the trapped-vapour pocket**, which keeps pushing the descending metal after the dome has opened. The model has no venting: once the wall breaks, the vapour should escape through the opening, but the pocket rings keep their mass and push every glass-side surface in their ring.
+3. **About 13 % (−0.10) is gas pressure.**
+4. **About 24 % (−0.18) is not accounted for.** The forces flicker from step to step (standard deviation 0.155 per sample against a mean of −0.09), so integrating 39 snapshots is uncertain by about ±0.1. The viscous force is not written and is not included.
+5. **Kinetic energy stays flat** because the cap loses energy to the pull of the wall (surface tension +0.32 on the cap), while the low-mass smeared metal gains momentum.
+
+**Consequences:**
+- The momentum after the tear (10.39 at 7.6 ns) is not a physical result. The physical momentum gain after about 4 ns is at most the pocket and gas-pressure part, and the pocket part assumes vapour that should have vented.
+- The logged `momentumBudget` (α-weighted) must not be used after the tear.
+- Run C refines only the vertical cells along the flight path. The fragments of the wall are thinner than the radial cells, so C will not remove this force [UNCERTAIN: C may reduce it on the cap].
+
+**Possible remedies (not done):** vent the pocket rings once the film above them has opened; resolve the wall radially (10–15 nm cells for r < 3.5 µm from about 3 ns); a momentum-conserving surface-tension form, or a curvature from height functions.
+
+## 15. Run A to the receiver: jet, contact and impact (27 Nov)
+
+Run A (§12) was continued to 30 ns; last write 29.95 ns. Data: `figures/fsLIFT_332mJ_Ti_meshStudy/data/flightL1/full_run_curves.csv` (`tools/full_run_curves.py`, one row per animation frame).
+
+- **The flying metal is a jet.** From about 7 ns the metal near the axis forms a jet at most about 0.12 µm in radius, i.e. 2–3 radial cells of 49 nm. Its largest metal fraction is 0.78. The α-weighted speed within 0.5 µm of the axis falls from 455 m/s (7.3 ns) to 422 m/s (23.6 ns); the lowest point moves at about 0.5 µm/ns. The jet's lattice temperature is 3,500–3,900 K. Whether a resolved cap would also stretch into a jet is not known: the jet is only 2–3 cells wide.
+- **Contact.** The lowest metal (α > 0.5, cell layers from y = 8.106 µm up) reaches 8.106 µm between the writes at 23.63 and 23.73 ns. Cell by cell at 23.985 ns, the layer touching the receiver (centre 8.035 µm) is 72 % metal for r < 0.12 µm, moving at −432 m/s, and the cells above it at −448 to −495 m/s.
+- **Impact.** The receiver is liquid titanium in this model (the same phase as the film; no solid phase, MODEL.md assumption A4). The jet digs a crater into it: receiver cells (y < 8 µm) with α < 0.5 reach down to the cell centre at y = 7.677 µm at 26.1 ns, 7.373 µm at 28.1 ns and 6.931 µm at 29.95 ns (r up to 0.57 µm), with a rim raised about 0.3 µm around it. The jet is still feeding the crater at 330–380 m/s at 30 ns. This is not a prediction of the deposit.
+- **`T` versus `Tl`.** At first the jet looked as if it had cooled to 200 K. This turned out to be the wrong field: `src/TEqn.H` sets `T = (1 − pureMetal) T + pureMetal Tl` with `pureMetal` blended to zero below a metal fraction of about 0.9, so in the jet's 78 % cells `T` is the gas-side temperature, clipped at `minT` = 200 K. The metal temperature is `Tl`. The gas-side temperature at the floor in partly filled cells is itself odd, but it has not been followed up.
+- **Slowdown by post-processing.** While ParaView rendered next to the run, the time per step rose from about 5 s to about 29 s (CPU time, not only wall time). The Mesa software renderer starts one thread per core, and the 4 MPI ranks busy-wait on each other when one is descheduled. With `LP_NUM_THREADS=1` and `nice -n 19` the run kept its speed.
+- **Animation:** `tools/render_full_run.py`, `tools/full_run_curves.py`, `tools/compose_full_run.py`; 362 frames from 1 ps to 29.95 ns.
+
+## 16. Rigid receiver: impact of run A's jet on a wall (27 Nov)
+
+The liquid receiver of §15 makes the impact meaningless, so the impact was rerun with a rigid receiver. Data: `figures/fsLIFT_332mJ_Ti_meshStudy/data/rigidL1/` (README there).
+
+**Set-up.** Started from run A at 21.5 ns, when the lowest metal was 1.17 µm above the receiver.
+- **Receiver cells removed.** The 1,802 cells below y = 8 µm were cut out with `topoSet` (boxToCell from y = 8 µm up) and `subsetMesh … -patch substrate -overwrite`, leaving 60,208 cells. `subsetMesh` copies the remaining cells' values without interpolation.
+- **New wall.** The exposed faces (106) joined the existing wall patch `substrate`, now at y = 8 µm. Their boundary values are not mapped by `subsetMesh`, so they were set explicitly with `foamDictionary`, which needs ASCII fields (`foamFormatConvert` first):
+  - `U` fixedValue 0 (no slip);
+  - `T`, `T.air`, `T.metal` fixedValue 300 K;
+  - `Tl`, `Te` mixed (refValue 300 K, valueFraction 0.9), as on the original substrate;
+  - `alpha.metal` zeroGradient, i.e. a 90° contact angle;
+  - `p_rgh` fixedFluxPressure.
+- **Fluxes recomputed.** `phi` and `alphaPhi10` were deleted so they are rebuilt from the fields.
+- **Check.** `checkMesh` passed. The metal volume after the cut is 0.19891 µm³ in the 5° wedge, against 14.31 µm³ / 72 = 0.1988 µm³ for the whole donor metal, so nothing that flies was lost.
+- **Run.** Same solver settings as run A (maxDeltaT 2.5e-12 s), written every 0.1 ns, from 21.5 to 29.98 ns. The 4 cores took 4 h 40 min, with run C paused.
+
+**Assumptions** beyond those of run A:
+- the wall is rigid and held near 300 K;
+- the contact angle is 90°; liquid titanium probably wets titanium better [not checked];
+- the metal on the wall does not solidify.
+
+**Results** (coarse mesh L1; quantities from `tools/impact_rigid.py` and `tools/wall_film_profile.py`):
+- **Contact.** The lowest metal cell (α > 0.5) reaches the first cell layer on the wall (centre 8.035 µm) between 23.9 and 24.0 ns. With the criterion of §15 (second layer, 8.106 µm) it is 23.8 ns, against 23.63–23.73 ns in run A. The two runs are the same flow until the receiver matters, so this 0.1 ns difference shows how sensitive this time is to the write interval and the threshold.
+- **Impact speed and pressure.** The largest downward speed of metal within 1 µm of the wall is 495 m/s at 24.0 ns. The largest pressure in the first cell layer is 508 MPa at 24.1 ns, against ½ρv² = ½ × 4506 × 495² = 0.55 GPa. It stays at 260–390 MPa while the jet keeps arriving (to 26.9 ns), drops to 40–60 MPa from 27.7 to 29.3 ns, and rises again when the second piece of the jet lands (176 MPa at 30.0 ns).
+- **Spreading.** The equivalent thickness h(r) is the sum of α Δy over the two cell layers next to the wall, with metal colder than 400 K excluded (see below). The radius where h > 2 nm is 0.37 µm at 24.0 ns, 0.71 µm at 25.2 ns, 1.06 µm at 27.0 ns, 1.40 µm at 28.8 ns and 1.70 µm at 30.0 ns. Radial speeds of the metal near the wall are 230–430 m/s.
+- **The deposit falls below the mesh.** From 27.3 ns no wall cell is more than half metal. h peaks at about 110 nm at 25–26 ns and is 28 nm at 28.2 ns and 19 nm at 29.4 ns. The α = 0.5 surface used in the animation therefore loses the deposit. The animation (`compose_full_run.py` with `FILM=`) draws h(r) in cyan behind the rendered metal.
+- **Second piece of the jet.** The jet behind the tip has broken off (gap 0.89 µm at 27.7 ns) and lands at about 29.9 ns at 330–440 m/s.
+- **No rebound.** Metal within 1 µm of the wall never moves away from it faster than about 50 m/s (α > 0.05). A jet 2–3 cells wide and a film thinner than a cell cannot show a splash, so this does not rule one out.
+- **Temperature.** The metal on the wall is at 2,900–3,300 K in the centre at 24–27 ns. At the edge it falls to 550–700 K by 28–30 ns, far below the melting point (1941 K). A real deposit would start to freeze at its edge within a few nanoseconds, which the model cannot represent (A4).
+- **Volume.** The metal in the first layer grows from 0.0074 µm³ (full circle) before contact to 0.067 µm³ at 27.3 ns. That is about 0.06 µm³ deposited, about 0.4 % of the 14.3 µm³ of metal in the model; most of the film is still near the donor at 30 ns.
+- **Leftover receiver metal.** When the receiver was cut at 21.5 ns, about 0.009 µm³ (full circle) of cold metal (306–332 K, α up to 0.29, at r ≈ 0.4 µm) lay in the first layer above y = 8 µm, a bump of run A's liquid receiver surface. It is excluded from h(r) by the 400 K threshold and has been subtracted in the volume above.
+
+**What this changes.** The crater of §15 is gone. The impact pressure is close to ½ρv², as expected for a liquid jet on a wall. On L1 the deposit is a film thinner than one cell, so the shape of the deposit and any splash are still not predictions. Resolving them needs much smaller cells near the wall and a solidification model.
+
+**Animation.** `/home/user/linkedin_post/LIFT_full_run_rigid_0-30ns_*`. Frames are from run A up to 21.5 ns, then from the rigid run (85 frames). The receiver is drawn as a hatched wall in every frame (`RIGID=1`). Tools: `tools/render_full_run.py` (`CLIP3=7.995`), `tools/full_run_curves.py`, `tools/impact_rigid.py`, `tools/wall_film_profile.py`, `tools/compose_full_run.py` (`RIGID=1 FILM=…`).

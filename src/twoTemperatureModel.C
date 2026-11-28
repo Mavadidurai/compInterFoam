@@ -740,6 +740,65 @@ void twoTemperatureModel::applyTemperatureBounds
     Tl_.correctBoundaryConditions();
 }
 
+void twoTemperatureModel::addTemperatureAdvection
+(
+    fvScalarMatrix& TEqn,
+    volScalarField& T,
+    const volScalarField& C,
+    const volScalarField& capacity
+) const
+{
+    // Which flux carries the temperatures:
+    //   metal   (default): the metal volume flux alphaPhi10 from the MULES
+    //            alpha solve. Metal heat moves with the metal only:
+    //                alpha*C*dT/dt + C*[div(alphaPhi*T) - T*div(alphaPhi)]
+    //            is the advective form of the conservative metal-energy
+    //            equation d(alpha*C*T)/dt + div(alphaPhi*C*T) (C per unit
+    //            metal volume). Faces through which only gas flows carry
+    //            no metal and so bring no gas temperature into the metal.
+    //   mixture  (previous behaviour): the mixture flux phi, weighted with
+    //            the cell capacity alpha*C. At a receding metal surface the
+    //            upwind values come from gas cells, whose temperatures are
+    //            reset to ambient, so cold gas temperature was mixed into the
+    //            hottest metal cells at a rate set by the cell size. In the
+    //            fs-LIFT mesh study this made the surface cooling, the recoil
+    //            impulse and the film momentum depend on the mesh
+    //            (about 6 % per refinement level, no convergence).
+    const word fluxType =
+        dict_.lookupOrDefault<word>("temperatureAdvectionFlux", "metal");
+
+    if (fluxType == "metal")
+    {
+        if (!mesh_.foundObject<surfaceScalarField>("alphaPhi10"))
+        {
+            FatalErrorInFunction
+                << "temperatureAdvectionFlux metal needs the metal flux "
+                << "alphaPhi10, which is not registered" << exit(FatalError);
+        }
+        const surfaceScalarField& alphaPhi =
+            mesh_.lookupObject<surfaceScalarField>("alphaPhi10");
+
+        TEqn +=
+            C.internalField()*fvm::div(alphaPhi, T, "div(phi," + T.name() + ")")
+          - fvm::Sp(C*fvc::div(alphaPhi), T);
+    }
+    else if (fluxType == "mixture")
+    {
+        const surfaceScalarField& phi =
+            mesh_.lookupObject<surfaceScalarField>("phi");
+
+        TEqn +=
+            capacity.internalField()*fvm::div(phi, T)
+          - fvm::Sp(capacity*fvc::div(phi), T);
+    }
+    else
+    {
+        FatalIOErrorInFunction(dict_)
+            << "temperatureAdvectionFlux " << fluxType
+            << " is not one of: metal mixture" << exit(FatalIOError);
+    }
+}
+
 void twoTemperatureModel::solveLatticeEquation
   (
       const volScalarField& metalEff,
@@ -813,17 +872,14 @@ void twoTemperatureModel::solveLatticeEquation
       && mesh_.foundObject<surfaceScalarField>("phi")
      )
      {
-         // Transport the lattice temperature with the mixture flux so that
-         // ejected material carries its thermal state (advective form; the
-         // Sp correction removes the dilatational div(phi) contribution).
-         // Without this term the temperature field stays behind while the
-         // film moves through it.
-         const surfaceScalarField& phi =
-             mesh_.lookupObject<surfaceScalarField>("phi");
-
-         TlEqn +=
-             capacity.internalField()*fvm::div(phi, Tl_)
-           - fvm::Sp(capacity*fvc::div(phi), Tl_);
+         // Transport the lattice temperature with the material so that
+         // ejected metal carries its thermal state (advective form; the Sp
+         // correction removes the div(flux) contribution, so a uniform
+         // temperature stays uniform). Without this term the temperature
+         // field stays behind while the film moves through it.
+         // Lattice heat capacity per unit metal volume, as a field
+         tmp<volScalarField> tClField(scalar(0)*capacity + Cl_);
+         addTemperatureAdvection(TlEqn, Tl_, tClField(), capacity);
      }
 
      TlEqn.relax();
@@ -889,12 +945,7 @@ void twoTemperatureModel::solveElectronEquation
      {
          // Electron energy moves with the material on hydrodynamic time
          // scales; use the same advective-form transport as the lattice.
-         const surfaceScalarField& phi =
-             mesh_.lookupObject<surfaceScalarField>("phi");
-
-         TeEqn +=
-             capacity.internalField()*fvm::div(phi, Te_)
-           - fvm::Sp(capacity*fvc::div(phi), Te_);
+         addTemperatureAdvection(TeEqn, Te_, Ce, capacity);
      }
 
      TeEqn.relax();

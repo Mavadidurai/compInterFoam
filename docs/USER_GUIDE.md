@@ -27,6 +27,8 @@ The executable `compInterFoam` is installed in `$FOAM_USER_APPBIN`, which is on 
 
 ## 2. Running the reference case
 
+> The published results of this case (`figures/fsLIFT_332mJ_axisymmetric/`) were produced before the fixes of [CODE_REVIEW.md §1](CODE_REVIEW.md#1-defects-that-change-results) and are superseded. Running it with the current solver gives new results; the current results in [RESULTS.md](RESULTS.md) come from the mesh-study case (§2.4).
+
 ### 2.1 With the run script
 
 ```bash
@@ -104,6 +106,27 @@ The fields are written every 0.2 ns counted from the start of stage 2 (2 ps), so
 
 The run script needs `mpirun`; in a container that runs as root, set `OMPI_ALLOW_RUN_AS_ROOT=1` and `OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1`.
 
+### 2.5 Continuing a run on a mesh refined along the flight path
+
+On level 1 the cells below y = 16.5 µm are 71 nm tall, thicker than the flying cap (about 65 nm). To follow the flight on finer cells without repeating the launch, copy a written state from before the cap reaches those cells onto a refined mesh and continue there. This is how run C of [RESULTS.md §2](RESULTS.md#2-runs-in-progress) was set up ([INVESTIGATION_LOG.md §13](INVESTIGATION_LOG.md#13-run-c-refined-flight-path-22-nov)):
+
+```bash
+SRC=<level-1 run>; T=2.9625e-09; NEW=<new case>
+# 1. new case with the same system/ and constant/ (without polyMesh); refine the gap block only,
+#    keeping the cells above y = 17 um identical so the metal is copied exactly:
+#    ((8.5 120 1) (0.5 17 0.12) (3.0 354 1))  ->  ((8.5 567 1) (0.5 43 0.567) (3.0 354 1)), 491 -> 964 cells
+blockMesh && checkMesh && topoSet                       # topoSet: receiver zone
+# 2. a serial source in ASCII: reconstruct the one time in a scratch copy of $SRC
+reconstructPar -time $T && foamFormatConvert -time $T -noConstant   # writeFormat ascii in that copy
+# 3. target field files: for every volume field of the source, the same file with
+#    'internalField uniform 0;' (or (0 0 0)), in $NEW/$T. mapFields maps only fields that exist there.
+mapFields <scratch copy> -sourceTime $T -consistent -mapMethod mapNearest
+cp -r <scratch copy>/$T/uniform $NEW/$T/                # trapped-vapour state (uniform/vapourPocket)
+decomposePar -force
+```
+
+Check that the metal volume, momentum and total mass of the target equal the source (they did to every printed digit for run C), and set `startFrom startTime; startTime $T;` in `system/controlDict` for the first launch. Change it to `startFrom latestTime;` once the run has written its first time, or a restart begins again from `$T` (this happened once in run C). `mapFields -consistent` of v2406 offers only `mapNearest`, `interpolate` and `cellPointInterpolate`; with identical cells where the metal is, `mapNearest` is exact there. The surface fields `phi` and `alphaPhi10` are not mapped; the solver rebuilds them on the first step. The radial cells are not changed by this procedure.
+
 ---
 
 ## 3. The one-dimensional test cases
@@ -156,6 +179,7 @@ To change the fluence, change `pulseEnergy`: energy on the film = 0.87545 × F�
 | `electronSubCycles` | 4 | Sub-steps of the electron equation per time step |
 | `maxTe`, `maxTl` | 50,000 K | Safety bounds. Keep them well above the peak temperatures: 10,000 K was too low for this laser and removed energy |
 | `advectTemperatures` | `true` (default) | Carry T_e and T_l with the flow |
+| `temperatureAdvectionFlux` | `metal` (default) | Flux that carries T_e and T_l: `metal` (the metal flux of the α equation) or `mixture` (the mixture flux, the earlier behaviour; it cools receding metal surfaces numerically, see [MODEL.md](MODEL.md)) |
 
 ### 4.3 Evaporation, recoil and trapped vapour: `system/controlDict`
 
@@ -189,7 +213,7 @@ To change the fluence, change `pulseEnergy`: energy on the film = 0.87545 × F�
 | `maxRadius` | 1e-5 m | 1e-5 m | Cells further from the axis belong to no ring and feel no vapour pressure |
 | `minThickness` | 1e-9 m | 1e-9 m | Initial gap h₀ between glass and film |
 | `metalDensity` | 4515 kg/m³ | 4515 kg/m³ | Converts the evaporated mass into the volume it leaves behind |
-| `filmMinHeight` | 9e-6 m | no limit | Only metal above this y belongs to the donor film. Set it between the receiver top and the film |
+| `filmMinHeight` | 9e-6 m | no limit | Only metal above this y belongs to the donor film; below it no surface receives the pocket pressure. Set it between the receiver top and the film |
 
 ### 4.4 Interface and pressure: `system/fvSolution`
 
@@ -240,6 +264,16 @@ All tools take the case directory as their first argument. The Python tools need
 | `pvpython tools/render_gallery.py <case>` | Sections of α, speed with direction arrows, radial velocity and pressure at several times; close-ups of the laser heating; 3-D views of the revolved interface | `figures/<case>/gallery/` |
 | `python3 tools/compare_ttm_1d.py <case>` | The 1-D column against the finite-difference code | `figures/verification/ttm_column_vs_fd.png` |
 | `python3 tools/ttm_fd_1d.py` | Independent finite-difference solution of the 1-D two-temperature model, with its own convergence check | printed |
+| `pvpython tools/mesh_study_fields.py <case>` | Metal volume, momentum, kinetic energy, speed within 1 and 2.5 µm of the axis, film position and thickness on the axis, peak lattice temperature, at every written time (full circle) | `<case>/mesh_study_fields.csv` |
+| `python3 tools/mesh_study_gci.py <work dir> <time>` | Order of convergence, extrapolated value and grid convergence index of each quantity over L1–L3 | `figures/fsLIFT_332mJ_Ti_meshStudy/data/gci_<time>s.csv` |
+| `pvpython tools/flight_front.py <case> <t_min> <stride> <out.csv>` | Lowest metal, volume and mean speed of the metal below y = 18.5 µm, and the largest metal fraction near the axis (below about 0.95 the cap is not resolved) | `<out.csv>` |
+| `pvpython tools/render_full_run.py <case> <outdir> <x_half_um> <y0_um> <y1_um> <SY> <W> [times]` | Section (temperature, speed) and 3-D panels for the whole-run animation; run with `LP_NUM_THREADS=1` next to a running MPI case | `<outdir>/T_*.png, U_*.png, D_*.png, times.txt` |
+| `pvpython tools/full_run_curves.py <case> <times.txt> <out.csv>` | Gap to the receiver, speed and lattice temperature of the metal near the axis at each frame time | `<out.csv>` |
+| `pvpython tools/impact_rigid.py <case> <out.csv>` | Impact on the rigid receiver per written time: contact, footprint radius, metal volume at the wall, speeds near the wall, wall pressure, temperature of the metal on the wall | `<out.csv>` |
+| `pvpython tools/front_tip_stats.py <case> <out.csv> <t_ns> ...` | The leading metal of the flying jet at the given times: lowest metal cell (α > 0.5 and > 0.1), flying metal volume near the receiver, volume, speed and radius of the tip | `<out.csv>` |
+| `pvpython tools/wall_film_profile.py <case> <times.txt> <out.csv>` | Equivalent thickness of the metal film on the rigid receiver against radius, per frame (for `compose_full_run.py` with `FILM=`) | `<out.csv>` |
+| `[RIGID=1] [FILM=<csv>] python3 tools/compose_full_run.py <paneldir> <zoomdir> <curves.csv> <outdir> <dpi>` | 16:9 frames of the whole run (dpi 100: 1080p, 200: 4K); `RIGID=1` draws the receiver as a rigid wall, `FILM=` adds the wall film from `wall_film_profile.py` | `<outdir>/c_*.png` |
+| `python3 tools/plot_mesh_study_flight.py` | Figures of the mesh study and the coarse-mesh flight from `figures/fsLIFT_332mJ_Ti_meshStudy/data/` | `figures/fsLIFT_332mJ_Ti_meshStudy/*.png` |
 
 For a decomposed case, `count_metal_pieces.py` merges the processor pieces before counting. Without the merge, the shared points on processor boundaries make one piece look like several.
 

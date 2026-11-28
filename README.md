@@ -1,10 +1,12 @@
 # compInterFoam-fsLIFT
 
-An OpenFOAM v2406 solver for **femtosecond laser-induced forward transfer (fs-LIFT)** of a thin metal film, with a complete reference simulation of a 71.4 nm titanium film from the laser pulse (femtoseconds) to the flight of the ejected droplet (20 nanoseconds).
+An OpenFOAM v2406 solver for **femtosecond laser-induced forward transfer (fs-LIFT)** of a thin metal film, applied to a 71.4 nm titanium film: from the laser pulse (femtoseconds) through the launch of the film, the break of the dome it forms, and the flight of the metal to the receiver (nanoseconds).
 
-![The metal surface at 1, 6, 13.4 and 19.8 ns after the laser pulse, drawn in 3-D by revolving the axisymmetric result about the beam axis](figures/fsLIFT_332mJ_axisymmetric/gallery/montage_3d.png)
+![Section through the beam axis and 3-D view at 6.0 ns: the dome wall has broken and the central cap flies towards the receiver](figures/fsLIFT_332mJ_Ti_meshStudy/flight_L1_6.0ns.png)
 
-*The reference simulation at 1, 6, 13.4 and 19.8 ns. The film is pushed away from the glass into a dome (1 ns), deepens into a cup (6 ns), tears (13.4 ns), and its bottom flies on as one droplet with ring-shaped fragments around it (19.8 ns). Colour: vertical velocity, blue = towards the receiver. The simulation is two-dimensional and axisymmetric; these pictures are that result revolved about the beam axis, not a 3-D simulation.*
+*The current simulation at 6.0 ns on the coarse mesh (62,010 cells). Left: section through the beam axis at true scale, lattice temperature on the left half and speed on the right half. The dome wall broke at about 4 ns; the central cap flies on at about 410 m/s. The small fragments along the wall are thinner than a cell and are not resolved. The simulation is two-dimensional and axisymmetric; the 3-D view is that result revolved about the beam axis, not a 3-D simulation.*
+
+> **Status, 27 November 2026.** The mesh study of the launch found two defects (fixes 8 and 9 of [docs/CODE_REVIEW.md](docs/CODE_REVIEW.md#1-defects-that-change-results)) that had made the film momentum about 80 % too low. The results below come from the corrected solver. The earlier reference simulation (`cases/fsLIFT_332mJ_axisymmetric`, 191.7 m/s, separation at 13 ns) is **superseded** ([docs/RESULTS.md §3](docs/RESULTS.md#3-the-earlier-reference-case-superseded)). On the coarse mesh the whole sequence from the laser pulse to the impact on the receiver (about 24 ns) is now computed, including a rerun of the impact on a rigid receiver; a run with finer cells along the flight path is in progress ([§5](#5-runs-in-progress)).
 
 ---
 
@@ -13,8 +15,8 @@ An OpenFOAM v2406 solver for **femtosecond laser-induced forward transfer (fs-LI
 1. [What fs-LIFT is](#1-what-fs-lift-is)
 2. [What this solver adds to OpenFOAM](#2-what-this-solver-adds-to-openfoam)
 3. [How far the results can be trusted](#3-how-far-the-results-can-be-trusted)
-4. [The reference simulation](#4-the-reference-simulation)
-5. [Results, stage by stage](#5-results-stage-by-stage)
+4. [The current results](#4-the-current-results)
+5. [Runs in progress](#5-runs-in-progress)
 6. [The main numbers](#6-the-main-numbers)
 7. [Verification at a glance](#7-verification-at-a-glance)
 8. [Limitations](#8-limitations)
@@ -76,224 +78,124 @@ The interface transport, surface tension and pressure coupling were also correct
 | | Status | Meaning |
 |---|---|---|
 | **Verified** | yes | Every added equation has been checked against an exact solution, an independent code or a hand calculation ([§7](#7-verification-at-a-glance), [VERIFICATION.md](docs/VERIFICATION.md)) |
-| **Mesh-converged** | partly | The launch of the film is well resolved. The separation of the droplet happens where the film is thinner than one cell, so its time and volume depend on the mesh ([§8](#8-limitations)) |
-| **Validated** | no | No comparison with measurements is included. The model also leaves out known physics, such as stress waves in the metal and the solid glass ([§8](#8-limitations)) |
+| **Mesh-converged** | the launch, to 315 ps | On three meshes the film momentum agrees within 0.6 % and the speed near the axis within 0.03 % (finest pair). The break of the dome wall and the flight were computed on the coarsest mesh only, where the wall is about one cell thick when it breaks, the flying metal is a jet only 2–3 cells wide from about 7 ns, and the receiver is liquid; a rerun with a rigid receiver gives a deposit thinner than one cell ([§8](#8-limitations)) |
+| **Energy balance** | 4 % open at 315 ps | The laser energy is deposited correctly (−0.06 %), but 4 % of it is not accounted for at 315 ps and 7 % at 2.16 ns ([RESULTS.md §1.5](docs/RESULTS.md#15-energy-and-mass-balance)) |
+| **Validated** | no | No comparison with measurements. The model also leaves out known physics, such as stress waves in the metal and the solid glass ([§8](#8-limitations)) |
 
-**Read the numbers below as the result of this model on this mesh, not as a prediction of an experiment.**
+**Read the numbers below as the result of this model, not as a prediction of an experiment.**
 
 ---
 
-## 4. The reference simulation
+## 4. The current results
 
-Case directory: [`cases/fsLIFT_332mJ_axisymmetric`](cases/fsLIFT_332mJ_axisymmetric).
+Case directory: [`cases/fsLIFT_332mJ_Ti_meshStudy`](cases/fsLIFT_332mJ_Ti_meshStudy). Full discussion: [docs/RESULTS.md](docs/RESULTS.md).
 
 ### 4.1 Inputs
 
 | Quantity | Value | Note |
 |---|---|---|
-| Film | titanium, 71.4 nm | liquid everywhere, constant density 4515 kg/m³, viscosity 2.35 mPa s, surface tension 1.64 N/m |
+| Film | titanium, 71.4 nm | liquid everywhere, constant density 4506 kg/m³ (solid Ti, so the film mass is right), viscosity 2.35 mPa s, surface tension 1.613 N/m (measured at the melting point) |
+| Two-temperature inputs | C_e = 318 T_e J/(m³ K); coupling capped at 2.5×10¹⁸ W/(m³ K) | first-principles level for titanium (Hobmaier et al. 2026) |
 | Donor | glass, 1.05 mm | modelled as a gas of constant density (see [§8](#8-limitations)) |
-| Laser wavelength | 343 nm | |
-| Pulse duration | 214 fs | full width at half maximum |
-| Beam radius | 3 µm | where the intensity falls to 1/e² |
+| Laser | 343 nm, 214 fs (full width at half maximum), beam radius 3 µm at 1/e² | |
 | Peak fluence | 332 mJ/cm² before the glass | 4.109e-8 J reaches the film after the glass |
-| Optics of titanium at 343 nm | reflectivity 0.428 at the glass–titanium interface; absorption depth 9.66 nm | from the refractive index n = 1.7283, k = 2.8242 |
+| Optics of titanium at 343 nm | reflectivity 0.428 at the glass–titanium interface; absorption depth 9.66 nm | from n = 1.7283, k = 2.8242 |
 | Gap to the receiver | 12 µm | |
 
-### 4.2 Geometry and mesh
+### 4.2 Geometry and meshes
 
-The case is **axisymmetric**: every quantity is assumed to be the same at every angle around the beam axis. It is computed on a wedge of 5°, a thin slice of the full cylinder. y runs along the beam axis and r is the distance from it; the laser travels in −y.
+The case is **axisymmetric**: every quantity is the same at every angle around the beam axis. It is computed on a 5° wedge. y runs along the beam axis and r is the distance from it; the laser travels in −y.
 
 ```
  y [µm]
  32.07 ┌──────────────────────────────────────────┐
        │  donor glass (modelled as a gas)         │  ← laser enters here, travelling −y
  20.07 ├══════════════════════════════════════════┤  glass-side surface of the film (vapour is trapped here)
-       │  titanium film, 71.4 nm (16 cells)       │
+       │  titanium film, 71.4 nm                  │
  20.00 ├══════════════════════════════════════════┤  gap-side surface of the film (free surface)
-       │  gap, 12 µm                              │  6 nm cells for the first 3 µm below the film
+       │  gap: fine cells for y = 17–20 µm,       │
+       │  coarser cells for y = 8–16.5 µm         │
   8.00 ├──────────────────────────────────────────┤  receiver surface
        │  receiver                                │
   0.00 └──────────────────────────────────────────┘
        r = 0 (beam axis)                 r = 8 µm (open boundary)
 ```
 
-| Mesh property | Value |
-|---|---|
-| Cells | 132,480 |
-| Across the film | 16 cells of 4.46 nm |
-| Below the film, along the beam axis | 6 nm cells for the first 3 µm, then graded to 50 nm |
-| Radially | 160 cells of 50 nm over 8 µm |
+| Mesh | Cells | Film | Gap, y = 17–20 µm | Gap, y = 8–16.5 µm | Radial, r < 3.5 µm |
+|---|---|---|---|---|---|
+| L1 | 62,010 | 11 cells of 6.5 nm | 8.5 nm | 71 nm | 49 nm |
+| L2 | 124,200 | 16 cells of 4.5 nm | 6.0 nm | 50 nm | 35 nm |
+| L3 | 248,252 | 23 cells of 3.1 nm | 4.2 nm | 35 nm | 25 nm |
+| C (flight) | 112,148 | as L1 | as L1 | **15 nm** | as L1 |
 
-### 4.3 Run
+### 4.3 What happens
 
-The case was run to 20 ns on 4 processes with [`tools/run_case.sh`](tools/run_case.sh), in three stages with growing largest time steps (10 fs, 1 ps, 2.5 ps). It took about 20 hours and wrote about 5 GB of fields. The film lost about 1.5 % of its volume over the whole run, by evaporation (−0.0135 % of all metal in the domain, which includes the 8 µm metal receiver).
+![Film momentum and speed near the axis on the three meshes, 0–315 ps](figures/fsLIFT_332mJ_Ti_meshStudy/mesh_study_315ps.png)
 
-### 4.4 How to read the section images
+*Film momentum (left) and speed of the metal within 1 µm of the axis (right) on the three meshes.*
 
-Most images below are cuts through the beam axis: the 5° wedge mirrored about r = 0, so the axis is in the middle of each picture and each picture is 8 µm wide.
-- The glass is at the top and the receiver below.
-- The vertical scale is stretched (by 1.1 to 2 times, written under each picture) so the thin film stays visible.
-- The black or white line is the metal surface (α = 0.5).
-- The time is in the title of each picture: `t = 202 ps` is 0.2 ns after the pulse.
+- **Heating, 0–3 ps.** The electrons absorb the pulse in a layer about 10 nm thick at the glass-side surface and reach 25,000–27,000 K; the lattice follows and peaks at about 20,000 K at about 3 ps, more than twice the critical temperature of titanium.
+- **Launch, to about 0.3 ns.** The glass-side surface evaporates. The vapour cannot escape; its pressure peaks at about 1.3 GPa at about 12 ps and pushes the hot centre of the film away from the glass. At 315 ps the centre moves as a nearly uniform plug at **389.5 m/s** (finest mesh). Its kinetic energy per area is 7.3 times the energy of the two new surfaces a free piece needs, and the Weber number is 29.
+- **Dome, to about 4 ns.** The film keeps speeding up, to **433 m/s at 1.9 ns** near the axis (coarse mesh), and stretches into a dome.
+- **Break, 3.96–4.26 ns.** The dome wall thins to about one radial cell and breaks. The central cap, 62–68 nm thick on the axis, flies free at about 410–420 m/s.
+- **Flight.** From about 7 ns the metal near the axis is drawn into a thin jet, at most about 0.12 µm in radius (2–3 cells), moving at 455 → 422 m/s with a lattice temperature of about 3,500–3,900 K. It is not resolved on this mesh.
+- **Impact, about 24 ns.** The jet tip reaches the receiver at about 495 m/s.
+  - **On the model's own receiver it digs a crater, which is not physical:** the model has no solid phase, so the 300 K receiver behaves as a liquid.
+  - **On a rigid receiver** (rerun from 21.5 ns with a no-slip 300 K wall), the peak wall pressure is about 0.5 GPa, close to ½ρv². The metal spreads into a film reaching r = 1.7 µm by 30 ns. From 27 ns that film is thinner than one cell, and its edge cools far below the melting point, which the model cannot follow. The deposit is not resolved ([RESULTS.md §1.3](docs/RESULTS.md#13-dome-tear-flight-and-impact-after-315-ps-coarse-mesh-l1-only)).
+
+![Speed, momentum and position of the metal on the coarse mesh to 30 ns](figures/fsLIFT_332mJ_Ti_meshStudy/flight_L1_history.png)
+
+*Coarse mesh L1 after 315 ps: speed (left; dashed: the jet within 0.5 µm of the axis), film momentum (middle; not physical after about 4 ns, limitation 3), and the lowest metal against the receiver at 8 µm (right). Grey band: first break of the dome wall. Shaded: the 71 nm cells in which the flying metal is thinner than one cell.*
+
+**What the mesh study changed.** On the coarse mesh at 315 ps the film momentum was 5.01 × 10⁻¹³ kg m/s before the fixes, 7.39 with fix 8 (temperatures carried with the metal, not with the mixture) and 9.12 with fix 9 as well (vapour pressure on the donor film only, not also on the receiver). Before fix 8 the momentum changed by about 6 % per mesh level; after it, by 0.6 % over all three.
 
 ---
 
-## 5. Results, stage by stage
+## 5. Runs in progress
 
-### 5.1 Laser heating: 0–2 ps
+| Run | What | From → to |
+|---|---|---|
+| **C** | the L1 state at 2.96 ns (before the break) copied onto mesh C, with 15 nm cells along the flight path (71 nm on L1), and continued | 2.96 ns → 35 ns; started 27 Nov 10:08 UTC; paused on 27 Nov from 12:15 to about 18:00 UTC for the rigid-receiver run and its animation; at 24.47 ns on 28 Nov 13:12 UTC (expected end about 29 Nov 00:30 UTC). The bulk of the jet flies within 2.5 % of A's speed, but a thin, fast tip (about 650 m/s against about 510 m/s) reaches the receiver at 20.6 ns instead of 23.6–23.7 ns: **the arrival time is not mesh-converged** |
 
-![Laser heat source at 0.5 ps across the film](figures/fsLIFT_332mJ_axisymmetric/gallery/heat_Q_laser_0000500fs.png)
+Run A (the coarse mesh to the receiver) finished at 29.95 ns; its results are in §4.3.
 
-*Absorbed laser power at 0.5 ps in a close-up of the film (8 µm wide, vertical scale stretched 15 times; logarithmic colour scale). The laser enters from the glass at the top. The power is highest at the glass-side surface on the axis and falls by about three orders of magnitude across the film: the film is 7.4 absorption depths thick, and e^-7.4 ≈ 6e-4.*
-
-![Electron and lattice temperature in the film at 0.5, 1 and 2 ps](figures/fsLIFT_332mJ_axisymmetric/gallery/montage_heating_Te_Tl.png)
-
-*Top row: electron temperature; bottom row: lattice (atom) temperature, at 0.5, 1 and 2 ps. Same close-up as above.*
-
-- The laser energy is absorbed in a layer about 10 nm thick at the glass-side surface, mostly by the electrons.
-- The electrons peak at about **16,400 K at 0.54 ps**.
-- The electrons hand their energy to the atoms within a fraction of a picosecond: the lattice reaches about 16,400 K by 0.61 ps. By 2 ps electrons and atoms are at the same temperature, about 16,000 K at the hottest point.
-- The heat stays concentrated at the glass-side surface, near the axis, because conduction across the film is slow compared with these few picoseconds.
-- The hottest metal is above the critical temperature of titanium, where the model's distinction between liquid and vapour no longer strictly holds ([§8](#8-limitations)).
-
-### 5.2 Trapped vapour and launch: 2 ps – 1 ns
-
-![Main time histories: speed on the axis, distance moved, trapped-vapour pressure and metal volume](figures/fsLIFT_332mJ_axisymmetric/results_timeseries.png)
-
-*Four histories over the 20 ns. **Top left:** speed of the metal on the beam axis towards the receiver; the dotted line is 71 m/s, the speed at which the inertia of the film equals its surface tension (Weber number 1). **Top right:** distance moved by the film on the axis. **Bottom left:** pressure of the trapped vapour on the axis, 1 µm and 2 µm from it, and the highest anywhere (logarithmic scale). **Bottom right:** change of the total metal volume; the steady small decrease is metal that evaporated.*
-
-- The glass-side surface evaporates at once. The vapour cannot escape, and its pressure peaks at **524 MPa at 26 ps**.
-- This pressure pushes the hot centre of the film away from the glass. The film reaches **191.7 m/s on the axis at 0.54 ns**.
-- As the film moves away, the gap behind it opens and the vapour expands and cools. The pressure falls by more than two orders of magnitude within the first nanosecond and is below 1 MPa from 0.59 ns on. From then on the film coasts.
-- At its highest speed the film's kinetic energy per unit area, ½ρhv² = 5.92 J/m², is **1.8 times** the energy of the two new surfaces a separated piece needs, 2σ = 3.28 J/m². The Weber number ρv²h/σ = 4515 · 191.7² · 71.4e-9 / 1.64 = **7.2**. So, in terms of energy, the centre of the film can separate.
-
-![Metal fraction in a section through the axis at 0.2, 1, 3, 6, 10, 13.4, 15 and 19.8 ns](figures/fsLIFT_332mJ_axisymmetric/gallery/montage_alpha.png)
-
-*Metal fraction (yellow = metal, dark = gas) at 0.2, 1, 3, 6, 10, 13.4, 15 and 19.8 ns. The first four pictures show the launch and the deepening dome; the last four the thinning, tearing and flight. Green cells are partly filled: there the metal is smeared over a few cells.*
-
-At 0.2 ns the centre of the film has just started to bow downwards. By 1 ns it is a shallow dome 0.18 µm deep and roughly 5 µm wide.
-
-### 5.3 The dome deepens and slows down: 1–10 ns
-
-![History on the beam axis: distance moved, speed and highest lattice temperature](figures/fsLIFT_332mJ_axisymmetric/axis_position_speed_temperature.png)
-
-*History on the beam axis. **Left:** distance moved by the film centre. **Middle:** speed towards the receiver, with the 71 m/s line at which inertia equals surface tension. **Right:** highest lattice temperature in the film on the axis, with the boiling temperature of titanium (3560 K).*
-
-| Time | Speed on the axis | Distance moved | Highest lattice temperature on the axis |
-|---|---|---|---|
-| 0.54 ns | 191.7 m/s | 0.09 µm | 4,510 K |
-| 1 ns | 190.8 m/s | 0.18 µm | 4,260 K |
-| 3 ns | 180.9 m/s | 0.55 µm | 3,500 K |
-| 5 ns | 164.1 m/s | 0.90 µm | 2,960 K |
-| 6 ns | 152.6 m/s | 1.06 µm | 2,760 K |
-| 7 ns | 125.8 m/s | 1.20 µm | 2,620 K |
-| 8 ns | 77.8 m/s | 1.30 µm | 2,570 K |
-| 10 ns | 66.1 m/s | 1.44 µm | 2,510 K |
-
-- With the vapour pressure gone, the dome is held back by surface tension and by the film around it, to which it is still attached. It slows slowly at first (191 → 153 m/s from 1 to 6 ns), then sharply between 6 and 8 ns (153 → 78 m/s). From 8 ns on the speed stays close to 70 m/s, near the speed at which inertia and surface tension balance.
-- The dome deepens into a **cup** with steep side walls (6 ns picture above).
-- The side walls are stretched and **thin**: their horizontal metal thickness falls from about 100–130 nm at 6 ns to 50–87 nm at 8.4 ns. By 10 ns the walls are smeared over few cells (green in the 10 ns picture).
-- The film on the axis falls below the boiling temperature of titanium at 2.9 ns and cools to about 2,100 K at 20 ns. It stays above the melting temperature (1941 K), so the metal remains liquid throughout.
-
-![Radial velocity in a section through the axis](figures/fsLIFT_332mJ_axisymmetric/gallery/montage_Ur.png)
-
-*Radial velocity: red = away from the axis, blue = towards it. In the first nanoseconds, the gas below the descending film is pushed outward (red), while the gas on the glass side flows towards the axis (blue) to fill the space the dome leaves behind. From 6 ns on, strong radial velocities appear inside the thinning walls, where the metal is spread over only a few cells.*
-
-### 5.4 Separation: about 13 ns
-
-- The walls thin to about **5 nm at 13.4 ns**, far less than one radial cell (50 nm), and tear. The tear is **off the axis**, around the rim of the cup bottom.
-- The bottom of the cup is now free. At 13.4 ns it holds 0.48 µm³ (the volume of a 0.97 µm sphere) All the metal below the torn walls (the main body plus the ring that later breaks off it) moves at about 130 m/s on average; the main body's centre of mass moves at about 100 m/s (§5.5).
-- The torn walls pull back into thick rounded rims on the film that stays attached to the glass (13.4 ns and later pictures).
-
-Because the walls become thinner than one cell well before they tear, **the time of separation and the separated volume are set by the radial cell size** and are not mesh-converged ([§8](#8-limitations)).
-
-### 5.5 Flight: 13–20 ns
-
-![Speed of gas and metal, with flow direction, in a section through the axis](figures/fsLIFT_332mJ_axisymmetric/gallery/montage_Umag.png)
-
-*Speed of gas and metal (colour) and flow direction (arrows). Up to 6 ns the fastest flow is the gas pushed ahead of and drawn behind the dome. From 10 ns on, a fast gas stream (dark red) runs down through the opening in the torn film and onto the separated piece.*
-
-At 19.8 ns, counted with [`tools/count_metal_pieces.py`](tools/count_metal_pieces.py) (cells with α > 0.5):
-
-| Piece | Volume | Sphere of equal volume | Mean speed towards the receiver |
-|---|---|---|---|
-| **Main droplet** (the former cup bottom) | **0.254 µm³** | **0.79 µm diameter** | **about 100 m/s** (centre of mass; constant from 13.4 to 19.8 ns) |
-| Ring fragments around it | 0.105 µm³ in total, a few cells each | – | 170–217 m/s |
-| Metal smeared below α = 0.5 | about 0.22 µm³ | – | – |
-
-- **One main droplet** forms, with small ring-shaped fragments around it.
-- In this axisymmetric model a "fragment" is a ring around the axis. In reality such a ring would break up into separate droplets around its circumference.
-- The lowest metal is still about 9.5 µm above the receiver at 20 ns. Nothing has reached the receiver, so there is **no splash** within the simulated time.
-
-**Which speed to quote.** The speed of the droplet as a body is the velocity of its centre of mass. It is **about 100 m/s and constant** after separation: 102 m/s at 13.4 ns and 98 m/s at 19.8 ns, and a linear fit of the centre-of-mass position gives 100 m/s. The velocity sampled on the beam axis is a different quantity: the local velocity of the liquid there. A droplet that has just torn free is still changing shape, so its internal flow makes the axis sample differ from the body speed. It is about 70 m/s around the tear and rises to 126 m/s at 20 ns, while the droplet as a whole does not speed up.
-
-After about 10 ns the gas that stands in for the glass flows in behind the film and through the opening, faster than the metal (190 m/s on the axis at 19.8 ns). This flow is not physical, since real glass cannot follow the film, but it does not change the droplet's speed: the gas is about 4,000 times less dense than the metal, and the drag of a 190 m/s gas jet on the 0.79 µm droplet moving at 100 m/s (Reynolds number about 5) would change the droplet's speed by about 0.02 m/s over 1.5 ns, and by less than 0.3 m/s even at the full 190 m/s relative speed for the whole 6.4 ns of flight.
-
-![Speed of the detached droplet as a body against the speed sampled on the axis](figures/fsLIFT_332mJ_axisymmetric/droplet_motion.png)
-
-*Left: centre-of-mass velocity of the detached droplet (red), mean velocity of all metal below the film (blue), and the local liquid velocity sampled on the beam axis (grey). Right: height of the droplet's centre of mass and of its lowest point on the axis. Computed with `tools/droplet_motion.py`; data in `figures/fsLIFT_332mJ_axisymmetric/data/droplet_motion.csv`.*
-
-### 5.6 Pressure
-
-![Pressure in a section through the axis](figures/fsLIFT_332mJ_axisymmetric/gallery/montage_p.png)
-
-*Pressure; the colour range of each picture covers 2–98 % of its values.*
-
-- **0.2 ns:** the pressure inside the centre of the film is several MPa: the film is being pushed by the vapour behind it.
-- **From 1 ns on:** a red-and-blue cell-to-cell **checkerboard** appears inside the thin metal. It is a numerical artefact of the pressure in the thin film, not a physical pressure wave.
-- **13.4–19.8 ns:** the main droplet and the rims of the torn film carry pressures of a few MPa. This is the pressure of surface tension in small curved liquid bodies, of the order 2σ/R: about 8 MPa for a radius of 0.4 µm.
-
-### 5.7 The whole story in one table
-
-| Time | Event |
-|---|---|
-| 0.27 ps | peak of the laser pulse |
-| 0.54 ps | electrons peak at about 16,400 K |
-| 0.6 ps | atoms at the same temperature as the electrons |
-| 26 ps | trapped vapour peaks at 524 MPa |
-| 0.54 ns | film on the axis reaches its highest speed, 191.7 m/s |
-| 0.59 ns | trapped vapour below 1 MPa; the film coasts from here |
-| 2.9 ns | film on the axis below the boiling temperature |
-| 6–8 ns | dome is now a cup; speed on the axis falls from 153 to 78 m/s; walls thin |
-| about 13 ns | walls tear; the cup bottom is free |
-| 13–20 ns | main droplet (centre of mass at a constant ~100 m/s) and ring fragments in flight |
-| 20 ns | end of the run; nothing has reached the receiver |
+How C was set up and checked: [docs/INVESTIGATION_LOG.md §13](docs/INVESTIGATION_LOG.md#13-run-c-refined-flight-path-22-nov). Mesh C does not refine the radial cells, so the break of the dome wall and the radius of the jet remain mesh-limited, and its receiver is liquid too. C shows how much of the flight on L1 depended on the 71 nm cells along the path.
 
 ---
 
 ## 6. The main numbers
 
-From [`figures/fsLIFT_332mJ_axisymmetric/results_table.md`](figures/fsLIFT_332mJ_axisymmetric/results_table.md) and the piece count above:
-
 | Quantity | Value | How reliable |
 |---|---|---|
-| Peak electron temperature | about 16,400 K at 0.54 ps | verified model, but its titanium coupling and heat capacity are higher than published values ([LITERATURE.md §3](docs/LITERATURE.md#3-two-temperature-parameters-of-titanium)); above the critical point of titanium |
-| Peak trapped-vapour pressure | 524 MPa at 26 ps | depends on the trapped-vapour model (assumed initial gap 1 nm) |
-| Highest speed of the film on the axis | 191.7 m/s at 0.54 ns | well-resolved part of the run; no mesh study yet |
-| Weber number at that speed | 7.2 | |
-| Kinetic energy / surface energy of a separated piece | 1.81 | |
-| Distance moved on the axis at 1 / 5 / 20 ns | 0.18 / 0.90 / 2.16 µm | |
-| Time of separation | about 13 ns | **mesh-limited** |
-| Main droplet at 19.8 ns | 0.254 µm³, equal-volume sphere 0.79 µm | **mesh-limited** |
-| Speed of the droplet (centre of mass) | about 100 m/s, constant from 13.4 to 19.8 ns | separation time and volume mesh-limited |
-| Change of the film volume | about −1.5 % (evaporated metal) | −0.0135 % of all metal, which includes the 8 µm receiver |
+| Peak electron / lattice temperature | 27,000 / 20,000 K (finest mesh) | GCI 4.5 % / 1.3 %; far above the critical point of titanium |
+| Peak trapped-vapour pressure | about 1.3 GPa at about 12 ps | read from log lines written every 20 steps |
+| Film momentum at 315 ps | 9.06–9.12 × 10⁻¹³ kg m/s (full circle) | three meshes within 0.6 %; still rising |
+| Speed of the film centre at 315 ps | 389.5 m/s | converged (0.03 % between the two finest meshes) |
+| Highest speed near the axis | 432.9 m/s at 1.9 ns | coarse mesh only |
+| Break of the dome wall | 3.96–4.26 ns | coarse mesh; wall about one cell thick: **mesh-limited** |
+| Central cap in flight | about 410–420 m/s at 5–6.5 ns, 62–68 nm thick | coarse mesh; not resolved after about 7 ns |
+| Jet in flight | 455 → 422 m/s (7.3–23.6 ns), radius ≤ 0.12 µm, lattice 3,500–3,900 K | coarse mesh; 2–3 cells wide: **not resolved** |
+| Contact with the receiver | 23.6–23.7 ns, at about 420 m/s | coarse mesh; qualitative |
+| Mass | −0.098 % of the film by evaporation over 0–315 ps | |
+| Energy | laser deposition −0.06 %; −4.0 % unaccounted for at 315 ps, −7.1 % at 2.16 ns | under investigation |
 
-The data behind the time plots are in [`figures/fsLIFT_332mJ_axisymmetric/data/`](figures/fsLIFT_332mJ_axisymmetric/data/), with the columns named in the first line of each file. The full discussion is in [docs/RESULTS.md](docs/RESULTS.md).
+Data: [`figures/fsLIFT_332mJ_Ti_meshStudy/data/`](figures/fsLIFT_332mJ_Ti_meshStudy/data/), with the columns named in the first line of each file.
 
 ---
 
 ## 7. Verification at a glance
 
-Each added equation was tested on its own. Selected results below; [VERIFICATION.md](docs/VERIFICATION.md) marks which tests were rerun with the code in this repository (two-temperature model, force on the film, drop benchmarks, viscosity, moving film) and which come from development runs before the last corrections to the interface transport, which do not touch the laser, evaporation or recoil code:
+Each added equation was tested on its own. Selected results below; [VERIFICATION.md](docs/VERIFICATION.md) marks which tests were rerun with the code in this repository and which come from development runs of code paths that later corrections did not touch:
 
 | Part | Test | Result |
 |---|---|---|
-| Laser source | energy deposited in a 1-D film | within 0.2 % of the requested energy |
+| Laser source | energy deposited in a 1-D film; in the 2-D mesh-study run | within 0.2 %; −0.06 % |
 | Two-temperature model | 1-D column against an independent finite-difference code with the same inputs | peak electron temperature −0.5 %; time at which electrons and atoms meet +0.8 % |
 | Evaporation | Hertz–Knudsen flux in every evaporating cell | ratio to the formula 1.000000 |
 | Recoil | 0.54 × saturation pressure in every recoil cell | within 0.1 % |
-| Force on the film | change of the metal momentum against the applied recoil and vapour force, from the reference run | 0.99, 0.96 and 0.94 over three intervals up to 0.4 ns |
+| Force on the film | time integral of the logged forces against the film's momentum change, 2–315 ps | 0.969 (L2), 0.977 (L3) |
+| Temperature transport (fix 8) | film moving as a whole at −170 m/s for 90 ps | heat change −0.06 % (−3.0 % before the fix) |
+| Mesh study | three meshes, 0–315 ps | momentum within 0.6 %, speed near the axis within 0.03 % |
 | Surface tension | pressure jump of a static drop against the Laplace law | −2.75 % at 10 cells per radius, −4.1 % at 40 |
 | Viscosity | decay of a pipe flow with an exact solution | −0.12 % |
 | Moving film | a film moving as a whole at 170 m/s must keep its velocity and pressure | velocity exact, pressure within 0.1 %, metal volume exact |
@@ -305,11 +207,7 @@ Each added equation was tested on its own. Selected results below; [VERIFICATION
 
 ![Static drop: pressure jump and spurious velocity at three resolutions](figures/verification/static_drop.png)
 
-*Surface tension: error of the pressure jump of a static liquid titanium drop (left) and the largest spurious velocity (right), at 10, 20 and 40 cells per drop radius. The error does not decrease under refinement; it stays near −4 % rather than vanishing, a known limitation of computing the curvature from the gradient of α.*
-
-![Oscillating drop against Lamb's solution](figures/verification/oscillating_drop.png)
-
-*Oscillating drop: deformation of a drop released as an ellipsoid, at two resolutions, against Lamb's damped oscillation. The frequency approaches Lamb's value as the mesh is refined; the damping is too weak. This affects how well thinning liquid sheets are captured.*
+*Surface tension: error of the pressure jump of a static liquid titanium drop (left) and the largest spurious velocity (right), at 10, 20 and 40 cells per drop radius. The error does not decrease under refinement; it stays near −4 %, a known limitation of computing the curvature from the gradient of α.*
 
 All tests, how to repeat them, the defects found and corrected, and the open points: [docs/VERIFICATION.md](docs/VERIFICATION.md).
 
@@ -320,15 +218,16 @@ All tests, how to repeat them, the defects found and corrected, and the open poi
 Ordered by how much each could change the answer to "does the film eject, and how?". Details in [docs/RESULTS.md](docs/RESULTS.md#limitations).
 
 1. **The metal is incompressible.** There are no stress waves and no spallation, which in femtosecond LIFT can drive part of the ejection.
-2. **The glass is modelled as an incompressible gas.** It pulls slightly on the departing film and, after about 10 ns, streams through the torn film. It is too light to change the droplet's speed (§5.5), but the flow behind the film is not physical.
-3. **The separation is mesh-limited.** The walls become thinner than one radial cell (50 nm) before they tear. A run from about 6 ns on a radially refined mesh is needed.
-4. **Temperatures above the critical point.** The hottest metal exceeds the critical temperature of titanium; the evaporation model uses a temperature capped at 10,000 K.
-5. **Trapped-vapour model simplifications.** No sideways vapour flow between rings, no cooling of the vapour by the glass, and an assumed initial gap of 1 nm.
-6. **No solid phase.** All metal flows as a liquid, even below the melting temperature.
-7. **Damping of interface oscillations is too weak** (§7).
-8. **Axisymmetric only.** Rings cannot break into separate droplets around their circumference, and an off-centre beam or film defects cannot be represented.
-9. **Not validated** against measurements; the LIFT experiments in the literature register could not be read for this work.
-10. **Titanium inputs.** The density gives the right film mass but not the expansion of the liquid (7.7 % at the melting point), and the surface tension is constant ([VALIDATION.md §5](docs/VALIDATION.md#5-level-3-input-validation)). **Two-temperature parameters of titanium.** The electron–lattice coupling (5–27 times above 5,000 K) and the electron heat capacity (about 2 times) are higher than published values. This mainly speeds up the heating of the atoms (0.25 ps instead of about 2 ps); the peak surface temperature changes by −11 % to +9 % ([LITERATURE.md §3](docs/LITERATURE.md#3-two-temperature-parameters-of-titanium)).
+2. **The gas is incompressible, and the glass is modelled as a gas.** The gap reacts instantly to the film (negative gauge pressures appear above it), and the gas standing in for the glass follows the departing film.
+3. **The break and the flight are mesh-limited, and momentum is not conserved after the break.** Only the launch to 315 ps is mesh-converged. After the dome wall breaks, the film momentum keeps rising, mostly through a numerical net surface-tension force on metal smeared below the cell size and through vapour-pocket pressure that the model does not vent ([INVESTIGATION_LOG.md §14](docs/INVESTIGATION_LOG.md#14-why-the-film-momentum-keeps-rising-after-the-tear-22-nov)). The dome wall breaks where it is about one cell thick, and on the coarse mesh the flying metal is a jet only 2–3 cells wide from about 7 ns. Run C refines the flight path, not the radial cells of the break.
+4. **Temperatures far above the critical point** (about 20,000 K against 8,980 K). The evaporation closures are evaluated with the temperature capped at 10,000 K.
+5. **Energy residual** of 4 % at 315 ps and 7 % at 2.16 ns, not yet explained.
+6. **Trapped-vapour model simplifications.** No sideways vapour flow between rings, no cooling of the vapour by the glass, and an assumed initial gap of 1 nm.
+7. **No solid phase.** All metal flows as a liquid, even below the melting temperature. The 300 K receiver is a liquid too, so the impact digs a crater. A rigid-wall rerun removes the crater, but the deposit still cannot freeze, and on the coarse mesh it is thinner than one cell: nothing after contact predicts the deposit.
+8. **Damping of interface oscillations is too weak** (§7).
+9. **Axisymmetric only.** Rings cannot break into separate droplets around their circumference.
+10. **Not validated** against measurements; the LIFT experiments in the literature register could not be read for this work.
+11. **Titanium inputs.** The surface tension is constant, the liquid's thermal expansion is missing, and the two-temperature inputs are at the first-principles level but without their full temperature dependence ([VALIDATION.md §5](docs/VALIDATION.md#5-level-3-input-validation)).
 
 ---
 
@@ -351,15 +250,14 @@ cd cases/column1D_laser_TTM
 blockMesh && rm -rf 0 && cp -r 0.orig 0 && topoSet && setFields && compInterFoam > log.run 2>&1
 cd ../.. && python3 tools/compare_ttm_1d.py cases/column1D_laser_TTM
 
-# 3. the reference case on 4 processes to 20 ns (about 20 hours, about 5 GB)
+# 3. the mesh study (three meshes; level 3 takes about 6 hours to 1 ns on 4 processes)
+tools/run_mesh_study.sh $HOME/meshstudy 4
+for L in 1 2 3; do xvfb-run -a pvpython tools/mesh_study_fields.py $HOME/meshstudy/L$L; done
+python3 tools/mesh_study_gci.py $HOME/meshstudy 8.02e-10
+
+# 4. a single case on 4 processes, in stages (here the superseded reference case; see docs/USER_GUIDE.md)
 tools/run_case.sh cases/fsLIFT_332mJ_axisymmetric 4 2e-8
 RESUME=1 tools/run_case.sh cases/fsLIFT_332mJ_axisymmetric 4 2e-8    # continue after an interruption
-
-# 4. results: histories on the axis, results table, images
-python3 tools/axis_timeseries.py cases/fsLIFT_332mJ_axisymmetric
-python3 tools/results_package.py cases/fsLIFT_332mJ_axisymmetric
-xvfb-run -a pvpython tools/render_gallery.py cases/fsLIFT_332mJ_axisymmetric
-xvfb-run -a pvpython tools/count_metal_pieces.py cases/fsLIFT_332mJ_axisymmetric 1.98e-8
 ```
 
 Every setting of the case, every tool, and how to set up a new case (another fluence, mesh or film): [docs/USER_GUIDE.md](docs/USER_GUIDE.md).
@@ -371,12 +269,14 @@ Every setting of the case, every tool, and how to set up a new case (another flu
 | Path | Content |
 |---|---|
 | `src/` | solver source code and build files (`Make/`) |
-| `cases/fsLIFT_332mJ_axisymmetric/` | reference case: input dictionaries and initial fields (`0.orig`) |
+| `cases/fsLIFT_332mJ_Ti_meshStudy/` | current case: literature inputs for titanium, mesh family L1–L3 (`tools/make_mesh_level.py`) |
+| `cases/fsLIFT_332mJ_axisymmetric/` | the earlier reference case (results superseded): input dictionaries and initial fields (`0.orig`) |
 | `cases/column1D_laser_TTM/` | 1-D column: laser heating and the two-temperature model |
 | `cases/column1D_galilean_test/` | 1-D column moving as a whole at −170 m/s: velocity and pressure must not change |
 | `tools/` | run script, analysis and plotting scripts (including `plot_model_inputs.py` for the model figures), independent finite-difference two-temperature code |
 | `tools/benchmarks/` | drop benchmarks: surface tension, drop oscillation, viscosity |
-| `figures/fsLIFT_332mJ_axisymmetric/` | results of the reference case: histories, results table, image gallery, data |
+| `figures/fsLIFT_332mJ_Ti_meshStudy/` | current results: mesh study, coarse-mesh flight, figures and data |
+| `figures/fsLIFT_332mJ_axisymmetric/` | results of the superseded reference run: histories, results table, image gallery, data |
 | `figures/verification/` | verification figures |
 | `figures/model/` | figures of the model inputs (laser profiles, two-temperature properties, evaporation, mesh), used in docs/MODEL.md |
 | `figures/literature/` | the sensitivity study of the two-temperature parameters, used in docs/LITERATURE.md |
@@ -390,7 +290,9 @@ Every setting of the case, every tool, and how to set up a new case (another flu
 | [docs/MODEL.md](docs/MODEL.md) | the assumptions and governing equations as implemented, the closures and inputs with their origin, characteristic scales and dimensionless numbers, and the numerical method, with figures |
 | [docs/USER_GUIDE.md](docs/USER_GUIDE.md) | building, running and restarting, every case setting explained, the analysis tools, setting up a new case |
 | [docs/VERIFICATION.md](docs/VERIFICATION.md) | every test with its result and how to repeat it, the defects found and corrected, the open points |
-| [docs/RESULTS.md](docs/RESULTS.md) | the reference result in detail, and the limitations of the model |
+| [docs/RESULTS.md](docs/RESULTS.md) | the current results in detail, the runs in progress, the superseded reference run, and the limitations of the model |
+| [docs/INVESTIGATION_LOG.md](docs/INVESTIGATION_LOG.md) | the chronological record of the mesh study, the energy balance, the coarse-mesh flight and the refined flight run, including hypotheses that were wrong |
+| [docs/CODE_REVIEW.md](docs/CODE_REVIEW.md) | every defect found in the code review and the mesh study, its fix, and its effect on the old run |
 | [docs/VALIDATION.md](docs/VALIDATION.md) | the verification and validation report: status of the five levels, every test, the titanium inputs against measured values, sub-model and mechanism comparisons, what can and cannot be claimed, and the validation plan, with figures |
 | [docs/LITERATURE.md](docs/LITERATURE.md) | comparison of the inputs and results with published work: titanium two-temperature parameters, conductivity, critical temperature, stress confinement, surface-tension numerics; what could not yet be compared |
 

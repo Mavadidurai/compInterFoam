@@ -4,7 +4,7 @@ Reviewed: commit `5844a69` (every file in `src/`, `tools/`, `cases/` and `docs/`
 
 **Status:** ✅ fixed · ❌ not fixed (reason given) · ℹ️ the review's claim was corrected.
 
-**Effect on the old run:** what the issue did to the reference results in `figures/` and the docs, which were produced before the fixes. The reference case is being rerun with the corrected solver.
+**Effect on the old run:** what the issue did to the reference results in `figures/` and the docs, which were produced before the fixes. The reference case has not been rerun with all fixes; the current results come from the mesh-study case ([RESULTS.md](RESULTS.md)).
 
 ---
 
@@ -19,6 +19,8 @@ Reviewed: commit `5844a69` (every file in `src/`, `tools/`, `cases/` and `docs/`
 | 5 | The laser energy was normalised over ∫Q dV, but the two-temperature model deposits α·Q | ✅ | Partly filled cells absorbed less than the pulse energy. Now normalised over ∫α·Q dV | Small while the film was sharp: the deposited energy was within 0.2 % |
 | 6 | Recoil started at 3560 K, but evaporation removes mass and latent heat from 1941 K | ✅ | Recoil now acts in the same cells as evaporation | Negligible: below 3560 K the recoil is ≤ 0.055 MPa |
 | 7 | Two specific gas constants: 174 in the evaporation flux, 173.6 (k_B/m) in the recoil and the pocket | ✅ | One value (174 J/(kg K)) everywhere | Recoil 0.1 % low, pocket pressure 0.2 % low |
+| 8 | With `advectTemperatures true`, T_e and T_l were carried by the mixture flux φ (commit `3b42c29`) | ✅ | At a receding metal surface φ carries gas cells, whose temperature is reset to ambient, into the hottest metal cells, at a rate set by the cell size. Now carried by the metal flux of the α equation (`alphaPhi10`) in advective form; `temperatureAdvectionFlux mixture` keeps the old form for comparison | **Active.** A 1-D film at 1500 K moving at −170 m/s lost 3.0 % of its heat in 90 ps (0.06 % now). In the mesh study (L1, 315 ps) the film momentum was 32 % low and the axis speed 34 % low, and the momentum spread over three meshes was 11.9 % (0.55 % after the fix) |
+| 9 | The trapped-vapour pressure was also applied to the receiver's top surface (commit `ec3a64d`) | ✅ | `glassSide()` in `advancedInterfaceCapturing.C` selected every surface with metal below and gas above; `filmMinHeight` was used only for the film velocity average. The receiver surface (300 K, not evaporating) got the pocket pressure, up to about 1 GPa, and its area was added to each pocket ring, roughly doubling the ring volume. Now `glassSide()` also requires the cell to lie above `filmMinHeight`, in both `local` and `uniform` modes | **Active from about 3 ps.** Mesh-study L1 at 305 ps: film momentum 23.5 % low, kinetic energy 56 % low, axis speed (r < 1 µm) 25 % low. The receiver was pushed away from the film and gained 0.68 × the film momentum by 315 ps, so the logged momentum budget was 1.65 × the film's momentum change |
 
 ---
 
@@ -170,4 +172,26 @@ All four Galilean runs keep U = −170 m/s exactly and p within 0.5 Pa of 10⁵ 
 | Force on the film in the corrected reference run | change of momentum against the recoil and vapour impulse: 1.7 % (2–102 ps) and 4 % (102–202 ps); before the fixes the worst interval was 6 % |
 | Vapour-pocket mass balance in the corrected reference run (fix 2) | pocket mass / metal lost by the film = 0.98–1.02 from 2 to 16 ps; afterwards lower, as designed (vapour above p_sat condenses; the gap side evaporates into the open gas). Before the fix the pocket received about half |
 | Corrected reference run against the old one, launch | trapped-vapour pressure on the axis 961 MPa at 26 ps (old: 524 MPa, the factor ≈ 2 expected from fix 2); film speed on the axis about 10–30 % higher (205 against 185 m/s at 0.45–0.65 ns); no NaN, no fatal error, no energy-balance warning |
-| Reference case rerun to 20 ns | running; results replace those in `figures/` and the docs when it finishes |
+| Reference case rerun to 20 ns | not completed: no finished run or result of it is recorded. It ran without fixes 8 and 9, so its results would be superseded as well. Not restarted; the mesh-study case replaced it ([RESULTS.md](RESULTS.md)) |
+| Fix 8, film moving at −170 m/s with a temperature step (1000 K / 1800 K), 90 ps | heat change: metal flux +1.17 %, film at rest (reference) +1.38 %, mixture flux −2.47 %; interior temperature 1407.8–1418.1 K (metal flux) against 1409.9–1420.4 K (at rest) and 1370.1–1374.1 K (mixture flux) |
+| Fix 8, 1-D laser and two-temperature column against the finite-difference code | peak electron temperature 6649 K against 6672 K (−0.3 %); electrons and lattice meet at 0.500 ps against 0.496 ps (+0.8 %): unchanged (the film barely moves in this test) |
+| Fix 9, mesh-study L1 from 0 to 5 ps with and without the change | receiver: pocket pressure 485 MPa → 0, momentum −8.1 × 10⁻¹⁵ → −3.7 × 10⁻¹⁷ kg m/s at 5 ps. Logged momentum budget per 1 ps window: matches film + receiver within 0.2 % before, film alone within 0.4 % after. Film identical up to 3 ps; 3.1 % more momentum gained in 4–5 ps after the fix |
+| Fix 9, L1 continued to 305 ps | logged momentum budget within 4.1 % of the film's momentum change (0–305 ps); the difference is attributed to the α weighting of interface cells in the budget, not confirmed |
+| Mesh study with fixes 8 and 9 (L1/L2/L3 to 315 ps) | momentum 9.116 / 9.104 / 9.061 e-13 kg m/s, spread 0.6 % but not in the asymptotic range (no GCI); axis speed converged at 389.5 m/s; budget within 2.3–3.1 % |
+
+---
+
+## 9. Targeted reading of the force and energy paths (22 Nov)
+
+Read after the mesh study with fixes 8 and 9, to look for errors that a mesh study cannot show (an error that is the same on every mesh converges too). Source: `src/advancedInterfaceCapturing.C`, `src/twoTemperatureModel.C`. Nothing here has been changed.
+
+| Finding | Where | Effect on the mesh-study case |
+|---|---|---|
+| Recoil acts only in cells that evaporate (`|jNet| > massRateEps`), relaxed with `recoilRelax 0.7` against the previous step | `calculateRecoilPressure` | Intended; no smoothing, cap or clamp is active in this case |
+| Recoil and the pocket pressure are set to zero for `t > laserEndTime + 50 ps` | `advancedInterfaceCapturing.C:609` | **None here** (`laserEndTime 5e-8`, beyond the run end). It does act in cases with a short `laserEndTime`, e.g. the 1-D tests (2e-10) |
+| Saturation cap of the local pocket: vapour above p_sat is removed from the bin mass (`pocketBinMass_[b] = pSat*Vb/(R_specific*Tv)`); the mass and its latent heat are not returned to the film | `advancedInterfaceCapturing.C:1331` | Mass and energy are not conserved there. Size on L1, 0–315 ps: the pocket holds the equivalent of 0.006 → 0.004 µm³ of titanium, against a film of 14.3 µm³, so below 0.05 % of the film mass [estimate, not tracked directly] |
+| Built-in energy check compares with the total metal energy, tolerance `energyTolerance 0.02` | `twoTemperatureModel.C:1208–1221`, case `controlDict` | **Too weak to detect a film error**: the total is dominated by the receiver, so 2 % of it is many times the laser energy. It never warned, and that says nothing |
+| "Cumulative laser energy" adds the laser energy at every inner coupling sweep (`nInnerCouplingSweeps 3`), so it reports 3× the deposited energy | `twoTemperatureModel.C:1092` | Reporting only; the field is not used in the equations |
+| The electron heat capacity Ce = γ·Te (γ = 318) is evaluated at the start of each sub-step, not at its midpoint | `twoTemperatureModel.C` | Hypothesis for part of the 0.8 % energy lost in the solve during the pulse (§11 of `INVESTIGATION_LOG.md`); not tested |
+
+The laser deposition itself is correct: the energy diagnostics give 326.04 pJ absorbed in the 5° wedge against 4.1089e-8 J × (1 − 0.42832) / 72 = 326.24 pJ expected (−0.06 %).

@@ -1178,7 +1178,13 @@ void advancedInterfaceCapturing::calculateRecoilPressure()
                 // to 0/1). The pressure is applied only to cells with
                 // alpha >= metalAlphaCutoff_, and mass enters only from
                 // evaporating cells.
-                return (gA[i] & confinedDir) < 0;
+                // Only the donor film qualifies: the receiver's top surface
+                // also has metal below and gas above, and without the height
+                // test it received the pocket pressure (pushed away from the
+                // film by up to 1 GPa) and added its area to the pocket.
+                return
+                    (gA[i] & confinedDir) < 0
+                 && (Cc[i] & confinedDir) > filmMinHeight;
             };
 
             const word pocketMode =
